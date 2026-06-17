@@ -4,7 +4,7 @@
 
 ---
 
-## 📖 Overview
+## Overview
 
 LottoOps is a web-based application designed for convenience stores, gas stations, and retail businesses to manage scratch-off lottery tickets digitally. The system replaces manual tracking with a digital display board, inventory tracking, slot management, and shift closeout tools.
 
