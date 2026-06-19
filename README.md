@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+#  LottoOps
 
-## Getting Started
+**Scratch-Off Lottery Display & Inventory Management System**
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Overview
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+LottoOps is a web-based application designed for convenience stores, gas stations, and retail businesses to manage scratch-off lottery tickets digitally. The system replaces manual tracking with a digital display board, inventory tracking, slot management, and shift closeout tools.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+##  How LottoOps Works
 
-## Learn More
+LottoOps has two main parts: an **Admin Dashboard** for store staff and a **TV Display Board** for customers. Here is the end-to-end workflow:
 
-To learn more about Next.js, take a look at the following resources:
+1. **Receive Inventory** – Staff receives new packs from the supplier. The system checks for duplicate serial numbers and saves the pack as Back Stock.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Activate to Display** – Manager selects an empty or sold-out (000) display slot, chooses a Back Stock pack, enters the starting ticket number, and activates it. The pack status changes to Active.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **TV Display Board** – Customers see all active tickets on a TV screen with game numbers, prices, remaining tickets, and sold-out badges. The board auto-refreshes every 15 seconds.
 
-## Deploy on Vercel
+4. **Open Shift** – Staff opens a shift at the start of the day. The system automatically creates shift lines for all active displays, pulling current ticket numbers as beginning tickets.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5. **Close Shift** – At closing time, staff enters ending ticket numbers. The system automatically calculates tickets sold and sales amount. If Ending Ticket = 000, the pack is marked Sold Out.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+6. **Reports** – Managers can view daily summaries, scan logs, and activity history to track sales and inventory movement.
+
+---
+
+##  Key Features
+
+| Feature | Description |
+| :--- | :--- |
+|  **TV Display Board** | Customer-facing screen showing available tickets with auto-refresh |
+|  **Inventory Management** | Receive packs, track back stock, activate to displays |
+|  **Shift Reconciliation** | Open/close shifts with automatic ticket and sales calculations |
+|  **Reporting** | Daily summaries, sales tracking, activity logs |
+|  **Role-Based Access** | Manager, Clerk, and Viewer permissions |
+|  **Sold-Out Logic** | Supports 000 as valid sold-out value |
+|  **Profit Tracking** | Track pack cost, retail value, and potential profit per pack |
+|  **Audit Trail** | Every action logged in Scan Log for accountability |
+
+---
+
+##  Tech Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | React with TypeScript |
+| **Framework** | Next.js |
+| **Backend** | Node.js with Express |
+| **Database** | PostgreSQL |
+| **ORM** | Prisma |
+| **Authentication** | JWT (JSON Web Tokens) |
+
+
+---
+
