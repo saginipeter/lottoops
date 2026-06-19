@@ -56,4 +56,16 @@ LottoOps has two main parts: an **Admin Dashboard** for store staff and a **TV D
 
 
 ---
+##  Progress
+https://lottoops.vercel.app/
 
+Dev credentials 
+
+Manager
+manager@lottoops.test
+Clerk
+clerk@lottoops.test
+Viewer
+viewer@lottoops.test
+Password (all)
+password123
