@@ -1,6 +1,10 @@
 // LottoOps database schema
 // Run `npx prisma migrate dev --name init` after setting DATABASE_URL in .env
 
+
+
+
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,6 +13,8 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+
 
 // ── Auth & roles ─────────────────────────────────────────────
 
