@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { Panel } from "@/components/ui/panel";
 import { LucideIcon } from "lucide-react";
 
-export interface StatCardProps {
+interface StatCardProps {
   label: string;
   value: string;
   valueSuffix?: string;

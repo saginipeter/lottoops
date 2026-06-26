@@ -1,13 +1,16 @@
-import { ComingSoon } from "@/components/layout/coming-soon";
-import { MonitorPlay } from "lucide-react";
+import { Header } from "@/components/layout/header";
+import { SlotsManager } from "@/components/slots/slots-manager";
 
 export default function SlotsPage() {
   return (
-    <ComingSoon
-      title="Display Slots"
-      subtitle="Activate back stock packs to the TV display board"
-      icon={MonitorPlay}
-      description="Pick an empty or sold-out slot, choose a back stock pack, enter the starting ticket number, and put it on the board."
-    />
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <Header
+        title="Display slots"
+        subtitle="Activate back stock packs to the TV display board"
+      />
+      <div className="flex-1 overflow-y-auto px-5 py-5">
+        <SlotsManager />
+      </div>
+    </div>
   );
 }

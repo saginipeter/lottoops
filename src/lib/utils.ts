@@ -1,5 +1,6 @@
 import { games, packs } from "./mock-data";
-import { Game, Pack } from "./types";
+
+import { Game, Pack, DisplaySlot } from "./types";
 
 export function getGame(gameId: string): Game | undefined {
   return games.find((g) => g.id === gameId);
@@ -37,12 +38,7 @@ export function getActivePacks(): Pack[] {
   return packs.filter((p) => p.status === "active");
 }
 
-export function getDisplaySlots(): Pack[] {
-  // Active and sold-out packs, sorted by slot number, for the slots table.
-  return packs
-    .filter((p) => p.status === "active" || p.status === "sold-out")
-    .sort((a, b) => (a.slotId ?? "").localeCompare(b.slotId ?? ""));
-}
+
 
 export function getSlotNumber(pack: Pack): string {
   if (!pack.slotId) return "—";
@@ -76,4 +72,37 @@ export function getDashboardStats() {
     soldOutCount: soldOut.length,
     backStockValue,
   };
+}
+
+
+
+
+
+// ... existing functions stay as they are ...
+
+export function getDisplaySlots(): Pack[] {
+  // Active and sold-out packs, sorted by slot number, for the slots table.
+  return packs
+    .filter((p) => p.status === "active" || p.status === "sold-out")
+    .sort((a, b) => (a.slotId ?? "").localeCompare(b.slotId ?? ""));
+}
+
+// Total physical slots on the TV display board. In the real app this would
+// be a store-level setting; hardcoded here since there's no Settings
+// persistence yet.
+export const TOTAL_DISPLAY_SLOTS = 10;
+
+export function getDisplayBoard(): DisplaySlot[] {
+  // The full physical board — every slot from 1 to TOTAL_DISPLAY_SLOTS,
+  // each either empty or carrying the pack currently assigned to it.
+  // This is what the Display Slots management page renders, as opposed
+  // to getDisplaySlots() above, which only lists occupied slots for the
+  // dashboard's compact table.
+  const board: DisplaySlot[] = [];
+  for (let i = 1; i <= TOTAL_DISPLAY_SLOTS; i++) {
+    const slotId = `slot-${i}`;
+    const pack = packs.find((p) => p.slotId === slotId) ?? null;
+    board.push({ slotNumber: String(i).padStart(2, "0"), pack });
+  }
+  return board;
 }
