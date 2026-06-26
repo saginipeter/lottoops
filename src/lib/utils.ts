@@ -5,6 +5,18 @@ import { Game, Pack, DisplaySlot } from "./types";
 export function getGame(gameId: string): Game | undefined {
   return games.find((g) => g.id === gameId);
 }
+// src/lib/types.ts
+
+// Original type for API responses
+
+
+// Board display type
+export interface BoardSlot {
+  slotNumber: string;
+  pack: Pack | null;  // Explicitly allow null
+}
+
+
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -98,6 +110,8 @@ export function getDisplayBoard(): DisplaySlot[] {
   // This is what the Display Slots management page renders, as opposed
   // to getDisplaySlots() above, which only lists occupied slots for the
   // dashboard's compact table.
+
+
   const board: DisplaySlot[] = [];
   for (let i = 1; i <= TOTAL_DISPLAY_SLOTS; i++) {
     const slotId = `slot-${i}`;
