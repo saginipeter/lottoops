@@ -300,6 +300,9 @@ export function ReceiveScanSession() {
               {soundOn ? <Volume2 size={13} /> : <VolumeX size={13} />}
               {soundOn ? "Sound on" : "Sound off"}
             </button>
+
+
+            
           </div>
 
           <ScanInput
@@ -310,10 +313,10 @@ export function ReceiveScanSession() {
                 ? "Enter pack cost above first"
                 : checking
                 ? "Checking…"
-                : "Scan pack serial number…"
+                : undefined
             }
           />
-
+          
           <div className="mt-2 min-h-[34px]">
             {checking && (
               <div className="flex items-center gap-1.5 rounded-md bg-surface-soft px-3 py-2 text-xs text-text-secondary">
