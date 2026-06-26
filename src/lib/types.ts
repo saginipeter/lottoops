@@ -35,7 +35,7 @@ export interface ScanLogEntry {
 
 export interface DisplaySlot {
   slotNumber: string; // e.g. "01"
-  pack: Pack;
+  pack: Pack | null;
 }
 
 export interface ShiftPendingLine {
