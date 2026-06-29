@@ -127,8 +127,7 @@ export function BarcodeScanner({
           </div>
 
           <p className="text-sm text-purple-600">
-            Most barcode scanners work like a keyboard.
-            Scan and the value is captured automatically.
+            
           </p>
 
         </div>
