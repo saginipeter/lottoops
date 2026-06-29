@@ -43,22 +43,28 @@ export async function POST(req: NextRequest) {
     }
 
     // Find the game
-    const game = await prisma.game.findFirst({
-      where: {
-        storeId: session.storeId,
-        gameNumber,
-      },
-    });
 
-    if (!game) {
-      return NextResponse.json(
-        {
-          error:
-            "Game not found. Please create the game before receiving packs.",
+
+
+    let game = await prisma.game.findFirst({
+        where: {
+            storeId: session.storeId,
+            gameNumber,
         },
-        { status: 404 }
-      );
-    }
+        });
+
+        if (!game) {
+        game = await prisma.game.create({
+            data: {
+            storeId: session.storeId,
+            gameNumber,
+            name: `Game ${gameNumber}`,
+            price: ticketPrice,
+            ticketsPerPack: ticketQuantity,
+            active: true,
+            },
+        });
+        }
 
     const pack = await prisma.pack.create({
       data: {
