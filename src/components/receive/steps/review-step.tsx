@@ -139,7 +139,7 @@ export function ReviewStep({
         <div className="space-y-3">
 
           <Button
-            variant="outline"
+            variant="secondary"
             className="w-full"
             onClick={previousStep}
           >

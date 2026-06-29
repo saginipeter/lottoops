@@ -176,7 +176,7 @@ export function ScanStep({
         <div className="space-y-3">
 
           <Button
-            variant="outline"
+            variant="secondary"
             className="w-full"
             onClick={previousStep}
           >

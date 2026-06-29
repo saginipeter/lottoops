@@ -243,7 +243,7 @@ export function ConfirmStep({
         <div className="mt-8 space-y-3">
 
           <Button
-            variant="outline"
+            variant="secondary"
             className="w-full"
             onClick={previousStep}
           >

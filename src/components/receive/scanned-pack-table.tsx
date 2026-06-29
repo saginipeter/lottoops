@@ -173,7 +173,7 @@ export function ScannedPackTable({
 
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={() => removePack(pack.id)}
                   >
 
