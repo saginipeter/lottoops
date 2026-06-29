@@ -289,21 +289,38 @@ export function InvoiceStep({
               </span>
             </div>
 
-            <div className="flex justify-between">
-                <span className="text-text-secondary">
-                    Invoice Photo
-                </span>
+            {/* Invoice Photo */}
 
-                <span
-                    className={
-                    shipment.invoicePhoto
-                        ? "text-green-600 font-medium"
-                        : "text-red-500 font-medium"
-                    }
-                >
-                    {shipment.invoicePhoto ? "Uploaded ✓" : "Not uploaded"}
-                </span>
+            <div className="mb-5">
+            
+
+          
+
+            {/* Preview */}
+
+            <div className="mt-6">
+                <h4 className="mb-2 text-sm font-semibold text-text">
+                Preview
+                </h4>
+
+                <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-surface-soft">
+                {shipment.invoicePhoto ? (
+                    <img
+                    src={shipment.invoicePhoto}
+                    alt="Invoice Preview"
+                    className="h-full w-full rounded-xl object-contain"
+                    />
+                ) : (
+                    <div className="text-center text-text-secondary">
+                    <Camera size={42} className="mx-auto mb-3 opacity-40" />
+                    <p>No invoice uploaded</p>
+                    </div>
+                )}
+                </div>
             </div>
+            </div>
+
+        
 
 
           </div>

@@ -22,10 +22,8 @@ export function InvoiceUpload({ value, onChange }: Props) {
       const res = await startUpload([file]);
 
       if (res?.[0]) {
-        console.log("SERVER DATA:", res[0].serverData);
-        console.log("FILE URL:", res[0].ufsUrl);
-
-        onChange(res[0].ufsUrl);
+        onChange(res[0].serverData.url)
+       
       }
     } finally {
       setUploading(false);
