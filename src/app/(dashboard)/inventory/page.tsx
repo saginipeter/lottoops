@@ -3,22 +3,42 @@ import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { BackStockList } from "@/components/inventory/back-stock-list";
-import { getBackStockPacks } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
 import { Plus } from "lucide-react";
 
-export default function InventoryPage() {
-  const backStock = getBackStockPacks();
+export default async function InventoryPage() {
+ const packs = await prisma.pack.findMany({
+  where: {
+    status: "BACK_STOCK",
+  },
+  include: {
+    game: true,
+    shipment: true,
+    receivedBy: true,
+  },
+  orderBy: {
+    receivedAt: "desc",
+  },
+});
+
+const backStock = JSON.parse(
+  JSON.stringify(packs, (_, value) =>
+    typeof value === "bigint"
+      ? value.toString()
+      : value
+  )
+);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <Header
-        title="Back stock"
+        title="Back Stock"
         subtitle={`${backStock.length} packs waiting to be activated`}
         actions={
           <Link href="/inventory/receive">
             <Button variant="primary">
               <Plus size={14} />
-              Receive inventory
+              Receive Inventory
             </Button>
           </Link>
         }
