@@ -3,6 +3,7 @@
 import { Calendar, Camera, FileText, Package, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { InvoiceUpload } from "../invoice-upload";
 
 interface InvoiceStepProps {
   shipment: {
@@ -13,6 +14,8 @@ interface InvoiceStepProps {
     expectedPacks: number;
     scannedPacks: number;
     status: string;
+    id?: string;
+   
   };
 
   setShipment: React.Dispatch<React.SetStateAction<any>>;
@@ -25,7 +28,44 @@ export function InvoiceStep({
   setShipment,
   nextStep,
 }: InvoiceStepProps) {
+
+  async function handleContinue() {
+  try {
+    const response = await fetch("/api/shipments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        invoiceNumber: shipment.invoiceNumber,
+        invoicePhoto: shipment.invoicePhoto,
+        expectedPacks: shipment.expectedPacks,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.error);
+      return;
+    }
+
+    setShipment((prev: any) => ({
+      ...prev,
+      id: data.id,
+      scannedPacks: data.scannedPacks,
+      status: data.status,
+    }));
+
+    nextStep();
+  } catch (error) {
+    console.error(error);
+    alert("Unable to create shipment.");
+  }
+}  
   return (
+
+    
     <div className="grid grid-cols-3 gap-6">
 
       {/* LEFT */}
@@ -69,36 +109,46 @@ export function InvoiceStep({
 
           </div>
 
+          
+
           {/* Upload */}
 
-          <div className="mb-5">
+          {/* Upload */}
 
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
+        <div className="mb-5">
+        <label className="mb-2 flex items-center gap-2 text-sm font-medium">
+            <Camera size={16} />
+            Invoice Photo
+        </label>
 
-              <Camera size={16} />
+        <InvoiceUpload
+            value={shipment.invoicePhoto}
+            onChange={(url) =>
+            setShipment((prev: any) => ({
+                ...prev,
+                invoicePhoto: url,
+            }))
+            }
+        />
 
-              Invoice Photo
+        {shipment.invoicePhoto && (
+            <div className="mt-4">
+            <p className="mb-2 text-sm font-medium text-text-secondary">
+                Preview
+            </p>
 
-            </label>
-
-            <div className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 transition hover:bg-purple-100">
-
-              <Camera
-                size={40}
-                className="mb-3 text-purple-600"
-              />
-
-              <p className="font-medium text-purple-700">
-                Upload Invoice Photo
-              </p>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Drag & Drop or Click to Browse
-              </p>
-
+            <img
+                src={shipment.invoicePhoto}
+                alt="Invoice Preview"
+                className="max-h-80 w-full rounded-lg border object-contain"
+            />
             </div>
+        )}
+        </div>
 
-          </div>
+              
+
+
 
           {/* Bottom Grid */}
 
@@ -239,11 +289,29 @@ export function InvoiceStep({
               </span>
             </div>
 
+            <div className="flex justify-between">
+                <span className="text-text-secondary">
+                    Invoice Photo
+                </span>
+
+                <span
+                    className={
+                    shipment.invoicePhoto
+                        ? "text-green-600 font-medium"
+                        : "text-red-500 font-medium"
+                    }
+                >
+                    {shipment.invoicePhoto ? "Uploaded ✓" : "Not uploaded"}
+                </span>
+            </div>
+
+
           </div>
 
+          
           <Button
             className="mt-8 w-full"
-            onClick={nextStep}
+            onClick={handleContinue}
           >
             Continue to Scan Packs →
           </Button>
@@ -251,6 +319,8 @@ export function InvoiceStep({
         </Panel>
 
       </div>
+
+      
 
     </div>
   );

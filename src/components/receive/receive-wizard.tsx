@@ -17,6 +17,7 @@ export default function ReceiveWizard() {
   const [step, setStep] = useState<WizardStep>(1);
 
   const [shipment, setShipment] = useState({
+    id: "",
     invoiceNumber: MOCK_SHIPMENT.invoiceNumber,
     invoicePhoto: MOCK_SHIPMENT.invoicePhoto,
     shipmentDate: MOCK_SHIPMENT.shipmentDate,
@@ -74,12 +75,14 @@ export default function ReceiveWizard() {
       {step === 2 && (
         <ScanStep
           shipment={shipment}
+          setShipment={setShipment}
           packs={packs}
           addPack={addPack}
           removePack={removePack}
           nextStep={nextStep}
           previousStep={previousStep}
         />
+
       )}
 
       {step === 3 && (

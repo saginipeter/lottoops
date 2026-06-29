@@ -16,8 +16,11 @@ import { TicketPriceSelector } from "../ticket-price-selector";
 import { ShipmentSummary } from "../shipment-summary";
 import { ScannedPackTable } from "../scanned-pack-table";
 
+
 interface ScanStepProps {
   shipment: any;
+  setShipment: React.Dispatch<React.SetStateAction<any>>;
+
   packs: ShipmentPack[];
 
   addPack: (pack: ShipmentPack) => void;
@@ -29,6 +32,7 @@ interface ScanStepProps {
 
 export function ScanStep({
   shipment,
+  setShipment,
   packs,
   addPack,
   removePack,
@@ -57,32 +61,61 @@ export function ScanStep({
     setFirstTicket(parsed.firstTicket);
   }
 
-  function handleAddPack() {
-    if (!gameNumber || !packNumber) return;
+  
+
+async function handleAddPack() {
+  if (!gameNumber || !packNumber) return;
+
+  try {
+    const response = await fetch("/api/packs", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shipmentId: shipment.id,
+        barcode,
+        gameNumber,
+        packNumber,
+        firstTicket: Number(firstTicket),
+        ticketPrice,
+        ticketQuantity: quantity,
+      }),
+    });
+
+    const savedPack = await response.json();
+
+    if (!response.ok) {
+      alert(savedPack.error);
+      return;
+    }
+
+   
+
 
     addPack({
-      id: crypto.randomUUID(),
+    id: savedPack.id,
+    gameNumber: savedPack.game.gameNumber,
+    gameName: savedPack.game.name,
+    packNumber: savedPack.packNumber,
+    firstTicket: String(savedPack.firstTicket),
+    ticketPrice: Number(savedPack.ticketPrice),
+    quantity: savedPack.ticketQuantity,
+    status: "Logged",
+});
 
-      gameNumber,
-
-      gameName: `Game ${gameNumber}`,
-
-      packNumber,
-
-      firstTicket,
-
-      ticketPrice,
-
-      quantity,
-
-      status: "Logged",
-    });
+shipment.scannedPacks++;
 
     setBarcode("");
     setGameNumber("");
     setPackNumber("");
     setFirstTicket("");
+
+  } catch (err) {
+    console.error(err);
+    alert("Unable to save pack.");
   }
+}
 
   return (
     <div className="grid grid-cols-3 gap-6">
