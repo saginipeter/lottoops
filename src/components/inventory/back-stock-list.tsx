@@ -171,7 +171,7 @@ export function BackStockList({ packs }: BackStockListProps) {
                     </Button>
 
                     <Button
-                      variant="primary"
+                      variant="default"
                       size="sm"
                       onClick={() => deletePack(pack.id)}
                     >
