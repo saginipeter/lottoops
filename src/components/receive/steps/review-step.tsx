@@ -2,7 +2,11 @@
 
 import { AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 
-import { ShipmentPack } from "@/data/mock-shipment";
+import type {
+  ShipmentState,
+  PackWithGame,
+} from "@/lib/types";
+
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
@@ -10,8 +14,8 @@ import { ShipmentSummary } from "../shipment-summary";
 import { ScannedPackTable } from "../scanned-pack-table";
 
 interface ReviewStepProps {
-  shipment: any;
-  packs: ShipmentPack[];
+  shipment: ShipmentState;
+  packs: PackWithGame[];
 
   nextStep: () => void;
   previousStep: () => void;
@@ -23,7 +27,7 @@ export function ReviewStep({
   nextStep,
   previousStep,
 }: ReviewStepProps) {
-  const expected = shipment.expectedPacks;
+  const expected = shipment.expectedPacks ?? 0;
   const scanned = packs.length;
   const remaining = expected - scanned;
 
@@ -39,15 +43,11 @@ export function ReviewStep({
   return (
     <div className="grid grid-cols-3 gap-6">
 
-      {/* LEFT */}
-
       <div className="col-span-2 space-y-6">
-
-        {/* Invoice */}
 
         <Panel className="p-6">
 
-          <div className="flex items-center gap-3 mb-5">
+          <div className="mb-5 flex items-center gap-3">
 
             <FileText className="text-purple-700" />
 
@@ -69,32 +69,28 @@ export function ReviewStep({
 
             <Info
               label="Invoice"
-              value={shipment.invoiceNumber}
+              value={shipment.invoiceNumber ?? ""}
             />
 
             <Info
-              label="Received By"
-              value={shipment.receivedBy}
+              label="Status"
+              value={shipment.status ?? ""}
             />
 
             <Info
               label="Expected Packs"
-              value={String(expected)}
+              value={expected.toString()}
             />
 
           </div>
 
         </Panel>
 
-        {/* Validation */}
-
         <Panel className="p-6">
 
           <h3 className="mb-5 text-lg font-semibold">
             Validation Results
           </h3>
-
-          {/* Scanned */}
 
           <ValidationItem
             success={remaining === 0}
@@ -106,21 +102,17 @@ export function ReviewStep({
             }
           />
 
-          {/* Duplicate */}
-
           <ValidationItem
             success={duplicatePacks.length === 0}
             title="Duplicate Packs"
             description={
               duplicatePacks.length === 0
-                ? "No duplicate pack numbers detected."
+                ? "No duplicate packs detected."
                 : `${duplicatePacks.length} duplicate pack(s) found.`
             }
           />
 
         </Panel>
-
-        {/* Table */}
 
         <ScannedPackTable
           packs={packs}
@@ -128,8 +120,6 @@ export function ReviewStep({
         />
 
       </div>
-
-      {/* RIGHT */}
 
       <ShipmentSummary
         shipment={shipment}
@@ -211,6 +201,7 @@ function ValidationItem({
         </div>
 
       </div>
+
     </div>
   );
 }

@@ -36,7 +36,7 @@ const backStock = JSON.parse(
         subtitle={`${backStock.length} packs waiting to be activated`}
         actions={
           <Link href="/inventory/receive">
-            <Button variant="primary">
+            <Button variant="default">
               <Plus size={14} />
               Receive Inventory
             </Button>

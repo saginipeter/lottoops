@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 
-import { MOCK_PACKS, MOCK_SHIPMENT, ShipmentPack } from "@/data/mock-shipment";
+import type { PackWithGame, ShipmentState } from "@/lib/types";
 
 import { ProgressStepper } from "./progress-stepper";
-
 import { InvoiceStep } from "./steps/invoice-step";
 import { ScanStep } from "./steps/scan-step";
 import { ReviewStep } from "./steps/review-step";
@@ -16,37 +15,37 @@ export type WizardStep = 1 | 2 | 3 | 4;
 export default function ReceiveWizard() {
   const [step, setStep] = useState<WizardStep>(1);
 
-  const [shipment, setShipment] = useState({
-    id: "",
-    invoiceNumber: MOCK_SHIPMENT.invoiceNumber,
-    invoicePhoto: MOCK_SHIPMENT.invoicePhoto,
-    shipmentDate: MOCK_SHIPMENT.shipmentDate,
-    receivedBy: MOCK_SHIPMENT.receivedBy,
-    expectedPacks: MOCK_SHIPMENT.expectedPacks,
-    scannedPacks: MOCK_SHIPMENT.scannedPacks,
-    status: MOCK_SHIPMENT.status,
-  });
+const [shipment, setShipment] = useState<ShipmentState>({
+  id: "",
+  invoiceNumber: "",
+  invoicePhoto: "",
+  shipmentDate: new Date().toISOString().split("T")[0],
+  receivedBy: "",
+  expectedPacks: 0,
+  scannedPacks: 0,
+  status: "IN_PROGRESS",
+});
 
-  const [packs, setPacks] = useState<ShipmentPack[]>(MOCK_PACKS);
+  const [packs, setPacks] = useState<PackWithGame[]>([]);
 
   function nextStep() {
     if (step < 4) {
-      setStep((step + 1) as WizardStep);
+      setStep((prev) => (prev + 1) as WizardStep);
     }
   }
 
   function previousStep() {
     if (step > 1) {
-      setStep((step - 1) as WizardStep);
+      setStep((prev) => (prev - 1) as WizardStep);
     }
   }
 
-  function addPack(pack: ShipmentPack) {
+  function addPack(pack: PackWithGame) {
     setPacks((prev) => [...prev, pack]);
 
     setShipment((prev) => ({
       ...prev,
-      scannedPacks: prev.scannedPacks + 1,
+      scannedPacks: (prev.scannedPacks ?? 0) + 1,
     }));
   }
 
@@ -55,13 +54,12 @@ export default function ReceiveWizard() {
 
     setShipment((prev) => ({
       ...prev,
-      scannedPacks: Math.max(prev.scannedPacks - 1, 0),
+      scannedPacks: Math.max((prev.scannedPacks ?? 1) - 1, 0),
     }));
   }
 
   return (
     <div className="space-y-6">
-
       <ProgressStepper currentStep={step} />
 
       {step === 1 && (
@@ -82,7 +80,6 @@ export default function ReceiveWizard() {
           nextStep={nextStep}
           previousStep={previousStep}
         />
-
       )}
 
       {step === 3 && (
@@ -101,7 +98,6 @@ export default function ReceiveWizard() {
           previousStep={previousStep}
         />
       )}
-
     </div>
   );
 }

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import { Panel } from "@/components/ui/panel";
-import { ShipmentPack } from "@/data/mock-shipment";
+import type { PackWithGame } from "@/lib/types";
 
 interface ShipmentSummaryProps {
   shipment: {
@@ -20,7 +20,7 @@ interface ShipmentSummaryProps {
     status: string;
   };
 
-  packs: ShipmentPack[];
+  packs: PackWithGame[];
 
   children?: ReactNode;
 }
@@ -41,17 +41,11 @@ export function ShipmentSummary({
 
   return (
     <Panel className="sticky top-6 p-6">
-
-      {/* Header */}
-
       <h2 className="mb-6 text-xl font-semibold">
         Shipment Summary
       </h2>
 
-      {/* Invoice */}
-
       <div className="space-y-5">
-
         <SummaryRow
           icon={<FileText size={18} />}
           label="Invoice"
@@ -69,107 +63,67 @@ export function ShipmentSummary({
           label="Expected Packs"
           value={String(expected)}
         />
-
       </div>
 
-      {/* Progress */}
-
       <div className="mt-8">
-
         <div className="mb-2 flex items-center justify-between">
-
           <span className="text-sm font-medium">
             Progress
           </span>
 
           <span className="font-semibold text-purple-700">
-
             {scanned} / {expected}
-
           </span>
-
         </div>
 
         <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-
           <div
             className="h-full rounded-full bg-purple-600 transition-all"
-            style={{
-              width: `${progress}%`,
-            }}
+            style={{ width: `${progress}%` }}
           />
-
         </div>
-
       </div>
 
-      {/* Statistics */}
-
       <div className="mt-8 space-y-4">
-
         <div className="rounded-xl bg-green-50 p-4">
-
           <div className="text-sm text-gray-500">
             Packs Logged
           </div>
 
           <div className="mt-1 text-3xl font-bold text-green-700">
-
             {scanned}
-
           </div>
-
         </div>
 
         <div className="rounded-xl bg-yellow-50 p-4">
-
           <div className="text-sm text-gray-500">
             Remaining
           </div>
 
           <div className="mt-1 text-3xl font-bold text-yellow-700">
-
             {remaining}
-
           </div>
-
         </div>
-
       </div>
 
-      {/* Status */}
-
       <div className="mt-8 rounded-xl border border-purple-200 bg-purple-50 p-4">
-
         <div className="flex items-center gap-2">
-
           <CheckCircle2
             size={18}
             className="text-purple-700"
           />
 
           <span className="font-semibold text-purple-700">
-
             {shipment.status}
-
           </span>
-
         </div>
-
       </div>
 
-      {/* Navigation Buttons */}
-
       {children && (
-
         <div className="mt-8 border-t pt-6">
-
           {children}
-
         </div>
-
       )}
-
     </Panel>
   );
 }
@@ -187,29 +141,19 @@ function SummaryRow({
 }: SummaryRowProps) {
   return (
     <div className="flex items-center justify-between">
-
       <div className="flex items-center gap-3">
-
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-
           {icon}
-
         </div>
 
         <span className="text-sm text-gray-600">
-
           {label}
-
         </span>
-
       </div>
 
       <span className="font-semibold">
-
         {value}
-
       </span>
-
     </div>
   );
 }

@@ -38,12 +38,14 @@ interface NavSection {
 
 const navTop: NavItem = { href: "/", label: "Dashboard", icon: LayoutDashboard };
 
+
+
 const navSections: NavSection[] = [
   {
     label: "Inventory",
     items: [
       { href: "/inventory", label: "Back stock", icon: Package, badge: "12" },
-      { href: "/slots", label: "Display slots", icon: Layers },
+      { href: "/display-slots", label: "Display slots", icon: Layers },
       { href: "/inventory/receive", label: "Receive packs", icon: ScanLine, alert: true },
     ],
   },
@@ -153,13 +155,23 @@ export function Sidebar({ user }: SidebarProps) {
               <div className="px-2 pb-1 pt-3 text-[9px] uppercase tracking-widest text-white/30">
                 {section.label}
               </div>
-              {visibleItems.map((item) => (
-                <NavRow
-                  key={item.label}
-                  item={item}
-                  isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
-                />
-              ))}
+           
+
+
+              {visibleItems.map((item) => {
+                const isActive =
+                  item.href === "/inventory"
+                    ? pathname === "/inventory"
+                    : pathname === item.href || pathname.startsWith(item.href + "/");
+
+                return (
+                  <NavRow
+                    key={item.label}
+                    item={item}
+                    isActive={isActive}
+                  />
+                );
+              })}
             </div>
           );
         })}

@@ -12,17 +12,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
-import { ShipmentPack } from "@/data/mock-shipment";
+import type {
+  ShipmentState,
+  PackWithGame,
+} from "@/lib/types";
 
 interface ConfirmStepProps {
-  shipment: {
-    invoiceNumber: string;
-    receivedBy: string;
-    expectedPacks: number;
-  };
-
-  packs: ShipmentPack[];
-
+  shipment: ShipmentState;
+  packs: PackWithGame[];
   previousStep: () => void;
 }
 
@@ -33,40 +30,57 @@ export function ConfirmStep({
 }: ConfirmStepProps) {
   const [notes, setNotes] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  function handleConfirm() {
-    // TODO:
-    // POST /receive-packs/confirm
+  async function handleConfirm() {
+    try {
+      setLoading(true);
 
-    setConfirmed(true);
+      const res = await fetch("/api/shipments/confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          shipmentId: shipment.id,
+          notes,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error);
+        return;
+      }
+
+      setConfirmed(true);
+    } catch (error) {
+      console.error(error);
+      alert("Unable to confirm shipment.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (confirmed) {
     return (
       <Panel className="mx-auto max-w-3xl p-12">
-
         <div className="text-center">
 
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-green-100">
-
             <CheckCircle2
               size={48}
               className="text-green-600"
             />
-
           </div>
 
           <h2 className="mt-6 text-3xl font-bold">
-
             Shipment Confirmed
-
           </h2>
 
           <p className="mt-3 text-gray-500">
-
-            All scanned packs have been received and moved to
-            Back Stock.
-
+            All scanned packs have been received and moved to Back Stock.
           </p>
 
           <div className="mt-10 grid grid-cols-3 gap-5">
@@ -74,32 +88,33 @@ export function ConfirmStep({
             <SummaryCard
               icon={<FileText size={22} />}
               label="Invoice"
-              value={shipment.invoiceNumber}
+              value={shipment.invoiceNumber ?? ""}
             />
 
             <SummaryCard
               icon={<Package size={22} />}
               label="Packs"
-              value={String(packs.length)}
+              value={packs.length.toString()}
             />
 
             <SummaryCard
               icon={<User size={22} />}
               label="Received By"
-              value={shipment.receivedBy}
+              value={shipment.receivedBy ?? ""}
             />
 
           </div>
 
           <Button
             className="mt-10"
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              window.location.href = "/inventory";
+            }}
           >
-            Receive Another Shipment
+            Return to Inventory
           </Button>
 
         </div>
-
       </Panel>
     );
   }
@@ -107,30 +122,22 @@ export function ConfirmStep({
   return (
     <div className="grid grid-cols-3 gap-6">
 
-      {/* LEFT */}
-
       <div className="col-span-2 space-y-6">
 
         <Panel className="p-6">
 
           <div className="flex items-center gap-3">
 
-            <Warehouse
-              className="text-purple-700"
-            />
+            <Warehouse className="text-purple-700" />
 
             <div>
 
               <h2 className="text-xl font-semibold">
-
                 Confirm Shipment
-
               </h2>
 
               <p className="text-gray-500">
-
                 The shipment is ready to move into Back Stock.
-
               </p>
 
             </div>
@@ -142,31 +149,29 @@ export function ConfirmStep({
         <Panel className="p-6">
 
           <h3 className="mb-6 text-lg font-semibold">
-
             Shipment Details
-
           </h3>
 
           <div className="grid grid-cols-2 gap-5">
 
             <Info
               label="Invoice"
-              value={shipment.invoiceNumber}
-            />
-
-            <Info
-              label="Received By"
-              value={shipment.receivedBy}
+              value={shipment.invoiceNumber ?? ""}
             />
 
             <Info
               label="Expected Packs"
-              value={String(shipment.expectedPacks)}
+              value={(shipment.expectedPacks ?? 0).toString()}
             />
 
             <Info
               label="Scanned Packs"
-              value={String(packs.length)}
+              value={packs.length.toString()}
+            />
+
+            <Info
+              label="Status"
+              value={shipment.status ?? ""}
             />
 
           </div>
@@ -176,9 +181,7 @@ export function ConfirmStep({
         <Panel className="p-6">
 
           <h3 className="mb-4 text-lg font-semibold">
-
             Manager Notes
-
           </h3>
 
           <textarea
@@ -186,38 +189,34 @@ export function ConfirmStep({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Optional notes..."
-            className="w-full rounded-lg border border-gray-300 p-4 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
+            className="w-full rounded-lg border border-gray-300 p-4 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
           />
 
         </Panel>
 
       </div>
 
-      {/* RIGHT */}
-
       <Panel className="sticky top-6 p-6">
 
         <h3 className="text-lg font-semibold">
-
           Final Summary
-
         </h3>
 
         <div className="mt-6 space-y-4">
 
           <Summary
             label="Invoice"
-            value={shipment.invoiceNumber}
+            value={shipment.invoiceNumber ?? ""}
           />
 
           <Summary
             label="Expected"
-            value={String(shipment.expectedPacks)}
+            value={(shipment.expectedPacks ?? 0).toString()}
           />
 
           <Summary
             label="Scanned"
-            value={String(packs.length)}
+            value={packs.length.toString()}
           />
 
         </div>
@@ -226,14 +225,10 @@ export function ConfirmStep({
 
           <div className="flex items-center gap-2">
 
-            <CheckCircle2
-              className="text-green-600"
-            />
+            <CheckCircle2 className="text-green-600" />
 
             <span className="font-semibold text-green-700">
-
               Ready to Move to Back Stock
-
             </span>
 
           </div>
@@ -252,9 +247,10 @@ export function ConfirmStep({
 
           <Button
             className="w-full"
+            disabled={loading}
             onClick={handleConfirm}
           >
-            Confirm Receipt
+            {loading ? "Confirming..." : "Confirm Receipt"}
           </Button>
 
         </div>
@@ -265,8 +261,6 @@ export function ConfirmStep({
   );
 }
 
-/* ---------- Small Components ---------- */
-
 function Summary({
   label,
   value,
@@ -276,15 +270,8 @@ function Summary({
 }) {
   return (
     <div className="flex justify-between border-b pb-3">
-
-      <span className="text-gray-500">
-        {label}
-      </span>
-
-      <span className="font-semibold">
-        {value}
-      </span>
-
+      <span className="text-gray-500">{label}</span>
+      <span className="font-semibold">{value}</span>
     </div>
   );
 }
@@ -298,15 +285,8 @@ function Info({
 }) {
   return (
     <div className="rounded-xl border bg-gray-50 p-4">
-
-      <div className="text-xs uppercase text-gray-500">
-        {label}
-      </div>
-
-      <div className="mt-2 font-semibold">
-        {value}
-      </div>
-
+      <div className="text-xs uppercase text-gray-500">{label}</div>
+      <div className="mt-2 font-semibold">{value}</div>
     </div>
   );
 }
@@ -324,21 +304,15 @@ function SummaryCard({
     <div className="rounded-xl border bg-gray-50 p-6">
 
       <div className="mb-3 text-purple-700">
-
         {icon}
-
       </div>
 
       <div className="text-sm text-gray-500">
-
         {label}
-
       </div>
 
       <div className="mt-2 text-lg font-bold">
-
         {value}
-
       </div>
 
     </div>

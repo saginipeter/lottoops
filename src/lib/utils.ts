@@ -1,110 +1,159 @@
-import { games, packs } from "./mock-data";
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
-import { Game, Pack, DisplaySlot } from "./types";
-
-export function getGame(gameId: string): Game | undefined {
-  return games.find((g) => g.id === gameId);
+/**
+ * Merge Tailwind classes
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }
 
-
-
-export function formatCurrency(value: number): string {
+/**
+ * Currency
+ */
+export function formatCurrency(value: number | string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-  }).format(value);
+  }).format(Number(value));
 }
 
-export function formatDate(iso: string): string {
+/**
+ * Numbers
+ */
+export function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value);
+}
+
+/**
+ * Dates
+ */
+export function formatDate(date: Date | string) {
   return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
     month: "short",
     day: "numeric",
+  }).format(new Date(date));
+}
+
+/**
+ * Date + Time
+ */
+export function formatDateTime(date: Date | string) {
+  return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
-  }).format(new Date(iso));
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(date));
 }
 
-export function formatRelativeTime(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-  if (diffHrs < 1) return "Just now";
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  const diffDays = Math.floor(diffHrs / 24);
-  return `${diffDays}d ago`;
-}
-
-export function getBackStockPacks(): Pack[] {
-  return packs.filter((p) => p.status === "back-stock");
-}
-
-export function getActivePacks(): Pack[] {
-  return packs.filter((p) => p.status === "active");
-}
-
-
-
-export function getSlotNumber(pack: Pack): string {
-  if (!pack.slotId) return "—";
-  const n = pack.slotId.replace("slot-", "");
-  return n.padStart(2, "0");
-}
-
-export function getTicketProgress(pack: Pack): number {
-  const game = getGame(pack.gameId);
-  if (!game || pack.currentTicketNumber === undefined) return 0;
-  const sold = game.ticketsPerPack - pack.currentTicketNumber;
-  return Math.round((sold / game.ticketsPerPack) * 100);
-}
-
-export function formatTime(iso: string): string {
+/**
+ * Time only
+ */
+export function formatTime(date: Date | string) {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(iso));
+  }).format(new Date(date));
 }
 
-export function getDashboardStats() {
-  const backStock = getBackStockPacks();
-  const active = getActivePacks();
-  const soldOut = packs.filter((p) => p.status === "sold-out");
-  const backStockValue = backStock.reduce((sum, p) => sum + p.retailValue, 0);
+/**
+ * Relative Time
+ */
+export function formatRelativeTime(date: Date | string) {
+  const diff =
+    Date.now() - new Date(date).getTime();
 
-  return {
-    backStockCount: backStock.length,
-    activeCount: active.length,
-    soldOutCount: soldOut.length,
-    backStockValue,
-  };
+  const mins = Math.floor(diff / 60000);
+
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min ago`;
+
+  const hrs = Math.floor(mins / 60);
+
+  if (hrs < 24) return `${hrs} hrs ago`;
+
+  const days = Math.floor(hrs / 24);
+
+  return `${days} days ago`;
 }
 
+/**
+ * Progress %
+ */
+export function getProgress(current: number, total: number) {
+  if (!total) return 0;
 
-
-
-
-// ... existing functions stay as they are ...
-
-export function getDisplaySlots(): Pack[] {
-  // Active and sold-out packs, sorted by slot number, for the slots table.
-  return packs
-    .filter((p) => p.status === "active" || p.status === "sold-out")
-    .sort((a, b) => (a.slotId ?? "").localeCompare(b.slotId ?? ""));
+  return Math.round((current / total) * 100);
 }
 
-// Total physical slots on the TV display board. In the real app this would
-// be a store-level setting; hardcoded here since there's no Settings
-// persistence yet.
-export const TOTAL_DISPLAY_SLOTS = 10;
+/**
+ * Remaining tickets
+ */
+export function remainingTickets(
+  currentTicket: number | null,
+  ticketsPerPack: number
+) {
+  if (currentTicket == null) return ticketsPerPack;
 
-export function getDisplayBoard(): DisplaySlot[] {
-  // The full physical board — every slot from 1 to TOTAL_DISPLAY_SLOTS,
-  // each either empty or carrying the pack currently assigned to it.
-  // This is what the Display Slots management page renders, as opposed
-  // to getDisplaySlots() above, which only lists occupied slots for the
-  // dashboard's compact table.
-  const board: DisplaySlot[] = [];
-  for (let i = 1; i <= TOTAL_DISPLAY_SLOTS; i++) {
-    const slotId = `slot-${i}`;
-    const pack = packs.find((p) => p.slotId === slotId) ?? null;
-    board.push({ slotNumber: String(i).padStart(2, "0"), pack});
+  return Math.max(
+    ticketsPerPack - currentTicket,
+    0
+  );
+}
+
+/**
+ * Pack Status Colors
+ */
+export function getPackStatusColor(status: string) {
+  switch (status) {
+    case "BACK_STOCK":
+      return "bg-yellow-100 text-yellow-700";
+
+    case "ACTIVE":
+      return "bg-green-100 text-green-700";
+
+    case "SOLD_OUT":
+      return "bg-red-100 text-red-700";
+
+    case "RETURNED":
+      return "bg-gray-100 text-gray-700";
+
+    default:
+      return "bg-gray-100 text-gray-700";
   }
-  return board;
+}
+
+/**
+ * Shipment Status Colors
+ */
+export function getShipmentStatusColor(status: string) {
+  switch (status) {
+    case "IN_PROGRESS":
+      return "bg-yellow-100 text-yellow-700";
+
+    case "RECEIVED":
+      return "bg-green-100 text-green-700";
+
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+}
+
+/**
+ * Display Slot Number
+ */
+export function formatSlotNumber(slot: number | string) {
+  return String(slot).padStart(2, "0");
+}
+
+/**
+ * Ticket Number
+ */
+export function formatTicketNumber(ticket: number | null) {
+  if (ticket == null) return "---";
+
+  return String(ticket).padStart(3, "0");
 }

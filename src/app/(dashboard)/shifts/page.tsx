@@ -287,7 +287,7 @@ export default function OpenShiftPage() {
             Cancel
           </Button>
           <Button
-            variant="primary"
+            variant="default"
             className="flex-1 justify-center"
             onClick={handleOpenShift}
             disabled={saving || success || !selectedSlot || !startingTicketNumber}

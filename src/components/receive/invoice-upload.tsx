@@ -53,11 +53,12 @@ export function InvoiceUpload({ value, onChange }: Props) {
             {value ? (
                     <div className="relative h-full w-full">
 
-                        <Image
+                        
+
+                        <img
                         src={value}
                         alt="Invoice"
-                        fill
-                        className="rounded-xl object-contain"
+                        className="h-full w-full rounded-xl object-contain"
                         />
 
                         <div className="absolute bottom-0 left-0 right-0 bg-black/60 py-2 text-center text-sm text-white">

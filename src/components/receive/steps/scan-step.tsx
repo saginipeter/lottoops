@@ -2,11 +2,8 @@
 
 import { useMemo, useState } from "react";
 
-import {
-  ShipmentPack,
-  parseBarcode,
-  DENOMINATION_LOOKUP,
-} from "@/data/mock-shipment";
+import type { PackWithGame, ShipmentState } from "@/lib/types";
+import { parseBarcode } from "@/lib/barcode";
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -16,14 +13,13 @@ import { TicketPriceSelector } from "../ticket-price-selector";
 import { ShipmentSummary } from "../shipment-summary";
 import { ScannedPackTable } from "../scanned-pack-table";
 
-
 interface ScanStepProps {
-  shipment: any;
-  setShipment: React.Dispatch<React.SetStateAction<any>>;
+  shipment: ShipmentState;
+  setShipment: React.Dispatch<React.SetStateAction<ShipmentState>>;
 
-  packs: ShipmentPack[];
+  packs: PackWithGame[];
 
-  addPack: (pack: ShipmentPack) => void;
+  addPack: (pack: PackWithGame) => void;
   removePack: (id: string) => void;
 
   nextStep: () => void;
@@ -48,7 +44,24 @@ export function ScanStep({
   const [ticketPrice, setTicketPrice] = useState(10);
 
   const quantity = useMemo(() => {
-    return DENOMINATION_LOOKUP[ticketPrice];
+    switch (ticketPrice) {
+      case 1:
+        return 300;
+      case 2:
+        return 150;
+      case 5:
+        return 60;
+      case 10:
+        return 30;
+      case 20:
+        return 15;
+      case 30:
+        return 10;
+      case 50:
+        return 6;
+      default:
+        return 30;
+    }
   }, [ticketPrice]);
 
   function handleScan(value: string) {
@@ -61,66 +74,52 @@ export function ScanStep({
     setFirstTicket(parsed.firstTicket);
   }
 
-  
+  async function handleAddPack() {
+    if (!gameNumber || !packNumber) return;
 
-async function handleAddPack() {
-  if (!gameNumber || !packNumber) return;
+    try {
+      const response = await fetch("/api/packs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          shipmentId: shipment.id,
+          barcode,
+          gameNumber,
+          packNumber,
+          firstTicket: Number(firstTicket),
+          ticketPrice,
+          ticketQuantity: quantity,
+        }),
+      });
 
-  try {
-    const response = await fetch("/api/packs", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        shipmentId: shipment.id,
-        barcode,
-        gameNumber,
-        packNumber,
-        firstTicket: Number(firstTicket),
-        ticketPrice,
-        ticketQuantity: quantity,
-      }),
-    });
+      const savedPack = await response.json();
 
-    const savedPack = await response.json();
+      if (!response.ok) {
+        alert(savedPack.error);
+        return;
+      }
 
-    if (!response.ok) {
-      alert(savedPack.error);
-      return;
+      addPack(savedPack);
+
+      setShipment((prev) => ({
+        ...prev,
+        scannedPacks: (prev.scannedPacks ?? 0) + 1,
+      }));
+
+      setBarcode("");
+      setGameNumber("");
+      setPackNumber("");
+      setFirstTicket("");
+    } catch (err) {
+      console.error(err);
+      alert("Unable to save pack.");
     }
-
-   
-
-
-    addPack({
-    id: savedPack.id,
-    gameNumber: savedPack.game.gameNumber,
-    gameName: savedPack.game.name,
-    packNumber: savedPack.packNumber,
-    firstTicket: String(savedPack.firstTicket),
-    ticketPrice: Number(savedPack.ticketPrice),
-    quantity: savedPack.ticketQuantity,
-    status: "Logged",
-});
-
-shipment.scannedPacks++;
-
-    setBarcode("");
-    setGameNumber("");
-    setPackNumber("");
-    setFirstTicket("");
-
-  } catch (err) {
-    console.error(err);
-    alert("Unable to save pack.");
   }
-}
 
   return (
     <div className="grid grid-cols-3 gap-6">
-
-      {/* LEFT */}
 
       <div className="col-span-2 space-y-6">
 
@@ -198,8 +197,6 @@ shipment.scannedPacks++;
         />
 
       </div>
-
-      {/* RIGHT */}
 
       <ShipmentSummary
         shipment={shipment}

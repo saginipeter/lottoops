@@ -1,12 +1,14 @@
 "use client";
 
 import { Trash2, CheckCircle2, Clock3 } from "lucide-react";
-import { ShipmentPack } from "@/data/mock-shipment";
+
+import type { PackWithGame } from "@/lib/types";
+
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 
 interface Props {
-  packs: ShipmentPack[];
+  packs: PackWithGame[];
   removePack: (id: string) => void;
 }
 
@@ -16,11 +18,8 @@ export function ScannedPackTable({
 }: Props) {
   return (
     <Panel className="p-6">
-
-      <div className="flex items-center justify-between mb-6">
-
+      <div className="mb-6 flex items-center justify-between">
         <div>
-
           <h3 className="text-lg font-semibold">
             Packs Logged This Shipment
           </h3>
@@ -28,19 +27,14 @@ export function ScannedPackTable({
           <p className="text-sm text-gray-500">
             {packs.length} pack{packs.length !== 1 && "s"} scanned
           </p>
-
         </div>
-
       </div>
 
       <div className="overflow-x-auto">
-
         <table className="w-full">
 
           <thead>
-
             <tr className="border-b">
-
               <th className="py-3 text-left text-sm font-semibold">
                 Game
               </th>
@@ -68,28 +62,20 @@ export function ScannedPackTable({
               <th className="py-3 text-right text-sm font-semibold">
                 Action
               </th>
-
             </tr>
-
           </thead>
 
           <tbody>
 
             {packs.length === 0 && (
-
               <tr>
-
                 <td
                   colSpan={7}
                   className="py-12 text-center text-gray-400"
                 >
-
                   No packs scanned yet.
-
                 </td>
-
               </tr>
-
             )}
 
             {packs.map((pack) => (
@@ -104,15 +90,11 @@ export function ScannedPackTable({
                   <div>
 
                     <div className="font-semibold">
-
-                      {pack.gameNumber}
-
+                      {pack.game.gameNumber}
                     </div>
 
                     <div className="text-xs text-gray-500">
-
-                      {pack.gameName}
-
+                      {pack.game.name}
                     </div>
 
                   </div>
@@ -120,32 +102,24 @@ export function ScannedPackTable({
                 </td>
 
                 <td className="font-mono">
-
                   {pack.packNumber}
-
                 </td>
 
                 <td className="font-mono">
-
                   {pack.firstTicket}
+                </td>
 
+                <td>
+                  ${Number(pack.ticketPrice).toFixed(2)}
+                </td>
+
+                <td>
+                  {pack.ticketQuantity}
                 </td>
 
                 <td>
 
-                  ${pack.ticketPrice}
-
-                </td>
-
-                <td>
-
-                  {pack.quantity}
-
-                </td>
-
-                <td>
-
-                  {pack.status === "Logged" ? (
+                  {pack.status === "BACK_STOCK" ? (
 
                     <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
 
@@ -161,7 +135,7 @@ export function ScannedPackTable({
 
                       <Clock3 size={14} />
 
-                      Pending
+                      {pack.status}
 
                     </span>
 
@@ -193,11 +167,9 @@ export function ScannedPackTable({
           </tbody>
 
         </table>
-
       </div>
 
       {packs.length > 0 && (
-
         <div className="mt-6 rounded-lg bg-purple-50 p-4">
 
           <div className="flex items-center justify-between">
@@ -205,29 +177,22 @@ export function ScannedPackTable({
             <div>
 
               <div className="font-semibold">
-
                 Total Packs
-
               </div>
 
               <div className="text-sm text-gray-500">
-
                 Ready for review
-
               </div>
 
             </div>
 
             <div className="text-3xl font-bold text-purple-700">
-
               {packs.length}
-
             </div>
 
           </div>
 
         </div>
-
       )}
 
     </Panel>
