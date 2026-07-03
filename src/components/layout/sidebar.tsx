@@ -52,8 +52,7 @@ const navSections: NavSection[] = [
   {
     label: "Shifts",
     items: [
-      { href: "/shifts", label: "Open shift", icon: Clock },
-      { href: "/shifts", label: "Close shift", icon: FileBarChart2 },
+      { href: "/shifts", label: "Shifts", icon: Clock }
     ],
   },
   {
