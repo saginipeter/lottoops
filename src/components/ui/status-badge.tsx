@@ -1,4 +1,4 @@
-import { PackStatus } from "@/lib/types";
+import { PackStatus } from "@prisma/client";
 import clsx from "clsx";
 
 const statusConfig: Record<PackStatus, { label: string; className: string }> = {
