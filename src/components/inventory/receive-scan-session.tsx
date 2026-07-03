@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Game } from "@/lib/types";
+import type { Game } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
@@ -66,8 +66,9 @@ export function ReceiveScanSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+ 
   const retailValuePerPack = activeGame
-    ? activeGame.price * activeGame.ticketsPerPack
+    ? Number(activeGame.price) * activeGame.ticketsPerPack
     : 0;
   const batchTotal = batch.length * retailValuePerPack;
   const batchCostTotal = batch.length * (parseFloat(cost) || 0);
@@ -260,7 +261,7 @@ export function ReceiveScanSession() {
                 </option>
                 {games.map((g) => (
                   <option key={g.id} value={g.id}>
-                    #{g.gameNumber} — {g.name} ({formatCurrency(g.price)})
+                    #{g.gameNumber} — {g.name} ({formatCurrency(Number(g.price))})
                   </option>
                 ))}
               </select>
@@ -394,8 +395,7 @@ export function ReceiveScanSession() {
             <div className="flex justify-between">
               <dt className="text-text-secondary">Price / ticket</dt>
               <dd className="font-mono text-text">
-                {activeGame ? formatCurrency(activeGame.price) : "—"}
-              </dd>
+                  {activeGame ? formatCurrency(Number(activeGame.price)) : "—"}              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-text-secondary">Tickets / pack</dt>
@@ -422,7 +422,7 @@ export function ReceiveScanSession() {
           </dl>
 
           <Button
-            variant="primary"
+            variant="default"
             className="mt-5 w-full justify-center"
             disabled={batch.length === 0 || saving || saved}
             onClick={handleSaveBatch}
@@ -444,7 +444,7 @@ export function ReceiveScanSession() {
 
           <p className="mt-3 text-xs leading-relaxed text-text-tertiary">
             Packs are saved as back stock once you save the batch. Activate
-            them to a display slot when you&rsquo;re ready to put them on the
+            them to a display slot when you are ready to put them on the
             board.
           </p>
         </Panel>
