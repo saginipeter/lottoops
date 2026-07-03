@@ -1,22 +1,25 @@
 import { PackStatus } from "@prisma/client";
 import clsx from "clsx";
 
-const statusConfig: Record<PackStatus, { label: string; className: string }> = {
-  "back-stock": {
-    label: "Back stock",
-    className: "bg-accent-soft text-accent-soft-text",
+const statusConfig: Record<
+  PackStatus,
+  { label: string; className: string }
+> = {
+BACK_STOCK: {
+    label: "Back Stock",
+    className: "bg-yellow-100 text-yellow-700",
   },
-  active: {
+  ACTIVE: {
     label: "Active",
-    className: "bg-success-soft text-success-soft-text",
+    className: "bg-green-100 text-green-700",
   },
-  "sold-out": {
-    label: "Sold out",
-    className: "bg-danger-soft text-danger-soft-text",
+  SOLD_OUT: {
+    label: "Sold Out",
+    className: "bg-gray-100 text-gray-700",
   },
-  returned: {
+  RETURNED: {
     label: "Returned",
-    className: "bg-surface-soft text-text-tertiary",
+    className: "bg-red-100 text-red-700",
   },
 };
 
