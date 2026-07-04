@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       `invoices/${Date.now()}-${file.name}`,
       file,
       {
-        access: "private",
+        access: "public",
         addRandomSuffix: true,
       }
     );
