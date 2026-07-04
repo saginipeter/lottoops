@@ -19,16 +19,29 @@ export function InvoiceUpload({ value, onChange }: Props) {
     setUploading(true);
 
     try {
+    
       const res = await startUpload([file]);
 
-      if (res?.[0]) {
-        onChange(res[0].serverData.url)
-       
-      }
-    } finally {
+        console.log("Upload result:", res);
+
+        if (res?.[0]) {
+          onChange(
+            res[0].ufsUrl ??
+            res[0].url ??
+            res[0].serverData?.url ??
+            ""
+          );
+        }
+    }
+    
+    finally {
       setUploading(false);
     }
   }
+
+
+
+  
 
   return (
     <>
