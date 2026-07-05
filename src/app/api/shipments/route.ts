@@ -13,43 +13,88 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    console.log("Session:", session);
+
     const body = await req.json();
+
+    console.log("Shipment request body:", body);
 
     const {
       invoiceNumber,
       invoicePhoto,
       expectedPacks,
+      receivedBy,
+      shipmentDate,
     } = body;
 
-    if (!invoiceNumber) {
+    // Validation
+    if (!invoiceNumber?.trim()) {
       return NextResponse.json(
-        { error: "Invoice number is required" },
+        { error: "Invoice number is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!invoicePhoto?.trim()) {
+      return NextResponse.json(
+        { error: "Invoice photo is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!expectedPacks || Number(expectedPacks) <= 0) {
+      return NextResponse.json(
+        { error: "Expected packs must be greater than zero." },
+        { status: 400 }
+      );
+    }
+
+    if (!session.storeId) {
+      return NextResponse.json(
+        { error: "No store is associated with this user." },
+        { status: 400 }
+      );
+    }
+
+    if (!session.userId) {
+      return NextResponse.json(
+        { error: "Invalid user session." },
         { status: 400 }
       );
     }
 
     const shipment = await prisma.shipment.create({
       data: {
-        invoiceNumber,
+        invoiceNumber: invoiceNumber.trim(),
         invoicePhoto,
-
-        expectedPacks,
-
+        expectedPacks: Number(expectedPacks),
         scannedPacks: 0,
 
         storeId: session.storeId,
-
         receivedById: session.userId,
+
+        // Only include these if they exist in your Prisma schema
+        ...(receivedBy && { receivedBy }),
+        ...(shipmentDate && {
+          shipmentDate: new Date(shipmentDate),
+        }),
       },
     });
 
-    return NextResponse.json(shipment);
+    console.log("Shipment created:", shipment);
 
-  } catch (err) {
-    console.error(err);
+    return NextResponse.json({
+      success: true,
+      ...shipment,
+    });
+  } catch (error: any) {
+    console.error("Shipment creation failed:");
+    console.error(error);
 
     return NextResponse.json(
-      { error: "Failed to create shipment" },
+      {
+        error: error.message || "Failed to create shipment",
+      },
       { status: 500 }
     );
   }
