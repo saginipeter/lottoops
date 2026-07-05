@@ -19,42 +19,58 @@ export function InvoiceStep({
   setShipment,
   nextStep,
 }: InvoiceStepProps) {
+  
+
+
   async function handleContinue() {
-    try {
-      const response = await fetch("/api/shipments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          invoiceNumber: shipment.invoiceNumber,
-          invoicePhoto: shipment.invoicePhoto,
-          expectedPacks: shipment.expectedPacks,
-          receivedBy: shipment.receivedBy,
-          shipmentDate: shipment.shipmentDate,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.error);
-        return;
-      }
-
-      setShipment((prev) => ({
-        ...prev,
-        id: data.id,
-        scannedPacks: data.scannedPacks,
-        status: data.status,
-      }));
-
-      nextStep();
-    } catch (error) {
-      console.error(error);
-      alert("Unable to create shipment.");
-    }
+  if (!shipment.invoiceNumber?.trim()) {
+    alert("Please enter an invoice number.");
+    return;
   }
+
+  if (!shipment.invoicePhoto) {
+    alert("Please upload an invoice photo.");
+    return;
+  }
+
+  if (!shipment.expectedPacks || shipment.expectedPacks <= 0) {
+    alert("Expected packs must be greater than zero.");
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/shipments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        invoiceNumber: shipment.invoiceNumber,
+        invoicePhoto: shipment.invoicePhoto,
+        expectedPacks: shipment.expectedPacks,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.error || "Unable to create shipment.");
+      return;
+    }
+
+    setShipment((prev) => ({
+      ...prev,
+      id: data.id,
+      scannedPacks: data.scannedPacks,
+      status: data.status,
+    }));
+
+    nextStep();
+  } catch (error) {
+    console.error(error);
+    alert("Unable to create shipment.");
+  }
+}
 
   return (
     <div className="grid grid-cols-3 gap-6">
@@ -112,24 +128,7 @@ export function InvoiceStep({
 
           {/* Bottom Grid */}
           <div className="grid grid-cols-3 gap-5">
-            {/* Received By */}
-            <div>
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-                <User size={16} />
-                Received By
-              </label>
-
-              <input
-                className="w-full rounded-lg border px-4 py-3"
-                value={shipment.receivedBy ?? ""}
-                onChange={(e) =>
-                  setShipment((prev) => ({
-                    ...prev,
-                    receivedBy: e.target.value,
-                  }))
-                }
-              />
-            </div>
+          
 
             {/* Shipment Date */}
             <div>
@@ -189,13 +188,15 @@ export function InvoiceStep({
               </span>
             </div>
 
+          
+
             <div className="flex justify-between">
               <span className="text-gray-500">
                 Received By
               </span>
 
-              <span>
-                {shipment.receivedBy || "-"}
+              <span className="text-green-600 font-medium">
+                Current User
               </span>
             </div>
 

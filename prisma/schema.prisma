@@ -77,6 +77,8 @@ model Shipment {
   invoiceNumber  String
   invoicePhoto   String?
 
+  shipmentDate   DateTime?   
+
   expectedPacks  Int
   scannedPacks   Int              @default(0)
 

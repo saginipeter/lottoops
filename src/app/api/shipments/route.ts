@@ -63,21 +63,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+  
+
     const shipment = await prisma.shipment.create({
       data: {
-        invoiceNumber: invoiceNumber.trim(),
+        invoiceNumber,
         invoicePhoto,
         expectedPacks: Number(expectedPacks),
+
+        shipmentDate: shipmentDate
+          ? new Date(shipmentDate)
+          : undefined,
+
         scannedPacks: 0,
 
         storeId: session.storeId,
         receivedById: session.userId,
-
-        // Only include these if they exist in your Prisma schema
-        ...(receivedBy && { receivedBy }),
-        ...(shipmentDate && {
-          shipmentDate: new Date(shipmentDate),
-        }),
       },
     });
 

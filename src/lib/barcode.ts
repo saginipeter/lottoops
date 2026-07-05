@@ -30,7 +30,7 @@ export function parseBarcode(barcode: string): ParsedBarcode {
 
   return {
     gameNumber: cleaned.substring(0, 4),
-    packNumber: cleaned.substring(4, 7),
-    firstTicket: cleaned.substring(7, 10),
+    packNumber: cleaned.substring(4, 10),
+    firstTicket: cleaned.substring(10, 13),
   };
 }
