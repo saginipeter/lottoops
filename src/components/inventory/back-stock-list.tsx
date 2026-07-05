@@ -24,7 +24,7 @@ export function BackStockList({ packs }: BackStockListProps) {
   }, [packs, search]);
 
   async function activatePack(id: string) {
-    const res = await fetch("/api/back-stock/activate", {
+    const res = await fetch("/api/packs/back-stock/activate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -42,7 +42,7 @@ export function BackStockList({ packs }: BackStockListProps) {
   async function deletePack(id: string) {
     if (!confirm("Delete this pack?")) return;
 
-    const res = await fetch("/api/back-stock/delete", {
+    const res = await fetch("/api/packs/back-stock/delete", {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

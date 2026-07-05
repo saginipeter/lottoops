@@ -30,7 +30,7 @@ export default function AssignPackDialog({
 
         async function loadPacks() {
 
-            const res = await fetch("/api/back-stock");
+            const res = await fetch("/api/packs/back-stock");
 
             const data = await res.json();
 
