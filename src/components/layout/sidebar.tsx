@@ -41,37 +41,35 @@ const navTop: NavItem = { href: "/", label: "Dashboard", icon: LayoutDashboard }
 
 
 const navSections: NavSection[] = [
-  {
-    label: "Inventory",
-    items: [
-      { href: "/inventory", label: "Back stock", icon: Package, badge: "12" },
-      { href: "/display-slots", label: "Display slots", icon: Layers },
-      { href: "/inventory/receive", label: "Receive packs", icon: ScanLine, alert: true },
-    ],
-  },
-  {
-    label: "Shifts",
-    items: [
-      { href: "/shifts", label: "Shifts", icon: Clock }
-    ],
-  },
-  {
-    label: "Reports",
-    items: [
-      { href: "/reports", label: "Daily summary", icon: BarChart3 },
-      { href: "/reports", label: "Scan log", icon: History },
-      { href: "/reports", label: "Profit report", icon: FileSpreadsheet },
-    ],
-  },
-  {
-    label: "System",
-    items: [
-      { href: "/games", label: "Games", icon: Gamepad2, managerOnly: true },
-      { href: "/settings", label: "Staff roles", icon: Users, managerOnly: true },
-      { href: "/settings", label: "TV display", icon: Tv, managerOnly: true },
-      { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
-    ],
-  },
+{
+  label: "Inventory",
+  items: [
+    {
+      href: "/inventory",
+      label: "Back Stock",
+      icon: Package,
+    },
+
+    {
+      href: "/inventory/active",
+      label: "Active Stock",
+      icon: Layers,
+    },
+
+    {
+      href: "/display-slots",
+      label: "Display Slots",
+      icon: Tv,
+    },
+
+    {
+      href: "/inventory/receive",
+      label: "Receive Shipment",
+      icon: ScanLine,
+      alert: true,
+    },
+  ],
+},
 ];
 
 const roleLabel: Record<string, string> = {
