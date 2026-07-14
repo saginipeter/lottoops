@@ -19,6 +19,7 @@ import {
   Settings,
   ChevronDown,
   Gamepad2,
+  Radio,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -42,7 +43,6 @@ const navTop: NavItem = { href: "/", label: "Dashboard", icon: LayoutDashboard }
 
 const navSections: NavSection[] = [
   
-
 
      {
     label: "Inventory",
@@ -70,6 +70,12 @@ const navSections: NavSection[] = [
         label: "Receive Shipment",
         icon: ScanLine,
         alert: true,
+      },
+
+      {
+        href: "/inventory/live-scan",
+        label: "Live Scan",
+        icon: Radio,
       },
 
       {

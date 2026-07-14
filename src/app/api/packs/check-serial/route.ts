@@ -24,6 +24,36 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Check if pack already exists (live scan mode)
+    const existingPack = await prisma.pack.findFirst({
+      where: { storeId: session.storeId, serialNumber },
+      include: {
+        game: true,
+        slot: true,
+      },
+    });
+
+    if (existingPack) {
+      // Return existing pack details for live scan
+      return NextResponse.json({
+        status: "found",
+        id: existingPack.id,
+        serialNumber: existingPack.serialNumber,
+        gameNumber: existingPack.game.gameNumber,
+        gameName: existingPack.game.name,
+        packStatus: existingPack.status,
+        currentTicketNumber: existingPack.currentTicketNumber,
+        ticketQuantity: existingPack.ticketQuantity,
+        ticketPrice: existingPack.ticketPrice,
+        slot: existingPack.slot ? { slotNumber: existingPack.slot.slotNumber } : null,
+        game: {
+          name: existingPack.game.name,
+          gameNumber: existingPack.game.gameNumber,
+        },
+      });
+    }
+
+    // For receiving mode: check if it's a duplicate
     const isDuplicate = await prisma.pack.findFirst({
       where: { storeId: session.storeId, serialNumber },
       select: { id: true },
