@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/get-session";
+import { getApiSession } from "@/lib/api-session";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getApiSession();
 
     if (!session) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Not authenticated" },
         { status: 401 }
+      );
+    }
+
+    if (session.role === "VIEWER") {
+      return NextResponse.json(
+        { error: "You don't have permission to remove back stock packs." },
+        { status: 403 }
       );
     }
 

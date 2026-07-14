@@ -8,9 +8,10 @@ import { RemoveBackstockPackModal } from "./remove-backstock-pack-modal";
 
 interface BackStockListProps {
   packs: any[];
+  slots: Array<{ id: string; slotNumber: string; occupied: boolean }>;
 }
 
-export function BackStockList({ packs }: BackStockListProps) {
+export function BackStockList({ packs, slots }: BackStockListProps) {
   const [search, setSearch] = useState("");
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [activateModalOpen, setActivateModalOpen] = useState(false);
@@ -51,7 +52,7 @@ export function BackStockList({ packs }: BackStockListProps) {
         isOpen={activateModalOpen}
         onClose={() => setActivateModalOpen(false)}
         onSuccess={handleSuccess}
-        slots={[]} // TODO: Fetch available slots
+        slots={slots}
       />
 
       <RemoveBackstockPackModal

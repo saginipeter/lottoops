@@ -160,7 +160,11 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert("Unable to close shift.");
+      if (error instanceof Error) {
+        alert(`Unable to close shift. ${error.message}`);
+      } else {
+        alert("Unable to close shift.");
+      }
     } finally {
       setClosing(false);
     }

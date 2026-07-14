@@ -81,7 +81,7 @@ export default async function SalesPage() {
 
   const currentLines = openShift?.lines ?? [];
 
-  const currentTickets = currentLines.reduce((sum, line) => {
+  const currentTickets = currentLines.reduce((sum: number, line: any) => {
     const fallbackSold = Math.max(
       Number(line.beginningTicket) - Number(line.endingTicket ?? line.beginningTicket),
       0
@@ -89,7 +89,7 @@ export default async function SalesPage() {
     return sum + Number(line.ticketsSold ?? fallbackSold);
   }, 0);
 
-  const currentSales = currentLines.reduce((sum, line) => {
+  const currentSales = currentLines.reduce((sum: number, line: any) => {
     const fallbackSold = Math.max(
       Number(line.beginningTicket) - Number(line.endingTicket ?? line.beginningTicket),
       0
@@ -98,8 +98,8 @@ export default async function SalesPage() {
     return sum + Number(line.salesAmount ?? fallbackSales);
   }, 0);
 
-  const weekSales = recentClosedShifts.reduce((sum, shift) => {
-    const shiftSales = shift.lines.reduce((lineSum, line) => {
+  const weekSales = recentClosedShifts.reduce((sum: number, shift: any) => {
+    const shiftSales = shift.lines.reduce((lineSum: number, line: any) => {
       return lineSum + Number(line.salesAmount ?? 0);
     }, 0);
     return sum + shiftSales;
@@ -169,7 +169,7 @@ export default async function SalesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentLines.map((line) => {
+                      {currentLines.map((line: any) => {
                         const sold = Number(
                           line.ticketsSold ??
                             Math.max(
@@ -211,11 +211,11 @@ export default async function SalesPage() {
                 </p>
               ) : (
                 <div className="mt-4 space-y-2">
-                  {recentClosedShifts.map((shift) => {
-                    const shiftSales = shift.lines.reduce((sum, line) => {
+                  {recentClosedShifts.map((shift: any) => {
+                    const shiftSales = shift.lines.reduce((sum: number, line: any) => {
                       return sum + Number(line.salesAmount ?? 0);
                     }, 0);
-                    const shiftTickets = shift.lines.reduce((sum, line) => {
+                    const shiftTickets = shift.lines.reduce((sum: number, line: any) => {
                       return sum + Number(line.ticketsSold ?? 0);
                     }, 0);
                     return (

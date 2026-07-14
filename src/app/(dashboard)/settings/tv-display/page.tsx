@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 
 interface TvDisplayPageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     kiosk?: string;
     interval?: string;
-  };
+  }>;
 }
 
 export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps) {
@@ -60,8 +60,9 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
       };
     });
 
-  const kioskMode = searchParams?.kiosk === "1";
-  const parsedInterval = Number(searchParams?.interval ?? 15);
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const kioskMode = resolvedSearchParams.kiosk === "1";
+  const parsedInterval = Number(resolvedSearchParams.interval ?? 15);
   const refreshSeconds = Number.isFinite(parsedInterval)
     ? Math.min(Math.max(parsedInterval, 5), 120)
     : 15;

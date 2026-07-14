@@ -81,6 +81,23 @@ export default async function ShiftsPage() {
     performedBy: event.performedBy?.name ?? "Unknown",
   }));
 
+  const shiftData = openShift
+    ? JSON.parse(
+        JSON.stringify(openShift, (_, value) => {
+          if (typeof value === "bigint") return value.toString();
+          if (
+            value &&
+            typeof value === "object" &&
+            value.constructor &&
+            value.constructor.name === "Decimal"
+          ) {
+            return Number(value);
+          }
+          return value;
+        })
+      )
+    : null;
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <Header
@@ -90,7 +107,7 @@ export default async function ShiftsPage() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <ShiftDashboard
-          shift={openShift}
+          shift={shiftData}
           shiftEvents={eventData}
           userRole={session.role}
         />

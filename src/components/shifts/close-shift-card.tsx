@@ -47,7 +47,7 @@ export default function CloseShiftCard({
 
 Tickets Sold: ${data.totalTickets}
 
-Sales: $${data.totalSales.toFixed(2)}`
+Sales: $${Number(data.totalSales).toFixed(2)}`
       );
 
       window.location.reload();

@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 
 interface TvDisplayKioskPageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     interval?: string;
-  };
+  }>;
 }
 
 export default async function TvDisplayKioskPage({
@@ -57,7 +57,8 @@ export default async function TvDisplayKioskPage({
       };
     });
 
-  const parsedInterval = Number(searchParams?.interval ?? 15);
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const parsedInterval = Number(resolvedSearchParams.interval ?? 15);
   const refreshSeconds = Number.isFinite(parsedInterval)
     ? Math.min(Math.max(parsedInterval, 5), 120)
     : 15;
@@ -70,4 +71,3 @@ export default async function TvDisplayKioskPage({
     />
   );
 }
-

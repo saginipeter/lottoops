@@ -103,82 +103,64 @@ export async function POST(req: NextRequest) {
 
     let totalSales = 0;
     let totalTickets = 0;
+    const txOps: any[] = [];
 
-    await prisma.$transaction(async (tx: any) => {
+    for (const line of shift.lines) {
+      const beginning = line.beginningTicket;
+      const ending = line.endingTicket ?? beginning;
+      const ticketsSold = Math.max(beginning - ending, 0);
+      const sales = ticketsSold * Number(line.pack.game.price);
 
-      for (const line of shift.lines) {
+      totalTickets += ticketsSold;
+      totalSales += sales;
 
-        const beginning = line.beginningTicket;
-        const ending = line.endingTicket ?? beginning;
-
-        const ticketsSold = Math.max(beginning - ending, 0);
-
-        const sales =
-          ticketsSold * Number(line.pack.game.price);
-
-        totalTickets += ticketsSold;
-        totalSales += sales;
-
-        await tx.shiftLine.update({
-          where: {
-            id: line.id,
-          },
+      txOps.push(
+        prisma.shiftLine.update({
+          where: { id: line.id },
           data: {
             endingTicket: ending,
             ticketsSold,
             salesAmount: sales,
           },
-        });
+        })
+      );
 
-        // SOLD OUT
-        if (ending <= 0) {
-
-          await tx.pack.update({
-            where: {
-              id: line.pack.id,
-            },
+      if (ending <= 0) {
+        txOps.push(
+          prisma.pack.update({
+            where: { id: line.pack.id },
             data: {
               status: "SOLD_OUT",
               currentTicketNumber: 0,
             },
-          });
-
-          await tx.displaySlot.updateMany({
-            where: {
-              packId: line.pack.id,
-            },
-            data: {
-              packId: null,
-            },
-          });
-
-        } else {
-
-          // STILL ACTIVE
-          await tx.pack.update({
-            where: {
-              id: line.pack.id,
-            },
+          }),
+          prisma.displaySlot.updateMany({
+            where: { packId: line.pack.id },
+            data: { packId: null },
+          })
+        );
+      } else {
+        txOps.push(
+          prisma.pack.update({
+            where: { id: line.pack.id },
             data: {
               currentTicketNumber: ending,
             },
-          });
-
-        }
+          })
+        );
       }
+    }
 
-      await tx.shift.update({
-        where: {
-          id: shift.id,
-        },
+    txOps.push(
+      prisma.shift.update({
+        where: { id: shift.id },
         data: {
           status: "CLOSED",
           closedAt: new Date(),
           closedById: session.userId,
         },
-      });
-
-      await tx.scanLogEntry.create({
+      }),
+      prisma.scanLogEntry.create({
         data: {
           storeId: session.storeId,
           action: "SHIFT_CLOSE",
@@ -188,9 +170,10 @@ export async function POST(req: NextRequest) {
               ? `Shift closed with manager override (${missingLines.length} incomplete line(s)). Reason: ${String(overrideReason).trim()}`
               : "Shift closed successfully.",
         },
-      });
+      })
+    );
 
-    });
+    await prisma.$transaction(txOps);
 
     return NextResponse.json({
       success: true,
@@ -201,10 +184,11 @@ export async function POST(req: NextRequest) {
   } catch (error) {
 
     console.error(error);
+    const message = error instanceof Error ? error.message : "Unknown error";
 
     return NextResponse.json(
       {
-        error: "Unable to close shift.",
+        error: `Unable to close shift. ${message}`,
       },
       {
         status: 500,
