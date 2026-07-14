@@ -2,8 +2,28 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getApiSession } from "@/lib/api-session";
 
 export async function POST(req: NextRequest) {
+  const session = await getApiSession();
+  if (!session) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (session.role === "VIEWER") {
+    return NextResponse.json(
+      { error: "You don't have permission to fill slots" },
+      { status: 403 }
+    );
+  }
+
+  if (!prisma) {
+    return NextResponse.json(
+      { error: "Database not connected" },
+      { status: 503 }
+    );
+  }
+
   try {
     const { slotId } = await req.json();
 
@@ -27,6 +47,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (slot.storeId !== session.storeId) {
+      return NextResponse.json(
+        { error: "Access denied for this display slot." },
+        { status: 403 }
+      );
+    }
+
     // Slot already occupied
     if (slot.packId) {
       return NextResponse.json(
@@ -38,7 +65,7 @@ export async function POST(req: NextRequest) {
     // Find oldest back stock pack
     const nextPack = await prisma.pack.findFirst({
       where: {
-        storeId: slot.storeId,
+        storeId: session.storeId,
         status: "BACK_STOCK",
       },
       orderBy: {

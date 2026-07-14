@@ -40,7 +40,7 @@ export default async function LiveScanPage() {
           },
         },
         orderBy: {
-          createdAt: "desc",
+          id: "desc",
         },
       },
     },

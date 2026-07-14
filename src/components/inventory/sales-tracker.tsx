@@ -15,7 +15,7 @@ interface Sale {
   packId: string;
   gameNumber?: string;
   ticketsSold?: number;
-  salesAmount?: number;
+  salesAmount?: number | string | null;
   recordedAt?: string;
   pack?: { serialNumber: string; game: { name: string } };
 }
@@ -33,8 +33,6 @@ export function SalesTracker({ sales, shiftStats }: SalesTrackerProps) {
       setAveragePerPack(shiftStats.revenueTotal / shiftStats.packsSold);
     }
   }, [shiftStats]);
-
-  const topPack = sales.length > 0 ? sales[0] : null;
 
   return (
     <Panel className="space-y-6 p-6">
@@ -96,7 +94,7 @@ export function SalesTracker({ sales, shiftStats }: SalesTrackerProps) {
                   <div className="text-right">
                     <p className="text-sm font-bold text-green-600 flex items-center gap-1">
                       <DollarSign size={14} />
-                      {(sale.salesAmount || 0).toFixed(2)}
+                      {Number(sale.salesAmount ?? 0).toFixed(2)}
                     </p>
                     <p className="text-xs text-gray-500">
                       {sale.ticketsSold || 0} tickets

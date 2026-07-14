@@ -13,166 +13,105 @@ import {
 import { Button } from "@/components/ui/button";
 
 interface Props {
-    slotId: string;
+  slotId: string;
+}
+
+interface BackStockPack {
+  id: string;
+  gameNumber?: string | null;
+  packNumber?: string | null;
+  ticketQuantity?: number | null;
+  game: {
+    name: string;
+  };
 }
 
 export default function AssignPackDialog({
-    slotId,
+  slotId,
 }: Props) {
+  const [packs, setPacks] = useState<BackStockPack[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
 
-    const [packs, setPacks] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
 
-    useEffect(() => {
+    async function loadPacks() {
+      const res = await fetch("/api/packs/back-stock");
+      const data = await res.json();
 
-        if (!open) return;
+      if (!res.ok) {
+        alert(data?.error || "Unable to load back stock packs.");
+        setPacks([]);
+        return;
+      }
 
-        async function loadPacks() {
-
-            const res = await fetch("/api/packs/back-stock");
-
-            const data = await res.json();
-
-            setPacks(data);
-
-        }
-
-        loadPacks();
-
-    }, [open]);
-
-    async function assign(packId: string) {
-
-        setLoading(true);
-
-        const res = await fetch("/api/activate-pack", {
-
-            method: "POST",
-
-            headers: {
-                "Content-Type": "application/json",
-            },
-
-            body: JSON.stringify({
-
-                slotId,
-                packId,
-
-            }),
-
-        });
-
-        if (res.ok) {
-
-            setOpen(false);
-
-            window.location.reload();
-
-        }
-
-        setLoading(false);
-
+      setPacks(Array.isArray(data) ? data : []);
     }
 
-    return (
+    loadPacks();
+  }, [open]);
 
-        <Dialog
-            open={open}
-            onOpenChange={setOpen}
-        >
+  async function assign(packId: string) {
+    setLoading(true);
 
-            <DialogTrigger asChild>
+    const res = await fetch("/api/activate-pack", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        slotId,
+        packId,
+      }),
+    });
 
-                <Button className="w-full">
+    if (res.ok) {
+      setOpen(false);
+      window.location.reload();
+    } else {
+      const data = await res.json().catch(() => null);
+      alert(data?.error || "Unable to assign pack.");
+    }
 
-                    Assign Pack
+    setLoading(false);
+  }
 
-                </Button>
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full">Assign Pack</Button>
+      </DialogTrigger>
 
-            </DialogTrigger>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Select Back Stock Pack</DialogTitle>
+        </DialogHeader>
 
-            <DialogContent className="max-w-xl">
+        <div className="space-y-3">
+          {packs.length === 0 && (
+            <p className="text-sm text-gray-500">No packs available.</p>
+          )}
 
-                <DialogHeader>
+          {packs.map((pack) => (
+            <div
+              key={pack.id}
+              className="flex items-center justify-between rounded-lg border p-4"
+            >
+              <div>
+                <h3 className="font-semibold">{pack.game.name}</h3>
+                <p className="text-sm">Game #{pack.gameNumber ?? "N/A"}</p>
+                <p className="text-sm">Pack #{pack.packNumber ?? "N/A"}</p>
+                <p className="text-sm">{pack.ticketQuantity ?? 0} tickets</p>
+              </div>
 
-                    <DialogTitle>
-
-                        Select Back Stock Pack
-
-                    </DialogTitle>
-
-                </DialogHeader>
-
-                <div className="space-y-3">
-
-                    {packs.length === 0 && (
-
-                        <p className="text-sm text-gray-500">
-
-                            No packs available.
-
-                        </p>
-
-                    )}
-
-                    {packs.map((pack) => (
-
-                        <div
-                            key={pack.id}
-                            className="flex items-center justify-between rounded-lg border p-4"
-                        >
-
-                            <div>
-
-                                <h3 className="font-semibold">
-
-                                    {pack.game.name}
-
-                                </h3>
-
-                                <p className="text-sm">
-
-                                    Game #{pack.gameNumber}
-
-                                </p>
-
-                                <p className="text-sm">
-
-                                    Pack #{pack.packNumber}
-
-                                </p>
-
-                                <p className="text-sm">
-
-                                    {pack.ticketQuantity} tickets
-
-                                </p>
-
-                            </div>
-
-                            <Button
-
-                                disabled={loading}
-
-                                onClick={() => assign(pack.id)}
-
-                            >
-
-                                Assign
-
-                            </Button>
-
-                        </div>
-
-                    ))}
-
-                </div>
-
-            </DialogContent>
-
-        </Dialog>
-
-    );
-
+              <Button disabled={loading} onClick={() => assign(pack.id)}>
+                Assign
+              </Button>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }

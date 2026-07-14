@@ -1,32 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getApiSession } from "@/lib/api-session";
 
 export async function POST(req: NextRequest) {
+  const session = await getApiSession();
+  if (!session) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (session.role === "VIEWER") {
+    return NextResponse.json(
+      { error: "You don't have permission to activate packs" },
+      { status: 403 }
+    );
+  }
+
+  if (!prisma) {
+    return NextResponse.json(
+      { error: "Database not connected" },
+      { status: 503 }
+    );
+  }
+
   try {
     const { slotId, packId } = await req.json();
 
-    if (!slotId || !packId) {
+    if (!packId) {
       return NextResponse.json(
-        { error: "Missing slotId or packId" },
+        { error: "Missing packId" },
         { status: 400 }
       );
     }
 
-    // 1. Get slot
-    const slot = await prisma.displaySlot.findUnique({
-      where: { id: slotId },
-    });
-
-    if (!slot) {
-      return NextResponse.json(
-        { error: "Slot not found" },
-        { status: 404 }
-      );
-    }
-
-    // 2. Get pack
-    const pack = await prisma.pack.findUnique({
-      where: { id: packId },
+    const pack = await prisma.pack.findFirst({
+      where: { id: packId, storeId: session.storeId },
     });
 
     if (!pack) {
@@ -36,31 +43,75 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Prevent double assignment
-    if (slot.packId) {
+    if (pack.status !== "BACK_STOCK") {
       return NextResponse.json(
-        { error: "Slot already occupied" },
-        { status: 400 }
+        { error: "Only back stock packs can be activated" },
+        { status: 409 }
       );
     }
 
-    // 4. Activate pack + assign to slot (CRITICAL FIX)
-    await prisma.$transaction([
-      prisma.pack.update({
-        where: { id: packId },
-        data: {
-          status: "ACTIVE",
-          activatedAt: new Date(),
-        },
-      }),
+    if (slotId) {
+      const slot = await prisma.displaySlot.findFirst({
+        where: { id: slotId, storeId: session.storeId },
+      });
 
-      prisma.displaySlot.update({
-        where: { id: slotId },
-        data: {
-          packId: packId,
-        },
-      }),
-    ]);
+      if (!slot) {
+        return NextResponse.json({ error: "Slot not found" }, { status: 404 });
+      }
+
+      if (slot.packId) {
+        return NextResponse.json(
+          { error: "Slot already occupied" },
+          { status: 409 }
+        );
+      }
+
+      await prisma.$transaction([
+        prisma.pack.update({
+          where: { id: pack.id },
+          data: {
+            status: "ACTIVE",
+            activatedAt: new Date(),
+            currentTicketNumber: pack.firstTicket ?? 0,
+          },
+        }),
+        prisma.displaySlot.update({
+          where: { id: slot.id },
+          data: {
+            packId: pack.id,
+          },
+        }),
+        prisma.scanLogEntry.create({
+          data: {
+            storeId: session.storeId,
+            action: "ACTIVATED",
+            packId: pack.id,
+            performedById: session.userId,
+            detail: `Activated pack to display slot ${slot.slotNumber}`,
+          },
+        }),
+      ]);
+    } else {
+      await prisma.$transaction([
+        prisma.pack.update({
+          where: { id: pack.id },
+          data: {
+            status: "ACTIVE",
+            activatedAt: new Date(),
+            currentTicketNumber: pack.firstTicket ?? 0,
+          },
+        }),
+        prisma.scanLogEntry.create({
+          data: {
+            storeId: session.storeId,
+            action: "ACTIVATED",
+            packId: pack.id,
+            performedById: session.userId,
+            detail: "Activated pack without slot assignment",
+          },
+        }),
+      ]);
+    }
 
     return NextResponse.json({
       success: true,

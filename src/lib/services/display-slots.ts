@@ -1,8 +1,15 @@
 import { prisma } from "@/lib/prisma";
 
 
-export async function getDisplaySlots() {
+export async function getDisplaySlots(storeId: string) {
+  if (!prisma) {
+    return [];
+  }
+
   const slots = await prisma.displaySlot.findMany({
+    where: {
+      storeId,
+    },
     include: {
       pack: {
         include: {
