@@ -13,6 +13,7 @@ interface ShiftLine {
   pack: {
     id: string;
     packNumber: string;
+    currentTicketNumber: number | null;
     game: {
       name: string;
       price: number;
@@ -27,31 +28,21 @@ interface Shift {
 
 interface Props {
   shift: Shift;
-  canOverrideClose?: boolean;
 }
 
-export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
-  const [lines, setLines] = useState(
-    shift.lines.map((line) => ({
-      ...line,
-      endingTicket: line.endingTicket ?? "",
-    }))
-  );
+export default function ShiftPackTable({ shift }: Props) {
+  const lines = shift.lines as ShiftLine[];
 
   const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState(false);
 
-  function updateTicket(id: string, value: number | "") {
-    setLines((prev) =>
-      prev.map((line) =>
-        line.id === id
-          ? {
-              ...line,
-              endingTicket: value,
-            }
-          : line
-      )
-    );
+  function getAutoEndingTicket(line: ShiftLine) {
+    const beginning = Number(line.beginningTicket);
+    const current =
+      line.pack.currentTicketNumber === null || line.pack.currentTicketNumber === undefined
+        ? beginning
+        : Number(line.pack.currentTicketNumber);
+    return Math.min(Math.max(current, 0), beginning);
   }
 
   async function persistLines() {
@@ -69,13 +60,6 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
           body: JSON.stringify({
             lines: lines.map((line) => ({
               id: line.id,
-              beginningTicket:
-                line.beginningTicket,
-              endingTicket:
-                line.endingTicket === "" ? null : Number(line.endingTicket),
-              price: Number(
-                line.pack.game.price
-              ),
             })),
           }),
         }
@@ -113,28 +97,6 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
         return;
       }
 
-      const missingCount = lines.filter((line) => line.endingTicket === "").length;
-      let allowIncompleteClose = false;
-      let overrideReason: string | undefined;
-
-      if (missingCount > 0) {
-        if (!canOverrideClose) {
-          alert(`Cannot close shift. ${missingCount} line(s) are missing ending tickets.`);
-          return;
-        }
-
-        const reason = window.prompt(
-          `${missingCount} line(s) are missing ending tickets.\nEnter manager override reason to close shift:`
-        );
-        if (!reason || reason.trim().length < 5) {
-          alert("Override reason is required (at least 5 characters).");
-          return;
-        }
-
-        allowIncompleteClose = true;
-        overrideReason = reason.trim();
-      }
-
       const res = await fetch("/api/shifts/close", {
         method: "POST",
         headers: {
@@ -142,8 +104,6 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
         },
         body: JSON.stringify({
           shiftId: shift.id,
-          allowIncompleteClose,
-          overrideReason,
         }),
       });
 
@@ -174,8 +134,7 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
     (sum, line) =>
       sum +
       Math.max(
-        line.beginningTicket -
-          (line.endingTicket === "" ? line.beginningTicket : Number(line.endingTicket)),
+        line.beginningTicket - getAutoEndingTicket(line),
         0
       ),
     0
@@ -185,15 +144,12 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
     (sum, line) =>
       sum +
       Math.max(
-        line.beginningTicket -
-          (line.endingTicket === "" ? line.beginningTicket : Number(line.endingTicket)),
+        line.beginningTicket - getAutoEndingTicket(line),
         0
       ) *
         Number(line.pack.game.price),
     0
   );
-
-  const missingCount = lines.filter((line) => line.endingTicket === "").length;
 
   return (
     <Panel className="p-6">
@@ -238,8 +194,7 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
           <tbody>
             {lines.map((line) => {
               const sold = Math.max(
-                line.beginningTicket -
-                  (line.endingTicket === "" ? line.beginningTicket : Number(line.endingTicket)),
+                line.beginningTicket - getAutoEndingTicket(line),
                 0
               );
 
@@ -269,23 +224,9 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
                   </td>
 
                   <td className="text-center">
-                    <input
-                      type="number"
-                      min={0}
-                      max={line.beginningTicket}
-                      value={
-                        line.endingTicket
-                      }
-                      onChange={(e) =>
-                        updateTicket(
-                          line.id,
-                          e.target.value === ""
-                            ? ""
-                            : Number(e.target.value)
-                        )
-                      }
-                      className="w-24 rounded-lg border p-2 text-center"
-                    />
+                    <span className="inline-flex min-w-20 items-center justify-center rounded-lg border bg-surface-soft px-3 py-2 text-center font-mono">
+                      {getAutoEndingTicket(line)}
+                    </span>
                   </td>
 
                   <td className="text-center font-semibold">
@@ -325,16 +266,9 @@ export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
       </div>
 
       <div className="mt-4 rounded-lg border bg-surface-soft p-3 text-sm">
-        {missingCount > 0 ? (
-          <p className="text-amber-700">
-            {missingCount} line(s) missing ending ticket.{" "}
-            {canOverrideClose
-              ? "Manager override can close with reason."
-              : "Complete all lines before closing shift."}
-          </p>
-        ) : (
-          <p className="text-emerald-700">All lines have ending tickets entered.</p>
-        )}
+        <p className="text-emerald-700">
+          Ending ticket is automatic and synced from each pack&apos;s current ticket number.
+        </p>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -109,7 +109,6 @@ export default async function ShiftsPage() {
         <ShiftDashboard
           shift={shiftData}
           shiftEvents={eventData}
-          userRole={session.role}
         />
       </div>
     </div>

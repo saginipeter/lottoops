@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { shiftId, allowIncompleteClose, overrideReason } = await req.json();
+    const { shiftId } = await req.json();
 
     if (!shiftId) {
       return NextResponse.json(
@@ -70,44 +70,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const missingLines = shift.lines.filter(
-      (line: { endingTicket: number | null }) => line.endingTicket === null
-    );
-    const shouldAllowIncomplete = allowIncompleteClose === true;
-
-    if (missingLines.length > 0 && !shouldAllowIncomplete) {
-      return NextResponse.json(
-        {
-          error: `${missingLines.length} shift line(s) are missing ending tickets.`,
-          missingCount: missingLines.length,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (missingLines.length > 0 && shouldAllowIncomplete) {
-      if (session.role !== "MANAGER") {
-        return NextResponse.json(
-          { error: "Only managers can override incomplete shift close." },
-          { status: 403 }
-        );
-      }
-
-      if (!overrideReason || String(overrideReason).trim().length < 5) {
-        return NextResponse.json(
-          { error: "Override reason is required (minimum 5 characters)." },
-          { status: 400 }
-        );
-      }
-    }
-
     let totalSales = 0;
     let totalTickets = 0;
     const txOps: any[] = [];
 
     for (const line of shift.lines) {
       const beginning = line.beginningTicket;
-      const ending = line.endingTicket ?? beginning;
+      const currentTicket =
+        line.pack.currentTicketNumber === null || line.pack.currentTicketNumber === undefined
+          ? beginning
+          : Number(line.pack.currentTicketNumber);
+      const ending = Math.min(Math.max(currentTicket, 0), beginning);
       const ticketsSold = Math.max(beginning - ending, 0);
       const sales = ticketsSold * Number(line.pack.game.price);
 
@@ -165,10 +138,7 @@ export async function POST(req: NextRequest) {
           storeId: session.storeId,
           action: "SHIFT_CLOSE",
           performedById: session.userId,
-          detail:
-            missingLines.length > 0 && shouldAllowIncomplete
-              ? `Shift closed with manager override (${missingLines.length} incomplete line(s)). Reason: ${String(overrideReason).trim()}`
-              : "Shift closed successfully.",
+          detail: "Shift closed successfully.",
         },
       })
     );

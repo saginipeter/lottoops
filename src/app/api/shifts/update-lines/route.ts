@@ -34,32 +34,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    for (const line of lines) {
-      const endingTicket =
-        line.endingTicket === null || line.endingTicket === undefined
-          ? null
-          : Number(line.endingTicket);
+    const lineIds = lines
+      .map((line: { id?: string }) => line.id)
+      .filter((id: string | undefined): id is string => Boolean(id));
 
-      if (endingTicket !== null && !Number.isFinite(endingTicket)) {
-        return NextResponse.json(
-          { error: "Invalid ending ticket value." },
-          { status: 400 }
-        );
-      }
+    if (lineIds.length === 0) {
+      return NextResponse.json({ error: "No shift lines provided." }, { status: 400 });
+    }
 
-      if (endingTicket !== null && (endingTicket < 0 || endingTicket > Number(line.beginningTicket))) {
-        return NextResponse.json(
-          { error: "Ending ticket must be between 0 and beginning ticket." },
-          { status: 400 }
-        );
-      }
+    const lineRecords = await prisma.shiftLine.findMany({
+      where: {
+        id: {
+          in: lineIds,
+        },
+      },
+      include: {
+        shift: true,
+        pack: {
+          include: {
+            game: true,
+          },
+        },
+      },
+    });
 
-      const lineRecord = await prisma.shiftLine.findUnique({
-        where: { id: line.id },
-        include: { shift: true },
-      });
+    if (lineRecords.length !== lineIds.length) {
+      return NextResponse.json({ error: "Some shift lines were not found." }, { status: 404 });
+    }
 
-      if (!lineRecord || lineRecord.shift.storeId !== session.storeId) {
+    for (const lineRecord of lineRecords) {
+      if (lineRecord.shift.storeId !== session.storeId) {
         return NextResponse.json(
           { error: "Invalid shift line access." },
           { status: 403 }
@@ -68,20 +72,20 @@ export async function POST(req: NextRequest) {
     }
 
     await prisma.$transaction(
-      lines.map((line: any) => {
-        const endingTicket =
-          line.endingTicket === null || line.endingTicket === undefined
-            ? null
-            : Number(line.endingTicket);
-        const sold = Math.max(
-          Number(line.beginningTicket) - (endingTicket ?? Number(line.beginningTicket)),
-          0
-        );
-        const sales = sold * Number(line.price);
+      lineRecords.map((lineRecord) => {
+        const beginning = Number(lineRecord.beginningTicket);
+        const currentTicket =
+          lineRecord.pack.currentTicketNumber === null ||
+          lineRecord.pack.currentTicketNumber === undefined
+            ? beginning
+            : Number(lineRecord.pack.currentTicketNumber);
+        const endingTicket = Math.min(Math.max(currentTicket, 0), beginning);
+        const sold = Math.max(beginning - endingTicket, 0);
+        const sales = sold * Number(lineRecord.pack.game.price);
 
         return prisma.shiftLine.update({
           where: {
-            id: line.id,
+            id: lineRecord.id,
           },
           data: {
             endingTicket,

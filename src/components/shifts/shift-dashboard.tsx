@@ -18,13 +18,11 @@ interface ShiftDashboardProps {
     timestamp: string;
     performedBy: string;
   }>;
-  userRole: "MANAGER" | "CLERK" | "VIEWER";
 }
 
 export default function ShiftDashboard({
   shift,
   shiftEvents,
-  userRole,
 }: ShiftDashboardProps) {
   const [loading, setLoading] = useState(false);
 
@@ -86,7 +84,7 @@ export default function ShiftDashboard({
               2) Live Scan records ticket movement during the shift.
             </div>
             <div className="rounded-lg border bg-surface-soft p-3">
-              3) Close shift with ending tickets to compute totals.
+              3) Endings are auto-calculated; close shift to finalize totals.
             </div>
           </div>
         </Panel>
@@ -99,7 +97,11 @@ export default function ShiftDashboard({
   const totalTickets =
     shift.lines?.reduce((sum: number, line: any) => {
       const beginning = line.beginningTicket ?? 0;
-      const ending = line.endingTicket ?? beginning;
+      const rawCurrent =
+        line.pack?.currentTicketNumber === null || line.pack?.currentTicketNumber === undefined
+          ? beginning
+          : Number(line.pack.currentTicketNumber);
+      const ending = Math.min(Math.max(rawCurrent, 0), beginning);
 
       return sum + Math.max(beginning - ending, 0);
     }, 0) ?? 0;
@@ -107,7 +109,11 @@ export default function ShiftDashboard({
   const totalSales =
     shift.lines?.reduce((sum: number, line: any) => {
       const beginning = line.beginningTicket ?? 0;
-      const ending = line.endingTicket ?? beginning;
+      const rawCurrent =
+        line.pack?.currentTicketNumber === null || line.pack?.currentTicketNumber === undefined
+          ? beginning
+          : Number(line.pack.currentTicketNumber);
+      const ending = Math.min(Math.max(rawCurrent, 0), beginning);
 
       const sold = Math.max(beginning - ending, 0);
 
@@ -123,7 +129,7 @@ export default function ShiftDashboard({
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-xl font-semibold">Shift In Progress</h2>
-            <p className="text-sm text-gray-500">Update ending tickets, then use Save &amp; Close Shift below.</p>
+            <p className="text-sm text-gray-500">Ending tickets update automatically from live ticket movement.</p>
             <p className="mt-1 text-xs text-gray-500">
               Opened {new Date(shift.openedAt).toLocaleString()} by {shift.openedBy?.name ?? "Unknown"}
             </p>
@@ -164,7 +170,7 @@ export default function ShiftDashboard({
         </div>
       </Panel>
 
-      <ShiftPackTable shift={shift} canOverrideClose={userRole === "MANAGER"} />
+      <ShiftPackTable shift={shift} />
 
       <Panel className="p-6">
         <h3 className="text-base font-semibold text-text">Shift Timeline</h3>
