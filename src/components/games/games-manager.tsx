@@ -52,6 +52,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   const [games, setGames] = useState<GameItem[]>(initialGames);
   const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -178,6 +179,35 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
         setMessage(data.error || "Unable to update status.");
         return;
       }
+
+      async function syncTexasGames() {
+        if (!canManage) return;
+        try {
+          setSyncing(true);
+          setMessage(null);
+          const res = await fetch("/api/games/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setMessage(data.error || "Sync failed.");
+            return;
+          }
+          await refreshGames(true);
+          const processed = Number(data.summary?.processed ?? 0);
+          const unknown = Number(data.summary?.unknownCount ?? 0);
+          const failures = Number((data.summary?.sourceFailures ?? []).length);
+          setMessage(
+            `Sync complete. Processed ${processed} game(s), unknown ${unknown}, source failures ${failures}.`
+          );
+        } catch (err) {
+          console.error(err);
+          setMessage("Sync failed.");
+        } finally {
+          setSyncing(false);
+        }
+      }
       await refreshGames(true);
       setMessage(game.active ? "Game deactivated." : "Game activated.");
     } catch (err) {
@@ -195,6 +225,9 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-base font-semibold text-text">Store Games</h3>
             <div className="flex gap-2">
+              <Button onClick={syncTexasGames} disabled={!canManage || syncing || loading}>
+                {syncing ? "Syncing..." : "Sync Texas Lottery"}
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => {
