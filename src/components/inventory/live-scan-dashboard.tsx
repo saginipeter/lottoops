@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Clock, Radio, TrendingUp, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export function LiveScanDashboard({
   currentShift,
   activePacks,
 }: LiveScanDashboardProps) {
+  const router = useRouter();
   const [barcode, setBarcode] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [lastScan, setLastScan] = useState<any>(null);
@@ -65,22 +67,13 @@ export function LiveScanDashboard({
   useEffect(() => {
     if (!autoRefreshActive) return;
 
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(window.location.href);
-        if (response.ok) {
-          setLastRefreshTime(new Date());
-          // Silently refresh data without full page reload
-          // This would require an API endpoint to fetch fresh data
-          // For now, rely on periodic manual refresh
-        }
-      } catch (err) {
-        console.error("Auto-refresh failed:", err);
-      }
+    const interval = setInterval(() => {
+      router.refresh();
+      setLastRefreshTime(new Date());
     }, 10000); // 10 seconds
 
     return () => clearInterval(interval);
-  }, [autoRefreshActive]);
+  }, [autoRefreshActive, router]);
 
   useEffect(() => {
     if (currentShift?.lines) {
@@ -113,6 +106,13 @@ export function LiveScanDashboard({
       });
 
       setSales(metrics.filter((line) => line.ticketsSold > 0).slice(0, 10));
+    } else {
+      setShiftStats({
+        ticketsSold: 0,
+        revenueTotal: 0,
+        packsSold: 0,
+      });
+      setSales([]);
     }
   }, [currentShift]);
 
@@ -132,8 +132,8 @@ export function LiveScanDashboard({
 
       if (res.ok) {
         setLastScan(data);
-        // Auto-refresh sales data
-        window.location.reload();
+        setLastRefreshTime(new Date());
+        router.refresh();
       } else {
         alert(data.error || "Pack not found");
       }
@@ -294,6 +294,10 @@ export function LiveScanDashboard({
         <ScanStatusDisplay
           activePacks={activePacks}
           currentShift={currentShift}
+          onDataChange={() => {
+            setLastRefreshTime(new Date());
+            router.refresh();
+          }}
         />
         <SalesTracker
           sales={sales}

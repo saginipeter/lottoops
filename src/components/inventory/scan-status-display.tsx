@@ -30,11 +30,13 @@ interface ShiftData {
 interface ScanStatusDisplayProps {
   activePacks: PackData[];
   currentShift: ShiftData | null;
+  onDataChange?: () => void;
 }
 
 export function ScanStatusDisplay({
   activePacks,
   currentShift,
+  onDataChange,
 }: ScanStatusDisplayProps) {
   const [currentPackIndex, setCurrentPackIndex] = useState(0);
   const [completingPack, setCompletingPack] = useState<string | null>(null);
@@ -64,8 +66,11 @@ export function ScanStatusDisplay({
         if (currentPackIndex < activePacks.length - 1) {
           setCurrentPackIndex(currentPackIndex + 1);
         }
-        // Optionally reload to get fresh data
-        setTimeout(() => window.location.reload(), 500);
+        if (onDataChange) {
+          onDataChange();
+        } else {
+          setTimeout(() => window.location.reload(), 500);
+        }
       } else {
         alert("Failed to mark pack completed");
       }
