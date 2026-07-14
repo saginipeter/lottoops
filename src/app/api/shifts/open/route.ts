@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/get-session";
 
 export async function POST(req: NextRequest) {
   try {
-    const storeId = "DEFAULT_STORE"; // replace with auth store
+    const session = await getSession();
 
-    // 1. Prevent duplicate open shift
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Prevent duplicate shifts
     const existing = await prisma.shift.findFirst({
       where: {
-        storeId,
+        storeId: session.storeId,
         status: "OPEN",
       },
     });
@@ -20,14 +28,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Get all ACTIVE packs on display
+    // Load all packs currently on display
     const activePacks = await prisma.pack.findMany({
       where: {
-        storeId,
+        storeId: session.storeId,
         status: "ACTIVE",
+        slot: {
+          isNot: null,
+        },
       },
       include: {
         game: true,
+        slot: true,
       },
     });
 
@@ -38,22 +50,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Create Shift
+    // Create shift
     const shift = await prisma.shift.create({
       data: {
-        storeId,
+        storeId: session.storeId,
+        openedById: session.userId,
         status: "OPEN",
-        openedById: "SYSTEM",
       },
     });
 
-    // 4. Create Shift Lines (snapshot)
+    // Snapshot packs
     await prisma.shiftLine.createMany({
-      data: activePacks.map((pack: any) => ({
+      data: activePacks.map((pack:any) => ({
         shiftId: shift.id,
         packId: pack.id,
-        slotNumber: "AUTO",
-        beginningTicket: pack.currentTicketNumber ?? 0,
+        slotNumber: pack.slot!.slotNumber,
+        beginningTicket:
+          pack.currentTicketNumber ??
+          pack.firstTicket ??
+          0,
       })),
     });
 
@@ -61,6 +76,7 @@ export async function POST(req: NextRequest) {
       success: true,
       shiftId: shift.id,
     });
+
   } catch (error) {
     console.error(error);
 

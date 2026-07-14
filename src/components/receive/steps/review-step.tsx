@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Camera } from "lucide-react";
 
 import type {
   ShipmentState,
@@ -45,6 +45,7 @@ export function ReviewStep({
 
       <div className="col-span-2 space-y-6">
 
+        {/* Step 1-4: Shipment Details */}
         <Panel className="p-6">
 
           <div className="mb-5 flex items-center gap-3">
@@ -54,38 +55,58 @@ export function ReviewStep({
             <div>
 
               <h2 className="text-xl font-semibold">
-                Review Shipment
+                Step 9: Review Shipment Details
               </h2>
 
               <p className="text-sm text-gray-500">
-                Verify the scanned packs before confirming.
+                Verify all shipment information before confirming.
               </p>
 
             </div>
 
           </div>
 
-          <div className="grid grid-cols-3 gap-5">
+          <div className="space-y-4">
+            
+            {/* Step 1-2: Invoice Info */}
+            <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
+              <h4 className="text-sm font-semibold text-blue-900 mb-3">Steps 1-2: Invoice Information</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <Info label="Invoice #" value={shipment.invoiceNumber ?? ""} />
+                <Info label="Status" value={shipment.status ?? ""} />
+              </div>
+              {shipment.invoicePhoto && (
+                <div className="mt-3 flex h-24 items-center rounded border bg-white p-2">
+                  <img src={shipment.invoicePhoto} alt="Invoice" className="h-full object-contain" />
+                </div>
+              )}
+            </div>
 
-            <Info
-              label="Invoice"
-              value={shipment.invoiceNumber ?? ""}
-            />
+            {/* Step 3-4: Confirmation Info */}
+            <div className="rounded-lg bg-green-50 p-4 border border-green-200">
+              <h4 className="text-sm font-semibold text-green-900 mb-3">Steps 3-4: Shipment Confirmation</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <Info label="Confirmation #" value={shipment.shipmentConfirmationNumber ?? ""} />
+              </div>
+              {shipment.confirmationReceiptPhoto && (
+                <div className="mt-3 flex h-24 items-center rounded border bg-white p-2">
+                  <img src={shipment.confirmationReceiptPhoto} alt="Confirmation" className="h-full object-contain" />
+                </div>
+              )}
+            </div>
 
-            <Info
-              label="Status"
-              value={shipment.status ?? ""}
-            />
-
-            <Info
-              label="Expected Packs"
-              value={expected.toString()}
-            />
+            {/* Summary */}
+            <div className="grid grid-cols-3 gap-3">
+              <Info label="Expected Packs" value={expected.toString()} />
+              <Info label="Scanned Packs" value={scanned.toString()} />
+              <Info label="Remaining" value={remaining.toString()} />
+            </div>
 
           </div>
 
         </Panel>
 
+        {/* Validation Results */}
         <Panel className="p-6">
 
           <h3 className="mb-5 text-lg font-semibold">
@@ -112,6 +133,16 @@ export function ReviewStep({
             }
           />
 
+        </Panel>
+
+        {/* Pack Details */}
+        <Panel className="p-6">
+          <h3 className="mb-4 text-lg font-semibold">
+            Steps 5-8: Scanned Packs
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Review all pack details: barcode, game, price, quantity, and image.
+          </p>
         </Panel>
 
         <ScannedPackTable
@@ -144,7 +175,7 @@ export function ReviewStep({
             }
             onClick={nextStep}
           >
-            Confirm Shipment →
+            Next: Choose Destination →
           </Button>
 
         </div>

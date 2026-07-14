@@ -9,10 +9,12 @@ import { Clock, PlayCircle, Square } from "lucide-react";
 import ShiftPackTable from "./shift-pack-table";
 
 interface ShiftDashboardProps {
-  shift: any | null;
+  shift: any |null;
 }
 
-export default function ShiftDashboard({ shift }: ShiftDashboardProps) {
+export default function ShiftDashboard({
+  shift,
+}: ShiftDashboardProps) {
   const [loading, setLoading] = useState(false);
 
   async function openShift() {
@@ -34,6 +36,9 @@ export default function ShiftDashboard({ shift }: ShiftDashboardProps) {
       }
 
       window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Unable to open shift.");
     } finally {
       setLoading(false);
     }
@@ -45,6 +50,12 @@ export default function ShiftDashboard({ shift }: ShiftDashboardProps) {
 
       const res = await fetch("/api/shifts/close", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          shiftId: shift.id,
+        }),
       });
 
       const data = await res.json();
@@ -54,17 +65,29 @@ export default function ShiftDashboard({ shift }: ShiftDashboardProps) {
         return;
       }
 
+      alert(
+        `Shift closed successfully!
+
+Tickets Sold: ${data.totalTickets}
+Sales: ${formatCurrency(data.totalSales)}`
+      );
+
       window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Unable to close shift.");
     } finally {
       setLoading(false);
     }
   }
 
-  // NO SHIFT STATE
   if (!shift) {
     return (
       <Panel className="p-8 text-center">
-        <Clock className="mx-auto mb-4 text-gray-400" size={40} />
+        <Clock
+          className="mx-auto mb-4 text-gray-400"
+          size={40}
+        />
 
         <h2 className="text-xl font-semibold">
           No Active Shift
@@ -86,40 +109,31 @@ export default function ShiftDashboard({ shift }: ShiftDashboardProps) {
     );
   }
 
-  // OPEN SHIFT STATE
-  const totalLines = shift.lines?.length || 0;
+  const totalLines = shift.lines?.length ?? 0;
 
-            const totalTickets = shift.lines?.reduce(
-            (sum: number, line: any) => {
-                const beginning = line.beginningTicket ?? 0;
-                const ending = line.endingTicket ?? 0;
+  const totalTickets =
+    shift.lines?.reduce((sum: number, line: any) => {
+      const beginning = line.beginningTicket ?? 0;
+      const ending = line.endingTicket ?? beginning;
 
-                const sold = beginning - ending;
+      return sum + Math.max(beginning - ending, 0);
+    }, 0) ?? 0;
 
-                return sum + Math.max(sold, 0);
-            },
-            0
-            );
+  const totalSales =
+    shift.lines?.reduce((sum: number, line: any) => {
+      const beginning = line.beginningTicket ?? 0;
+      const ending = line.endingTicket ?? beginning;
 
-            const totalSales = shift.lines?.reduce(
-            (sum: number, line: any) => {
-                const beginning = line.beginningTicket ?? 0;
-                const ending = line.endingTicket ?? 0;
+      const sold = Math.max(beginning - ending, 0);
 
-                const sold = beginning - ending;
-
-                const price = Number(line.pack?.game?.price ?? 0);
-
-                return sum + Math.max(sold, 0) * price;
-            },
-            0
-            );
-
+      return (
+        sum +
+        sold * Number(line.pack?.game?.price ?? 0)
+      );
+    }, 0) ?? 0;
 
   return (
     <div className="space-y-6">
-
-      {/* TOP SUMMARY */}
       <Panel className="p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -147,10 +161,12 @@ export default function ShiftDashboard({ shift }: ShiftDashboardProps) {
             label="Active Packs"
             value={totalLines}
           />
+
           <Stat
             label="Tickets Sold"
             value={totalTickets}
           />
+
           <Stat
             label="Sales"
             value={formatCurrency(totalSales)}
@@ -158,7 +174,6 @@ export default function ShiftDashboard({ shift }: ShiftDashboardProps) {
         </div>
       </Panel>
 
-      {/* SHIFT TABLE */}
       <ShiftPackTable shift={shift} />
     </div>
   );
@@ -176,6 +191,7 @@ function Stat({
       <div className="text-xs text-gray-500">
         {label}
       </div>
+
       <div className="mt-1 text-xl font-bold">
         {value}
       </div>

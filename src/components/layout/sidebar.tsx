@@ -71,8 +71,16 @@ const navSections: NavSection[] = [
         icon: ScanLine,
         alert: true,
       },
+
+      {
+        href: "/sales",
+        label: "Sales",
+        icon: ScanLine,
+      },
     ],
   }, 
+
+  
    
   {
     label: "Shifts",

@@ -21,7 +21,6 @@ export function InvoiceStep({
 }: InvoiceStepProps) {
   
 
-
   async function handleContinue() {
   if (!shipment.invoiceNumber?.trim()) {
     alert("Please enter an invoice number.");
@@ -30,6 +29,16 @@ export function InvoiceStep({
 
   if (!shipment.invoicePhoto) {
     alert("Please upload an invoice photo.");
+    return;
+  }
+
+  if (!shipment.shipmentConfirmationNumber?.trim()) {
+    alert("Please enter a shipment confirmation number.");
+    return;
+  }
+
+  if (!shipment.confirmationReceiptPhoto) {
+    alert("Please upload a confirmation receipt photo.");
     return;
   }
 
@@ -47,6 +56,8 @@ export function InvoiceStep({
       body: JSON.stringify({
         invoiceNumber: shipment.invoiceNumber,
         invoicePhoto: shipment.invoicePhoto,
+        shipmentConfirmationNumber: shipment.shipmentConfirmationNumber,
+        confirmationReceiptPhoto: shipment.confirmationReceiptPhoto,
         expectedPacks: shipment.expectedPacks,
       }),
     });
@@ -79,19 +90,19 @@ export function InvoiceStep({
         <Panel className="p-6">
           <div className="mb-6">
             <h2 className="text-xl font-semibold">
-              Receive Lottery Shipment
+              Step 1-4: Receive Lottery Shipment
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              Log a shipment before scanning packs.
+              Enter shipment details and upload required documents.
             </p>
           </div>
 
-          {/* Invoice Number */}
+          {/* STEP 1: Invoice Number */}
           <div className="mb-5">
             <label className="mb-2 flex items-center gap-2 text-sm font-medium">
               <FileText size={16} />
-              Invoice Number
+              Step 1: Invoice Number
             </label>
 
             <input
@@ -103,14 +114,15 @@ export function InvoiceStep({
                   invoiceNumber: e.target.value,
                 }))
               }
+              placeholder="Enter invoice number"
             />
           </div>
 
-          {/* Invoice Upload */}
+          {/* STEP 2: Invoice Upload */}
           <div className="mb-5">
             <label className="mb-2 flex items-center gap-2 text-sm font-medium">
               <Camera size={16} />
-              Invoice Photo
+              Step 2: Invoice Photo
             </label>
 
             <InvoiceUpload
@@ -121,6 +133,49 @@ export function InvoiceStep({
                 setShipment((prev) => ({
                   ...prev,
                   invoicePhoto: url,
+                }))
+              }
+            />
+          </div>
+
+          {/* STEP 3: Shipment Confirmation Number */}
+          <div className="mb-5">
+            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
+              <FileText size={16} />
+              Step 3: Shipment Confirmation Number
+            </label>
+
+            <input
+              className="w-full rounded-lg border px-4 py-3"
+              value={shipment.shipmentConfirmationNumber ?? ""}
+              onChange={(e) =>
+                setShipment((prev) => ({
+                  ...prev,
+                  shipmentConfirmationNumber: e.target.value,
+                }))
+              }
+              placeholder="Enter confirmation number"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              This is different from the invoice number
+            </p>
+          </div>
+
+          {/* STEP 4: Confirmation Receipt Photo */}
+          <div className="mb-5">
+            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
+              <Camera size={16} />
+              Step 4: Confirmation Receipt Photo
+            </label>
+
+            <InvoiceUpload
+              value={shipment.confirmationReceiptPhoto ?? ""}
+           
+
+              onChange={(url) =>
+                setShipment((prev) => ({
+                  ...prev,
+                  confirmationReceiptPhoto: url,
                 }))
               }
             />
@@ -188,7 +243,12 @@ export function InvoiceStep({
               </span>
             </div>
 
-          
+            <div className="flex justify-between">
+              <span className="text-gray-500">Confirmation #</span>
+              <span className="font-semibold">
+                {shipment.shipmentConfirmationNumber || "-"}
+              </span>
+            </div>
 
             <div className="flex justify-between">
               <span className="text-gray-500">
@@ -222,23 +282,23 @@ export function InvoiceStep({
 
             <div className="mt-6">
               <h4 className="mb-2 text-sm font-semibold">
-                Preview
+                Confirmation Receipt Preview
               </h4>
 
-              <div className="flex h-64 items-center justify-center rounded-xl border bg-gray-50">
-                {shipment.invoicePhoto ? (
+              <div className="flex h-40 items-center justify-center rounded-xl border bg-gray-50">
+                {shipment.confirmationReceiptPhoto ? (
                   <img
-                    src={shipment.invoicePhoto}
-                    alt="Invoice Preview"
+                    src={shipment.confirmationReceiptPhoto}
+                    alt="Confirmation Receipt"
                     className="h-full w-full rounded-xl object-contain"
                   />
                 ) : (
                   <div className="text-center text-gray-500">
                     <Camera
-                      size={42}
-                      className="mx-auto mb-3 opacity-40"
+                      size={32}
+                      className="mx-auto mb-2 opacity-40"
                     />
-                    <p>No invoice uploaded</p>
+                    <p className="text-xs">No receipt uploaded</p>
                   </div>
                 )}
               </div>

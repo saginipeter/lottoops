@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { shipmentId } = await req.json();
+    const { shipmentId, destination, notes } = await req.json();
 
     if (!shipmentId) {
       return NextResponse.json(
@@ -50,6 +50,19 @@ export async function POST(req: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // If destination is "active", update packs to ACTIVE status
+    if (destination === "active") {
+      await prisma.pack.updateMany({
+        where: {
+          shipmentId,
+        },
+        data: {
+          status: "ACTIVE",
+          activatedAt: new Date(),
+        },
+      });
     }
 
     const updatedShipment = await prisma.shipment.update({

@@ -23,6 +23,10 @@ export async function POST(req: NextRequest) {
       firstTicket,
       ticketPrice,
       ticketQuantity,
+      packImage,
+      lotNumber,
+      activationNumber,
+      firstOrLastTicket,
     } = body;
 
     // Prevent duplicate scans
@@ -81,6 +85,11 @@ export async function POST(req: NextRequest) {
 
         ticketPrice,
         ticketQuantity,
+        
+        packImage,
+        lotNumber,
+        activationNumber,
+        firstOrLastTicket,
 
         cost: 0,
         retailValue: 0,

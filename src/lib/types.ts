@@ -9,6 +9,10 @@ export interface ShipmentState {
 
   invoiceNumber: string;
   invoicePhoto?: string;
+  
+  // Step 3 & 4: Shipment confirmation fields
+  shipmentConfirmationNumber?: string;
+  confirmationReceiptPhoto?: string;
 
   shipmentDate: string;
 

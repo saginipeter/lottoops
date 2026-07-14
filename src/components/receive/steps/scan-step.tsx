@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
 import { BarcodeScanner } from "../barcode-scanner";
-import { TicketPriceSelector } from "../ticket-price-selector";
+import { TicketPriceOnly } from "../ticket-price-only";
+import { TicketQuantityOnly } from "../ticket-quantity-only";
+import { InvoiceUpload } from "../invoice-upload";
 import { ShipmentSummary } from "../shipment-summary";
 import { ScannedPackTable } from "../scanned-pack-table";
 
@@ -42,27 +44,13 @@ export function ScanStep({
   const [firstTicket, setFirstTicket] = useState("");
 
   const [ticketPrice, setTicketPrice] = useState(10);
-
-  const quantity = useMemo(() => {
-    switch (ticketPrice) {
-      case 1:
-        return 300;
-      case 2:
-        return 150;
-      case 5:
-        return 60;
-      case 10:
-        return 30;
-      case 20:
-        return 15;
-      case 30:
-        return 10;
-      case 50:
-        return 6;
-      default:
-        return 30;
-    }
-  }, [ticketPrice]);
+  const [ticketQuantity, setTicketQuantity] = useState(50);
+  
+  // Step 6: Pack image upload
+  const [packImage, setPackImage] = useState("");
+  
+  // Step 7.5: Lot number
+  const [lotNumber, setLotNumber] = useState("");
 
   function handleScan(value: string) {
     setBarcode(value);
@@ -76,6 +64,11 @@ export function ScanStep({
 
   async function handleAddPack() {
     if (!gameNumber || !packNumber) return;
+    
+    if (!packImage) {
+      alert("Please upload a pack image.");
+      return;
+    }
 
     try {
       const response = await fetch("/api/packs", {
@@ -90,7 +83,9 @@ export function ScanStep({
           packNumber,
           firstTicket: Number(firstTicket),
           ticketPrice,
-          ticketQuantity: quantity,
+          ticketQuantity,
+          packImage,
+          lotNumber: lotNumber || undefined,
         }),
       });
 
@@ -112,6 +107,8 @@ export function ScanStep({
       setGameNumber("");
       setPackNumber("");
       setFirstTicket("");
+      setPackImage("");
+      setLotNumber("");
     } catch (err) {
       console.error(err);
       alert("Unable to save pack.");
@@ -123,10 +120,11 @@ export function ScanStep({
 
       <div className="col-span-2 space-y-6">
 
+        {/* Barcode Scanning */}
         <Panel className="p-6">
 
           <h2 className="mb-5 text-xl font-semibold">
-            Scan Lottery Packs
+            Step 5: Scan Lottery Packs
           </h2>
 
           <BarcodeScanner
@@ -155,32 +153,69 @@ export function ScanStep({
 
         </Panel>
 
-        <TicketPriceSelector
+        {/* Step 6: Pack Image Upload */}
+        <Panel className="p-6">
+
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold">
+              Step 6: Upload Pack Image
+            </h3>
+
+            <p className="text-sm text-gray-500">
+              Upload a photo of the pack.
+            </p>
+          </div>
+
+          <InvoiceUpload
+            value={packImage}
+            onChange={setPackImage}
+          />
+          
+          {packImage && (
+            <div className="mt-4">
+              <p className="text-sm text-green-600">✓ Image uploaded</p>
+            </div>
+          )}
+
+        </Panel>
+
+        {/* Step 7: Ticket Price */}
+        <TicketPriceOnly
           selectedPrice={ticketPrice}
           onSelect={setTicketPrice}
         />
 
+        {/* Step 8: Ticket Quantity */}
+        <TicketQuantityOnly
+          selectedPrice={ticketPrice}
+          selectedQuantity={ticketQuantity}
+          onSelect={setTicketQuantity}
+        />
+
+        {/* Lot Number (Optional for now, can be added during activation) */}
         <Panel className="p-6">
 
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold">
+              Lot Number (Optional)
+            </h3>
 
-            <div>
-
-              <h3 className="font-semibold">
-                Quantity Preset
-              </h3>
-
-              <p className="text-sm text-gray-500">
-                Loaded automatically from denomination
-              </p>
-
-            </div>
-
-            <div className="text-3xl font-bold text-purple-700">
-              {quantity}
-            </div>
-
+            <p className="text-sm text-gray-500">
+              Enter the lot number if available.
+            </p>
           </div>
+
+          <input
+            className="w-full rounded-lg border px-4 py-3"
+            value={lotNumber}
+            onChange={(e) => setLotNumber(e.target.value)}
+            placeholder="Enter lot number"
+          />
+
+        </Panel>
+
+        {/* Add Pack Button */}
+        <Panel className="p-6">
 
           <Button
             className="w-full"

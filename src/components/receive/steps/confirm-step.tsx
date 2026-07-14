@@ -29,6 +29,7 @@ export function ConfirmStep({
   previousStep,
 }: ConfirmStepProps) {
   const [notes, setNotes] = useState("");
+  const [destination, setDestination] = useState<"backstock" | "active">("backstock");
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -43,6 +44,7 @@ export function ConfirmStep({
         },
         body: JSON.stringify({
           shipmentId: shipment.id,
+          destination,
           notes,
         }),
       });
@@ -80,7 +82,7 @@ export function ConfirmStep({
           </h2>
 
           <p className="mt-3 text-gray-500">
-            All scanned packs have been received and moved to Back Stock.
+            All scanned packs have been received {destination === "active" ? "and moved to Active display" : "and moved to Back Stock"}.
           </p>
 
           <div className="mt-10 grid grid-cols-3 gap-5">
@@ -99,8 +101,8 @@ export function ConfirmStep({
 
             <SummaryCard
               icon={<User size={22} />}
-              label="Received By"
-              value={shipment.receivedBy ?? ""}
+              label="Destination"
+              value={destination === "active" ? "Display" : "Back Stock"}
             />
 
           </div>
@@ -108,7 +110,7 @@ export function ConfirmStep({
           <Button
             className="mt-10"
             onClick={() => {
-              window.location.href = "/inventory";
+              window.location.href = destination === "active" ? "/inventory/active" : "/inventory";
             }}
           >
             Return to Inventory
@@ -133,11 +135,11 @@ export function ConfirmStep({
             <div>
 
               <h2 className="text-xl font-semibold">
-                Confirm Shipment
+                Step 10: Confirm & Choose Destination
               </h2>
 
               <p className="text-gray-500">
-                The shipment is ready to move into Back Stock.
+                Choose where these packs should go.
               </p>
 
             </div>
@@ -160,6 +162,11 @@ export function ConfirmStep({
             />
 
             <Info
+              label="Confirmation #"
+              value={shipment.shipmentConfirmationNumber ?? ""}
+            />
+
+            <Info
               label="Expected Packs"
               value={(shipment.expectedPacks ?? 0).toString()}
             />
@@ -169,10 +176,65 @@ export function ConfirmStep({
               value={packs.length.toString()}
             />
 
-            <Info
-              label="Status"
-              value={shipment.status ?? ""}
-            />
+          </div>
+
+        </Panel>
+
+        <Panel className="p-6">
+
+          <h3 className="mb-6 text-lg font-semibold">
+            Choose Destination
+          </h3>
+
+          <p className="mb-4 text-sm text-gray-600">
+            Where should these packs be sent after receipt?
+          </p>
+
+          <div className="space-y-4">
+
+            {/* Back Stock Option */}
+            <label className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all ${
+              destination === "backstock" 
+                ? "border-purple-500 bg-purple-50" 
+                : "border-gray-200 bg-white hover:border-purple-300"
+            }`}>
+              <input
+                type="radio"
+                name="destination"
+                value="backstock"
+                checked={destination === "backstock"}
+                onChange={() => setDestination("backstock")}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-semibold">Back Stock</div>
+                <div className="text-sm text-gray-600">
+                  Packs will be stored in inventory and require activation before being displayed for sale.
+                </div>
+              </div>
+            </label>
+
+            {/* Active/Display Option */}
+            <label className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all ${
+              destination === "active" 
+                ? "border-purple-500 bg-purple-50" 
+                : "border-gray-200 bg-white hover:border-purple-300"
+            }`}>
+              <input
+                type="radio"
+                name="destination"
+                value="active"
+                checked={destination === "active"}
+                onChange={() => setDestination("active")}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-semibold">Active Display</div>
+                <div className="text-sm text-gray-600">
+                  Packs will be immediately placed on display and available for sale.
+                </div>
+              </div>
+            </label>
 
           </div>
 
@@ -181,14 +243,14 @@ export function ConfirmStep({
         <Panel className="p-6">
 
           <h3 className="mb-4 text-lg font-semibold">
-            Manager Notes
+            Manager Notes (Optional)
           </h3>
 
           <textarea
-            rows={6}
+            rows={4}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Optional notes..."
+            placeholder="Optional notes about this shipment..."
             className="w-full rounded-lg border border-gray-300 p-4 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
           />
 
@@ -219,6 +281,11 @@ export function ConfirmStep({
             value={packs.length.toString()}
           />
 
+          <Summary
+            label="Destination"
+            value={destination === "active" ? "Display (Active)" : "Back Stock"}
+          />
+
         </div>
 
         <div className="mt-8 rounded-xl bg-green-50 p-5">
@@ -228,7 +295,7 @@ export function ConfirmStep({
             <CheckCircle2 className="text-green-600" />
 
             <span className="font-semibold text-green-700">
-              Ready to Move to Back Stock
+              Ready to Confirm
             </span>
 
           </div>

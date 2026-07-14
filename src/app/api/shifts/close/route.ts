@@ -5,6 +5,13 @@ export async function POST(req: NextRequest) {
   try {
     const { shiftId } = await req.json();
 
+    if (!shiftId) {
+      return NextResponse.json(
+        { error: "Shift ID is required." },
+        { status: 400 }
+      );
+    }
+
     const shift = await prisma.shift.findUnique({
       where: {
         id: shiftId,
@@ -29,70 +36,101 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (shift.status === "CLOSED") {
+      return NextResponse.json(
+        { error: "Shift is already closed." },
+        { status: 400 }
+      );
+    }
+
     let totalSales = 0;
     let totalTickets = 0;
 
-    for (const line of shift.lines) {
-      const beginning = line.beginningTicket;
-      const ending = line.endingTicket ?? beginning;
+    await prisma.$transaction(async (tx: any) => {
 
-      const sold = Math.max(beginning - ending, 0);
+      for (const line of shift.lines) {
 
-      const sales =
-        sold * Number(line.pack.game.price);
+        const beginning = line.beginningTicket;
+        const ending = line.endingTicket ?? beginning;
 
-      totalSales += sales;
-      totalTickets += sold;
+        const ticketsSold = Math.max(beginning - ending, 0);
 
-      await prisma.shiftLine.update({
+        const sales =
+          ticketsSold * Number(line.pack.game.price);
+
+        totalTickets += ticketsSold;
+        totalSales += sales;
+
+        await tx.shiftLine.update({
+          where: {
+            id: line.id,
+          },
+          data: {
+            ticketsSold,
+            salesAmount: sales,
+          },
+        });
+
+        // SOLD OUT
+        if (ending <= 0) {
+
+          await tx.pack.update({
+            where: {
+              id: line.pack.id,
+            },
+            data: {
+              status: "SOLD_OUT",
+              currentTicketNumber: 0,
+            },
+          });
+
+          await tx.displaySlot.updateMany({
+            where: {
+              packId: line.pack.id,
+            },
+            data: {
+              packId: null,
+            },
+          });
+
+        } else {
+
+          // STILL ACTIVE
+          await tx.pack.update({
+            where: {
+              id: line.pack.id,
+            },
+            data: {
+              currentTicketNumber: ending,
+            },
+          });
+
+        }
+      }
+
+      await tx.shift.update({
         where: {
-          id: line.id,
+          id: shift.id,
         },
         data: {
-          ticketsSold: sold,
-          salesAmount: sales,
+          status: "CLOSED",
+          closedAt: new Date(),
+
+          // Replace with logged in user later
+          // closedById: session.userId,
         },
       });
 
-      // Sold out
-      if (ending <= 0) {
-        await prisma.pack.update({
-          where: {
-            id: line.pack.id,
-          },
-          data: {
-            status: "SOLD_OUT",
-          },
-        });
-
-        await prisma.displaySlot.updateMany({
-          where: {
-            packId: line.pack.id,
-          },
-          data: {
-            packId: null,
-          },
-        });
-      }
-    }
-
-    await prisma.shift.update({
-      where: {
-        id: shift.id,
-      },
-      data: {
-        status: "CLOSED",
-        closedAt: new Date(),
-      },
     });
 
     return NextResponse.json({
       success: true,
-      totalSales,
       totalTickets,
+      totalSales,
     });
 
   } catch (error) {
+
     console.error(error);
 
     return NextResponse.json(
@@ -103,5 +141,6 @@ export async function POST(req: NextRequest) {
         status: 500,
       }
     );
+
   }
 }

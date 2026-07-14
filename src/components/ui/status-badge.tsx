@@ -21,6 +21,10 @@ BACK_STOCK: {
     label: "Returned",
     className: "bg-red-100 text-red-700",
   },
+  COMPLETED: {
+    label: "Completed",
+    className: "bg-blue-100 text-blue-700",
+  },
 };
 
 export function StatusBadge({ status }: { status: PackStatus }) {

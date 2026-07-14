@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
     const {
       invoiceNumber,
       invoicePhoto,
+      shipmentConfirmationNumber,
+      confirmationReceiptPhoto,
       expectedPacks,
       receivedBy,
       shipmentDate,
@@ -38,6 +40,20 @@ export async function POST(req: NextRequest) {
     if (!invoicePhoto?.trim()) {
       return NextResponse.json(
         { error: "Invoice photo is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!shipmentConfirmationNumber?.trim()) {
+      return NextResponse.json(
+        { error: "Shipment confirmation number is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!confirmationReceiptPhoto?.trim()) {
+      return NextResponse.json(
+        { error: "Confirmation receipt photo is required." },
         { status: 400 }
       );
     }
@@ -69,6 +85,8 @@ export async function POST(req: NextRequest) {
       data: {
         invoiceNumber,
         invoicePhoto,
+        shipmentConfirmationNumber,
+        confirmationReceiptPhoto,
         expectedPacks: Number(expectedPacks),
 
         shipmentDate: shipmentDate

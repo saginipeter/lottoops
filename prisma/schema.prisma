@@ -76,6 +76,10 @@ model Shipment {
 
   invoiceNumber  String
   invoicePhoto   String?
+  
+  // Step 3 & 4: Shipment confirmation details
+  shipmentConfirmationNumber String?
+  confirmationReceiptPhoto   String?
 
   shipmentDate   DateTime?   
 
@@ -123,6 +127,7 @@ enum PackStatus {
   ACTIVE
   SOLD_OUT
   RETURNED
+  COMPLETED
 }
 
 model Pack {
@@ -136,12 +141,22 @@ model Pack {
   firstTicket        Int? 
   ticketPrice        Decimal? @db.Decimal(10,2)
   ticketQuantity     Int?
+  
+  // Step 6: Pack image upload
+  packImage          String?
+  
+  // Backstock fields (added for future phases but needed for model consistency)
+  lotNumber          String?
+  activationNumber   String?
+  firstOrLastTicket  String?  // "FIRST" or "LAST"
+  
   status             PackStatus @default(BACK_STOCK)
   cost               Decimal    @db.Decimal(10, 2)
   retailValue        Decimal    @db.Decimal(10, 2)
   receivedAt         DateTime   @default(now())
   receivedById       String
   activatedAt        DateTime?
+  completedAt        DateTime?  // Track when pack is fully processed
   currentTicketNumber Int?
   invoiceReceipt     String?
   activationReceipt  String?
