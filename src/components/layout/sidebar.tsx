@@ -10,11 +10,7 @@ import {
   Layers,
   ScanLine,
   Clock,
-  FileBarChart2,
   BarChart3,
-  History,
-  FileSpreadsheet,
-  Users,
   Tv,
   Settings,
   ChevronDown,
@@ -42,72 +38,63 @@ const navTop: NavItem = { href: "/", label: "Dashboard", icon: LayoutDashboard }
 
 
 const navSections: NavSection[] = [
-  
-
-     {
-    label: "Inventory",
+  {
+    label: "Daily Operations",
     items: [
       {
-        href: "/inventory",
-        label: "Back Stock",
-        icon: Package,
+        href: "/inventory/live-scan",
+        label: "Live Scan",
+        icon: Radio,
       },
-
       {
-        href: "/inventory/active",
-        label: "Active Stock",
-        icon: Layers,
+        href: "/sales",
+        label: "Sales",
+        icon: ScanLine,
       },
-
       {
-        href: "/display-slots",
-        label: "Display Slots",
-        icon: Tv,
+        href: "/shifts",
+        label: "Shifts",
+        icon: Clock,
       },
-
+    ],
+  },
+  {
+    label: "Inventory",
+    items: [
       {
         href: "/inventory/receive",
         label: "Receive Shipment",
         icon: ScanLine,
         alert: true,
       },
-
       {
-        href: "/inventory/live-scan",
-        label: "Live Scan",
-        icon: Radio,
+        href: "/display-slots",
+        label: "Display Slots",
+        icon: Tv,
       },
-
       {
-        href: "/sales",
-        label: "Sales",
-        icon: ScanLine,
+        href: "/inventory",
+        label: "Back Stock",
+        icon: Package,
       },
-    ],
-  }, 
-
-  
-   
-  {
-    label: "Shifts",
-    items: [
-      { href: "/shifts", label: "Shifts", icon: Clock }
+      {
+        href: "/inventory/active",
+        label: "Active Stock",
+        icon: Layers,
+      },
     ],
   },
   {
     label: "Reports",
     items: [
-      { href: "/reports", label: "Daily summary", icon: BarChart3 },
-      { href: "/reports", label: "Scan log", icon: History },
-      { href: "/reports", label: "Profit report", icon: FileSpreadsheet },
+      { href: "/reports", label: "Reports", icon: BarChart3 },
     ],
   },
   {
-    label: "System",
+    label: "Administration",
     items: [
       { href: "/games", label: "Games", icon: Gamepad2, managerOnly: true },
-      { href: "/settings", label: "Staff roles", icon: Users, managerOnly: true },
-      { href: "/settings", label: "TV display", icon: Tv, managerOnly: true },
+      { href: "/settings/tv-display", label: "TV Display", icon: Tv, managerOnly: true },
       { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
     ],
   },

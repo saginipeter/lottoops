@@ -27,20 +27,21 @@ interface Shift {
 
 interface Props {
   shift: Shift;
+  canOverrideClose: boolean;
 }
 
-export default function ShiftPackTable({ shift }: Props) {
+export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
   const [lines, setLines] = useState(
     shift.lines.map((line) => ({
       ...line,
-      endingTicket:
-        line.endingTicket ?? line.beginningTicket,
+      endingTicket: line.endingTicket ?? "",
     }))
   );
 
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState(false);
 
-  function updateTicket(id: string, value: number) {
+  function updateTicket(id: string, value: number | "") {
     setLines((prev) =>
       prev.map((line) =>
         line.id === id
@@ -53,9 +54,9 @@ export default function ShiftPackTable({ shift }: Props) {
     );
   }
 
-  async function saveTickets() {
+  async function persistLines() {
     try {
-      setLoading(true);
+      setSaving(true);
 
       const res = await fetch(
         "/api/shifts/update-lines",
@@ -71,7 +72,7 @@ export default function ShiftPackTable({ shift }: Props) {
               beginningTicket:
                 line.beginningTicket,
               endingTicket:
-                line.endingTicket,
+                line.endingTicket === "" ? null : Number(line.endingTicket),
               price: Number(
                 line.pack.game.price
               ),
@@ -83,15 +84,85 @@ export default function ShiftPackTable({ shift }: Props) {
       if (!res.ok) {
         const data = await res.json();
         alert(data.error);
-        return;
+        return false;
       }
 
-      alert("Shift lines saved.");
+      return true;
     } catch (error) {
       console.error(error);
       alert("Unable to save shift.");
+      return false;
     } finally {
-      setLoading(false);
+      setSaving(false);
+    }
+  }
+
+  async function saveTickets() {
+    const ok = await persistLines();
+    if (ok) {
+      alert("Shift lines saved.");
+    }
+  }
+
+  async function saveAndCloseShift() {
+    try {
+      setClosing(true);
+      const saved = await persistLines();
+
+      if (!saved) {
+        return;
+      }
+
+      const missingCount = lines.filter((line) => line.endingTicket === "").length;
+      let allowIncompleteClose = false;
+      let overrideReason: string | undefined;
+
+      if (missingCount > 0) {
+        if (!canOverrideClose) {
+          alert(`Cannot close shift. ${missingCount} line(s) are missing ending tickets.`);
+          return;
+        }
+
+        const reason = window.prompt(
+          `${missingCount} line(s) are missing ending tickets.\nEnter manager override reason to close shift:`
+        );
+        if (!reason || reason.trim().length < 5) {
+          alert("Override reason is required (at least 5 characters).");
+          return;
+        }
+
+        allowIncompleteClose = true;
+        overrideReason = reason.trim();
+      }
+
+      const res = await fetch("/api/shifts/close", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          shiftId: shift.id,
+          allowIncompleteClose,
+          overrideReason,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Unable to close shift.");
+        return;
+      }
+
+      alert(
+        `Shift closed successfully!\n\nTickets Sold: ${data.totalTickets}\nSales: $${Number(data.totalSales).toFixed(2)}`
+      );
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      alert("Unable to close shift.");
+    } finally {
+      setClosing(false);
     }
   }
 
@@ -100,7 +171,7 @@ export default function ShiftPackTable({ shift }: Props) {
       sum +
       Math.max(
         line.beginningTicket -
-          (line.endingTicket ?? 0),
+          (line.endingTicket === "" ? line.beginningTicket : Number(line.endingTicket)),
         0
       ),
     0
@@ -111,12 +182,14 @@ export default function ShiftPackTable({ shift }: Props) {
       sum +
       Math.max(
         line.beginningTicket -
-          (line.endingTicket ?? 0),
+          (line.endingTicket === "" ? line.beginningTicket : Number(line.endingTicket)),
         0
       ) *
         Number(line.pack.game.price),
     0
   );
+
+  const missingCount = lines.filter((line) => line.endingTicket === "").length;
 
   return (
     <Panel className="p-6">
@@ -162,7 +235,7 @@ export default function ShiftPackTable({ shift }: Props) {
             {lines.map((line) => {
               const sold = Math.max(
                 line.beginningTicket -
-                  (line.endingTicket ?? 0),
+                  (line.endingTicket === "" ? line.beginningTicket : Number(line.endingTicket)),
                 0
               );
 
@@ -195,15 +268,16 @@ export default function ShiftPackTable({ shift }: Props) {
                     <input
                       type="number"
                       min={0}
+                      max={line.beginningTicket}
                       value={
-                        line.endingTicket ?? 0
+                        line.endingTicket
                       }
                       onChange={(e) =>
                         updateTicket(
                           line.id,
-                          Number(
-                            e.target.value
-                          )
+                          e.target.value === ""
+                            ? ""
+                            : Number(e.target.value)
                         )
                       }
                       className="w-24 rounded-lg border p-2 text-center"
@@ -246,15 +320,36 @@ export default function ShiftPackTable({ shift }: Props) {
         </div>
       </div>
 
-      <Button
-        className="mt-8 w-full"
-        disabled={loading}
-        onClick={saveTickets}
-      >
-        {loading
-          ? "Saving..."
-          : "Save Reconciliation"}
-      </Button>
+      <div className="mt-4 rounded-lg border bg-surface-soft p-3 text-sm">
+        {missingCount > 0 ? (
+          <p className="text-amber-700">
+            {missingCount} line(s) missing ending ticket.{" "}
+            {canOverrideClose
+              ? "Manager override can close with reason."
+              : "Complete all lines before closing shift."}
+          </p>
+        ) : (
+          <p className="text-emerald-700">All lines have ending tickets entered.</p>
+        )}
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <Button
+          className="w-full"
+          variant="secondary"
+          disabled={saving || closing}
+          onClick={saveTickets}
+        >
+          {saving ? "Saving..." : "Save Reconciliation"}
+        </Button>
+        <Button
+          className="w-full"
+          disabled={saving || closing}
+          onClick={saveAndCloseShift}
+        >
+          {closing ? "Saving & Closing..." : "Save & Close Shift"}
+        </Button>
+      </div>
     </Panel>
   );
 }

@@ -55,7 +55,7 @@ export default function AssignPackDialog({
   async function assign(packId: string) {
     setLoading(true);
 
-    const res = await fetch("/api/activate-pack", {
+    const res = await fetch("/api/display-slots", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

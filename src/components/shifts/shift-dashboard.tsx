@@ -1,19 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
-import { Clock, PlayCircle, Square } from "lucide-react";
+import { Clock, PlayCircle, Radio, Tv } from "lucide-react";
 
 import ShiftPackTable from "./shift-pack-table";
 
 interface ShiftDashboardProps {
-  shift: any |null;
+  shift: any | null;
+  shiftEvents: Array<{
+    id: string;
+    action: string;
+    detail: string;
+    timestamp: string;
+    performedBy: string;
+  }>;
+  userRole: "MANAGER" | "CLERK" | "VIEWER";
 }
 
 export default function ShiftDashboard({
   shift,
+  shiftEvents,
+  userRole,
 }: ShiftDashboardProps) {
   const [loading, setLoading] = useState(false);
 
@@ -44,68 +55,42 @@ export default function ShiftDashboard({
     }
   }
 
-  async function closeShift() {
-    try {
-      setLoading(true);
-
-      const res = await fetch("/api/shifts/close", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shiftId: shift.id,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error);
-        return;
-      }
-
-      alert(
-        `Shift closed successfully!
-
-Tickets Sold: ${data.totalTickets}
-Sales: ${formatCurrency(data.totalSales)}`
-      );
-
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
-      alert("Unable to close shift.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   if (!shift) {
     return (
-      <Panel className="p-8 text-center">
-        <Clock
-          className="mx-auto mb-4 text-gray-400"
-          size={40}
-        />
+      <div className="space-y-6">
+        <Panel className="p-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <Clock className="mx-auto mb-4 text-gray-400" size={40} />
+            <h2 className="text-2xl font-semibold">No Active Shift</h2>
+            <p className="mt-2 text-sm text-gray-500">
+              Open shift to start ticket scanning and sales reconciliation.
+            </p>
+            <Button
+              className="mt-6"
+              onClick={openShift}
+              disabled={loading}
+            >
+              <PlayCircle size={16} />
+              {loading ? "Opening Shift..." : "Open Shift"}
+            </Button>
+          </div>
+        </Panel>
 
-        <h2 className="text-xl font-semibold">
-          No Active Shift
-        </h2>
-
-        <p className="mt-2 text-sm text-gray-500">
-          Start today's shift to begin operations.
-        </p>
-
-        <Button
-          className="mt-6"
-          onClick={openShift}
-          disabled={loading}
-        >
-          <PlayCircle size={16} />
-          Open Shift
-        </Button>
-      </Panel>
+        <Panel className="p-6">
+          <h3 className="text-base font-semibold text-text">What happens after opening?</h3>
+          <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-text-secondary md:grid-cols-3">
+            <div className="rounded-lg border bg-surface-soft p-3">
+              1) Active display packs are snapshotted.
+            </div>
+            <div className="rounded-lg border bg-surface-soft p-3">
+              2) Live Scan records ticket movement during the shift.
+            </div>
+            <div className="rounded-lg border bg-surface-soft p-3">
+              3) Close shift with ending tickets to compute totals.
+            </div>
+          </div>
+        </Panel>
+      </div>
     );
   }
 
@@ -135,25 +120,30 @@ Sales: ${formatCurrency(data.totalSales)}`
   return (
     <div className="space-y-6">
       <Panel className="p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold">
-              Shift In Progress
-            </h2>
-
-            <p className="text-sm text-gray-500">
-              Active operational shift
+            <h2 className="text-xl font-semibold">Shift In Progress</h2>
+            <p className="text-sm text-gray-500">Update ending tickets, then use Save &amp; Close Shift below.</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Opened {new Date(shift.openedAt).toLocaleString()} by {shift.openedBy?.name ?? "Unknown"}
             </p>
           </div>
-
-          <Button
-            variant="secondary"
-            onClick={closeShift}
-            disabled={loading}
-          >
-            <Square size={16} />
-            Close Shift
-          </Button>
+          <div className="flex gap-2">
+            <Link
+              href="/inventory/live-scan"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-soft"
+            >
+              <Radio size={14} />
+              Live Scan
+            </Link>
+            <Link
+              href="/display-slots"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-soft"
+            >
+              <Tv size={14} />
+              Display Slots
+            </Link>
+          </div>
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-4">
@@ -174,7 +164,31 @@ Sales: ${formatCurrency(data.totalSales)}`
         </div>
       </Panel>
 
-      <ShiftPackTable shift={shift} />
+      <ShiftPackTable shift={shift} canOverrideClose={userRole === "MANAGER"} />
+
+      <Panel className="p-6">
+        <h3 className="text-base font-semibold text-text">Shift Timeline</h3>
+        {shiftEvents.length === 0 ? (
+          <p className="mt-3 text-sm text-text-secondary">No events recorded yet for this shift.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {shiftEvents.map((event) => (
+              <div key={event.id} className="rounded-lg border bg-surface-soft p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                    {event.action.replaceAll("_", " ")}
+                  </p>
+                  <p className="text-xs text-text-tertiary">
+                    {new Date(event.timestamp).toLocaleString()}
+                  </p>
+                </div>
+                <p className="mt-1 text-sm text-text">{event.detail}</p>
+                <p className="mt-1 text-xs text-text-tertiary">By {event.performedBy}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

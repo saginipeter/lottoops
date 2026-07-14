@@ -160,3 +160,114 @@ export async function POST(req: Request) {
     );
   }
 }
+
+// Clear one slot or all slots for the current store
+export async function DELETE(req: Request) {
+  const session = await getApiSession();
+  if (!session) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (session.role === "VIEWER") {
+    return NextResponse.json(
+      { error: "You don't have permission to clear display slots" },
+      { status: 403 }
+    );
+  }
+
+  if (!prisma) {
+    return NextResponse.json(
+      { error: "Database not connected" },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const body = await req.json();
+    const slotId = body?.slotId as string | undefined;
+    const clearAll = body?.clearAll === true;
+
+    if (!slotId && !clearAll) {
+      return NextResponse.json(
+        { error: "slotId or clearAll is required." },
+        { status: 400 }
+      );
+    }
+
+    if (clearAll) {
+      const storeSlots = await prisma.displaySlot.findMany({
+        where: { storeId: session.storeId, packId: { not: null } },
+        select: { id: true, slotNumber: true, packId: true },
+      });
+
+      const packIds = storeSlots
+        .map((slot: { packId: string | null }) => slot.packId)
+        .filter((id: string | null): id is string => Boolean(id));
+
+      await prisma.$transaction([
+        prisma.displaySlot.updateMany({
+          where: { storeId: session.storeId },
+          data: { packId: null },
+        }),
+        prisma.pack.updateMany({
+          where: { id: { in: packIds }, status: "ACTIVE" },
+          data: { status: "BACK_STOCK" },
+        }),
+        prisma.scanLogEntry.create({
+          data: {
+            storeId: session.storeId,
+            action: "RETURNED",
+            performedById: session.userId,
+            detail: `Cleared all display slots (${storeSlots.length})`,
+          },
+        }),
+      ]);
+
+      return NextResponse.json({ success: true, cleared: storeSlots.length });
+    }
+
+    const slot = await prisma.displaySlot.findFirst({
+      where: { id: slotId, storeId: session.storeId },
+      select: { id: true, slotNumber: true, packId: true },
+    });
+
+    if (!slot) {
+      return NextResponse.json({ error: "Slot not found." }, { status: 404 });
+    }
+
+    const txOps: any[] = [
+      prisma.displaySlot.update({
+        where: { id: slot.id },
+        data: { packId: null },
+      }),
+      prisma.scanLogEntry.create({
+        data: {
+          storeId: session.storeId,
+          action: "RETURNED",
+          packId: slot.packId ?? undefined,
+          performedById: session.userId,
+          detail: `Cleared display slot ${slot.slotNumber}`,
+        },
+      }),
+    ];
+
+    if (slot.packId) {
+      txOps.unshift(
+        prisma.pack.updateMany({
+          where: { id: slot.packId, status: "ACTIVE" },
+          data: { status: "BACK_STOCK" },
+        })
+      );
+    }
+
+    await prisma.$transaction(txOps);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Unable to clear display slots." },
+      { status: 500 }
+    );
+  }
+}

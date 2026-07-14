@@ -20,13 +20,14 @@ export default async function DisplaySlotsPage() {
   }
 
   const slots = await getDisplaySlots(session.storeId);
+  const activeCount = slots.filter((slot: any) => Boolean(slot.pack)).length;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
 
       <Header
         title="Display Slots"
-        subtitle={`${slots.length} display slots`}
+        subtitle={`${activeCount} active · ${slots.length - activeCount} empty`}
       />
 
       <div className="flex-1 overflow-y-auto px-4 py-3.5">

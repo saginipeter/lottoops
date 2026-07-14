@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/get-session";
+import { getApiSession } from "@/lib/api-session";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getApiSession();
 
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    if (session.role === "VIEWER") {
+      return NextResponse.json(
+        { error: "You don't have permission to open shifts." },
+        { status: 403 }
+      );
+    }
+
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Database not connected" },
+        { status: 503 }
       );
     }
 
@@ -60,17 +74,27 @@ export async function POST(req: NextRequest) {
     });
 
     // Snapshot packs
-    await prisma.shiftLine.createMany({
-      data: activePacks.map((pack:any) => ({
-        shiftId: shift.id,
-        packId: pack.id,
-        slotNumber: pack.slot!.slotNumber,
-        beginningTicket:
-          pack.currentTicketNumber ??
-          pack.firstTicket ??
-          0,
-      })),
-    });
+    await prisma.$transaction([
+      prisma.shiftLine.createMany({
+        data: activePacks.map((pack: any) => ({
+          shiftId: shift.id,
+          packId: pack.id,
+          slotNumber: pack.slot!.slotNumber,
+          beginningTicket:
+            pack.currentTicketNumber ??
+            pack.firstTicket ??
+            0,
+        })),
+      }),
+      prisma.scanLogEntry.create({
+        data: {
+          storeId: session.storeId,
+          action: "SHIFT_OPEN",
+          performedById: session.userId,
+          detail: `Shift opened with ${activePacks.length} active display pack(s)`,
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
