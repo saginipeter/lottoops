@@ -1,10 +1,3 @@
-// LottoOps database schema
-// Run `npx prisma migrate dev --name init` after setting DATABASE_URL in .env
-
-
-
-
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,9 +7,187 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Store {
+  id        String         @id @default(cuid())
+  name      String
+  timezone  String         @default("America/Chicago")
+  createdAt DateTime       @default(now())
+  slots     DisplaySlot[]
+  games     Game[]
+  packs     Pack[]
+  scanLogs  ScanLogEntry[]
+  shifts    Shift[]
+  shipments Shipment[]
+  users     User[]
 
+  @@map("stores")
+}
 
-// ── Auth & roles ─────────────────────────────────────────────
+model User {
+  id                String         @id @default(cuid())
+  storeId           String
+  email             String         @unique
+  passwordHash      String
+  name              String
+  role              Role           @default(CLERK)
+  active            Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  lastLoginAt       DateTime?
+  packsReceived     Pack[]         @relation("PacksReceivedBy")
+  scanLogs          ScanLogEntry[] @relation("ScanLogPerformedBy")
+  shiftsClosed      Shift[]        @relation("ShiftsClosedBy")
+  shiftsOpened      Shift[]        @relation("ShiftsOpenedBy")
+  shipmentsReceived Shipment[]     @relation("ShipmentsReceived")
+  store             Store          @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@map("users")
+}
+
+model Shipment {
+  id                         String         @id @default(cuid())
+  storeId                    String
+  receivedById               String
+  invoiceNumber              String
+  invoicePhoto               String?
+  expectedPacks              Int
+  scannedPacks               Int            @default(0)
+  status                     ShipmentStatus @default(IN_PROGRESS)
+  createdAt                  DateTime       @default(now())
+  confirmedAt                DateTime?
+  shipmentDate               DateTime?
+  confirmationReceiptPhoto   String?
+  shipmentConfirmationNumber String?
+  packs                      Pack[]
+  receivedBy                 User           @relation("ShipmentsReceived", fields: [receivedById], references: [id])
+  store                      Store          @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, invoiceNumber])
+  @@index([storeId])
+  @@map("shipments")
+}
+
+model Game {
+  id             String   @id @default(cuid())
+  storeId        String
+  gameNumber     String
+  name           String
+  price          Decimal  @db.Decimal(10, 2)
+  ticketsPerPack Int
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  store          Store    @relation(fields: [storeId], references: [id])
+  packs          Pack[]
+
+  @@unique([storeId, gameNumber])
+  @@index([storeId])
+  @@map("games")
+}
+
+model Pack {
+  id                  String         @id @default(cuid())
+  storeId             String
+  gameId              String
+  serialNumber        String
+  status              PackStatus     @default(BACK_STOCK)
+  cost                Decimal        @db.Decimal(10, 2)
+  retailValue         Decimal        @db.Decimal(10, 2)
+  receivedAt          DateTime       @default(now())
+  receivedById        String
+  activatedAt         DateTime?
+  currentTicketNumber Int?
+  notes               String?
+  shipmentId          String?
+  activationReceipt   String?
+  firstTicket         Int?
+  gameNumber          String?
+  invoiceReceipt      String?
+  packNumber          String?
+  ticketPrice         Decimal?       @db.Decimal(10, 2)
+  ticketQuantity      Int?
+  activationNumber    String?
+  completedAt         DateTime?
+  firstOrLastTicket   String?
+  lotNumber           String?
+  packImage           String?
+  slot                DisplaySlot?
+  game                Game           @relation(fields: [gameId], references: [id])
+  receivedBy          User           @relation("PacksReceivedBy", fields: [receivedById], references: [id])
+  shipment            Shipment?      @relation(fields: [shipmentId], references: [id])
+  store               Store          @relation(fields: [storeId], references: [id])
+  scanLogs            ScanLogEntry[]
+  shiftLines          ShiftLine[]
+
+  @@unique([storeId, serialNumber])
+  @@index([storeId, status])
+  @@index([shipmentId])
+  @@map("packs")
+}
+
+model DisplaySlot {
+  id         String   @id @default(cuid())
+  storeId    String
+  slotNumber String
+  packId     String?  @unique
+  createdAt  DateTime @default(now())
+  pack       Pack?    @relation(fields: [packId], references: [id])
+  store      Store    @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, slotNumber])
+  @@index([storeId])
+  @@map("display_slots")
+}
+
+model Shift {
+  id         String      @id @default(cuid())
+  storeId    String
+  status     ShiftStatus @default(OPEN)
+  openedAt   DateTime    @default(now())
+  openedById String
+  closedAt   DateTime?
+  closedById String?
+  lines      ShiftLine[]
+  closedBy   User?       @relation("ShiftsClosedBy", fields: [closedById], references: [id])
+  openedBy   User        @relation("ShiftsOpenedBy", fields: [openedById], references: [id])
+  store      Store       @relation(fields: [storeId], references: [id])
+
+  @@index([storeId, status])
+  @@map("shifts")
+}
+
+model ShiftLine {
+  id              String   @id @default(cuid())
+  shiftId         String
+  packId          String
+  slotNumber      String
+  beginningTicket Int
+  endingTicket    Int?
+  ticketsSold     Int?
+  salesAmount     Decimal? @db.Decimal(10, 2)
+  pack            Pack     @relation(fields: [packId], references: [id])
+  shift           Shift    @relation(fields: [shiftId], references: [id])
+
+  @@unique([shiftId, packId])
+  @@index([shiftId])
+  @@map("shift_lines")
+}
+
+model ScanLogEntry {
+  id            String     @id @default(cuid())
+  storeId       String
+  action        ScanAction
+  packId        String?
+  performedById String
+  detail        String
+  timestamp     DateTime   @default(now())
+  pack          Pack?      @relation(fields: [packId], references: [id])
+  performedBy   User       @relation("ScanLogPerformedBy", fields: [performedById], references: [id])
+  store         Store      @relation(fields: [storeId], references: [id])
+
+  @@index([storeId, timestamp])
+  @@map("scan_log_entries")
+}
 
 enum Role {
   MANAGER
@@ -29,220 +200,18 @@ enum ShipmentStatus {
   RECEIVED
 }
 
-model Store {
-  id        String   @id @default(cuid())
-  name      String
-  timezone  String   @default("America/Chicago")
-  createdAt DateTime @default(now())
-
-  users      User[]
-  games      Game[]
-  packs      Pack[]
-  shipments   Shipment[]
-  slots      DisplaySlot[]
-  shifts     Shift[]
-  scanLogs   ScanLogEntry[]
-
-  @@map("stores")
-}
-
-model User {
-  id           String   @id @default(cuid())
-  storeId      String
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role     @default(CLERK)
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  lastLoginAt  DateTime?
-
-  store         Store          @relation(fields: [storeId], references: [id])
-  shipmentsReceived   Shipment[]  @relation("ShipmentsReceived")
-  packsReceived Pack[]         @relation("PacksReceivedBy")
-  shiftsOpened  Shift[]        @relation("ShiftsOpenedBy")
-  shiftsClosed  Shift[]        @relation("ShiftsClosedBy")
-  scanLogs      ScanLogEntry[] @relation("ScanLogPerformedBy")
-
-  @@index([storeId])
-  @@map("users")
-}
-
-model Shipment {
-  id             String           @id @default(cuid())
-
-  storeId        String
-  receivedById   String
-
-  invoiceNumber  String
-  invoicePhoto   String?
-  
-  // Step 3 & 4: Shipment confirmation details
-  shipmentConfirmationNumber String?
-  confirmationReceiptPhoto   String?
-
-  shipmentDate   DateTime?   
-
-  expectedPacks  Int
-  scannedPacks   Int              @default(0)
-
-  status         ShipmentStatus   @default(IN_PROGRESS)
-
-  createdAt      DateTime         @default(now())
-  confirmedAt    DateTime?
-
-  store          Store @relation(fields: [storeId], references: [id])
-  receivedBy     User @relation("ShipmentsReceived", fields: [receivedById], references: [id])
-
-  packs          Pack[]
-
-  @@unique([storeId, invoiceNumber])
-  @@index([storeId])
-  @@map("shipments")
-}
-
-// ── Games & packs ────────────────────────────────────────────
-
-model Game {
-  id             String   @id @default(cuid())
-  storeId        String
-  gameNumber     String   // state-assigned game number, e.g. "2739"
-  name           String
-  price          Decimal  @db.Decimal(10, 2)
-  ticketsPerPack Int
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  store Store  @relation(fields: [storeId], references: [id])
-  packs Pack[]
-
-  @@unique([storeId, gameNumber])
-  @@index([storeId])
-  @@map("games")
-}
-
 enum PackStatus {
   BACK_STOCK
   ACTIVE
   SOLD_OUT
   RETURNED
   COMPLETED
-  
 }
-
-model Pack {
-  id                 String     @id @default(cuid())
-  storeId            String
-  shipmentId         String?
-  gameId             String
-  serialNumber       String
-  gameNumber         String?
-  packNumber         String?
-  firstTicket        Int? 
-  ticketPrice        Decimal? @db.Decimal(10,2)
-  ticketQuantity     Int?
-  
-  // Step 6: Pack image upload
-  packImage          String?
-  
-  // Backstock fields (added for future phases but needed for model consistency)
-  lotNumber          String?
-  activationNumber   String?
-  firstOrLastTicket  String?  // "FIRST" or "LAST"
-  
-  status             PackStatus @default(BACK_STOCK)
-  cost               Decimal    @db.Decimal(10, 2)
-  retailValue        Decimal    @db.Decimal(10, 2)
-  receivedAt         DateTime   @default(now())
-  receivedById       String
-  activatedAt        DateTime?
-  completedAt        DateTime?  // Track when pack is fully processed
-  currentTicketNumber Int?
-  invoiceReceipt     String?
-  activationReceipt  String?
-  notes              String?
-
-  store      Store          @relation(fields: [storeId], references: [id])
-  shipment  Shipment?       @relation(fields: [shipmentId], references: [id])
-  game       Game           @relation(fields: [gameId], references: [id])
-  receivedBy User           @relation("PacksReceivedBy", fields: [receivedById], references: [id])
-  slot       DisplaySlot?
-  shiftLines ShiftLine[]
-  scanLogs   ScanLogEntry[]
-
-  // Duplicate-serial check enforced at the database level, scoped per store
-  // (two stores could legitimately receive packs with the same serial from
-  // different supplier batches, but one store never should).
-  @@unique([storeId, serialNumber])
-  @@index([storeId, status])
-  @@index([shipmentId])
-  @@map("packs")
-}
-
-// ── Display slots ────────────────────────────────────────────
-
-model DisplaySlot {
-  id         String   @id @default(cuid())
-  storeId    String
-  slotNumber String   // e.g. "01", "02" — physical position on the board
-  packId     String?  @unique
-  createdAt  DateTime @default(now())
-
-  store Store @relation(fields: [storeId], references: [id])
-  pack  Pack? @relation(fields: [packId], references: [id])
-
-  @@unique([storeId, slotNumber])
-  @@index([storeId])
-  @@map("display_slots")
-}
-
-// ── Shifts & reconciliation ──────────────────────────────────
 
 enum ShiftStatus {
   OPEN
   CLOSED
 }
-
-
-
-model Shift {
-  id           String      @id @default(cuid())
-  storeId      String
-  status       ShiftStatus @default(OPEN)
-  openedAt     DateTime    @default(now())
-  openedById   String
-  closedAt     DateTime?
-  closedById   String?
-
-  store    Store       @relation(fields: [storeId], references: [id])
-  openedBy User        @relation("ShiftsOpenedBy", fields: [openedById], references: [id])
-  closedBy User?       @relation("ShiftsClosedBy", fields: [closedById], references: [id])
-  lines    ShiftLine[]
-
-  @@index([storeId, status])
-  @@map("shifts")
-}
-
-model ShiftLine {
-  id              String   @id @default(cuid())
-  shiftId         String
-  packId          String
-  slotNumber      String
-  beginningTicket Int      // pulled from pack.currentTicketNumber at shift open
-  endingTicket    Int?     // entered by staff at shift close; 000 = sold out
-  ticketsSold     Int?     // computed: beginningTicket - endingTicket
-  salesAmount     Decimal? @db.Decimal(10, 2) // computed: ticketsSold * game.price
-
-  shift Shift @relation(fields: [shiftId], references: [id])
-  pack  Pack  @relation(fields: [packId], references: [id])
-
-  @@unique([shiftId, packId])
-  @@index([shiftId])
-  @@map("shift_lines")
-}
-
-// ── Audit trail ──────────────────────────────────────────────
 
 enum ScanAction {
   RECEIVED
@@ -251,21 +220,4 @@ enum ScanAction {
   SHIFT_OPEN
   SHIFT_CLOSE
   RETURNED
-}
-
-model ScanLogEntry {
-  id            String     @id @default(cuid())
-  storeId       String
-  action        ScanAction
-  packId        String?
-  performedById String
-  detail        String
-  timestamp     DateTime   @default(now())
-
-  store       Store @relation(fields: [storeId], references: [id])
-  pack        Pack? @relation(fields: [packId], references: [id])
-  performedBy User  @relation("ScanLogPerformedBy", fields: [performedById], references: [id])
-
-  @@index([storeId, timestamp])
-  @@map("scan_log_entries")
 }
