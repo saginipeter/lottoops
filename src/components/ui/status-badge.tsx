@@ -2,7 +2,7 @@ import { PackStatus } from "@prisma/client";
 import clsx from "clsx";
 
 const statusConfig: Record<
-  PackStatus,
+  PackStatus | "COMPLETED",
   { label: string; className: string }
 > = {
 BACK_STOCK: {
