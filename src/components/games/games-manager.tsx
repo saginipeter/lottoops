@@ -180,34 +180,6 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
         return;
       }
 
-      async function syncTexasGames() {
-        if (!canManage) return;
-        try {
-          setSyncing(true);
-          setMessage(null);
-          const res = await fetch("/api/games/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            setMessage(data.error || "Sync failed.");
-            return;
-          }
-          await refreshGames(true);
-          const processed = Number(data.summary?.processed ?? 0);
-          const unknown = Number(data.summary?.unknownCount ?? 0);
-          const failures = Number((data.summary?.sourceFailures ?? []).length);
-          setMessage(
-            `Sync complete. Processed ${processed} game(s), unknown ${unknown}, source failures ${failures}.`
-          );
-        } catch (err) {
-          console.error(err);
-          setMessage("Sync failed.");
-        } finally {
-          setSyncing(false);
-        }
-      }
       await refreshGames(true);
       setMessage(game.active ? "Game deactivated." : "Game activated.");
     } catch (err) {
@@ -215,6 +187,35 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
       setMessage("Unable to update status.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function syncTexasGames() {
+    if (!canManage) return;
+    try {
+      setSyncing(true);
+      setMessage(null);
+      const res = await fetch("/api/games/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || "Sync failed.");
+        return;
+      }
+      await refreshGames(true);
+      const processed = Number(data.summary?.processed ?? 0);
+      const unknown = Number(data.summary?.unknownCount ?? 0);
+      const failures = Number((data.summary?.sourceFailures ?? []).length);
+      setMessage(
+        `Sync complete. Processed ${processed} game(s), unknown ${unknown}, source failures ${failures}.`
+      );
+    } catch (err) {
+      console.error(err);
+      setMessage("Sync failed.");
+    } finally {
+      setSyncing(false);
     }
   }
 
