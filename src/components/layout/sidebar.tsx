@@ -47,11 +47,6 @@ const navSections: NavSection[] = [
         icon: Radio,
       },
       {
-        href: "/sales",
-        label: "Sales",
-        icon: ScanLine,
-      },
-      {
         href: "/shifts",
         label: "Shifts",
         icon: Clock,
@@ -85,8 +80,9 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    label: "Reports",
+    label: "Sales & Reports",
     items: [
+      { href: "/sales", label: "Sales", icon: ScanLine },
       { href: "/reports", label: "Reports", icon: BarChart3 },
     ],
   },

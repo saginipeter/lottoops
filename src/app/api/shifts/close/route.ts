@@ -70,7 +70,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const missingLines = shift.lines.filter((line) => line.endingTicket === null);
+    const missingLines = shift.lines.filter(
+      (line: { endingTicket: number | null }) => line.endingTicket === null
+    );
     const shouldAllowIncomplete = allowIncompleteClose === true;
 
     if (missingLines.length > 0 && !shouldAllowIncomplete) {

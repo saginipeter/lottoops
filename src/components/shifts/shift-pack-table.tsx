@@ -27,7 +27,7 @@ interface Shift {
 
 interface Props {
   shift: Shift;
-  canOverrideClose: boolean;
+  canOverrideClose?: boolean;
 }
 
 export default function ShiftPackTable({ shift, canOverrideClose }: Props) {
