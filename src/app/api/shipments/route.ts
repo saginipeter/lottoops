@@ -115,22 +115,41 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const shipment = await prisma.shipment.create({
-      data: {
-        invoiceNumber: normalizedInvoiceNumber,
-        invoicePhoto: normalizedInvoicePhoto,
-        shipmentConfirmationNumber: normalizedConfirmationNumber,
-        confirmationReceiptPhoto: normalizedConfirmationPhoto,
-        expectedPacks: Number(expectedPacks),
-
-        shipmentDate: parsedShipmentDate,
-
-        scannedPacks: 0,
-
-        storeId: session.storeId,
-        receivedById: session.userId,
-      },
-    });
+    let shipment;
+    try {
+      shipment = await prisma.shipment.create({
+        data: {
+          invoiceNumber: normalizedInvoiceNumber,
+          invoicePhoto: normalizedInvoicePhoto,
+          shipmentConfirmationNumber: normalizedConfirmationNumber,
+          confirmationReceiptPhoto: normalizedConfirmationPhoto,
+          expectedPacks: Number(expectedPacks),
+          shipmentDate: parsedShipmentDate,
+          scannedPacks: 0,
+          storeId: session.storeId,
+          receivedById: session.userId,
+        },
+      });
+    } catch (createError: unknown) {
+      if (
+        createError instanceof Prisma.PrismaClientKnownRequestError &&
+        (createError.code === "P2021" || createError.code === "P2022")
+      ) {
+        // Temporary compatibility path when production DB is behind the app schema.
+        shipment = await prisma.shipment.create({
+          data: {
+            invoiceNumber: normalizedInvoiceNumber,
+            invoicePhoto: normalizedInvoicePhoto,
+            expectedPacks: Number(expectedPacks),
+            scannedPacks: 0,
+            storeId: session.storeId,
+            receivedById: session.userId,
+          },
+        });
+      } else {
+        throw createError;
+      }
+    }
 
     
 
@@ -159,7 +178,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             error:
-              "Database schema is out of date in this environment. Run Prisma migrations on production (prisma migrate deploy) and retry.",
+              "Database schema is out of date in this environment. Run Prisma migrations on production (prisma migrate deploy), then redeploy.",
           },
           { status: 500 }
         );
