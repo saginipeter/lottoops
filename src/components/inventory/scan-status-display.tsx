@@ -21,6 +21,10 @@ interface ShiftData {
   id: string;
   status: string;
   openedAt: string;
+  lines?: Array<{
+    packId: string;
+    beginningTicket: number;
+  }>;
 }
 
 interface ScanStatusDisplayProps {
@@ -36,6 +40,12 @@ export function ScanStatusDisplay({
   const [completingPack, setCompletingPack] = useState<string | null>(null);
 
   const currentPack = activePacks[currentPackIndex];
+  const beginningForCurrentPack =
+    currentShift?.lines?.find((line) => line.packId === currentPack?.id)
+      ?.beginningTicket ??
+    Number(currentPack?.ticketQuantity ?? currentPack?.currentTicketNumber ?? 0);
+  const remainingTickets = Number(currentPack?.currentTicketNumber ?? 0);
+  const soldTickets = Math.max(beginningForCurrentPack - remainingTickets, 0);
 
   async function handleMarkCompleted() {
     if (!currentPack) return;
@@ -68,9 +78,8 @@ export function ScanStatusDisplay({
   }
 
   const ticketProgress =
-    currentPack && currentPack.ticketQuantity
-      ? ((currentPack.currentTicketNumber || 1) / currentPack.ticketQuantity) *
-        100
+    beginningForCurrentPack > 0
+      ? (soldTickets / beginningForCurrentPack) * 100
       : 0;
 
   return (
@@ -120,8 +129,7 @@ export function ScanStatusDisplay({
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-medium">Progress</span>
                 <span className="text-sm font-bold text-blue-600">
-                  {currentPack.currentTicketNumber || 1} /{" "}
-                  {currentPack.ticketQuantity || 0}
+                  Sold {soldTickets} / {beginningForCurrentPack}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
@@ -199,7 +207,7 @@ export function ScanStatusDisplay({
                     <p className="font-bold">#{pack.serialNumber}</p>
                   </div>
                   <span className="text-xs font-bold text-gray-600">
-                    {pack.currentTicketNumber || 1}/{pack.ticketQuantity || 0}
+                    {pack.currentTicketNumber ?? 0} left
                   </span>
                 </div>
               </button>

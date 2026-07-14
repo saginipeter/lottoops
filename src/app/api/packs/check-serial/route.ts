@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { serialNumber } = await req.json();
+  const { serialNumber, liveScan } = await req.json();
   if (!serialNumber || typeof serialNumber !== "string") {
     return NextResponse.json(
       { error: "serialNumber is required" },
@@ -34,7 +34,120 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingPack) {
-      // Return existing pack details for live scan
+      if (liveScan === true) {
+        if (existingPack.status !== "ACTIVE") {
+          return NextResponse.json(
+            { error: "Only ACTIVE packs can be scanned in live mode." },
+            { status: 400 }
+          );
+        }
+
+        const openShift = await prisma.shift.findFirst({
+          where: {
+            storeId: session.storeId,
+            status: "OPEN",
+          },
+          include: {
+            lines: {
+              where: {
+                packId: existingPack.id,
+              },
+              take: 1,
+            },
+          },
+          orderBy: {
+            openedAt: "desc",
+          },
+        });
+
+        if (!openShift || openShift.lines.length === 0) {
+          return NextResponse.json(
+            { error: "No open shift line found for this pack." },
+            { status: 400 }
+          );
+        }
+
+        const line = openShift.lines[0];
+        const beginning = Number(line.beginningTicket ?? 0);
+        const currentTicket =
+          existingPack.currentTicketNumber ?? beginning;
+
+        if (currentTicket <= 0) {
+          return NextResponse.json(
+            { error: "Pack is already sold out." },
+            { status: 400 }
+          );
+        }
+
+        const endingTicket = Math.max(currentTicket - 1, 0);
+        const ticketsSold = Math.max(beginning - endingTicket, 0);
+        const salesAmount = ticketsSold * Number(existingPack.game.price);
+        const soldOut = endingTicket === 0;
+
+        const txOps: any[] = [
+          prisma.pack.update({
+            where: { id: existingPack.id },
+            data: {
+              currentTicketNumber: endingTicket,
+              ...(soldOut ? { status: "SOLD_OUT" } : {}),
+            },
+          }),
+          prisma.shiftLine.update({
+            where: { id: line.id },
+            data: {
+              endingTicket,
+              ticketsSold,
+              salesAmount,
+            },
+          }),
+        ];
+
+        if (soldOut) {
+          txOps.push(
+            prisma.displaySlot.updateMany({
+              where: {
+                packId: existingPack.id,
+              },
+              data: {
+                packId: null,
+              },
+            }),
+            prisma.scanLogEntry.create({
+              data: {
+                storeId: session.storeId,
+                action: "SOLD_OUT",
+                performedById: session.userId,
+                packId: existingPack.id,
+                detail: `Pack ${existingPack.serialNumber} sold out during live scan.`,
+              },
+            })
+          );
+        }
+
+        await prisma.$transaction(txOps);
+
+        return NextResponse.json({
+          status: "found",
+          id: existingPack.id,
+          serialNumber: existingPack.serialNumber,
+          gameNumber: existingPack.game.gameNumber,
+          gameName: existingPack.game.name,
+          packStatus: soldOut ? "SOLD_OUT" : "ACTIVE",
+          currentTicketNumber: endingTicket,
+          ticketQuantity: existingPack.ticketQuantity,
+          ticketPrice: existingPack.ticketPrice,
+          ticketsSold,
+          salesAmount,
+          slot: existingPack.slot
+            ? { slotNumber: existingPack.slot.slotNumber }
+            : null,
+          game: {
+            name: existingPack.game.name,
+            gameNumber: existingPack.game.gameNumber,
+          },
+        });
+      }
+
       return NextResponse.json({
         status: "found",
         id: existingPack.id,

@@ -12,7 +12,20 @@ interface ShiftData {
   status: string;
   openedAt: string;
   openedBy: { name: string };
-  lines: any[];
+  lines: Array<{
+    id: string;
+    packId: string;
+    beginningTicket: number;
+    endingTicket?: number | null;
+    ticketsSold?: number | null;
+    salesAmount?: number | string | null;
+    pack?: {
+      serialNumber?: string;
+      game?: { name?: string; price?: number | string };
+      currentTicketNumber?: number | null;
+      ticketPrice?: number | null;
+    };
+  }>;
 }
 
 interface PackData {
@@ -70,18 +83,28 @@ export function LiveScanDashboard({
   }, [autoRefreshActive]);
 
   useEffect(() => {
-    // Calculate sales from shift lines
     if (currentShift?.lines) {
-      const total = currentShift.lines.reduce((sum: number, line: any) => {
-        return sum + (Number(line.salesAmount) || 0);
-      }, 0);
+      const metrics = currentShift.lines.map((line) => {
+        const beginning = Number(line.beginningTicket ?? 0);
+        const current =
+          line.pack?.currentTicketNumber === null || line.pack?.currentTicketNumber === undefined
+            ? beginning
+            : Number(line.pack.currentTicketNumber);
+        const ending = Math.min(Math.max(current, 0), beginning);
+        const ticketsSold = Math.max(beginning - ending, 0);
+        const price = Number(line.pack?.game?.price ?? line.pack?.ticketPrice ?? 0);
+        const salesAmount = ticketsSold * price;
 
-      const ticketCount = currentShift.lines.reduce((sum: number, line: any) => {
-        return sum + (line.ticketsSold || 0);
-      }, 0);
+        return {
+          ...line,
+          ticketsSold,
+          salesAmount,
+        };
+      });
 
-      const packCount = new Set(currentShift.lines.map((l: any) => l.packId))
-        .size;
+      const total = metrics.reduce((sum, line) => sum + line.salesAmount, 0);
+      const ticketCount = metrics.reduce((sum, line) => sum + line.ticketsSold, 0);
+      const packCount = metrics.filter((line) => line.ticketsSold > 0).length;
 
       setShiftStats({
         ticketsSold: ticketCount,
@@ -89,7 +112,7 @@ export function LiveScanDashboard({
         packsSold: packCount,
       });
 
-      setSales(currentShift.lines.slice(0, 10)); // Last 10 sales
+      setSales(metrics.filter((line) => line.ticketsSold > 0).slice(0, 10));
     }
   }, [currentShift]);
 
@@ -102,7 +125,7 @@ export function LiveScanDashboard({
       const res = await fetch("/api/packs/check-serial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serialNumber: barcode }),
+        body: JSON.stringify({ serialNumber: barcode, liveScan: true }),
       });
 
       const data = await res.json();
