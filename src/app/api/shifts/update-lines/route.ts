@@ -4,6 +4,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 
+interface ShiftLineRecord {
+  id: string;
+  beginningTicket: number;
+  shift: {
+    storeId: string;
+  };
+  pack: {
+    currentTicketNumber: number | null;
+    game: {
+      price: number;
+    };
+  };
+}
+
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) {
@@ -42,7 +56,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No shift lines provided." }, { status: 400 });
     }
 
-    const lineRecords = await prisma.shiftLine.findMany({
+    const lineRecords = (await prisma.shiftLine.findMany({
       where: {
         id: {
           in: lineIds,
@@ -56,7 +70,7 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-    });
+    })) as ShiftLineRecord[];
 
     if (lineRecords.length !== lineIds.length) {
       return NextResponse.json({ error: "Some shift lines were not found." }, { status: 404 });
@@ -72,7 +86,7 @@ export async function POST(req: NextRequest) {
     }
 
     await prisma.$transaction(
-      lineRecords.map((lineRecord) => {
+      lineRecords.map((lineRecord: ShiftLineRecord) => {
         const beginning = Number(lineRecord.beginningTicket);
         const currentTicket =
           lineRecord.pack.currentTicketNumber === null ||
