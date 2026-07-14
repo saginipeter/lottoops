@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Search, Trash2, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ActivatePackModal } from "./activate-pack-modal";
+import { RemoveBackstockPackModal } from "./remove-backstock-pack-modal";
 
 interface BackStockListProps {
   packs: any[];
@@ -10,6 +12,9 @@ interface BackStockListProps {
 
 export function BackStockList({ packs }: BackStockListProps) {
   const [search, setSearch] = useState("");
+  const [selectedPack, setSelectedPack] = useState<any>(null);
+  const [activateModalOpen, setActivateModalOpen] = useState(false);
+  const [removeModalOpen, setRemoveModalOpen] = useState(false);
 
   const filteredPacks = useMemo(() => {
     if (!search) return packs;
@@ -23,42 +28,38 @@ export function BackStockList({ packs }: BackStockListProps) {
     );
   }, [packs, search]);
 
-  async function activatePack(id: string) {
-    const res = await fetch("/api/packs/back-stock/activate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ packId: id }),
-    });
-
-    if (res.ok) {
-      location.reload();
-    } else {
-      alert("Unable to activate pack.");
-    }
+  function openActivateModal(pack: any) {
+    setSelectedPack(pack);
+    setActivateModalOpen(true);
   }
 
-  async function deletePack(id: string) {
-    if (!confirm("Delete this pack?")) return;
+  function openRemoveModal(pack: any) {
+    setSelectedPack(pack);
+    setRemoveModalOpen(true);
+  }
 
-    const res = await fetch("/api/packs/back-stock/delete", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ packId: id }),
-    });
-
-    if (res.ok) {
-      location.reload();
-    } else {
-      alert("Unable to delete pack.");
-    }
+  function handleSuccess() {
+    // Reload the page to reflect changes
+    location.reload();
   }
 
   return (
     <div className="space-y-5">
+      {/* Modals */}
+      <ActivatePackModal
+        pack={selectedPack}
+        isOpen={activateModalOpen}
+        onClose={() => setActivateModalOpen(false)}
+        onSuccess={handleSuccess}
+        slots={[]} // TODO: Fetch available slots
+      />
+
+      <RemoveBackstockPackModal
+        pack={selectedPack}
+        isOpen={removeModalOpen}
+        onClose={() => setRemoveModalOpen(false)}
+        onSuccess={handleSuccess}
+      />
 
       {/* Search */}
 
@@ -164,18 +165,19 @@ export function BackStockList({ packs }: BackStockListProps) {
 
                     <Button
                       size="sm"
-                      onClick={() => activatePack(pack.id)}
+                      onClick={() => openActivateModal(pack)}
                     >
                       <PlayCircle size={16} />
                       Activate
                     </Button>
 
                     <Button
-                      variant="default"
+                      variant="destructive"
                       size="sm"
-                      onClick={() => deletePack(pack.id)}
+                      onClick={() => openRemoveModal(pack)}
                     >
                       <Trash2 size={16} />
+                      Remove
                     </Button>
 
                   </div>

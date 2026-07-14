@@ -15,11 +15,8 @@ export async function POST(req: NextRequest) {
 
     const {
       packId,
-      slotId,
-      activationNumber,
-      activationReceiptPhoto,
-      lotNumber,
-      firstOrLastTicket,
+      removalReason,
+      removalReasonText,
     } = await req.json();
 
     if (!packId) {
@@ -29,9 +26,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!slotId) {
+    if (!removalReason || !["RETURNED", "LOST", "OTHER"].includes(removalReason)) {
       return NextResponse.json(
-        { error: "Slot ID is required." },
+        { error: "Valid removal reason is required (RETURNED, LOST, OTHER)." },
+        { status: 400 }
+      );
+    }
+
+    if (removalReason === "OTHER" && !removalReasonText?.trim()) {
+      return NextResponse.json(
+        { error: "Reason description is required when selecting OTHER." },
         { status: 400 }
       );
     }
@@ -50,47 +54,20 @@ export async function POST(req: NextRequest) {
 
     if (pack.status !== "BACK_STOCK") {
       return NextResponse.json(
-        { error: "Only packs in BACK_STOCK can be activated." },
+        { error: "Only packs in BACK_STOCK can be removed." },
         { status: 400 }
       );
     }
 
-    // Verify slot is available
-    const slot = await prisma.displaySlot.findUnique({
-      where: { id: slotId },
-    });
-
-    if (!slot || slot.storeId !== session.storeId) {
-      return NextResponse.json(
-        { error: "Slot not found or access denied." },
-        { status: 404 }
-      );
-    }
-
-    if (slot.packId && slot.packId !== packId) {
-      return NextResponse.json(
-        { error: "Slot is already occupied." },
-        { status: 400 }
-      );
-    }
-
-    // Update pack with activation details
+    // Update pack with removal details
     const updatedPack = await prisma.pack.update({
       where: { id: packId },
       data: {
-        status: "ACTIVE",
-        activatedAt: new Date(),
-        activationNumber: activationNumber || undefined,
-        activationReceiptPhoto: activationReceiptPhoto || undefined,
-        lotNumber: lotNumber || undefined,
-        firstOrLastTicket: firstOrLastTicket || undefined,
+        status: "RETURNED",
+        removalReason,
+        removalReasonText: removalReasonText || null,
+        removalReasonAt: new Date(),
       },
-    });
-
-    // Assign pack to slot
-    await prisma.displaySlot.update({
-      where: { id: slotId },
-      data: { packId },
     });
 
     return NextResponse.json({
@@ -100,7 +77,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { error: "Unable to activate pack." },
+      { error: "Unable to remove pack." },
       { status: 500 }
     );
   }

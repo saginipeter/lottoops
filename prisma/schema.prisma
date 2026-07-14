@@ -86,38 +86,53 @@ model Game {
 }
 
 model Pack {
-  id                  String         @id @default(cuid())
-  storeId             String
-  gameId              String
-  serialNumber        String
-  status              PackStatus     @default(BACK_STOCK)
-  cost                Decimal        @db.Decimal(10, 2)
-  retailValue         Decimal        @db.Decimal(10, 2)
-  receivedAt          DateTime       @default(now())
-  receivedById        String
-  activatedAt         DateTime?
-  currentTicketNumber Int?
-  notes               String?
-  shipmentId          String?
-  activationReceipt   String?
-  firstTicket         Int?
-  gameNumber          String?
-  invoiceReceipt      String?
-  packNumber          String?
-  ticketPrice         Decimal?       @db.Decimal(10, 2)
-  ticketQuantity      Int?
-  activationNumber    String?
-  completedAt         DateTime?
-  firstOrLastTicket   String?
-  lotNumber           String?
-  packImage           String?
-  slot                DisplaySlot?
-  game                Game           @relation(fields: [gameId], references: [id])
-  receivedBy          User           @relation("PacksReceivedBy", fields: [receivedById], references: [id])
-  shipment            Shipment?      @relation(fields: [shipmentId], references: [id])
-  store               Store          @relation(fields: [storeId], references: [id])
-  scanLogs            ScanLogEntry[]
-  shiftLines          ShiftLine[]
+  id                     String              @id @default(cuid())
+  storeId                String
+  gameId                 String
+  serialNumber           String
+  status                 PackStatus          @default(BACK_STOCK)
+  cost                   Decimal             @db.Decimal(10, 2)
+  retailValue            Decimal             @db.Decimal(10, 2)
+  receivedAt             DateTime            @default(now())
+  receivedById           String
+  activatedAt            DateTime?
+  currentTicketNumber    Int?
+  notes                  String?
+  shipmentId             String?
+  activationReceipt      String?
+  firstTicket            Int?
+  gameNumber             String?
+  invoiceReceipt         String?
+  packNumber             String?
+  ticketPrice            Decimal?            @db.Decimal(10, 2)
+  ticketQuantity         Int?
+  activationNumber       String?
+  completedAt            DateTime?
+  firstOrLastTicket      String?
+  lotNumber              String?
+  packImage              String?
+   
+  // Phase 2: Backstock activation details
+  activationReceiptPhoto String?
+   
+  // Phase 2: Backstock removal tracking
+  removalReason          BackstockRemovalReason?
+  removalReasonText      String?
+  removalReasonAt        DateTime?
+   
+  // Phase 2: Active pack removal/reassignment tracking
+  activeRemovalReason    ActiveRemovalReason?
+  activeRemovalReasonText String?
+  activeRemovalReasonAt  DateTime?
+  reassignedToSlotId     String?
+   
+  slot                   DisplaySlot?
+  game                   Game                @relation(fields: [gameId], references: [id])
+  receivedBy             User                @relation("PacksReceivedBy", fields: [receivedById], references: [id])
+  shipment               Shipment?           @relation(fields: [shipmentId], references: [id])
+  store                  Store               @relation(fields: [storeId], references: [id])
+  scanLogs               ScanLogEntry[]
+  shiftLines             ShiftLine[]
 
   @@unique([storeId, serialNumber])
   @@index([storeId, status])
@@ -220,4 +235,17 @@ enum ScanAction {
   SHIFT_OPEN
   SHIFT_CLOSE
   RETURNED
+}
+
+enum BackstockRemovalReason {
+  RETURNED
+  LOST
+  OTHER
+}
+
+enum ActiveRemovalReason {
+  STOLEN
+  RETURNED
+  REASSIGNED
+  OTHER
 }
