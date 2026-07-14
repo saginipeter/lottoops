@@ -132,6 +132,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    
+
     console.log("Shipment created:", shipment);
 
     return NextResponse.json({

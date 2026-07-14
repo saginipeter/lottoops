@@ -58,6 +58,7 @@ export function InvoiceStep({
         invoicePhoto: shipment.invoicePhoto,
         shipmentConfirmationNumber: shipment.shipmentConfirmationNumber,
         confirmationReceiptPhoto: shipment.confirmationReceiptPhoto,
+        shipmentDate: shipment.shipmentDate,
         expectedPacks: shipment.expectedPacks,
       }),
     });
