@@ -61,7 +61,7 @@ https://lottoops.vercel.app/
 
 Dev credentials 
 
-Manager
+ManagerLogins
 manager@lottoops.test
 Clerk
 clerk@lottoops.test
