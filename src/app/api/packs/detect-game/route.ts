@@ -40,21 +40,20 @@ export async function GET(req: NextRequest) {
 
     // 2. Fall back to Texas Lottery synced catalog
     try {
-      const rows = await prisma.$queryRawUnsafe<
-        { name: string; game_number: string; ticket_price: number | null }[]
-      >(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = (await prisma.$queryRawUnsafe(
         `SELECT name, game_number, ticket_price
          FROM game_catalog
          WHERE store_id = $1 AND game_number = $2 AND game_type = 'scratch_off'
          LIMIT 1`,
         session.storeId,
         gameNumber
-      );
+      )) as { name: string; game_number: string; ticket_price: number | null }[];
 
       if (rows.length > 0 && rows[0].ticket_price) {
         const row = rows[0];
         // Derive tickets per pack from standard Texas Lottery table
-        const ticketsPerPack = deriveTicketsPerPack(row.ticket_price);
+        const ticketsPerPack = deriveTicketsPerPack(row.ticket_price ?? 0);
         return NextResponse.json({
           found: true,
           source: "catalog",

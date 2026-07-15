@@ -59,14 +59,13 @@ export async function POST(req: NextRequest) {
       let catalogQty = ticketQuantity;
 
       try {
-        const rows = await prisma.$queryRawUnsafe<
-          { name: string; ticket_price: number | null }[]
-        >(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rows = (await prisma.$queryRawUnsafe(
           `SELECT name, ticket_price FROM game_catalog
            WHERE store_id = $1 AND game_number = $2 LIMIT 1`,
           session.storeId,
           gameNumber
-        );
+        )) as { name: string; ticket_price: number | null }[];
         if (rows.length > 0) {
           catalogName = rows[0].name ?? catalogName;
           catalogPrice = rows[0].ticket_price ?? ticketPrice;

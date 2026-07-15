@@ -21,26 +21,8 @@ export async function GET(req: NextRequest) {
 
   try {
     // Get catalog entries from raw game_catalog table
-    const rows = await prisma.$queryRawUnsafe<
-      {
-        id: string;
-        external_key: string;
-        name: string;
-        game_type: string;
-        status: string;
-        game_number: string | null;
-        ticket_price: number | null;
-        odds: string | null;
-        top_prize: string | null;
-        prizes_claimed: number | null;
-        remaining_top_prizes: number | null;
-        end_date: string | null;
-        draw_days: unknown;
-        draw_times: unknown;
-        sales_cutoff: string | null;
-        last_synced_at: string;
-      }[]
-    >(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (await prisma.$queryRawUnsafe(
       `SELECT id, external_key, name, game_type, status, game_number, ticket_price,
               odds, top_prize, prizes_claimed, remaining_top_prizes, end_date,
               draw_days, draw_times, sales_cutoff, last_synced_at
@@ -48,14 +30,31 @@ export async function GET(req: NextRequest) {
        WHERE store_id = $1
        ORDER BY game_type ASC, name ASC`,
       session.storeId
-    );
+    )) as {
+      id: string;
+      external_key: string;
+      name: string;
+      game_type: string;
+      status: string;
+      game_number: string | null;
+      ticket_price: number | null;
+      odds: string | null;
+      top_prize: string | null;
+      prizes_claimed: number | null;
+      remaining_top_prizes: number | null;
+      end_date: string | null;
+      draw_days: unknown;
+      draw_times: unknown;
+      sales_cutoff: string | null;
+      last_synced_at: string;
+    }[];
 
     // Get store's already-added game numbers for cross-reference
     const storeGames = await prisma.game.findMany({
       where: { storeId: session.storeId },
       select: { gameNumber: true, id: true, active: true },
     });
-    const addedGameNumbers = new Set(storeGames.map((g) => g.gameNumber));
+    const addedGameNumbers = new Set(storeGames.map((g: { gameNumber: string | null }) => g.gameNumber));
 
     // Filter
     let filtered = rows;
@@ -117,13 +116,12 @@ export async function POST(req: NextRequest) {
 
   try {
     // Look up the catalog entry
-    const rows = await prisma.$queryRawUnsafe<
-      { name: string; game_number: string | null; ticket_price: number | null }[]
-    >(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (await prisma.$queryRawUnsafe(
       `SELECT name, game_number, ticket_price FROM game_catalog WHERE store_id = $1 AND external_key = $2 LIMIT 1`,
       session.storeId,
       externalKey
-    );
+    )) as { name: string; game_number: string | null; ticket_price: number | null }[];
 
     if (!rows.length) return NextResponse.json({ error: "Catalog entry not found." }, { status: 404 });
 
