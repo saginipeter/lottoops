@@ -16,6 +16,8 @@ import {
   ChevronDown,
   Gamepad2,
   Radio,
+  Users,
+  Building2,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -26,6 +28,7 @@ interface NavItem {
   badge?: string;
   alert?: boolean;
   managerOnly?: boolean;
+  ownerOnly?: boolean;
 }
 
 interface NavSection {
@@ -89,7 +92,9 @@ const navSections: NavSection[] = [
   {
     label: "Administration",
     items: [
+      { href: "/owner", label: "All Stores", icon: Building2, ownerOnly: true },
       { href: "/games", label: "Games", icon: Gamepad2, managerOnly: true },
+      { href: "/settings/users", label: "Staff", icon: Users, managerOnly: true },
       { href: "/settings/tv-display", label: "TV Display", icon: Tv, managerOnly: true },
       { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
     ],
@@ -97,9 +102,10 @@ const navSections: NavSection[] = [
 ];
 
 const roleLabel: Record<string, string> = {
-  MANAGER: "Manager",
-  CLERK: "Clerk",
-  VIEWER: "Viewer",
+  OWNER:      "Owner",
+  MANAGER:    "Manager",
+  SHIFT_LEAD: "Shift Lead",
+  EMPLOYEE:   "Employee",
 };
 
 interface SidebarProps {
@@ -140,7 +146,8 @@ function NavRow({ item, isActive }: { item: NavItem; isActive: boolean }) {
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
-  const isManager = user.role === "MANAGER";
+  const isManager = user.role === "MANAGER" || user.role === "OWNER";
+  const isOwner = user.role === "OWNER";
 
   return (
     <aside className="flex h-full w-[200px] flex-col bg-sidebar">
@@ -167,7 +174,7 @@ export function Sidebar({ user }: SidebarProps) {
 
         {navSections.map((section) => {
           const visibleItems = section.items.filter(
-            (item) => !item.managerOnly || isManager
+            (item) => (!item.managerOnly || isManager) && (!item.ownerOnly || isOwner)
           );
           if (visibleItems.length === 0) return null;
 

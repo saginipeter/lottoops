@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "VIEWER") {
+  if (session.role === "EMPLOYEE") {
     return NextResponse.json(
       { error: "You don't have permission to fill slots" },
       { status: 403 }

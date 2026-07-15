@@ -13,13 +13,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (session.role === "VIEWER") {
-      return NextResponse.json(
-        { error: "You don't have permission to open shifts." },
-        { status: 403 }
-      );
-    }
-
     if (!prisma) {
       return NextResponse.json(
         { error: "Database not connected" },

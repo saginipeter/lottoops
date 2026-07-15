@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "VIEWER") {
+  if (session.role === "EMPLOYEE") {
     return NextResponse.json(
       { error: "You don't have permission to activate packs" },
       { status: 403 }
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       });
       if (existingPack && existingPack.status === "ACTIVE") {
         return NextResponse.json(
-          { error: "This slot already has an active pack — close it out first" },
+          { error: "This slot already has an active pack â€” close it out first" },
           { status: 409 }
         );
       }
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
           action: "ACTIVATED",
           packId: pack.id,
           performedById: session.userId,
-          detail: `Activated to slot ${slotNumber} — ${pack.game.name}, starting at ticket ${startingTicketNumber}`,
+          detail: `Activated to slot ${slotNumber} â€” ${pack.game.name}, starting at ticket ${startingTicketNumber}`,
         },
       }),
     ]);

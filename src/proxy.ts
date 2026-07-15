@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySession, SESSION_COOKIE } from "@/lib/session";
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ["/login"];
+const PUBLIC_ROUTES = ["/login", "/setup"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -12,6 +12,7 @@ export async function proxy(req: NextRequest) {
     PUBLIC_ROUTES.includes(pathname) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth/login") ||
+    pathname.startsWith("/api/setup") ||
     pathname.startsWith("/favicon")
   ) {
     return NextResponse.next();
@@ -35,19 +36,40 @@ export async function proxy(req: NextRequest) {
     return response;
   }
 
-  // Role-based route guards
-  // Viewers can only see the dashboard overview and reports
-  if (
-    session.role === "VIEWER" &&
-    !pathname.startsWith("/reports") &&
-    pathname !== "/"
-  ) {
+  // Only owners can access the owner dashboard
+  if (pathname.startsWith("/owner") && session.role !== "OWNER") {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // Clerks cannot access settings or staff management
-  if (session.role === "CLERK" && pathname.startsWith("/settings")) {
-    return NextResponse.redirect(new URL("/", req.url));
+  // EMPLOYEE: shift open/close + live scan only — no corrections, no other pages
+  if (session.role === "EMPLOYEE") {
+    const allowed =
+      pathname === "/" ||
+      pathname.startsWith("/shifts") ||
+      pathname.startsWith("/inventory/live-scan");
+    if (!allowed) return NextResponse.redirect(new URL("/shifts", req.url));
+    return NextResponse.next();
+  }
+
+  // SHIFT_LEAD: shifts + scan always allowed; other sections require granted permissions
+  if (session.role === "SHIFT_LEAD") {
+    const granted = session.grantedPermissions ?? [];
+    const alwaysAllowed =
+      pathname === "/" ||
+      pathname.startsWith("/shifts") ||
+      pathname.startsWith("/inventory/live-scan");
+
+    const conditionalAllowed =
+      (pathname.startsWith("/reports") && granted.includes("REPORTS")) ||
+      (pathname.startsWith("/inventory/receive") && granted.includes("RECEIVE_SHIPMENTS")) ||
+      (pathname.startsWith("/inventory") && granted.includes("MANAGE_BACKSTOCK")) ||
+      (pathname.startsWith("/display-slots") && granted.includes("MANAGE_DISPLAY")) ||
+      (pathname.startsWith("/games") && granted.includes("MANAGE_GAMES"));
+
+    if (!alwaysAllowed && !conditionalAllowed) {
+      return NextResponse.redirect(new URL("/shifts", req.url));
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();

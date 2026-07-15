@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "VIEWER") {
+  if (session.role === "EMPLOYEE") {
     return NextResponse.json(
       { error: "You don't have permission to create games." },
       { status: 403 }
@@ -123,7 +123,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "VIEWER") {
+  if (session.role === "EMPLOYEE") {
     return NextResponse.json(
       { error: "You don't have permission to update games." },
       { status: 403 }

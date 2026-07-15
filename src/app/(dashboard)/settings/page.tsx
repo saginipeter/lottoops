@@ -2,8 +2,14 @@ import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Panel } from "@/components/ui/panel";
 import { ExternalLink, Settings, Tv, Users } from "lucide-react";
+import { getSession } from "@/lib/get-session";
+import { redirect } from "next/navigation";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const isManager = session.role === "MANAGER";
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <Header
@@ -42,24 +48,38 @@ export default function SettingsPage() {
             </p>
           </Panel>
 
-          <Panel className="h-full p-5">
-            <div className="mb-3 inline-flex rounded-lg bg-purple-100 p-2 text-purple-700">
-              <Users size={18} />
-            </div>
-            <h3 className="text-base font-semibold text-text">Staff Roles</h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              Active roles: Manager, Clerk, Viewer. API permissions are enforced for sensitive actions.
-            </p>
-          </Panel>
+          {isManager && (
+            <Panel className="h-full p-5">
+              <div className="mb-3 inline-flex rounded-lg bg-purple-100 p-2 text-purple-700">
+                <Users size={18} />
+              </div>
+              <h3 className="text-base font-semibold text-text">Staff Management</h3>
+              <p className="mt-1 text-sm text-text-secondary">
+                Add staff members, assign roles, reset passwords, and deactivate accounts.
+              </p>
+              <div className="mt-4">
+                <Link
+                  href="/settings/users"
+                  className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90"
+                >
+                  Manage Staff
+                </Link>
+              </div>
+              <p className="mt-2 text-xs text-text-tertiary">
+                Roles: Manager | Clerk | Viewer
+              </p>
+            </Panel>
+          )}
 
-          <Panel className="h-full p-5 md:col-span-2">
+          <Panel className={`h-full p-5 ${isManager ? "" : "md:col-span-2"}`}>
             <div className="mb-3 inline-flex rounded-lg bg-gray-100 p-2 text-gray-700">
               <Settings size={18} />
             </div>
             <h3 className="text-base font-semibold text-text">System Settings</h3>
             <p className="mt-1 text-sm text-text-secondary">
-              Additional store and operational settings can be expanded here.
+              Store timezone, notification preferences, and advanced configuration.
             </p>
+            <p className="mt-3 text-xs text-text-tertiary italic">More settings coming soon.</p>
           </Panel>
         </div>
       </div>

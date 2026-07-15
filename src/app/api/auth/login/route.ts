@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
       storeName: string;
       name: string;
       email: string;
-      role: "MANAGER" | "CLERK" | "VIEWER";
+      role: "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
+      grantedPermissions: string[];
     } | null = null;
 
     // Attempt 1: real database
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
               name: user.name,
               email: user.email,
               role: user.role,
+              grantedPermissions: user.grantedPermissions ?? [],
             };
           } else {
             return NextResponse.json(
@@ -85,6 +87,7 @@ export async function POST(req: NextRequest) {
         name: mockUser.name,
         email: mockUser.email,
         role: mockUser.role,
+        grantedPermissions: mockUser.grantedPermissions ?? [],
       };
     }
 
@@ -94,6 +97,7 @@ export async function POST(req: NextRequest) {
       name: authResult.name,
       email: authResult.email,
       role: authResult.role,
+      grantedPermissions: authResult.grantedPermissions,
     });
 
     const response = NextResponse.json({

@@ -5,7 +5,8 @@ export interface SessionPayload {
   storeId: string;
   name: string;
   email: string;
-  role: "MANAGER" | "CLERK" | "VIEWER";
+  role: "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
+  grantedPermissions: string[];
 }
 
 function getSecret() {

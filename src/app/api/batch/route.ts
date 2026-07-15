@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Viewers are read-only — receiving inventory is a write action.
-  if (session.role === "VIEWER") {
+  // Viewers are read-only â€” receiving inventory is a write action.
+  if (session.role === "EMPLOYEE") {
     return NextResponse.json(
       { error: "You don't have permission to receive inventory" },
       { status: 403 }
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Reject a batch with internal duplicates before touching the database —
+  // Reject a batch with internal duplicates before touching the database â€”
   // catches a scanner double-fire or a manual typo repeated twice.
   const uniqueSerials = new Set(serialNumbers);
   if (uniqueSerials.size !== serialNumbers.length) {
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for serials that already exist in this store's data — this is
+    // Check for serials that already exist in this store's data â€” this is
     // a defense-in-depth check ahead of the DB unique constraint, so we can
     // return a clear list of which serials collided rather than a generic
     // constraint-violation error from a failed transaction.
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
                 storeId: session.storeId,
                 action: "RECEIVED",
                 performedById: session.userId,
-                detail: `Received into back stock — ${game.name}`,
+                detail: `Received into back stock â€” ${game.name}`,
               },
             },
           },

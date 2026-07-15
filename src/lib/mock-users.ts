@@ -7,13 +7,25 @@ export interface MockUser {
   storeId: string;
   storeName: string;
   email: string;
-  password: string; // plaintext, dev-only — never do this with a real DB
+  password: string;
   name: string;
-  role: "MANAGER" | "CLERK" | "VIEWER";
+  role: "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
+  grantedPermissions: string[];
   active: boolean;
 }
 
 export const mockUsers: MockUser[] = [
+  {
+    id: "mock-user-owner",
+    storeId: "mock-store-1",
+    storeName: "Sunrise Mart #4",
+    email: "owner@lottoops.test",
+    password: "password123",
+    name: "Store Owner",
+    role: "OWNER",
+    grantedPermissions: [],
+    active: true,
+  },
   {
     id: "mock-user-manager",
     storeId: "mock-store-1",
@@ -22,26 +34,29 @@ export const mockUsers: MockUser[] = [
     password: "password123",
     name: "Walter Opiyo",
     role: "MANAGER",
+    grantedPermissions: [],
     active: true,
   },
   {
-    id: "mock-user-clerk",
+    id: "mock-user-shiftlead",
     storeId: "mock-store-1",
     storeName: "Sunrise Mart #4",
-    email: "clerk@lottoops.test",
+    email: "shiftlead@lottoops.test",
     password: "password123",
-    name: "WalterO",
-    role: "CLERK",
+    name: "Alex Rivera",
+    role: "SHIFT_LEAD",
+    grantedPermissions: ["REPORTS", "RECEIVE_SHIPMENTS"],
     active: true,
   },
   {
-    id: "mock-user-viewer",
+    id: "mock-user-employee",
     storeId: "mock-store-1",
     storeName: "Sunrise Mart #4",
-    email: "viewer@lottoops.test",
+    email: "employee@lottoops.test",
     password: "password123",
-    name: "Walter",
-    role: "VIEWER",
+    name: "Sam Lee",
+    role: "EMPLOYEE",
+    grantedPermissions: [],
     active: true,
   },
 ];

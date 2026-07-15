@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "VIEWER") {
+  if (session.role === "EMPLOYEE") {
     return NextResponse.json(
       { error: "You don't have permission to assign packs" },
       { status: 403 }
@@ -168,7 +168,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "VIEWER") {
+  if (session.role === "EMPLOYEE") {
     return NextResponse.json(
       { error: "You don't have permission to clear display slots" },
       { status: 403 }

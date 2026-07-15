@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
 
-type UserRole = "MANAGER" | "CLERK" | "VIEWER";
+type UserRole = "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
 
 interface GameItem {
   id: string;
@@ -48,7 +48,7 @@ const initialForm: FormState = {
 };
 
 export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
-  const canManage = userRole !== "VIEWER";
+  const canManage = userRole !== "EMPLOYEE";
   const [games, setGames] = useState<GameItem[]>(initialGames);
   const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(false);

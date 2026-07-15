@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (session.role === "VIEWER") {
+    if (session.role === "EMPLOYEE") {
       return NextResponse.json(
         { error: "You don't have permission to remove back stock packs." },
         { status: 403 }

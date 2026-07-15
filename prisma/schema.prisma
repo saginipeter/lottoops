@@ -10,29 +10,33 @@ datasource db {
 }
 
 model Store {
-  id        String         @id @default(cuid())
-  name      String
-  timezone  String         @default("America/Chicago")
-  createdAt DateTime       @default(now())
-  slots     DisplaySlot[]
-  games     Game[]
-  packs     Pack[]
-  scanLogs  ScanLogEntry[]
-  shifts    Shift[]
-  shipments Shipment[]
-  users     User[]
+  id           String         @id @default(cuid())
+  name         String
+  timezone     String         @default("America/Chicago")
+  address      String?
+  phone        String?
+  createdAt    DateTime       @default(now())
+  ownerUserId  String?        // The OWNER user who created/owns this store
+  slots        DisplaySlot[]
+  games        Game[]
+  packs        Pack[]
+  scanLogs     ScanLogEntry[]
+  shifts       Shift[]
+  shipments    Shipment[]
+  users        User[]
 
   @@map("stores")
 }
 
 model User {
-  id                String         @id @default(cuid())
-  storeId           String
-  email             String         @unique
-  passwordHash      String
-  name              String
-  role              Role           @default(CLERK)
-  active            Boolean        @default(true)
+  id                 String         @id @default(cuid())
+  storeId            String
+  email              String         @unique
+  passwordHash       String
+  name               String
+  role               Role           @default(EMPLOYEE)
+  grantedPermissions String[]       @default([])
+  active             Boolean        @default(true)
   createdAt         DateTime       @default(now())
   lastLoginAt       DateTime?
   packsReceived     Pack[]         @relation("PacksReceivedBy")
@@ -207,9 +211,10 @@ model ScanLogEntry {
 }
 
 enum Role {
+  OWNER
   MANAGER
-  CLERK
-  VIEWER
+  SHIFT_LEAD
+  EMPLOYEE
 }
 
 enum ShipmentStatus {

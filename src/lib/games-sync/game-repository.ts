@@ -95,6 +95,9 @@ export class PrismaGameRepository implements GameRepository {
     const normalizedName = normalizeName(game.name);
     const nowIso = new Date().toISOString();
 
+    // All TIMESTAMPTZ columns need an explicit ::timestamptz cast when
+    // passed as text parameters via $executeRawUnsafe — PostgreSQL does not
+    // auto-coerce text → timestamptz in parameterized queries.
     await this.prismaClient.$executeRawUnsafe(
       `
       INSERT INTO game_catalog (
@@ -104,80 +107,69 @@ export class PrismaGameRepository implements GameRepository {
         draw_days, draw_times, sales_cutoff, broadcast_time, next_draw_at, updated_at
       )
       VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
-        $13,$14,$15,$16,$17,$18,$19::jsonb,$20::jsonb,$21,$22,$23,$24
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,
+        $10::timestamptz,
+        $11,$12,$13,$14,$15,$16,
+        $17::timestamptz,
+        $18::timestamptz,
+        $19::jsonb,$20::jsonb,
+        $21,$22,
+        $23::timestamptz,
+        $24::timestamptz
       )
       ON CONFLICT (store_id, external_key)
       DO UPDATE SET
-        normalized_name = EXCLUDED.normalized_name,
-        name = EXCLUDED.name,
-        game_type = EXCLUDED.game_type,
-        status = EXCLUDED.status,
-        source_url = EXCLUDED.source_url,
-        source_type = EXCLUDED.source_type,
-        last_synced_at = EXCLUDED.last_synced_at,
-        game_number = EXCLUDED.game_number,
-        ticket_price = EXCLUDED.ticket_price,
-        odds = EXCLUDED.odds,
-        top_prize = EXCLUDED.top_prize,
-        prizes_claimed = EXCLUDED.prizes_claimed,
+        normalized_name    = EXCLUDED.normalized_name,
+        name               = EXCLUDED.name,
+        game_type          = EXCLUDED.game_type,
+        status             = EXCLUDED.status,
+        source_url         = EXCLUDED.source_url,
+        source_type        = EXCLUDED.source_type,
+        last_synced_at     = EXCLUDED.last_synced_at,
+        game_number        = EXCLUDED.game_number,
+        ticket_price       = EXCLUDED.ticket_price,
+        odds               = EXCLUDED.odds,
+        top_prize          = EXCLUDED.top_prize,
+        prizes_claimed     = EXCLUDED.prizes_claimed,
         remaining_top_prizes = EXCLUDED.remaining_top_prizes,
-        start_date = EXCLUDED.start_date,
-        end_date = EXCLUDED.end_date,
-        draw_days = EXCLUDED.draw_days,
-        draw_times = EXCLUDED.draw_times,
-        sales_cutoff = EXCLUDED.sales_cutoff,
-        broadcast_time = EXCLUDED.broadcast_time,
-        next_draw_at = EXCLUDED.next_draw_at,
-        updated_at = EXCLUDED.updated_at
+        start_date         = EXCLUDED.start_date,
+        end_date           = EXCLUDED.end_date,
+        draw_days          = EXCLUDED.draw_days,
+        draw_times         = EXCLUDED.draw_times,
+        sales_cutoff       = EXCLUDED.sales_cutoff,
+        broadcast_time     = EXCLUDED.broadcast_time,
+        next_draw_at       = EXCLUDED.next_draw_at,
+        updated_at         = EXCLUDED.updated_at
       `,
-      makeId("gc"),
-      storeId,
-      game.externalId,
-      normalizedName,
-      game.name,
-      game.gameType,
-      game.status,
-      game.sourceUrl,
-      game.sourceType,
-      nowIso,
-      game.gameNumber ?? null,
-      game.price ?? null,
-      game.odds ?? null,
-      game.topPrize ?? null,
-      game.prizesClaimed ?? null,
-      game.remainingTopPrizes ?? null,
-      game.startDate?.toISOString() ?? null,
-      game.endDate?.toISOString() ?? null,
-      JSON.stringify(game.drawDays ?? []),
-      JSON.stringify(game.drawTimes ?? []),
-      game.salesCutoff ?? null,
-      game.broadcastTime ?? null,
-      game.nextDrawAt?.toISOString() ?? null,
-      nowIso
+      makeId("gc"),                           // $1
+      storeId,                                // $2
+      game.externalId,                        // $3
+      normalizedName,                         // $4
+      game.name,                              // $5
+      game.gameType,                          // $6
+      game.status,                            // $7
+      game.sourceUrl,                         // $8
+      game.sourceType,                        // $9
+      nowIso,                                 // $10  → ::timestamptz
+      game.gameNumber ?? null,                // $11
+      game.price ?? null,                     // $12
+      game.odds ?? null,                      // $13
+      game.topPrize ?? null,                  // $14
+      game.prizesClaimed ?? null,             // $15
+      game.remainingTopPrizes ?? null,        // $16
+      game.startDate?.toISOString() ?? null,  // $17  → ::timestamptz
+      game.endDate?.toISOString() ?? null,    // $18  → ::timestamptz
+      JSON.stringify(game.drawDays ?? []),    // $19  → ::jsonb
+      JSON.stringify(game.drawTimes ?? []),   // $20  → ::jsonb
+      game.salesCutoff ?? null,               // $21
+      game.broadcastTime ?? null,             // $22
+      game.nextDrawAt?.toISOString() ?? null, // $23  → ::timestamptz
+      nowIso                                  // $24  → ::timestamptz  (updated_at)
     );
 
-    await this.prismaClient.game.upsert({
-      where: {
-        storeId_gameNumber: {
-          storeId,
-          gameNumber,
-        },
-      },
-      create: {
-        storeId,
-        gameNumber,
-        name: game.name,
-        price: game.price ?? 0.01,
-        ticketsPerPack: game.gameType === "scratch_off" ? 150 : 1,
-        active: isActive,
-      },
-      update: {
-        name: game.name,
-        price: game.price ?? undefined,
-        active: isActive,
-      },
-    });
+    // Do NOT auto-upsert into prisma.game (store-scoped catalog).
+    // The sync only populates the game_catalog reference table.
+    // Store managers add games to their catalog explicitly from the Games page.
   }
 
   async enqueueManualReview(
@@ -213,7 +205,7 @@ export class PrismaGameRepository implements GameRepository {
         id, store_id, started_at, completed_at, processed,
         created_or_updated, unknown_count, source_failures
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+      VALUES ($1,$2,$3::timestamptz,$4::timestamptz,$5,$6,$7,$8::jsonb)
       `,
       makeId("gsl"),
       summary.storeId,

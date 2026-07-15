@@ -24,13 +24,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "VIEWER") {
-    return NextResponse.json(
-      { error: "You don't have permission to update shift lines." },
-      { status: 403 }
-    );
-  }
-
   if (!prisma) {
     return NextResponse.json(
       { error: "Database not connected" },
