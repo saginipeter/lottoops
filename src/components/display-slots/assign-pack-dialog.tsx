@@ -18,8 +18,10 @@ interface Props {
 
 interface BackStockPack {
   id: string;
+  status: "BACK_STOCK" | "ACTIVE";
   gameNumber?: string | null;
   packNumber?: string | null;
+  currentTicketNumber?: number | null;
   ticketQuantity?: number | null;
   game: {
     name: string;
@@ -37,7 +39,7 @@ export default function AssignPackDialog({
     if (!open) return;
 
     async function loadPacks() {
-      const res = await fetch("/api/packs/back-stock");
+      const res = await fetch("/api/packs/back-stock?includeActive=true");
       const data = await res.json();
 
       if (!res.ok) {
@@ -85,12 +87,12 @@ export default function AssignPackDialog({
 
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Select Back Stock Pack</DialogTitle>
+          <DialogTitle>Select Pack to Assign</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           {packs.length === 0 && (
-            <p className="text-sm text-gray-500">No packs available.</p>
+            <p className="text-sm text-gray-500">No back-stock or unassigned active packs available.</p>
           )}
 
           {packs.map((pack) => (
@@ -103,6 +105,14 @@ export default function AssignPackDialog({
                 <p className="text-sm">Game #{pack.gameNumber ?? "N/A"}</p>
                 <p className="text-sm">Pack #{pack.packNumber ?? "N/A"}</p>
                 <p className="text-sm">{pack.ticketQuantity ?? 0} tickets</p>
+                <p className="text-xs text-gray-500">
+                  Status: {pack.status === "ACTIVE" ? "Active Stock" : "Back Stock"}
+                </p>
+                {pack.status === "ACTIVE" && (
+                  <p className="text-xs text-gray-500">
+                    Current ticket: {pack.currentTicketNumber ?? 0}
+                  </p>
+                )}
               </div>
 
               <Button disabled={loading} onClick={() => assign(pack.id)}>

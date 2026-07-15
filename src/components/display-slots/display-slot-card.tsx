@@ -80,10 +80,12 @@ export default function DisplaySlotCard({
 
   const ticketQuantity = slot.pack.ticketQuantity ?? 0;
   const firstTicket = slot.pack.firstTicket ?? 0;
-  const currentTicketNumber = slot.pack.currentTicketNumber ?? firstTicket;
-  const soldCount = Math.max(currentTicketNumber - firstTicket, 0);
-  const remaining = Math.max(ticketQuantity - soldCount, 0);
-  const percent = ticketQuantity > 0 ? (remaining / ticketQuantity) * 100 : 0;
+  const totalTickets = ticketQuantity > 0 ? ticketQuantity : firstTicket;
+  const beginningTicket = firstTicket > 0 ? firstTicket : totalTickets;
+  const currentTicketNumber = slot.pack.currentTicketNumber ?? beginningTicket;
+  const soldCount = Math.max(beginningTicket - currentTicketNumber, 0);
+  const remaining = Math.max(totalTickets - soldCount, 0);
+  const percent = totalTickets > 0 ? (remaining / totalTickets) * 100 : 0;
 
   return (
     <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white p-6 shadow-sm">
@@ -98,6 +100,15 @@ export default function DisplaySlotCard({
         <p className="font-semibold text-text">{slot.pack.game.name}</p>
         <p className="text-sm text-text-secondary">Game {slot.pack.gameNumber ?? "N/A"}</p>
         <p className="text-sm text-text-secondary">Pack {slot.pack.packNumber ?? "N/A"}</p>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-emerald-100 bg-white/80 p-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-emerald-700/80">
+          Current Scratch Card
+        </p>
+        <p className="text-4xl font-extrabold tracking-tight text-emerald-700">
+          {currentTicketNumber}
+        </p>
       </div>
 
       <div className="mt-6">

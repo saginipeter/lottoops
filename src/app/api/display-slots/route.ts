@@ -106,9 +106,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Pack not found." }, { status: 404 });
     }
 
-    if (pack.status !== "BACK_STOCK") {
+    if (pack.status !== "BACK_STOCK" && pack.status !== "ACTIVE") {
       return NextResponse.json(
-        { error: "Only back stock packs can be assigned." },
+        { error: "Only back stock or unassigned active packs can be assigned." },
         { status: 409 }
       );
     }
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
       );
     }
 
-    await prisma.$transaction([
+    const txOps: any[] = [
       prisma.displaySlot.update({
         where: {
           id: slot.id,
@@ -129,26 +129,36 @@ export async function POST(req: Request) {
           packId,
         },
       }),
-      prisma.pack.update({
-        where: {
-          id: pack.id,
-        },
-        data: {
-          status: "ACTIVE",
-          activatedAt: new Date(),
-          currentTicketNumber: pack.firstTicket ?? 0,
-        },
-      }),
       prisma.scanLogEntry.create({
         data: {
           storeId: session.storeId,
           action: "ACTIVATED",
           packId: pack.id,
           performedById: session.userId,
-          detail: `Assigned pack to display slot ${slot.slotNumber}`,
+          detail:
+            pack.status === "BACK_STOCK"
+              ? `Activated and assigned pack to display slot ${slot.slotNumber}`
+              : `Assigned active pack to display slot ${slot.slotNumber}`,
         },
       }),
-    ]);
+    ];
+
+    if (pack.status === "BACK_STOCK") {
+      txOps.unshift(
+        prisma.pack.update({
+          where: {
+            id: pack.id,
+          },
+          data: {
+            status: "ACTIVE",
+            activatedAt: new Date(),
+            currentTicketNumber: pack.firstTicket ?? 0,
+          },
+        })
+      );
+    }
+
+    await prisma.$transaction(txOps);
 
     return NextResponse.json({ success: true });
   } catch (error) {

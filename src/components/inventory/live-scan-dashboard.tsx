@@ -53,6 +53,7 @@ export function LiveScanDashboard({
   const router = useRouter();
   const [barcode, setBarcode] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [reversing, setReversing] = useState(false);
   const [lastScan, setLastScan] = useState<any>(null);
   const [sales, setSales] = useState<any[]>([]);
   const [shiftStats, setShiftStats] = useState({
@@ -144,6 +145,45 @@ export function LiveScanDashboard({
       alert("Error scanning pack");
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function handleRejectLastSale() {
+    if (!lastScan?.id) {
+      alert("No recent scan to reverse.");
+      return;
+    }
+
+    const pin = window.prompt("Enter manager approval PIN to return this ticket");
+    if (pin === null) return;
+    if (!pin.trim()) {
+      alert("PIN is required.");
+      return;
+    }
+
+    try {
+      setReversing(true);
+      const res = await fetch("/api/packs/reverse-sale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packId: lastScan.id,
+          pin: pin.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Unable to reverse sale.");
+        return;
+      }
+
+      setLastRefreshTime(new Date());
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert("Unable to reverse sale.");
+    } finally {
+      setReversing(false);
     }
   }
 
@@ -284,6 +324,15 @@ export function LiveScanDashboard({
               <p className="text-sm font-medium text-green-900">
                 ✓ Pack Found: {lastScan.gameNumber}
               </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={handleRejectLastSale}
+                disabled={reversing}
+              >
+                {reversing ? "Reversing..." : "Customer Rejected - Return to Slot (PIN)"}
+              </Button>
             </div>
           )}
         </div>

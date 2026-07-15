@@ -4,11 +4,12 @@ import { Panel } from "@/components/ui/panel";
 import { ExternalLink, Settings, Tv, Users } from "lucide-react";
 import { getSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
+import { ApprovalPinCard } from "@/components/settings/approval-pin-card";
 
 export default async function SettingsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  const isManager = session.role === "MANAGER";
+  const isManagerOrOwner = session.role === "MANAGER" || session.role === "OWNER";
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -48,7 +49,7 @@ export default async function SettingsPage() {
             </p>
           </Panel>
 
-          {isManager && (
+          {isManagerOrOwner && (
             <Panel className="h-full p-5">
               <div className="mb-3 inline-flex rounded-lg bg-purple-100 p-2 text-purple-700">
                 <Users size={18} />
@@ -66,12 +67,14 @@ export default async function SettingsPage() {
                 </Link>
               </div>
               <p className="mt-2 text-xs text-text-tertiary">
-                Roles: Manager | Clerk | Viewer
+                Roles: Owner | Manager | Shift Lead | Employee
               </p>
             </Panel>
           )}
 
-          <Panel className={`h-full p-5 ${isManager ? "" : "md:col-span-2"}`}>
+          {isManagerOrOwner && <ApprovalPinCard />}
+
+          <Panel className={`h-full p-5 ${isManagerOrOwner ? "" : "md:col-span-2"}`}>
             <div className="mb-3 inline-flex rounded-lg bg-gray-100 p-2 text-gray-700">
               <Settings size={18} />
             </div>

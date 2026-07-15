@@ -9,11 +9,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const includeActive = req.nextUrl.searchParams.get("includeActive") === "true";
+  const whereClause = includeActive
+    ? {
+        storeId: session.storeId,
+        OR: [
+          { status: "BACK_STOCK" as const },
+          { status: "ACTIVE" as const, slot: null },
+        ],
+      }
+    : {
+        storeId: session.storeId,
+        status: "BACK_STOCK" as const,
+      };
+
   const packs = await prisma.pack.findMany({
-    where: {
-      storeId: session.storeId,
-      status: "BACK_STOCK",
-    },
+    where: whereClause,
 
     include: {
       game: true,
