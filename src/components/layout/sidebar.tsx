@@ -112,6 +112,7 @@ interface SidebarProps {
   user: {
     name: string;
     role: string;
+    storeName: string;
     initials: string;
   };
 }
@@ -151,9 +152,9 @@ export function Sidebar({ user }: SidebarProps) {
 
   return (
     <aside className="flex h-full w-[200px] flex-col bg-sidebar">
-      {/* Logo */}
-      <div className="border-b border-sidebar-border px-4 py-4">
-        <div className="flex items-center gap-2">
+      {/* Logo + Store Name */}
+      <div className="border-b border-sidebar-border px-4 py-3">
+        <div className="flex items-center gap-2 mb-2">
           <Image
             src="/brand/lottoops-logo.png"
             alt="LottoOps"
@@ -165,6 +166,10 @@ export function Sidebar({ user }: SidebarProps) {
           <div className="text-[9px] uppercase tracking-wider text-white/35 mt-3 -ml-0.5">
             Texas Lottery
           </div>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1.5">
+          <Building2 size={11} className="shrink-0 text-accent/70" />
+          <span className="truncate text-[11px] font-medium text-white/75">{user.storeName}</span>
         </div>
       </div>
 

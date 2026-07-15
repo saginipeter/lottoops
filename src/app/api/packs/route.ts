@@ -46,29 +46,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find the game
-
-
-
+    // Find or create the game for this pack.
+    // Priority: store catalog → TX sync catalog → create with provided data
     let game = await prisma.game.findFirst({
-        where: {
-            storeId: session.storeId,
-            gameNumber,
-        },
-        });
+      where: { storeId: session.storeId, gameNumber },
+    });
 
-        if (!game) {
-        game = await prisma.game.create({
-            data: {
-            storeId: session.storeId,
-            gameNumber,
-            name: `Game ${gameNumber}`,
-            price: ticketPrice,
-            ticketsPerPack: ticketQuantity,
-            active: true,
-            },
-        });
+    if (!game) {
+      // Try to get name/price from TX Lottery catalog
+      let catalogName = `Game ${gameNumber}`;
+      let catalogPrice = ticketPrice;
+      let catalogQty = ticketQuantity;
+
+      try {
+        const rows = await prisma.$queryRawUnsafe<
+          { name: string; ticket_price: number | null }[]
+        >(
+          `SELECT name, ticket_price FROM game_catalog
+           WHERE store_id = $1 AND game_number = $2 LIMIT 1`,
+          session.storeId,
+          gameNumber
+        );
+        if (rows.length > 0) {
+          catalogName = rows[0].name ?? catalogName;
+          catalogPrice = rows[0].ticket_price ?? ticketPrice;
         }
+      } catch {
+        // game_catalog may not exist yet — use provided values
+      }
+
+      game = await prisma.game.create({
+        data: {
+          storeId: session.storeId,
+          gameNumber,
+          name: catalogName,
+          price: catalogPrice,
+          ticketsPerPack: catalogQty,
+          active: true,
+        },
+      });
+    }
 
     const pack = await prisma.pack.create({
       data: {
