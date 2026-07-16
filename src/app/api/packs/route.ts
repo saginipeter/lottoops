@@ -29,6 +29,13 @@ export async function POST(req: NextRequest) {
       firstOrLastTicket,
     } = body;
 
+    if (!/^\d{7}$/.test(String(packNumber ?? ""))) {
+      return NextResponse.json(
+        { error: "Pack number must be exactly 7 digits." },
+        { status: 400 }
+      );
+    }
+
     // Prevent duplicate scans
     const existing = await prisma.pack.findUnique({
       where: {

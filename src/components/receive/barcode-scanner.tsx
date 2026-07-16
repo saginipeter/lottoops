@@ -24,7 +24,7 @@ export function BarcodeScanner({
 
       const cleaned = barcode.replace(/\s/g, "");
 
-      if (cleaned.length >= 13) {
+      if (cleaned.length >= 14) {
         onChange(cleaned);
       }
 
@@ -67,7 +67,7 @@ export function BarcodeScanner({
         value={barcode}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        placeholder="2632 002947 025"
+        placeholder="2632 0029470 025"
 
         className="
           w-full
@@ -161,7 +161,7 @@ export function BarcodeScanner({
           <div>
 
             <div className="font-mono text-lg font-bold">
-              002947
+              0029470
             </div>
 
             <div className="text-xs text-gray-500">

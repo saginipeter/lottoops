@@ -8,19 +8,19 @@ export interface ParsedBarcode {
  * Parses a lottery pack barcode.
  *
  * Expected format:
- * Game(4) + Pack(3) + FirstTicket(3)
+ * Game(4) + Pack(7) + FirstTicket(3)
  *
  * Example:
- * 273900120000
+ * 2739002947000
  *
  * Game Number   = 2739
- * Pack Number   = 001
+ * Pack Number   = 0029470
  * First Ticket  = 000
  */
 export function parseBarcode(barcode: string): ParsedBarcode {
   const cleaned = barcode.replace(/\D/g, "");
 
-  if (cleaned.length < 10) {
+  if (cleaned.length < 14) {
     return {
       gameNumber: "",
       packNumber: "",
@@ -30,7 +30,7 @@ export function parseBarcode(barcode: string): ParsedBarcode {
 
   return {
     gameNumber: cleaned.substring(0, 4),
-    packNumber: cleaned.substring(4, 10),
-    firstTicket: cleaned.substring(10, 13),
+    packNumber: cleaned.substring(4, 11),
+    firstTicket: cleaned.substring(11, 14),
   };
 }

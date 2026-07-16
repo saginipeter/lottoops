@@ -95,6 +95,7 @@ export function ScanStep({
 
   async function handleAddPack() {
     if (!gameNumber || !packNumber) return;
+    if (!/^\d{7}$/.test(packNumber)) { alert("Pack number must be exactly 7 digits."); return; }
     if (!packImage) { alert("Please upload a pack image."); return; }
 
     try {
