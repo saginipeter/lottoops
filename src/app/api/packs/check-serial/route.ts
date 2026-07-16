@@ -24,14 +24,40 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Check if pack already exists (live scan mode)
-    const existingPack = await prisma.pack.findFirst({
+    // Check if pack already exists by exact serial first
+    let existingPack = await prisma.pack.findFirst({
       where: { storeId: session.storeId, serialNumber },
       include: {
         game: true,
         slot: true,
       },
     });
+
+    // Live scan fallback: a scanned ticket barcode may differ by ticket number.
+    // Match active display pack by Game(4)+Pack(7) prefix when exact serial misses.
+    if (!existingPack && liveScan === true) {
+      const cleaned = serialNumber.replace(/\D/g, "");
+      if (cleaned.length >= 11) {
+        const parsedGameNumber = cleaned.substring(0, 4);
+        const parsedPackNumber = cleaned.substring(4, 11);
+        existingPack = await prisma.pack.findFirst({
+          where: {
+            storeId: session.storeId,
+            status: "ACTIVE",
+            gameNumber: parsedGameNumber,
+            packNumber: parsedPackNumber,
+            slot: { isNot: null },
+          },
+          include: {
+            game: true,
+            slot: true,
+          },
+          orderBy: {
+            activatedAt: "desc",
+          },
+        });
+      }
+    }
 
     if (existingPack) {
       if (liveScan === true) {
