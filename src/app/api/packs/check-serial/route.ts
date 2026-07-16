@@ -41,6 +41,12 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+        if (!existingPack.slot) {
+          return NextResponse.json(
+            { error: "Pack must be assigned to a display slot before live scan." },
+            { status: 400 }
+          );
+        }
 
         const openShift = await prisma.shift.findFirst({
           where: {
@@ -69,8 +75,7 @@ export async function POST(req: NextRequest) {
 
         const line = openShift.lines[0];
         const beginning = Number(line.beginningTicket ?? 0);
-        const currentTicket =
-          existingPack.currentTicketNumber ?? beginning;
+        const currentTicket = existingPack.currentTicketNumber ?? beginning;
 
         if (currentTicket <= 0) {
           return NextResponse.json(

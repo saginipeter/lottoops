@@ -52,9 +52,10 @@ export default async function LiveScanPage() {
   // Fetch active packs for the store
   const activePacks = await prisma.pack.findMany({
     where: {
+      storeId: session.storeId,
       status: "ACTIVE",
-      shipment: {
-        storeId: session.storeId,
+      slot: {
+        isNot: null,
       },
     },
     include: {

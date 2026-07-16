@@ -134,60 +134,6 @@ export function BarcodeScanner({
 
       </div>
 
-      <div className="mt-6 rounded-lg border border-dashed border-purple-300 bg-purple-50 p-4">
-
-        <p className="text-sm font-medium text-purple-700">
-
-          Barcode Format
-
-        </p>
-
-        <div className="mt-3 flex items-center justify-between text-center">
-
-          <div>
-
-            <div className="font-mono text-lg font-bold">
-              2632
-            </div>
-
-            <div className="text-xs text-gray-500">
-              Game #
-            </div>
-
-          </div>
-
-          <div className="text-gray-400">|</div>
-
-          <div>
-
-            <div className="font-mono text-lg font-bold">
-              0029470
-            </div>
-
-            <div className="text-xs text-gray-500">
-              Pack #
-            </div>
-
-          </div>
-
-          <div className="text-gray-400">|</div>
-
-          <div>
-
-            <div className="font-mono text-lg font-bold">
-              025
-            </div>
-
-            <div className="text-xs text-gray-500">
-              First Ticket
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
     </div>
   );
 }
