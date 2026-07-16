@@ -140,12 +140,6 @@ export function ScanStep({
           <h2 className="mb-5 text-xl font-semibold">Step 5: Scan Lottery Pack</h2>
           <BarcodeScanner barcode={barcode} onChange={handleScan} />
 
-          <div className="mt-6 grid grid-cols-3 gap-4">
-            <InfoCard label="Game #" value={gameNumber} />
-            <InfoCard label="Pack #" value={packNumber} />
-            <InfoCard label="First Ticket" value={firstTicket} />
-          </div>
-
           {/* Auto-detection result */}
           {gameNumber && (
             <div className="mt-4">
@@ -253,15 +247,6 @@ export function ScanStep({
           <Button className="w-full" onClick={nextStep} disabled={packs.length === 0}>Review Shipment →</Button>
         </div>
       </ShipmentSummary>
-    </div>
-  );
-}
-
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-surface-soft p-4">
-      <p className="mb-1 text-xs uppercase tracking-wide text-text-secondary">{label}</p>
-      <p className="font-mono text-lg font-semibold">{value || "--"}</p>
     </div>
   );
 }
