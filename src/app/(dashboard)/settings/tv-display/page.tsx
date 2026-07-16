@@ -53,6 +53,7 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
         slotNumber: slot.slotNumber,
         gameName: pack.game.name,
         gameNumber: pack.game.gameNumber,
+        gameImage: pack.packImage ?? null,
         ticketPrice: Number(pack.game.price),
         remaining,
         sold,

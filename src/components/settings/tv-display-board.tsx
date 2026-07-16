@@ -10,6 +10,7 @@ type TvDisplaySlot = {
   slotNumber: string;
   gameName: string;
   gameNumber: string;
+  gameImage?: string | null;
   ticketPrice: number;
   remaining: number;
   sold: number;
@@ -30,6 +31,7 @@ export function TvDisplayBoard({
   const router = useRouter();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date>(new Date());
   const [now, setNow] = useState<Date>(new Date());
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 1000);
@@ -132,7 +134,26 @@ export function TvDisplayBoard({
                   <span className="text-xs text-white/70">Game #{slot.gameNumber}</span>
                 </div>
 
-                <h3 className="mt-3 text-xl font-semibold">{slot.gameName}</h3>
+                <div className="mt-3 flex items-center gap-3">
+                  {slot.gameImage && !brokenImages[slot.id] ? (
+                    <img
+                      src={slot.gameImage}
+                      alt={slot.gameName}
+                      className="h-14 w-14 rounded-lg border border-white/20 bg-white/10 object-cover"
+                      onError={() =>
+                        setBrokenImages((prev) => ({
+                          ...prev,
+                          [slot.id]: true,
+                        }))
+                      }
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-lg font-semibold text-cyan-200">
+                      {slot.gameName.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <h3 className="text-xl font-semibold">{slot.gameName}</h3>
+                </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-lg bg-white/10 p-3">
@@ -165,4 +186,3 @@ export function TvDisplayBoard({
     </div>
   );
 }
-
