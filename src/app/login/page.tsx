@@ -17,7 +17,7 @@ const features = [
   {
     icon: ShieldCheck,
     label: "Role-based access",
-    sub: "Manager, Clerk, and Viewer permissions",
+    sub: "Owner, Manager, Shift Lead, and Employee permissions",
   },
   {
     icon: Tv,
@@ -111,30 +111,6 @@ export default function LoginPage() {
             <LoginForm />
           </Suspense>
 
-          {/* Dev hint — remove before going live, or once a real DB is wired up */}
-          <div className="mt-6 rounded-md border border-border bg-surface p-3.5">
-            <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
-              Dev credentials (offline mock data)
-            </p>
-            <div className="flex flex-col gap-1.5 font-mono text-[11px] text-text-secondary">
-              <div className="flex justify-between">
-                <span className="text-text-tertiary">Manager</span>
-                <span>manager@lottoops.test</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-tertiary">Clerk</span>
-                <span>clerk@lottoops.test</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-tertiary">Viewer</span>
-                <span>viewer@lottoops.test</span>
-              </div>
-              <div className="flex justify-between border-t border-border pt-1.5 mt-0.5">
-                <span className="text-text-tertiary">Password (all)</span>
-                <span>password123</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

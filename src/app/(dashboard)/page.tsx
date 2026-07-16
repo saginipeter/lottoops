@@ -1,144 +1,202 @@
+import Link from "next/link";
+import {
+  ArrowRight,
+  BarChart3,
+  Boxes,
+  ClipboardCheck,
+  Gamepad2,
+  MonitorSmartphone,
+  Radio,
+  ReceiptText,
+  ShieldCheck,
+  Store,
+} from "lucide-react";
 import { Header } from "@/components/layout/header";
-import { ShiftCard, type ShiftCardProps } from "@/components/home/shift-card";
+import { Panel } from "@/components/ui/panel";
+import { getSession } from "@/lib/get-session";
+import { prisma } from "@/lib/prisma";
 
-const cards: ShiftCardProps[] = [
+interface ActionCard {
+  href: string;
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}
+
+const operationsCards: ActionCard[] = [
   {
     href: "/shifts",
-    badgeLabel: "S",
-    badgeColor: "#3B2E7E",
-    status: "Daily",
-    statusTone: "success",
-    title: "Shift Management",
-    description: "Open and close shifts, track shift progress, and keep audit activity in one place.",
-    stat: "Open / close workflow",
-    actionLabel: "Open",
+    title: "Shift Control",
+    description: "Open, monitor, and close shift audits with full ticket reconciliation.",
+    icon: ClipboardCheck,
   },
   {
     href: "/inventory/live-scan",
-    badgeLabel: "LS",
-    badgeColor: "#1D9E75",
-    status: "Live",
-    statusTone: "neutral",
     title: "Live Scan",
-    description: "Scan tickets during the shift to keep display inventory and sales activity updated in real time.",
-    stat: "Realtime scanning",
-    actionLabel: "Scan",
+    description: "Scan sales in real time and keep display inventory synchronized.",
+    icon: Radio,
   },
   {
     href: "/inventory/receive",
-    badgeLabel: "R",
-    badgeColor: "#A33D9A",
-    status: "10 Steps",
-    statusTone: "warning",
-    title: "Receive Shipment",
-    description: "Process incoming packs with the full receiving workflow, including invoice and confirmation details.",
-    stat: "Invoice to confirmation",
-    actionLabel: "Receive",
+    title: "Receiving",
+    description: "Run the full 10-step shipment receiving workflow with image proof.",
+    icon: ReceiptText,
   },
   {
     href: "/display-slots",
-    badgeLabel: "DS",
-    badgeColor: "#6B3FA0",
-    status: "Active",
-    statusTone: "success",
     title: "Display Slots",
-    description: "Assign packs to slots and monitor what is currently active on display.",
-    stat: "Slot assignment",
-    actionLabel: "Manage",
-  },
-  {
-    href: "/inventory",
-    badgeLabel: "B",
-    badgeColor: "#E8505B",
-    status: "Inventory",
-    statusTone: "neutral",
-    title: "Back Stock",
-    description: "Review packs in back stock, activate packs, and track inventory readiness.",
-    stat: "Back stock view",
-    actionLabel: "View",
-  },
-  {
-    href: "/inventory/active",
-    badgeLabel: "A",
-    badgeColor: "#3B2E7E",
-    status: "Display",
-    statusTone: "success",
-    title: "Active Stock",
-    description: "Monitor active packs on display and handle removal or reassignment workflows.",
-    stat: "Active pack tracking",
-    actionLabel: "Open",
-  },
-  {
-    href: "/sales",
-    badgeLabel: "$",
-    badgeColor: "#1D9E75",
-    status: "Sales",
-    statusTone: "neutral",
-    title: "Sales",
-    description: "Review sales and run sales-related workflows from a single page.",
-    stat: "Sales workspace",
-    actionLabel: "Open",
-  },
-  {
-    href: "/reports",
-    badgeLabel: "RP",
-    badgeColor: "#A33D9A",
-    status: "Insights",
-    statusTone: "warning",
-    title: "Reports",
-    description: "Access summaries, scan logs, and reporting tools for daily and shift-level review.",
-    stat: "Audit & reporting",
-    actionLabel: "View",
-  },
-  {
-    href: "/games",
-    badgeLabel: "G",
-    badgeColor: "#6E6C85",
-    status: "Catalog",
-    statusTone: "neutral",
-    title: "Games",
-    description: "Manage game catalog details used across receiving, activation, and sales.",
-    stat: "Game setup",
-    actionLabel: "Manage",
-  },
-  {
-    href: "/settings",
-    badgeLabel: "ST",
-    badgeColor: "#9795A8",
-    status: "Review",
-    statusTone: "warning",
-    title: "Settings",
-    description: "Configure staff permissions and operational preferences while keeping controls centralized.",
-    stat: "System controls",
-    actionLabel: "Open",
-  },
-  {
-    href: "/settings/tv-display",
-    badgeLabel: "TV",
-    badgeColor: "#6E6C85",
-    status: "Display",
-    statusTone: "neutral",
-    title: "TV Display",
-    description: "Control TV display options for showing games and active packs on customer-facing screens.",
-    stat: "Customer screen",
-    actionLabel: "Open",
+    description: "Assign packs, monitor active stock, and keep slot status accurate.",
+    icon: MonitorSmartphone,
   },
 ];
 
-export default function HomePage() {
+const managementCards: ActionCard[] = [
+  {
+    href: "/inventory",
+    title: "Back Stock",
+    description: "Track available packs, remove/reassign with reasons, and control activation.",
+    icon: Boxes,
+  },
+  {
+    href: "/games",
+    title: "Games Catalog",
+    description: "Manage store games and Texas Lottery sync catalog from one workspace.",
+    icon: Gamepad2,
+  },
+  {
+    href: "/reports",
+    title: "Reports",
+    description: "Review sales totals, shift summaries, and operational performance trends.",
+    icon: BarChart3,
+  },
+  {
+    href: "/settings",
+    title: "Security & Settings",
+    description: "Control staff permissions, approval PIN, and enterprise governance settings.",
+    icon: ShieldCheck,
+  },
+];
+
+export default async function HomePage() {
+  const session = await getSession();
+
+  let activeDisplayPacks = 0;
+  let backStockPacks = 0;
+  let openShift = false;
+  let activeGames = 0;
+
+  if (session && prisma) {
+    const [displayCount, backStockCount, shiftCount, gamesCount] = await Promise.all([
+      prisma.displaySlot.count({
+        where: { storeId: session.storeId, packId: { not: null } },
+      }),
+      prisma.pack.count({
+        where: { storeId: session.storeId, status: "BACK_STOCK" },
+      }),
+      prisma.shift.count({
+        where: { storeId: session.storeId, status: "OPEN" },
+      }),
+      prisma.game.count({
+        where: { storeId: session.storeId, active: true },
+      }),
+    ]);
+
+    activeDisplayPacks = displayCount;
+    backStockPacks = backStockCount;
+    openShift = shiftCount > 0;
+    activeGames = gamesCount;
+  }
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <Header
-        title="Dashboard"
-        subtitle="Quick links to daily operations"
+        title="Enterprise Operations Center"
+        subtitle="Unified control for lottery inventory, sales, and compliance"
       />
+
       <div className="flex-1 overflow-y-auto px-5 py-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {cards.map((card) => (
-            <ShiftCard key={card.title} {...card} />
-          ))}
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+          <Panel className="xl:col-span-2 p-6">
+            <p className="text-xs uppercase tracking-wide text-text-tertiary">Store Overview</p>
+            <div className="mt-2 flex items-center gap-2">
+              <Store size={18} className="text-accent" />
+              <h2 className="text-xl font-semibold text-text">{session?.storeName ?? "LottoOps Store"}</h2>
+            </div>
+            <p className="mt-2 text-sm text-text-secondary">
+              Centralized operations dashboard for receiving, display control, live sales scanning, and shift audits.
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <MetricCard label="Open Shift" value={openShift ? "Yes" : "No"} />
+              <MetricCard label="Active Display Packs" value={String(activeDisplayPacks)} />
+              <MetricCard label="Back Stock Packs" value={String(backStockPacks)} />
+              <MetricCard label="Active Games" value={String(activeGames)} />
+            </div>
+          </Panel>
+
+          <Panel className="p-6">
+            <p className="text-xs uppercase tracking-wide text-text-tertiary">Priority Actions</p>
+            <div className="mt-3 space-y-2">
+              <QuickAction href="/inventory/receive" label="Start receiving shipment" />
+              <QuickAction href="/inventory/live-scan" label="Start live scan mode" />
+              <QuickAction href="/display-slots" label="Review display slot status" />
+              <QuickAction href="/reports" label="Open daily reports" />
+            </div>
+          </Panel>
         </div>
+
+        <Section title="Core Operations" cards={operationsCards} />
+        <Section title="Management & Governance" cards={managementCards} />
       </div>
     </div>
+  );
+}
+
+function Section({ title, cards }: { title: string; cards: ActionCard[] }) {
+  return (
+    <div className="mt-6">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-tertiary">{title}</h3>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => (
+          <Panel key={card.title} className="p-5">
+            <div className="flex items-start justify-between">
+              <div className="inline-flex rounded-lg bg-surface-soft p-2 text-accent">
+                <card.icon size={16} />
+              </div>
+              <Link
+                href={card.href}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+              >
+                Open
+                <ArrowRight size={12} />
+              </Link>
+            </div>
+            <h4 className="mt-3 text-base font-semibold text-text">{card.title}</h4>
+            <p className="mt-1 text-sm leading-relaxed text-text-secondary">{card.description}</p>
+          </Panel>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-soft px-3 py-2.5">
+      <p className="text-[11px] uppercase tracking-wide text-text-tertiary">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-text">{value}</p>
+    </div>
+  );
+}
+
+function QuickAction({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between rounded-md border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:bg-surface-soft"
+    >
+      <span>{label}</span>
+      <ArrowRight size={14} className="text-text-tertiary" />
+    </Link>
   );
 }
