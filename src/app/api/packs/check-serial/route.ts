@@ -53,27 +53,47 @@ export async function POST(req: NextRequest) {
             storeId: session.storeId,
             status: "OPEN",
           },
-          include: {
-            lines: {
-              where: {
-                packId: existingPack.id,
-              },
-              take: 1,
-            },
-          },
           orderBy: {
             openedAt: "desc",
           },
         });
 
-        if (!openShift || openShift.lines.length === 0) {
+        if (!openShift) {
           return NextResponse.json(
-            { error: "No open shift line found for this pack." },
+            { error: "No open shift found." },
             { status: 400 }
           );
         }
 
-        const line = openShift.lines[0];
+        let line = await prisma.shiftLine.findFirst({
+          where: {
+            shiftId: openShift.id,
+            packId: existingPack.id,
+          },
+          take: 1,
+        });
+
+        if (!line) {
+          if (!existingPack.slot) {
+            return NextResponse.json(
+              { error: "Pack must be assigned to a display slot before live scan." },
+              { status: 400 }
+            );
+          }
+
+          line = await prisma.shiftLine.create({
+            data: {
+              shiftId: openShift.id,
+              packId: existingPack.id,
+              slotNumber: existingPack.slot.slotNumber,
+              beginningTicket:
+                existingPack.currentTicketNumber ??
+                existingPack.firstTicket ??
+                0,
+            },
+          });
+        }
+
         const beginning = Number(line.beginningTicket ?? 0);
         const currentTicket = existingPack.currentTicketNumber ?? beginning;
 
