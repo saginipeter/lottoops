@@ -135,7 +135,11 @@ export async function POST(req: NextRequest) {
       }
 
       await prisma.$transaction(
-        shipmentPacks.map((pack, index) => {
+        shipmentPacks.map(
+          (
+            pack: { id: string; firstTicket: number | null; ticketQuantity: number | null },
+            index: number
+          ) => {
           const targetDisplay = availableDisplays[index];
           return prisma.pack.update({
             where: { id: pack.id },
@@ -148,7 +152,8 @@ export async function POST(req: NextRequest) {
               },
             },
           });
-        })
+          }
+        )
       );
     }
 
