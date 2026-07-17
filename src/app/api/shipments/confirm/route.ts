@@ -13,7 +13,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { shipmentId, destination, notes } = await req.json();
+    const {
+      shipmentId,
+      destination,
+      notes,
+      expectedTickets,
+      expectedRetailValue,
+    } = await req.json();
 
     if (!shipmentId) {
       return NextResponse.json(
@@ -36,12 +42,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Count scanned packs
-    const scanned = await prisma.pack.count({
+    const shipmentPacks = await prisma.pack.findMany({
       where: {
         shipmentId,
       },
+      select: {
+        id: true,
+        firstTicket: true,
+        ticketQuantity: true,
+        ticketPrice: true,
+      },
     });
+
+    const scanned = shipmentPacks.length;
 
     if (scanned !== shipment.expectedPacks) {
       return NextResponse.json(
@@ -52,17 +65,88 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If destination is "active", update packs to ACTIVE status
+    const parsedExpectedTickets = Number(expectedTickets);
+    const parsedExpectedRetailValue = Number(expectedRetailValue);
+    const scannedTickets = shipmentPacks.reduce(
+      (sum, pack) => sum + Number(pack.ticketQuantity ?? 0),
+      0
+    );
+    const scannedRetailValue = shipmentPacks.reduce(
+      (sum, pack) =>
+        sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
+      0
+    );
+
+    if (!Number.isInteger(parsedExpectedTickets) || parsedExpectedTickets <= 0) {
+      return NextResponse.json(
+        { error: "Expected invoice tickets are required for confirmation." },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(parsedExpectedRetailValue) || parsedExpectedRetailValue <= 0) {
+      return NextResponse.json(
+        { error: "Expected invoice total value is required for confirmation." },
+        { status: 400 }
+      );
+    }
+
+    if (parsedExpectedTickets !== scannedTickets) {
+      return NextResponse.json(
+        {
+          error: `Invoice tickets (${parsedExpectedTickets}) do not match scanned tickets (${scannedTickets}).`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      Math.round(parsedExpectedRetailValue * 100) !==
+      Math.round(scannedRetailValue * 100)
+    ) {
+      return NextResponse.json(
+        {
+          error: `Invoice value ($${parsedExpectedRetailValue.toFixed(2)}) does not match scanned value ($${scannedRetailValue.toFixed(2)}).`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // If destination is "active", activate only with display assignment.
     if (destination === "active") {
-      await prisma.pack.updateMany({
+      const availableDisplays = await prisma.displaySlot.findMany({
         where: {
-          shipmentId,
+          storeId: shipment.storeId,
+          packId: null,
         },
-        data: {
-          status: "ACTIVE",
-          activatedAt: new Date(),
-        },
+        orderBy: { slotNumber: "asc" },
       });
+
+      if (availableDisplays.length < shipmentPacks.length) {
+        return NextResponse.json(
+          {
+            error: `Cannot activate shipment: ${shipmentPacks.length} packs need display assignment, but only ${availableDisplays.length} displays are free.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      await prisma.$transaction(
+        shipmentPacks.map((pack, index) => {
+          const targetDisplay = availableDisplays[index];
+          return prisma.pack.update({
+            where: { id: pack.id },
+            data: {
+              status: "ACTIVE",
+              activatedAt: new Date(),
+              currentTicketNumber: pack.firstTicket ?? pack.ticketQuantity ?? 0,
+              slot: {
+                connect: { id: targetDisplay.id },
+              },
+            },
+          });
+        })
+      );
     }
 
     const updatedShipment = await prisma.shipment.update({

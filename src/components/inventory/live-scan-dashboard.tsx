@@ -334,7 +334,7 @@ export function LiveScanDashboard({
                 onClick={handleRejectLastSale}
                 disabled={reversing}
               >
-                {reversing ? "Reversing..." : "Customer Rejected - Return to Slot (PIN)"}
+                {reversing ? "Reversing..." : "Customer Rejected - Return to Display (PIN)"}
               </Button>
             </div>
           )}

@@ -43,7 +43,7 @@ export function ActiveStockTable({ packs }: Props) {
 
             <tr>
 
-              <th className="p-3 text-left">Slot</th>
+              <th className="p-3 text-left">Display #</th>
 
               <th className="p-3 text-left">Game</th>
 

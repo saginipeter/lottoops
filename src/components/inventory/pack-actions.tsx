@@ -14,7 +14,7 @@ export function PackActions({
 }: PackActionsProps) {
   const router = useRouter();
   const [savingTicket, setSavingTicket] = useState(false);
-  const [movingSlot, setMovingSlot] = useState(false);
+  const [movingDisplay, setMovingDisplay] = useState(false);
   const [markingSoldOut, setMarkingSoldOut] = useState(false);
 
   async function handleUpdateCurrentTicket() {
@@ -54,18 +54,18 @@ export function PackActions({
     }
   }
 
-  async function handleMoveSlot() {
+  async function handleMoveDisplay() {
     if (pack.status !== "ACTIVE") {
       alert("Only ACTIVE packs can be moved.");
       return;
     }
 
     try {
-      setMovingSlot(true);
+      setMovingDisplay(true);
       const slotsRes = await fetch("/api/display-slots");
       const slotsData = await slotsRes.json();
       if (!slotsRes.ok || !Array.isArray(slotsData)) {
-        alert("Unable to load display slots.");
+        alert("Unable to load displays.");
         return;
       }
 
@@ -74,12 +74,12 @@ export function PackActions({
         .map((slot: { id: string; slotNumber: string }) => slot.slotNumber);
 
       if (openSlots.length === 0) {
-        alert("No open slots available.");
+        alert("No open displays available.");
         return;
       }
 
       const chosen = window.prompt(
-        `Enter target slot number.\nAvailable: ${openSlots.join(", ")}`
+        `Enter target display number.\nAvailable: ${openSlots.join(", ")}`
       );
       if (!chosen) return;
 
@@ -89,7 +89,7 @@ export function PackActions({
       );
 
       if (!targetSlot) {
-        alert("Invalid or occupied slot selected.");
+        alert("Invalid or occupied display selected.");
         return;
       }
 
@@ -113,7 +113,7 @@ export function PackActions({
       console.error(error);
       alert("Unable to move pack.");
     } finally {
-      setMovingSlot(false);
+      setMovingDisplay(false);
     }
   }
 
@@ -156,10 +156,10 @@ export function PackActions({
       <Button
         variant="secondary"
         className="w-full"
-        onClick={handleMoveSlot}
-        disabled={movingSlot}
+        onClick={handleMoveDisplay}
+        disabled={movingDisplay}
       >
-        {movingSlot ? "Moving..." : "Move Slot"}
+        {movingDisplay ? "Moving..." : "Move Display"}
       </Button>
 
       <Button

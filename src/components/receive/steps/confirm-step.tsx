@@ -32,8 +32,29 @@ export function ConfirmStep({
   const [destination, setDestination] = useState<"backstock" | "active">("backstock");
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const expectedTickets = Number(shipment.expectedTickets ?? 0);
+  const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
+  const scannedTickets = packs.reduce(
+    (sum, pack) => sum + Number(pack.ticketQuantity ?? 0),
+    0
+  );
+  const scannedRetailValue = packs.reduce(
+    (sum, pack) =>
+      sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
+    0
+  );
+  const invoiceMatches =
+    expectedTickets > 0 &&
+    expectedTickets === scannedTickets &&
+    expectedRetailValue > 0 &&
+    Math.round(expectedRetailValue * 100) === Math.round(scannedRetailValue * 100);
 
   async function handleConfirm() {
+    if (!invoiceMatches) {
+      alert("Invoice totals do not match scanned shipment totals.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -46,6 +67,8 @@ export function ConfirmStep({
           shipmentId: shipment.id,
           destination,
           notes,
+          expectedTickets,
+          expectedRetailValue,
         }),
       });
 
@@ -176,6 +199,26 @@ export function ConfirmStep({
               value={packs.length.toString()}
             />
 
+            <Info
+              label="Expected Tickets"
+              value={expectedTickets.toString()}
+            />
+
+            <Info
+              label="Scanned Tickets"
+              value={scannedTickets.toString()}
+            />
+
+            <Info
+              label="Expected Invoice Value"
+              value={`$${expectedRetailValue.toFixed(2)}`}
+            />
+
+            <Info
+              label="Scanned Invoice Value"
+              value={`$${scannedRetailValue.toFixed(2)}`}
+            />
+
           </div>
 
         </Panel>
@@ -295,7 +338,7 @@ export function ConfirmStep({
             <CheckCircle2 className="text-green-600" />
 
             <span className="font-semibold text-green-700">
-              Ready to Confirm
+              {invoiceMatches ? "Ready to Confirm" : "Invoice totals must match before confirmation"}
             </span>
 
           </div>
@@ -314,7 +357,7 @@ export function ConfirmStep({
 
           <Button
             className="w-full"
-            disabled={loading}
+            disabled={loading || !invoiceMatches}
             onClick={handleConfirm}
           >
             {loading ? "Confirming..." : "Confirm Receipt"}

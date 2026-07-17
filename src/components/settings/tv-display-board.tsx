@@ -94,7 +94,7 @@ export function TvDisplayBoard({
 
       <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="rounded-xl border border-white/15 bg-white/10 p-4">
-          <p className="text-xs text-white/60">Active Slots</p>
+          <p className="text-xs text-white/60">Active Displays</p>
           <p className="mt-1 text-2xl font-semibold text-white">{slots.length}</p>
         </div>
         <div className="rounded-xl border border-white/15 bg-white/10 p-4">
@@ -114,7 +114,7 @@ export function TvDisplayBoard({
           </div>
           <p className="text-lg font-semibold text-white">No active packs on display</p>
           <p className="mt-2 text-sm text-white/70">
-            Assign active packs to display slots to populate the TV board.
+            Assign active packs to displays to populate the TV board.
           </p>
         </div>
       ) : (
@@ -129,7 +129,7 @@ export function TvDisplayBoard({
               >
                 <div className="flex items-center justify-between">
                   <span className="rounded bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-200">
-                    Slot {slot.slotNumber}
+                    Display {slot.slotNumber}
                   </span>
                   <span className="text-xs text-white/70">Game #{slot.gameNumber}</span>
                 </div>

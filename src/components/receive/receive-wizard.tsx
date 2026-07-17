@@ -22,6 +22,8 @@ const [shipment, setShipment] = useState<ShipmentState>({
   shipmentDate: new Date().toISOString().split("T")[0],
   receivedBy: "",
   expectedPacks: 0,
+  expectedTickets: 0,
+  expectedRetailValue: 0,
   scannedPacks: 0,
   status: "IN_PROGRESS",
 });

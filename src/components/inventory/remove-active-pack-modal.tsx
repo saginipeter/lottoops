@@ -47,7 +47,7 @@ export function RemoveActivePackModal({
       }
 
       if (activeRemovalReason === "REASSIGNED" && !reassignToSlotId) {
-        setError("Please select a target slot for reassignment.");
+        setError("Please select a target display for reassignment.");
         return;
       }
 
@@ -165,8 +165,8 @@ export function RemoveActivePackModal({
                   className="mt-1 h-4 w-4"
                 />
                 <div>
-                  <div className="font-medium">Returned</div>
-                  <div className="text-sm text-gray-600">Pack was returned by customer</div>
+                  <div className="font-medium">Returned to State</div>
+                  <div className="text-sm text-gray-600">Pack was returned to the state</div>
                 </div>
               </label>
 
@@ -184,8 +184,8 @@ export function RemoveActivePackModal({
                   className="mt-1 h-4 w-4"
                 />
                 <div>
-                  <div className="font-medium">Reassigned</div>
-                  <div className="text-sm text-gray-600">Move pack to another display slot</div>
+                  <div className="font-medium">Reassigned to Display</div>
+                  <div className="text-sm text-gray-600">Move pack to another display number</div>
                 </div>
               </label>
 
@@ -210,11 +210,11 @@ export function RemoveActivePackModal({
             </div>
           </div>
 
-          {/* Reassignment Slot Selection */}
+          {/* Reassignment Display Selection */}
           {activeRemovalReason === "REASSIGNED" && (
             <div>
               <label className="block text-sm font-medium mb-2">
-                Reassign to Display Slot *
+                Reassign to Display # *
               </label>
               {availableSlots.length > 0 ? (
                 <select
@@ -222,16 +222,16 @@ export function RemoveActivePackModal({
                   onChange={(e) => setReassignToSlotId(e.target.value)}
                   className="w-full rounded-lg border px-4 py-2"
                 >
-                  <option value="">Select a slot...</option>
+                  <option value="">Select a display...</option>
                   {availableSlots.map((slot) => (
                     <option key={slot.id} value={slot.id}>
-                      Slot {slot.slotNumber}
+                      Display {slot.slotNumber}
                     </option>
                   ))}
                 </select>
               ) : (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                  No available slots for reassignment.
+                  No available displays for reassignment.
                 </div>
               )}
             </div>

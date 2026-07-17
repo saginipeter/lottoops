@@ -106,7 +106,7 @@ export function ScanStatusDisplay({
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-blue-600">SLOT</p>
+                  <p className="text-xs font-medium text-blue-600">DISPLAY</p>
                   <p className="text-lg font-bold text-blue-900">
                     {currentPack.slot?.slotNumber || "—"}
                   </p>

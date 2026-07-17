@@ -28,8 +28,19 @@ export function ReviewStep({
   previousStep,
 }: ReviewStepProps) {
   const expected = shipment.expectedPacks ?? 0;
+  const expectedTickets = shipment.expectedTickets ?? 0;
+  const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
   const scanned = packs.length;
   const remaining = expected - scanned;
+  const scannedTickets = packs.reduce(
+    (sum, pack) => sum + Number(pack.ticketQuantity ?? 0),
+    0
+  );
+  const scannedRetailValue = packs.reduce(
+    (sum, pack) =>
+      sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
+    0
+  );
 
   const duplicatePacks = packs.filter(
     (pack, index) =>
@@ -102,6 +113,28 @@ export function ReviewStep({
               <Info label="Remaining" value={remaining.toString()} />
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <Info
+                label="Expected Tickets"
+                value={expectedTickets.toString()}
+              />
+              <Info
+                label="Scanned Tickets"
+                value={scannedTickets.toString()}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Info
+                label="Expected Invoice Value"
+                value={`$${expectedRetailValue.toFixed(2)}`}
+              />
+              <Info
+                label="Scanned Invoice Value"
+                value={`$${scannedRetailValue.toFixed(2)}`}
+              />
+            </div>
+
           </div>
 
         </Panel>
@@ -130,6 +163,32 @@ export function ReviewStep({
               duplicatePacks.length === 0
                 ? "No duplicate packs detected."
                 : `${duplicatePacks.length} duplicate pack(s) found.`
+            }
+          />
+
+          <ValidationItem
+            success={expectedTickets > 0 && expectedTickets === scannedTickets}
+            title="Ticket Count Match"
+            description={
+              expectedTickets > 0 && expectedTickets === scannedTickets
+                ? "Ticket count matches the invoice."
+                : `Invoice tickets: ${expectedTickets}. Scanned tickets: ${scannedTickets}.`
+            }
+          />
+
+          <ValidationItem
+            success={
+              expectedRetailValue > 0 &&
+              Math.round(expectedRetailValue * 100) ===
+                Math.round(scannedRetailValue * 100)
+            }
+            title="Invoice Value Match"
+            description={
+              expectedRetailValue > 0 &&
+              Math.round(expectedRetailValue * 100) ===
+                Math.round(scannedRetailValue * 100)
+                ? "Total value matches the invoice."
+                : `Invoice value: $${expectedRetailValue.toFixed(2)}. Scanned value: $${scannedRetailValue.toFixed(2)}.`
             }
           />
 
@@ -171,7 +230,12 @@ export function ReviewStep({
             className="w-full"
             disabled={
               remaining > 0 ||
-              duplicatePacks.length > 0
+              duplicatePacks.length > 0 ||
+              expectedTickets <= 0 ||
+              expectedTickets !== scannedTickets ||
+              expectedRetailValue <= 0 ||
+              Math.round(expectedRetailValue * 100) !==
+                Math.round(scannedRetailValue * 100)
             }
             onClick={nextStep}
           >

@@ -87,7 +87,7 @@ export default function AssignPackDialog({
 
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Select Pack to Assign</DialogTitle>
+          <DialogTitle>Select Pack to Assign to Display</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">

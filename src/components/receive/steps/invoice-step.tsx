@@ -47,6 +47,16 @@ export function InvoiceStep({
     return;
   }
 
+  if (!shipment.expectedTickets || shipment.expectedTickets <= 0) {
+    alert("Expected tickets must be greater than zero.");
+    return;
+  }
+
+  if (!shipment.expectedRetailValue || shipment.expectedRetailValue <= 0) {
+    alert("Expected invoice total value must be greater than zero.");
+    return;
+  }
+
   try {
     const response = await fetch("/api/shipments", {
       method: "POST",
@@ -183,7 +193,7 @@ export function InvoiceStep({
           </div>
 
           {/* Bottom Grid */}
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 gap-5">
           
 
             {/* Shipment Date */}
@@ -225,6 +235,47 @@ export function InvoiceStep({
                 }
               />
             </div>
+
+            {/* Expected Tickets */}
+            <div>
+              <label className="mb-2 flex items-center gap-2 text-sm font-medium">
+              <Package size={16} />
+              Expected Tickets
+              </label>
+
+              <input
+              type="number"
+              className="w-full rounded-lg border px-4 py-3"
+              value={shipment.expectedTickets ?? 0}
+              onChange={(e) =>
+                setShipment((prev) => ({
+                  ...prev,
+                  expectedTickets: Number(e.target.value),
+                }))
+              }
+              />
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
+              <Package size={16} />
+              Expected Invoice Total Value ($)
+            </label>
+
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full rounded-lg border px-4 py-3"
+              value={shipment.expectedRetailValue ?? 0}
+              onChange={(e) =>
+              setShipment((prev) => ({
+                ...prev,
+                expectedRetailValue: Number(e.target.value),
+              }))
+              }
+            />
           </div>
         </Panel>
       </div>
@@ -269,6 +320,16 @@ export function InvoiceStep({
               <span>
                 {shipment.expectedPacks ?? 0}
               </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-500">Expected Tickets</span>
+              <span>{shipment.expectedTickets ?? 0}</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-500">Invoice Total Value</span>
+              <span>${Number(shipment.expectedRetailValue ?? 0).toFixed(2)}</span>
             </div>
 
             <div className="flex justify-between">

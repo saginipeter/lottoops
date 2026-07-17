@@ -50,68 +50,53 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (slotId) {
-      const slot = await prisma.displaySlot.findFirst({
-        where: { id: slotId, storeId: session.storeId },
-      });
-
-      if (!slot) {
-        return NextResponse.json({ error: "Slot not found" }, { status: 404 });
-      }
-
-      if (slot.packId) {
-        return NextResponse.json(
-          { error: "Slot already occupied" },
-          { status: 409 }
-        );
-      }
-
-      await prisma.$transaction([
-        prisma.pack.update({
-          where: { id: pack.id },
-          data: {
-            status: "ACTIVE",
-            activatedAt: new Date(),
-            currentTicketNumber: pack.firstTicket ?? 0,
-          },
-        }),
-        prisma.displaySlot.update({
-          where: { id: slot.id },
-          data: {
-            packId: pack.id,
-          },
-        }),
-        prisma.scanLogEntry.create({
-          data: {
-            storeId: session.storeId,
-            action: "ACTIVATED",
-            packId: pack.id,
-            performedById: session.userId,
-            detail: `Activated pack to display slot ${slot.slotNumber}`,
-          },
-        }),
-      ]);
-    } else {
-      await prisma.$transaction([
-        prisma.pack.update({
-          where: { id: pack.id },
-          data: {
-            status: "ACTIVE",
-            activatedAt: new Date(),
-            currentTicketNumber: pack.firstTicket ?? 0,
-          },
-        }),
-        prisma.scanLogEntry.create({
-          data: {
-            storeId: session.storeId,
-            action: "ACTIVATED",
-            packId: pack.id,
-            performedById: session.userId,
-            detail: "Activated pack without slot assignment",
-          },
-        }),
-      ]);
+    if (!slotId) {
+      return NextResponse.json(
+        { error: "Display ID is required before activation." },
+        { status: 400 }
+      );
     }
+
+    const slot = await prisma.displaySlot.findFirst({
+      where: { id: slotId, storeId: session.storeId },
+    });
+
+    if (!slot) {
+      return NextResponse.json({ error: "Display not found" }, { status: 404 });
+    }
+
+    if (slot.packId) {
+      return NextResponse.json(
+        { error: "Display already occupied" },
+        { status: 409 }
+      );
+    }
+
+    await prisma.$transaction([
+      prisma.pack.update({
+        where: { id: pack.id },
+        data: {
+          status: "ACTIVE",
+          activatedAt: new Date(),
+          currentTicketNumber: pack.firstTicket ?? 0,
+        },
+      }),
+      prisma.displaySlot.update({
+        where: { id: slot.id },
+        data: {
+          packId: pack.id,
+        },
+      }),
+      prisma.scanLogEntry.create({
+        data: {
+          storeId: session.storeId,
+          action: "ACTIVATED",
+          packId: pack.id,
+          performedById: session.userId,
+          detail: `Activated pack to display ${slot.slotNumber}`,
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,

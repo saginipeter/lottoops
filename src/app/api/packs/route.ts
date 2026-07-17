@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
       ticketPrice,
       ticketQuantity,
       packImage,
-      lotNumber,
       activationNumber,
       firstOrLastTicket,
     } = body;
@@ -32,6 +31,23 @@ export async function POST(req: NextRequest) {
     if (!/^\d{7}$/.test(String(packNumber ?? ""))) {
       return NextResponse.json(
         { error: "Pack number must be exactly 7 digits." },
+        { status: 400 }
+      );
+    }
+
+    const normalizedTicketPrice = Number(ticketPrice);
+    const normalizedTicketQuantity = Number(ticketQuantity);
+
+    if (!Number.isFinite(normalizedTicketPrice) || normalizedTicketPrice <= 0) {
+      return NextResponse.json(
+        { error: "Ticket price must be greater than zero." },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isInteger(normalizedTicketQuantity) || normalizedTicketQuantity <= 0) {
+      return NextResponse.json(
+        { error: "Ticket quantity must be a whole number greater than zero." },
         { status: 400 }
       );
     }
@@ -106,16 +122,15 @@ export async function POST(req: NextRequest) {
         packNumber,
         firstTicket,
 
-        ticketPrice,
-        ticketQuantity,
+        ticketPrice: normalizedTicketPrice,
+        ticketQuantity: normalizedTicketQuantity,
         
         packImage,
-        lotNumber,
         activationNumber,
         firstOrLastTicket,
 
         cost: 0,
-        retailValue: 0,
+        retailValue: normalizedTicketPrice * normalizedTicketQuantity,
       },
     });
 

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     if (!slotId) {
       return NextResponse.json(
-        { error: "Slot ID is required." },
+        { error: "Display ID is required." },
         { status: 400 }
       );
     }
@@ -62,14 +62,14 @@ export async function POST(req: NextRequest) {
 
     if (!slot || slot.storeId !== session.storeId) {
       return NextResponse.json(
-        { error: "Slot not found or access denied." },
+        { error: "Display not found or access denied." },
         { status: 404 }
       );
     }
 
     if (slot.packId && slot.packId !== packId) {
       return NextResponse.json(
-        { error: "Slot is already occupied." },
+        { error: "Display is already occupied." },
         { status: 400 }
       );
     }

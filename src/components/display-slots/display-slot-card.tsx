@@ -31,31 +31,85 @@ export default function DisplaySlotCard({
   const [clearing, setClearing] = useState(false);
 
   async function clearSlot() {
-    const confirmed = window.confirm(
-      `Remove data from Slot ${slot.slotNumber}? This will unassign the pack from display.`
+    if (!slot.pack) {
+      return;
+    }
+
+    const rawReason = window.prompt(
+      "Enter removal reason: RETURNED, STOLEN, REASSIGNED, or OTHER",
+      "RETURNED"
     );
-    if (!confirmed) return;
+    if (!rawReason) return;
+
+    const reason = rawReason.trim().toUpperCase();
+    if (!["RETURNED", "STOLEN", "REASSIGNED", "OTHER"].includes(reason)) {
+      alert("Invalid reason.");
+      return;
+    }
 
     try {
       setClearing(true);
-      const res = await fetch("/api/display-slots", {
-        method: "DELETE",
+      const payload: Record<string, string> = {
+        packId: slot.pack.id,
+        activeRemovalReason: reason,
+      };
+
+      if (reason === "OTHER") {
+        const details = window.prompt("Enter reason details");
+        if (!details?.trim()) {
+          alert("Reason details are required for OTHER.");
+          return;
+        }
+        payload.activeRemovalReasonText = details.trim();
+      }
+
+      if (reason === "REASSIGNED") {
+        const slotsRes = await fetch("/api/display-slots");
+        const slotsData = await slotsRes.json();
+        if (!slotsRes.ok || !Array.isArray(slotsData)) {
+          alert("Unable to load displays.");
+          return;
+        }
+        const openDisplays = slotsData
+          .filter((item: { id: string; slotNumber: string; packId: string | null }) => !item.packId)
+          .map((item: { id: string; slotNumber: string }) => item.slotNumber);
+        if (openDisplays.length === 0) {
+          alert("No empty display available for reassignment.");
+          return;
+        }
+        const target = window.prompt(
+          `Enter target Display #. Available: ${openDisplays.join(", ")}`
+        );
+        if (!target) return;
+        const targetDisplay = slotsData.find(
+          (item: { id: string; slotNumber: string; packId: string | null }) =>
+            item.slotNumber === target && !item.packId
+        );
+        if (!targetDisplay) {
+          alert("Invalid display selected.");
+          return;
+        }
+        payload.reassignToSlotId = targetDisplay.id;
+      }
+
+      const res = await fetch("/api/packs/active/remove", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ slotId: slot.id }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Unable to clear slot.");
+        alert(data.error || "Unable to remove pack from display.");
         return;
       }
 
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert("Unable to clear slot.");
+      alert("Unable to remove pack from display.");
     } finally {
       setClearing(false);
     }
@@ -65,7 +119,7 @@ export default function DisplaySlotCard({
     return (
       <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold text-text">Slot {slot.slotNumber}</h2>
+          <h2 className="font-bold text-text">Display {slot.slotNumber}</h2>
           <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600">
             Empty
           </span>
@@ -90,7 +144,7 @@ export default function DisplaySlotCard({
   return (
     <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white p-6 shadow-sm">
       <div className="flex justify-between">
-        <h2 className="font-bold text-text">Slot {slot.slotNumber}</h2>
+        <h2 className="font-bold text-text">Display {slot.slotNumber}</h2>
         <span className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
           ACTIVE
         </span>
@@ -134,7 +188,7 @@ export default function DisplaySlotCard({
           onClick={clearSlot}
           disabled={clearing}
         >
-          {clearing ? "Clearing..." : "Clear Slot"}
+          {clearing ? "Removing..." : "Remove from Display"}
         </Button>
       </div>
     </div>

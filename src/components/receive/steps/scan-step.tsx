@@ -49,7 +49,6 @@ export function ScanStep({
   const [ticketPrice, setTicketPrice] = useState(10);
   const [ticketQuantity, setTicketQuantity] = useState(50);
   const [packImage, setPackImage] = useState("");
-  const [lotNumber, setLotNumber] = useState("");
 
   // Auto-detection state
   const [detecting, setDetecting] = useState(false);
@@ -111,7 +110,6 @@ export function ScanStep({
           ticketPrice,
           ticketQuantity,
           packImage,
-          lotNumber: lotNumber || undefined,
         }),
       });
 
@@ -123,7 +121,7 @@ export function ScanStep({
 
       // Reset for next pack
       setBarcode(""); setGameNumber(""); setPackNumber(""); setFirstTicket("");
-      setPackImage(""); setLotNumber("");
+      setPackImage("");
       setDetectedGame(null); setDetectionError(null);
     } catch (err) {
       console.error(err);
@@ -220,17 +218,6 @@ export function ScanStep({
           />
         </div>
 
-        {/* Lot Number */}
-        <Panel className="p-6">
-          <h3 className="text-lg font-semibold mb-2">Lot Number <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
-          <input
-            className="w-full rounded-lg border px-4 py-3"
-            value={lotNumber}
-            onChange={(e) => setLotNumber(e.target.value)}
-            placeholder="Enter lot number if available"
-          />
-        </Panel>
-
         {/* Add Pack */}
         <Panel className="p-6">
           <Button className="w-full" onClick={handleAddPack} disabled={!gameNumber || !packNumber || !packImage}>
@@ -239,12 +226,17 @@ export function ScanStep({
         </Panel>
 
         <ScannedPackTable packs={packs} removePack={removePack} />
+
+        <Panel className="p-6">
+          <Button className="w-full" onClick={nextStep} disabled={packs.length === 0}>
+            Step 10: Review Shipment →
+          </Button>
+        </Panel>
       </div>
 
       <ShipmentSummary shipment={shipment} packs={packs}>
         <div className="space-y-3">
           <Button variant="secondary" className="w-full" onClick={previousStep}>← Back</Button>
-          <Button className="w-full" onClick={nextStep} disabled={packs.length === 0}>Review Shipment →</Button>
         </div>
       </ShipmentSummary>
     </div>

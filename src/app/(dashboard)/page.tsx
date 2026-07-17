@@ -44,8 +44,8 @@ const operationsCards: ActionCard[] = [
   },
   {
     href: "/display-slots",
-    title: "Display Slots",
-    description: "Assign packs, monitor active stock, and keep slot status accurate.",
+    title: "Displays",
+    description: "Assign packs, monitor active stock, and keep display status accurate.",
     icon: MonitorSmartphone,
   },
 ];
@@ -139,7 +139,7 @@ export default async function HomePage() {
             <div className="mt-3 space-y-2">
               <QuickAction href="/inventory/receive" label="Start receiving shipment" />
               <QuickAction href="/inventory/live-scan" label="Start live scan mode" />
-              <QuickAction href="/display-slots" label="Review display slot status" />
+              <QuickAction href="/display-slots" label="Review display status" />
               <QuickAction href="/reports" label="Open daily reports" />
             </div>
           </Panel>

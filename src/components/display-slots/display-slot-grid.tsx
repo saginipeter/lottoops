@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import DisplaySlotCard from "./display-slot-card";
 
@@ -25,41 +24,8 @@ interface DisplaySlotGridProps {
 export default function DisplaySlotGrid({
   slots,
 }: DisplaySlotGridProps) {
-  const [clearingAll, setClearingAll] = useState(false);
-
   const activeCount = slots.filter((slot) => Boolean(slot.pack)).length;
   const emptyCount = slots.length - activeCount;
-
-  async function clearAllSlots() {
-    const confirmed = window.confirm(
-      "Clear all display slots? This will remove all current slot assignments."
-    );
-    if (!confirmed) return;
-
-    try {
-      setClearingAll(true);
-      const res = await fetch("/api/display-slots", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ clearAll: true }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Unable to clear all slots.");
-        return;
-      }
-
-      window.location.reload();
-    } catch (error) {
-      console.error(error);
-      alert("Unable to clear all slots.");
-    } finally {
-      setClearingAll(false);
-    }
-  }
 
   if (slots.length === 0) {
     return (
@@ -88,12 +54,8 @@ export default function DisplaySlotGrid({
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            onClick={clearAllSlots}
-            disabled={clearingAll || activeCount === 0}
-          >
-            {clearingAll ? "Clearing All..." : "Clear All Display Slots"}
+          <Button variant="outline" disabled>
+            Clear All Disabled (Reason Required Per Display)
           </Button>
         </div>
       </div>

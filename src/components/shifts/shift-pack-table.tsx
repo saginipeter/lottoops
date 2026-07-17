@@ -162,7 +162,7 @@ export default function ShiftPackTable({ shift }: Props) {
           <thead>
             <tr className="border-b">
               <th className="py-3 text-left">
-                Slot
+                Display
               </th>
 
               <th className="py-3 text-left">

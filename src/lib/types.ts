@@ -19,6 +19,8 @@ export interface ShipmentState {
   receivedBy: string;
 
   expectedPacks: number;
+  expectedTickets?: number;
+  expectedRetailValue?: number;
   scannedPacks: number;
 
   status: string;

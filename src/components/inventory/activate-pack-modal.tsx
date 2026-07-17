@@ -49,7 +49,7 @@ export function ActivatePackModal({
       }
 
       if (!selectedSlotId) {
-        setError("Please select a display slot.");
+        setError("Please select a display.");
         return;
       }
 
@@ -203,10 +203,10 @@ export function ActivatePackModal({
             </div>
           </div>
 
-          {/* Display Slot Selection */}
+          {/* Display Selection */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              Display Slot *
+              Display # *
             </label>
             {availableSlots.length > 0 ? (
               <select
@@ -214,10 +214,10 @@ export function ActivatePackModal({
                 onChange={(e) => setSelectedSlotId(e.target.value)}
                 className="w-full rounded-lg border px-4 py-2"
               >
-                <option value="">Select a slot...</option>
+                <option value="">Select a display...</option>
                 {availableSlots.map((slot) => (
                   <option key={slot.id} value={slot.id}>
-                    Slot {slot.slotNumber}
+                    Display {slot.slotNumber}
                   </option>
                 ))}
               </select>

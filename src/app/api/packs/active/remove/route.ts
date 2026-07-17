@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     if (activeRemovalReason === "REASSIGNED" && !reassignToSlotId) {
       return NextResponse.json(
-        { error: "Target slot is required when reassigning." },
+        { error: "Target display is required when reassigning." },
         { status: 400 }
       );
     }
@@ -69,15 +69,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (activeRemovalReason === "REASSIGNED") {
-      // Verify target slot exists and is available
+      // Verify target display exists and is available
       const targetSlot = await prisma.displaySlot.findUnique({
         where: { id: reassignToSlotId },
       });
 
       if (!targetSlot || targetSlot.storeId !== session.storeId) {
         return NextResponse.json(
-          { error: "Target slot not found or access denied." },
+          { error: "Target display not found or access denied." },
           { status: 404 }
+        );
+      }
+
+      if (targetSlot.packId && targetSlot.packId !== packId) {
+        return NextResponse.json(
+          { error: "Target display is occupied." },
+          { status: 400 }
         );
       }
 

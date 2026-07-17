@@ -67,7 +67,7 @@ const navSections: NavSection[] = [
       },
       {
         href: "/display-slots",
-        label: "Display Slots",
+        label: "Displays",
         icon: Tv,
       },
       {

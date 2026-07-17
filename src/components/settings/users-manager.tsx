@@ -11,7 +11,7 @@ const GRANTABLE_PERMISSIONS = [
   { key: "REPORTS",           label: "View Reports" },
   { key: "RECEIVE_SHIPMENTS", label: "Receive Shipments" },
   { key: "MANAGE_BACKSTOCK",  label: "Manage Back Stock" },
-  { key: "MANAGE_DISPLAY",    label: "Manage Display Slots" },
+  { key: "MANAGE_DISPLAY",    label: "Manage Displays" },
   { key: "MANAGE_GAMES",      label: "Manage Games" },
 ];
 
