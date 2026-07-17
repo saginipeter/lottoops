@@ -32,6 +32,18 @@ export async function POST(req: NextRequest) {
       )
     `);
 
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS live_scan_events (
+        id TEXT PRIMARY KEY,
+        store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+        shift_id TEXT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+        pack_id TEXT NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
+        ticket_barcode TEXT NOT NULL,
+        scanned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(store_id, shift_id, ticket_barcode)
+      )
+    `);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const securityRows = (await prisma.$queryRawUnsafe(
       `
@@ -137,6 +149,23 @@ export async function POST(req: NextRequest) {
           completedAt: null,
         },
       }),
+      prisma.$executeRawUnsafe(
+        `
+        DELETE FROM live_scan_events
+        WHERE id IN (
+          SELECT id
+          FROM live_scan_events
+          WHERE store_id = $1
+            AND shift_id = $2
+            AND pack_id = $3
+          ORDER BY scanned_at DESC
+          LIMIT 1
+        )
+        `,
+        session.storeId,
+        openShift.id,
+        pack.id
+      ),
       prisma.shiftLine.update({
         where: { id: line.id },
         data: {

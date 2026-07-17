@@ -86,7 +86,7 @@ export function LiveScanDashboard({
             : Number(line.pack.currentTicketNumber);
         const ending = Math.min(Math.max(current, 0), beginning);
         const ticketsSold = Math.max(beginning - ending, 0);
-        const price = Number(line.pack?.game?.price ?? line.pack?.ticketPrice ?? 0);
+        const price = Number(line.pack?.ticketPrice ?? line.pack?.game?.price ?? 0);
         const salesAmount = ticketsSold * price;
 
         return {

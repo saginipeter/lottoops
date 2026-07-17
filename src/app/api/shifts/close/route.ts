@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
           : Number(line.pack.currentTicketNumber);
       const ending = Math.min(Math.max(currentTicket, 0), beginning);
       const ticketsSold = Math.max(beginning - ending, 0);
-      const sales = ticketsSold * Number(line.pack.game.price);
+      const sales = ticketsSold * Number(line.pack.ticketPrice ?? line.pack.game.price ?? 0);
 
       totalTickets += ticketsSold;
       totalSales += sales;

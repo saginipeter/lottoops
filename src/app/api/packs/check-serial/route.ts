@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const normalizedSerial = serialNumber.replace(/\D/g, "");
+
     // Check if pack already exists by exact serial first
     let existingPack = await prisma.pack.findFirst({
       where: { storeId: session.storeId, serialNumber },
@@ -36,10 +38,9 @@ export async function POST(req: NextRequest) {
     // Live scan fallback: a scanned ticket barcode may differ by ticket number.
     // Match active display pack by Game(4)+Pack(7) prefix when exact serial misses.
     if (!existingPack && liveScan === true) {
-      const cleaned = serialNumber.replace(/\D/g, "");
-      if (cleaned.length >= 11) {
-        const parsedGameNumber = cleaned.substring(0, 4);
-        const parsedPackNumber = cleaned.substring(4, 11);
+      if (normalizedSerial.length >= 11) {
+        const parsedGameNumber = normalizedSerial.substring(0, 4);
+        const parsedPackNumber = normalizedSerial.substring(4, 11);
         existingPack = await prisma.pack.findFirst({
           where: {
             storeId: session.storeId,
@@ -74,6 +75,18 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS live_scan_events (
+            id TEXT PRIMARY KEY,
+            store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+            shift_id TEXT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+            pack_id TEXT NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
+            ticket_barcode TEXT NOT NULL,
+            scanned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(store_id, shift_id, ticket_barcode)
+          )
+        `);
+
         const openShift = await prisma.shift.findFirst({
           where: {
             storeId: session.storeId,
@@ -88,6 +101,29 @@ export async function POST(req: NextRequest) {
           return NextResponse.json(
             { error: "No open shift found." },
             { status: 400 }
+          );
+        }
+
+        // Block duplicate ticket scans in the same open shift.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const duplicateRows = (await prisma.$queryRawUnsafe(
+          `
+          SELECT id
+          FROM live_scan_events
+          WHERE store_id = $1
+            AND shift_id = $2
+            AND ticket_barcode = $3
+          LIMIT 1
+          `,
+          session.storeId,
+          openShift.id,
+          normalizedSerial
+        )) as { id: string }[];
+
+        if (duplicateRows.length > 0) {
+          return NextResponse.json(
+            { error: "This scratch card was already scanned in this shift." },
+            { status: 409 }
           );
         }
 
@@ -123,6 +159,22 @@ export async function POST(req: NextRequest) {
         const beginning = Number(line.beginningTicket ?? 0);
         const currentTicket = existingPack.currentTicketNumber ?? beginning;
 
+        // Enforce one-scan-per-ticket and strict sequence from current ticket.
+        if (normalizedSerial.length >= 14) {
+          const scannedTicketNumber = Number(normalizedSerial.substring(normalizedSerial.length - 3));
+          if (Number.isFinite(scannedTicketNumber) && scannedTicketNumber !== currentTicket) {
+            return NextResponse.json(
+              {
+                error:
+                  scannedTicketNumber > currentTicket
+                    ? `Ticket ${scannedTicketNumber} was already scanned. Current sellable ticket is ${currentTicket}.`
+                    : `Out-of-sequence scan. Current sellable ticket is ${currentTicket}.`,
+              },
+              { status: 409 }
+            );
+          }
+        }
+
         if (currentTicket <= 0) {
           return NextResponse.json(
             { error: "Pack is already sold out." },
@@ -132,10 +184,23 @@ export async function POST(req: NextRequest) {
 
         const endingTicket = Math.max(currentTicket - 1, 0);
         const ticketsSold = Math.max(beginning - endingTicket, 0);
-        const salesAmount = ticketsSold * Number(existingPack.game.price);
+        const salesAmount =
+          ticketsSold * Number(existingPack.ticketPrice ?? existingPack.game.price ?? 0);
         const soldOut = endingTicket === 0;
+        const scanEventId = `lse_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
         const txOps: any[] = [
+          prisma.$executeRawUnsafe(
+            `
+            INSERT INTO live_scan_events (id, store_id, shift_id, pack_id, ticket_barcode)
+            VALUES ($1, $2, $3, $4, $5)
+            `,
+            scanEventId,
+            session.storeId,
+            openShift.id,
+            existingPack.id,
+            normalizedSerial
+          ),
           prisma.pack.update({
             where: { id: existingPack.id },
             data: {

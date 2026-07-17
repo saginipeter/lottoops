@@ -12,6 +12,7 @@ interface ShiftLineRecord {
   };
   pack: {
     currentTicketNumber: number | null;
+    ticketPrice?: number | null;
     game: {
       price: number;
     };
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
             : Number(lineRecord.pack.currentTicketNumber);
         const endingTicket = Math.min(Math.max(currentTicket, 0), beginning);
         const sold = Math.max(beginning - endingTicket, 0);
-        const sales = sold * Number(lineRecord.pack.game.price);
+        const sales = sold * Number(lineRecord.pack.ticketPrice ?? lineRecord.pack.game.price ?? 0);
 
         return prisma.shiftLine.update({
           where: {
