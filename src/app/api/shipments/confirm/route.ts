@@ -68,12 +68,15 @@ export async function POST(req: NextRequest) {
     const parsedExpectedTickets = Number(expectedTickets);
     const parsedExpectedRetailValue = Number(expectedRetailValue);
     const scannedTickets = shipmentPacks.reduce(
-      (sum, pack) => sum + Number(pack.ticketQuantity ?? 0),
+      (sum: number, pack: { ticketQuantity: number | null }) =>
+        sum + Number(pack.ticketQuantity ?? 0),
       0
     );
     const scannedRetailValue = shipmentPacks.reduce(
-      (sum, pack) =>
-        sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
+      (
+        sum: number,
+        pack: { ticketPrice: unknown; ticketQuantity: number | null }
+      ) => sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
       0
     );
 
