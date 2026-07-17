@@ -36,7 +36,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
 
   await prisma.$executeRawUnsafe(`
     ALTER TABLE shifts
-    ADD COLUMN IF NOT EXISTS terminal_id TEXT
+    ADD COLUMN IF NOT EXISTS "terminalId" TEXT
   `);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,10 +44,10 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
     `
     SELECT id
     FROM shifts
-    WHERE store_id = $1
+    WHERE "storeId" = $1
       AND status = 'OPEN'
-      AND COALESCE(terminal_id, 'T1') = $2
-    ORDER BY opened_at DESC
+      AND COALESCE("terminalId", 'T1') = $2
+    ORDER BY "openedAt" DESC
     LIMIT 1
     `,
     session.storeId,

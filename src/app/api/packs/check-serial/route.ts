@@ -5,7 +5,7 @@ import { getApiSession } from "@/lib/api-session";
 async function ensureShiftTerminalSchema() {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE shifts
-    ADD COLUMN IF NOT EXISTS terminal_id TEXT
+    ADD COLUMN IF NOT EXISTS "terminalId" TEXT
   `);
 }
 
@@ -104,10 +104,10 @@ export async function POST(req: NextRequest) {
           `
           SELECT id
           FROM shifts
-          WHERE store_id = $1
+          WHERE "storeId" = $1
             AND status = 'OPEN'
-            AND COALESCE(terminal_id, 'T1') = $2
-          ORDER BY opened_at DESC
+            AND COALESCE("terminalId", 'T1') = $2
+          ORDER BY "openedAt" DESC
           LIMIT 1
           `,
           session.storeId,

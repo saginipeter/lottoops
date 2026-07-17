@@ -5,11 +5,11 @@ import { getApiSession } from "@/lib/api-session";
 async function ensureShiftTerminalSchema() {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE shifts
-    ADD COLUMN IF NOT EXISTS terminal_id TEXT
+    ADD COLUMN IF NOT EXISTS "terminalId" TEXT
   `);
   await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS idx_shifts_store_status_terminal
-    ON shifts (store_id, status, terminal_id)
+    ON shifts ("storeId", status, "terminalId")
   `);
 }
 
@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
       `
       SELECT id
       FROM shifts
-      WHERE store_id = $1
+      WHERE "storeId" = $1
         AND status = 'OPEN'
-        AND COALESCE(terminal_id, 'T1') = $2
+        AND COALESCE("terminalId", 'T1') = $2
       LIMIT 1
       `,
       session.storeId,
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     await prisma.$executeRawUnsafe(
       `
       UPDATE shifts
-      SET terminal_id = $1
+      SET "terminalId" = $1
       WHERE id = $2
       `,
       terminalId,
