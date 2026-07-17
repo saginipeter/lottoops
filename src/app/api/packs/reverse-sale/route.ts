@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { packId, pin } = await req.json();
+    const { packId, pin, shiftId } = await req.json();
 
     if (!packId || typeof packId !== "string") {
       return NextResponse.json({ error: "packId is required." }, { status: 400 });
@@ -67,16 +67,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid approval PIN." }, { status: 403 });
     }
 
-    const openShift = await prisma.shift.findFirst({
-      where: { storeId: session.storeId, status: "OPEN" },
-      include: {
-        lines: {
-          where: { packId },
-          take: 1,
-        },
-      },
-      orderBy: { openedAt: "desc" },
-    });
+    const openShift = shiftId
+      ? await prisma.shift.findFirst({
+          where: { id: shiftId, storeId: session.storeId, status: "OPEN" },
+          include: {
+            lines: {
+              where: { packId },
+              take: 1,
+            },
+          },
+        })
+      : await prisma.shift.findFirst({
+          where: { storeId: session.storeId, status: "OPEN" },
+          include: {
+            lines: {
+              where: { packId },
+              take: 1,
+            },
+          },
+          orderBy: { openedAt: "desc" },
+        });
 
     if (!openShift || openShift.lines.length === 0) {
       return NextResponse.json(

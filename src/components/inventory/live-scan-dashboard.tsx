@@ -44,11 +44,13 @@ interface PackData {
 interface LiveScanDashboardProps {
   currentShift: ShiftData | null;
   activePacks: PackData[];
+  terminalId: string;
 }
 
 export function LiveScanDashboard({
   currentShift,
   activePacks,
+  terminalId,
 }: LiveScanDashboardProps) {
   const router = useRouter();
   const [barcode, setBarcode] = useState("");
@@ -126,7 +128,7 @@ export function LiveScanDashboard({
       const res = await fetch("/api/packs/check-serial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serialNumber: barcode, liveScan: true }),
+        body: JSON.stringify({ serialNumber: barcode, liveScan: true, terminalId }),
       });
 
       const data = await res.json();
@@ -169,6 +171,7 @@ export function LiveScanDashboard({
         body: JSON.stringify({
           packId: lastScan.id,
           pin: pin.trim(),
+          shiftId: currentShift?.id,
         }),
       });
       const data = await res.json();

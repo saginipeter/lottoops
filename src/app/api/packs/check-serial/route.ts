@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 
+async function ensureShiftTerminalSchema() {
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE shifts
+    ADD COLUMN IF NOT EXISTS terminal_id TEXT
+  `);
+}
+
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) {
@@ -15,7 +22,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { serialNumber, liveScan } = await req.json();
+  const { serialNumber, liveScan, terminalId: rawTerminalId } = await req.json();
   if (!serialNumber || typeof serialNumber !== "string") {
     return NextResponse.json(
       { error: "serialNumber is required" },
@@ -24,6 +31,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const terminalId =
+      typeof rawTerminalId === "string" && rawTerminalId.trim()
+        ? rawTerminalId.trim().toUpperCase()
+        : "T1";
     const normalizedSerial = serialNumber.replace(/\D/g, "");
 
     // Check if pack already exists by exact serial first
@@ -87,19 +98,28 @@ export async function POST(req: NextRequest) {
           )
         `);
 
-        const openShift = await prisma.shift.findFirst({
-          where: {
-            storeId: session.storeId,
-            status: "OPEN",
-          },
-          orderBy: {
-            openedAt: "desc",
-          },
-        });
+        await ensureShiftTerminalSchema();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const openShiftRows = (await prisma.$queryRawUnsafe(
+          `
+          SELECT id
+          FROM shifts
+          WHERE store_id = $1
+            AND status = 'OPEN'
+            AND COALESCE(terminal_id, 'T1') = $2
+          ORDER BY opened_at DESC
+          LIMIT 1
+          `,
+          session.storeId,
+          terminalId
+        )) as { id: string }[];
+        const openShift = openShiftRows[0]
+          ? await prisma.shift.findUnique({ where: { id: openShiftRows[0].id } })
+          : null;
 
         if (!openShift) {
           return NextResponse.json(
-            { error: "No open shift found." },
+            { error: `No open shift found for terminal ${terminalId}.` },
             { status: 400 }
           );
         }

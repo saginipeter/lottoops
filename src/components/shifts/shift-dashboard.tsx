@@ -11,6 +11,7 @@ import ShiftPackTable from "./shift-pack-table";
 
 interface ShiftDashboardProps {
   shift: any | null;
+  terminalId: string;
   shiftEvents: Array<{
     id: string;
     action: string;
@@ -22,6 +23,7 @@ interface ShiftDashboardProps {
 
 export default function ShiftDashboard({
   shift,
+  terminalId,
   shiftEvents,
 }: ShiftDashboardProps) {
   const [loading, setLoading] = useState(false);
@@ -35,6 +37,7 @@ export default function ShiftDashboard({
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ terminalId }),
       });
 
       const data = await res.json();
@@ -61,7 +64,7 @@ export default function ShiftDashboard({
             <Clock className="mx-auto mb-4 text-gray-400" size={40} />
             <h2 className="text-2xl font-semibold">No Active Shift</h2>
             <p className="mt-2 text-sm text-gray-500">
-              Open shift to start ticket scanning and sales reconciliation.
+              Open shift on terminal {terminalId} to start ticket scanning and sales reconciliation.
             </p>
             <Button
               className="mt-6"
@@ -75,6 +78,21 @@ export default function ShiftDashboard({
         </Panel>
 
         <Panel className="p-6">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {["T1", "T2", "T3", "T4"].map((t) => (
+              <Link
+                key={t}
+                href={`/shifts?terminal=${t}`}
+                className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                  terminalId === t
+                    ? "border-accent bg-accent text-white"
+                    : "border-border bg-surface text-text hover:bg-surface-soft"
+                }`}
+              >
+                {t}
+              </Link>
+            ))}
+          </div>
           <h3 className="text-base font-semibold text-text">What happens after opening?</h3>
           <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-text-secondary md:grid-cols-3">
             <div className="rounded-lg border bg-surface-soft p-3">
@@ -119,24 +137,39 @@ export default function ShiftDashboard({
 
       return (
         sum +
-        sold * Number(line.pack?.game?.price ?? 0)
+        sold * Number(line.pack?.ticketPrice ?? line.pack?.game?.price ?? 0)
       );
     }, 0) ?? 0;
 
   return (
     <div className="space-y-6">
       <Panel className="p-6">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {["T1", "T2", "T3", "T4"].map((t) => (
+            <Link
+              key={t}
+              href={`/shifts?terminal=${t}`}
+              className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                terminalId === t
+                  ? "border-accent bg-accent text-white"
+                  : "border-border bg-surface text-text hover:bg-surface-soft"
+              }`}
+            >
+              {t}
+            </Link>
+          ))}
+        </div>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-xl font-semibold">Shift In Progress</h2>
             <p className="text-sm text-gray-500">Ending tickets update automatically from live ticket movement.</p>
             <p className="mt-1 text-xs text-gray-500">
-              Opened {new Date(shift.openedAt).toLocaleString()} by {shift.openedBy?.name ?? "Unknown"}
+              Terminal {terminalId} · Opened {new Date(shift.openedAt).toLocaleString()} by {shift.openedBy?.name ?? "Unknown"}
             </p>
           </div>
           <div className="flex gap-2">
             <Link
-              href="/inventory/live-scan"
+              href={`/inventory/live-scan?terminal=${terminalId}`}
               className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-soft"
             >
               <Radio size={14} />

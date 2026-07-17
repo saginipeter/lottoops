@@ -3,7 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { LiveScanDashboard } from "@/components/inventory/live-scan-dashboard";
 import { getSession } from "@/lib/get-session";
 
-export default async function LiveScanPage() {
+interface LiveScanPageProps {
+  searchParams?: Promise<{
+    terminal?: string;
+  }>;
+}
+
+export default async function LiveScanPage({ searchParams }: LiveScanPageProps) {
   const session = await getSession();
 
   if (!session) {
@@ -22,32 +28,54 @@ export default async function LiveScanPage() {
     );
   }
 
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const terminalId =
+    typeof resolvedSearchParams.terminal === "string" && resolvedSearchParams.terminal.trim()
+      ? resolvedSearchParams.terminal.trim().toUpperCase()
+      : "T1";
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE shifts
+    ADD COLUMN IF NOT EXISTS terminal_id TEXT
+  `);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const openShiftRows = (await prisma.$queryRawUnsafe(
+    `
+    SELECT id
+    FROM shifts
+    WHERE store_id = $1
+      AND status = 'OPEN'
+      AND COALESCE(terminal_id, 'T1') = $2
+    ORDER BY opened_at DESC
+    LIMIT 1
+    `,
+    session.storeId,
+    terminalId
+  )) as { id: string }[];
+
   // Fetch current shift for the store
-  const currentShift = await prisma.shift.findFirst({
-    where: {
-      status: "OPEN",
-      storeId: session.storeId,
-    },
-    include: {
-      openedBy: true,
-      lines: {
+  const currentShift = openShiftRows[0]
+    ? await prisma.shift.findUnique({
+        where: { id: openShiftRows[0].id },
         include: {
-          pack: {
+          openedBy: true,
+          lines: {
             include: {
-              game: true,
-              slot: true,
+              pack: {
+                include: {
+                  game: true,
+                  slot: true,
+                },
+              },
+            },
+            orderBy: {
+              id: "desc",
             },
           },
         },
-        orderBy: {
-          id: "desc",
-        },
-      },
-    },
-    orderBy: {
-      openedAt: "desc",
-    },
-  });
+      })
+    : null;
 
   // Fetch active packs for the store
   const activePacks = await prisma.pack.findMany({
@@ -87,13 +115,14 @@ export default async function LiveScanPage() {
     <div className="flex flex-1 flex-col overflow-hidden">
       <Header
         title="Live Scan"
-        subtitle="Real-time ticket scanning and sales tracking"
+        subtitle={`Real-time ticket scanning and sales tracking · Terminal ${terminalId}`}
       />
 
       <div className="flex-1 overflow-y-auto px-4 py-3.5">
         <LiveScanDashboard
           currentShift={shiftData}
           activePacks={packsData}
+          terminalId={terminalId}
         />
       </div>
     </div>

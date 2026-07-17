@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 
+async function ensureShiftTerminalSchema() {
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE shifts
+    ADD COLUMN IF NOT EXISTS terminal_id TEXT
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS idx_shifts_store_status_terminal
+    ON shifts (store_id, status, terminal_id)
+  `);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getApiSession();
@@ -20,17 +31,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prevent duplicate shifts
-    const existing = await prisma.shift.findFirst({
-      where: {
-        storeId: session.storeId,
-        status: "OPEN",
-      },
-    });
+    const body = await req.json().catch(() => ({}));
+    const terminalId =
+      typeof body?.terminalId === "string" && body.terminalId.trim()
+        ? body.terminalId.trim().toUpperCase()
+        : "T1";
+
+    await ensureShiftTerminalSchema();
+
+    // Prevent duplicate shifts per terminal
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingRows = (await prisma.$queryRawUnsafe(
+      `
+      SELECT id
+      FROM shifts
+      WHERE store_id = $1
+        AND status = 'OPEN'
+        AND COALESCE(terminal_id, 'T1') = $2
+      LIMIT 1
+      `,
+      session.storeId,
+      terminalId
+    )) as { id: string }[];
+    const existing = existingRows[0] ?? null;
 
     if (existing) {
       return NextResponse.json(
-        { error: "Shift already open" },
+        { error: `Shift already open on terminal ${terminalId}` },
         { status: 400 }
       );
     }
@@ -65,6 +92,15 @@ export async function POST(req: NextRequest) {
         status: "OPEN",
       },
     });
+    await prisma.$executeRawUnsafe(
+      `
+      UPDATE shifts
+      SET terminal_id = $1
+      WHERE id = $2
+      `,
+      terminalId,
+      shift.id
+    );
 
     // Snapshot packs
     await prisma.$transaction([
@@ -84,7 +120,7 @@ export async function POST(req: NextRequest) {
           storeId: session.storeId,
           action: "SHIFT_OPEN",
           performedById: session.userId,
-          detail: `Shift opened with ${activePacks.length} active display pack(s)`,
+          detail: `Shift opened on terminal ${terminalId} with ${activePacks.length} active display pack(s)`,
         },
       }),
     ]);
@@ -92,6 +128,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       shiftId: shift.id,
+      terminalId,
     });
 
   } catch (error) {

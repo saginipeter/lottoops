@@ -3,7 +3,13 @@ import ShiftDashboard from "@/components/shifts/shift-dashboard";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 
-export default async function ShiftsPage() {
+interface ShiftsPageProps {
+  searchParams?: Promise<{
+    terminal?: string;
+  }>;
+}
+
+export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
   const session = await getSession();
 
   if (!session) {
@@ -19,34 +25,56 @@ export default async function ShiftsPage() {
     );
   }
 
-  const openShift = await prisma.shift.findFirst({
-    where: {
-      status: "OPEN",
-      storeId: session.storeId,
-    },
-    include: {
-      openedBy: {
-        select: {
-          name: true,
-        },
-      },
-      lines: {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const terminalId =
+    typeof resolvedSearchParams.terminal === "string" && resolvedSearchParams.terminal.trim()
+      ? resolvedSearchParams.terminal.trim().toUpperCase()
+      : "T1";
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE shifts
+    ADD COLUMN IF NOT EXISTS terminal_id TEXT
+  `);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const openShiftRows = (await prisma.$queryRawUnsafe(
+    `
+    SELECT id
+    FROM shifts
+    WHERE store_id = $1
+      AND status = 'OPEN'
+      AND COALESCE(terminal_id, 'T1') = $2
+    ORDER BY opened_at DESC
+    LIMIT 1
+    `,
+    session.storeId,
+    terminalId
+  )) as { id: string }[];
+
+  const openShift = openShiftRows[0]
+    ? await prisma.shift.findUnique({
+        where: { id: openShiftRows[0].id },
         include: {
-          pack: {
+          openedBy: {
+            select: {
+              name: true,
+            },
+          },
+          lines: {
             include: {
-              game: true,
+              pack: {
+                include: {
+                  game: true,
+                },
+              },
+            },
+            orderBy: {
+              slotNumber: "asc",
             },
           },
         },
-        orderBy: {
-          slotNumber: "asc",
-        },
-      },
-    },
-    orderBy: {
-      openedAt: "desc",
-    },
-  });
+      })
+    : null;
 
   const timelineEvents = openShift
     ? await prisma.scanLogEntry.findMany({
@@ -102,13 +130,18 @@ export default async function ShiftsPage() {
     <div className="flex flex-1 flex-col overflow-hidden">
       <Header
         title="Shift Management"
-        subtitle={openShift ? "Shift is open — reconcile and close when ready" : "Open and close daily shifts"}
+        subtitle={
+          openShift
+            ? `Terminal ${terminalId}: shift is open — reconcile and close when ready`
+            : `Terminal ${terminalId}: open and close daily shifts`
+        }
       />
 
       <div className="flex-1 overflow-y-auto p-6">
         <ShiftDashboard
           shift={shiftData}
           shiftEvents={eventData}
+          terminalId={terminalId}
         />
       </div>
     </div>
