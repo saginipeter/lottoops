@@ -26,6 +26,26 @@ interface ScanStepProps {
   shipment: ShipmentState;
   setShipment: React.Dispatch<React.SetStateAction<ShipmentState>>;
   packs: PackWithGame[];
+  scanDraft: {
+    barcode: string;
+    gameNumber: string;
+    packNumber: string;
+    firstTicket: string;
+    ticketPrice: number;
+    ticketQuantity: number;
+    packImage: string;
+  };
+  setScanDraft: React.Dispatch<
+    React.SetStateAction<{
+      barcode: string;
+      gameNumber: string;
+      packNumber: string;
+      firstTicket: string;
+      ticketPrice: number;
+      ticketQuantity: number;
+      packImage: string;
+    }>
+  >;
   addPack: (pack: PackWithGame) => void;
   removePack: (id: string) => void;
   nextStep: () => void;
@@ -36,19 +56,22 @@ export function ScanStep({
   shipment,
   setShipment,
   packs,
+  scanDraft,
+  setScanDraft,
   addPack,
   removePack,
   nextStep,
   previousStep,
 }: ScanStepProps) {
-  const [barcode, setBarcode] = useState("");
-  const [gameNumber, setGameNumber] = useState("");
-  const [packNumber, setPackNumber] = useState("");
-  const [firstTicket, setFirstTicket] = useState("");
-
-  const [ticketPrice, setTicketPrice] = useState(10);
-  const [ticketQuantity, setTicketQuantity] = useState(50);
-  const [packImage, setPackImage] = useState("");
+  const {
+    barcode,
+    gameNumber,
+    packNumber,
+    firstTicket,
+    ticketPrice,
+    ticketQuantity,
+    packImage,
+  } = scanDraft;
 
   // Auto-detection state
   const [detecting, setDetecting] = useState(false);
@@ -66,8 +89,11 @@ export function ScanStep({
       const data = await res.json();
       if (res.ok && data.found) {
         setDetectedGame(data as DetectedGame);
-        setTicketPrice(data.price);
-        setTicketQuantity(data.ticketsPerPack);
+        setScanDraft((prev) => ({
+          ...prev,
+          ticketPrice: data.price,
+          ticketQuantity: data.ticketsPerPack,
+        }));
       } else {
         setDetectionError("Game not found in catalog — please select price & quantity manually.");
       }
@@ -79,11 +105,14 @@ export function ScanStep({
   }, []);
 
   function handleScan(value: string) {
-    setBarcode(value);
     const parsed = parseBarcode(value);
-    setGameNumber(parsed.gameNumber);
-    setPackNumber(parsed.packNumber);
-    setFirstTicket(parsed.firstTicket);
+    setScanDraft((prev) => ({
+      ...prev,
+      barcode: value,
+      gameNumber: parsed.gameNumber,
+      packNumber: parsed.packNumber,
+      firstTicket: parsed.firstTicket,
+    }));
   }
 
   // Trigger detection whenever gameNumber changes
@@ -120,8 +149,14 @@ export function ScanStep({
       setShipment((prev) => ({ ...prev, scannedPacks: (prev.scannedPacks ?? 0) + 1 }));
 
       // Reset for next pack
-      setBarcode(""); setGameNumber(""); setPackNumber(""); setFirstTicket("");
-      setPackImage("");
+      setScanDraft((prev) => ({
+        ...prev,
+        barcode: "",
+        gameNumber: "",
+        packNumber: "",
+        firstTicket: "",
+        packImage: "",
+      }));
       setDetectedGame(null); setDetectionError(null);
     } catch (err) {
       console.error(err);
@@ -186,7 +221,18 @@ export function ScanStep({
             <h3 className="text-lg font-semibold">Step 6: Upload Pack Image</h3>
             <p className="text-sm text-gray-500">Upload a photo of the pack.</p>
           </div>
-          <InvoiceUpload value={packImage} onChange={setPackImage} />
+          <InvoiceUpload
+            value={packImage}
+            title="Upload Pack Image"
+            previewAlt="Pack image"
+            errorMessage="Failed to upload pack image."
+            onChange={(url) =>
+              setScanDraft((prev) => ({
+                ...prev,
+                packImage: url,
+              }))
+            }
+          />
           {packImage && <p className="mt-3 text-sm text-green-600">✓ Image uploaded</p>}
         </Panel>
 
@@ -199,7 +245,15 @@ export function ScanStep({
               </span>
             </div>
           )}
-          <TicketPriceOnly selectedPrice={ticketPrice} onSelect={setTicketPrice} />
+          <TicketPriceOnly
+            selectedPrice={ticketPrice}
+            onSelect={(value) =>
+              setScanDraft((prev) => ({
+                ...prev,
+                ticketPrice: value,
+              }))
+            }
+          />
         </div>
 
         {/* Step 8: Ticket Quantity — auto-filled, still editable */}
@@ -214,7 +268,12 @@ export function ScanStep({
           <TicketQuantityOnly
             selectedPrice={ticketPrice}
             selectedQuantity={ticketQuantity}
-            onSelect={setTicketQuantity}
+            onSelect={(value) =>
+              setScanDraft((prev) => ({
+                ...prev,
+                ticketQuantity: value,
+              }))
+            }
           />
         </div>
 

@@ -13,6 +13,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Panel } from "@/components/ui/panel";
+import { InvoiceUpload } from "@/components/receive/invoice-upload";
 
 interface ActivatePackModalProps {
   pack: Pack | null;
@@ -130,7 +131,7 @@ export function ActivatePackModal({
           {/* Activation Number */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              Activation Number (Optional)
+              Activation Number
             </label>
             <input
               type="text"
@@ -144,24 +145,21 @@ export function ActivatePackModal({
           {/* Activation Receipt Photo */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              Activation Receipt Photo (Optional)
+              Activation Receipt Photo
             </label>
-            <textarea
+            <InvoiceUpload
               value={activationReceiptPhoto}
-              onChange={(e) => setActivationReceiptPhoto(e.target.value)}
-              placeholder="Upload or paste photo URL"
-              className="w-full rounded-lg border px-4 py-2 text-sm"
-              rows={2}
+              title="Upload Activation Receipt Photo"
+              previewAlt="Activation receipt photo"
+              errorMessage="Failed to upload activation receipt photo."
+              onChange={setActivationReceiptPhoto}
             />
-            {activationReceiptPhoto && (
-              <p className="mt-2 text-xs text-green-600">✓ Photo URL added</p>
-            )}
           </div>
 
           {/* Lot Number */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              Lot Number (Optional)
+              Lot Number
             </label>
             <input
               type="text"
@@ -223,7 +221,7 @@ export function ActivatePackModal({
               </select>
             ) : (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                No available slots. Manage your display inventory first.
+                No available displays. Manage your display inventory first.
               </div>
             )}
           </div>

@@ -155,3 +155,90 @@ return NextResponse.json(savedPack);
     );
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { packId, firstTicket, ticketPrice, ticketQuantity } = await req.json();
+
+    if (!packId) {
+      return NextResponse.json(
+        { error: "Pack ID is required." },
+        { status: 400 }
+      );
+    }
+
+    const normalizedFirstTicket = Number(firstTicket);
+    const normalizedTicketPrice = Number(ticketPrice);
+    const normalizedTicketQuantity = Number(ticketQuantity);
+
+    if (!Number.isInteger(normalizedFirstTicket) || normalizedFirstTicket < 0) {
+      return NextResponse.json(
+        { error: "First ticket must be a valid whole number." },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(normalizedTicketPrice) || normalizedTicketPrice <= 0) {
+      return NextResponse.json(
+        { error: "Ticket price must be greater than zero." },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isInteger(normalizedTicketQuantity) || normalizedTicketQuantity <= 0) {
+      return NextResponse.json(
+        { error: "Ticket quantity must be a whole number greater than zero." },
+        { status: 400 }
+      );
+    }
+
+    const existingPack = await prisma.pack.findFirst({
+      where: {
+        id: packId,
+        storeId: session.storeId,
+      },
+    });
+
+    if (!existingPack) {
+      return NextResponse.json(
+        { error: "Pack not found." },
+        { status: 404 }
+      );
+    }
+
+    const updatedPack = await prisma.pack.update({
+      where: { id: packId },
+      data: {
+        firstTicket: normalizedFirstTicket,
+        ticketPrice: normalizedTicketPrice,
+        ticketQuantity: normalizedTicketQuantity,
+        retailValue: normalizedTicketPrice * normalizedTicketQuantity,
+        currentTicketNumber:
+          existingPack.status === "BACK_STOCK"
+            ? normalizedFirstTicket
+            : existingPack.currentTicketNumber,
+      },
+      include: {
+        game: true,
+      },
+    });
+
+    return NextResponse.json(updatedPack);
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: "Failed to update pack." },
+      { status: 500 }
+    );
+  }
+}

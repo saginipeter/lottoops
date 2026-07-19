@@ -32,20 +32,13 @@ export function ConfirmStep({
   const [destination, setDestination] = useState<"backstock" | "active">("backstock");
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const expectedTickets = Number(shipment.expectedTickets ?? 0);
   const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
-  const scannedTickets = packs.reduce(
-    (sum, pack) => sum + Number(pack.ticketQuantity ?? 0),
-    0
-  );
   const scannedRetailValue = packs.reduce(
     (sum, pack) =>
       sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
     0
   );
   const invoiceMatches =
-    expectedTickets > 0 &&
-    expectedTickets === scannedTickets &&
     expectedRetailValue > 0 &&
     Math.round(expectedRetailValue * 100) === Math.round(scannedRetailValue * 100);
 
@@ -67,7 +60,6 @@ export function ConfirmStep({
           shipmentId: shipment.id,
           destination,
           notes,
-          expectedTickets,
           expectedRetailValue,
         }),
       });
@@ -197,16 +189,6 @@ export function ConfirmStep({
             <Info
               label="Scanned Packs"
               value={packs.length.toString()}
-            />
-
-            <Info
-              label="Expected Tickets"
-              value={expectedTickets.toString()}
-            />
-
-            <Info
-              label="Scanned Tickets"
-              value={scannedTickets.toString()}
             />
 
             <Info

@@ -12,6 +12,16 @@ import { ConfirmStep } from "./steps/confirm-step";
 
 export type WizardStep = 1 | 2 | 3 | 4;
 
+interface ScanDraftState {
+  barcode: string;
+  gameNumber: string;
+  packNumber: string;
+  firstTicket: string;
+  ticketPrice: number;
+  ticketQuantity: number;
+  packImage: string;
+}
+
 export default function ReceiveWizard() {
   const [step, setStep] = useState<WizardStep>(1);
 
@@ -22,13 +32,21 @@ const [shipment, setShipment] = useState<ShipmentState>({
   shipmentDate: new Date().toISOString().split("T")[0],
   receivedBy: "",
   expectedPacks: 0,
-  expectedTickets: 0,
   expectedRetailValue: 0,
   scannedPacks: 0,
   status: "IN_PROGRESS",
 });
 
   const [packs, setPacks] = useState<PackWithGame[]>([]);
+  const [scanDraft, setScanDraft] = useState<ScanDraftState>({
+    barcode: "",
+    gameNumber: "",
+    packNumber: "",
+    firstTicket: "",
+    ticketPrice: 10,
+    ticketQuantity: 50,
+    packImage: "",
+  });
 
   function nextStep() {
     if (step < 4) {
@@ -60,6 +78,12 @@ const [shipment, setShipment] = useState<ShipmentState>({
     }));
   }
 
+  function updatePack(updatedPack: PackWithGame) {
+    setPacks((prev) =>
+      prev.map((pack) => (pack.id === updatedPack.id ? updatedPack : pack))
+    );
+  }
+
   return (
     <div className="space-y-6">
       <ProgressStepper currentStep={step} />
@@ -77,6 +101,8 @@ const [shipment, setShipment] = useState<ShipmentState>({
           shipment={shipment}
           setShipment={setShipment}
           packs={packs}
+          scanDraft={scanDraft}
+          setScanDraft={setScanDraft}
           addPack={addPack}
           removePack={removePack}
           nextStep={nextStep}
@@ -88,6 +114,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
         <ReviewStep
           shipment={shipment}
           packs={packs}
+          updatePack={updatePack}
           nextStep={nextStep}
           previousStep={previousStep}
         />

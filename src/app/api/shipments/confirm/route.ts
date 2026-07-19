@@ -17,7 +17,6 @@ export async function POST(req: NextRequest) {
       shipmentId,
       destination,
       notes,
-      expectedTickets,
       expectedRetailValue,
     } = await req.json();
 
@@ -65,13 +64,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const parsedExpectedTickets = Number(expectedTickets);
     const parsedExpectedRetailValue = Number(expectedRetailValue);
-    const scannedTickets = shipmentPacks.reduce(
-      (sum: number, pack: { ticketQuantity: number | null }) =>
-        sum + Number(pack.ticketQuantity ?? 0),
-      0
-    );
     const scannedRetailValue = shipmentPacks.reduce(
       (
         sum: number,
@@ -80,25 +73,9 @@ export async function POST(req: NextRequest) {
       0
     );
 
-    if (!Number.isInteger(parsedExpectedTickets) || parsedExpectedTickets <= 0) {
-      return NextResponse.json(
-        { error: "Expected invoice tickets are required for confirmation." },
-        { status: 400 }
-      );
-    }
-
     if (!Number.isFinite(parsedExpectedRetailValue) || parsedExpectedRetailValue <= 0) {
       return NextResponse.json(
         { error: "Expected invoice total value is required for confirmation." },
-        { status: 400 }
-      );
-    }
-
-    if (parsedExpectedTickets !== scannedTickets) {
-      return NextResponse.json(
-        {
-          error: `Invoice tickets (${parsedExpectedTickets}) do not match scanned tickets (${scannedTickets}).`,
-        },
         { status: 400 }
       );
     }

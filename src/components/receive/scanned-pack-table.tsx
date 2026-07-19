@@ -1,6 +1,7 @@
 "use client";
 
-import { Trash2, CheckCircle2, Clock3 } from "lucide-react";
+import { Trash2, CheckCircle2, Clock3, Pencil } from "lucide-react";
+import { useState } from "react";
 
 import type { PackWithGame } from "@/lib/types";
 
@@ -9,13 +10,85 @@ import { Button } from "@/components/ui/button";
 
 interface Props {
   packs: PackWithGame[];
-  removePack: (id: string) => void;
+  removePack?: (id: string) => void;
+  editable?: boolean;
+  onUpdatePack?: (pack: PackWithGame) => void;
 }
 
 export function ScannedPackTable({
   packs,
   removePack,
+  editable = false,
+  onUpdatePack,
 }: Props) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  async function handleEdit(pack: PackWithGame) {
+    const firstTicket = window.prompt(
+      "Edit first ticket number",
+      String(pack.firstTicket ?? "")
+    );
+    if (firstTicket === null) return;
+
+    const ticketPrice = window.prompt(
+      "Edit ticket price",
+      String(Number(pack.ticketPrice ?? 0))
+    );
+    if (ticketPrice === null) return;
+
+    const ticketQuantity = window.prompt(
+      "Edit ticket quantity",
+      String(pack.ticketQuantity ?? 0)
+    );
+    if (ticketQuantity === null) return;
+
+    const parsedFirstTicket = Number(firstTicket);
+    const parsedTicketPrice = Number(ticketPrice);
+    const parsedTicketQuantity = Number(ticketQuantity);
+
+    if (!Number.isInteger(parsedFirstTicket) || parsedFirstTicket < 0) {
+      alert("First ticket must be a valid whole number.");
+      return;
+    }
+
+    if (!Number.isFinite(parsedTicketPrice) || parsedTicketPrice <= 0) {
+      alert("Ticket price must be greater than zero.");
+      return;
+    }
+
+    if (!Number.isInteger(parsedTicketQuantity) || parsedTicketQuantity <= 0) {
+      alert("Ticket quantity must be a whole number greater than zero.");
+      return;
+    }
+
+    try {
+      setEditingId(pack.id);
+      const response = await fetch("/api/packs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packId: pack.id,
+          firstTicket: parsedFirstTicket,
+          ticketPrice: parsedTicketPrice,
+          ticketQuantity: parsedTicketQuantity,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || "Unable to update scanned pack.");
+        return;
+      }
+
+      onUpdatePack?.(data);
+    } catch (error) {
+      console.error(error);
+      alert("Unable to update scanned pack.");
+    } finally {
+      setEditingId(null);
+    }
+  }
+
   return (
     <Panel className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -145,18 +218,33 @@ export function ScannedPackTable({
 
                 <td className="text-right">
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removePack(pack.id)}
-                  >
+                  {editable && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={editingId === pack.id}
+                      onClick={() => handleEdit(pack)}
+                    >
+                      <Pencil
+                        size={16}
+                        className="text-blue-600"
+                      />
+                    </Button>
+                  )}
 
-                    <Trash2
-                      size={18}
-                      className="text-red-500"
-                    />
-
-                  </Button>
+                  {removePack && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={editingId === pack.id}
+                      onClick={() => removePack(pack.id)}
+                    >
+                      <Trash2
+                        size={18}
+                        className="text-red-500"
+                      />
+                    </Button>
+                  )}
 
                 </td>
 
