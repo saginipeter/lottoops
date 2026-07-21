@@ -151,8 +151,8 @@ export async function GET(req: NextRequest) {
       limit: 2000,
     });
     const headers = ["Timestamp", "Action", "Entity", "Entity ID", "Detail", "Performed By"];
-    const rows = logs.map((log) => {
-      const row = log as {
+    const rows = logs.map((row: unknown) => {
+      const entry = row as {
         createdAt: Date | string;
         action: string;
         entityType: string;
@@ -162,12 +162,12 @@ export async function GET(req: NextRequest) {
         performedById: string;
       };
       return [
-        new Date(row.createdAt).toISOString(),
-        row.action,
-        row.entityType,
-        row.entityId ?? "",
-        row.detail,
-        row.performedByName ?? row.performedById,
+        new Date(entry.createdAt).toISOString(),
+        entry.action,
+        entry.entityType,
+        entry.entityId ?? "",
+        entry.detail,
+        entry.performedByName ?? entry.performedById,
       ];
     });
     csv = buildCSV(headers, rows);

@@ -32,10 +32,19 @@ export async function GET() {
   });
 
   await ensureUserProfilesTable();
-  const employeeIdMap = await getEmployeeIdsForUsers(users.map((u) => u.id));
+  const employeeIdMap = await getEmployeeIdsForUsers(users.map((u: { id: string }) => u.id));
 
   return NextResponse.json({
-    users: users.map((u) => ({
+    users: users.map((u: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      active: boolean;
+      createdAt: Date;
+      lastLoginAt: Date | null;
+      grantedPermissions: string[];
+    }) => ({
       ...u,
       employeeUserId: employeeIdMap.get(u.id) ?? null,
     })),

@@ -30,16 +30,14 @@ export async function getEmployeeIdsForUsers(userIds: string[]) {
   if (!prisma || userIds.length === 0) return new Map<string, string | null>();
   await ensureUserProfileSchema();
 
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{ userId: string; employeeUserId: string | null }>
-  >(
+  const rows = (await prisma.$queryRawUnsafe(
     `
     SELECT user_id AS "userId", employee_user_id AS "employeeUserId"
     FROM user_profiles
     WHERE user_id = ANY($1::text[])
     `,
     userIds
-  );
+  )) as Array<{ userId: string; employeeUserId: string | null }>;
 
   return new Map(rows.map((row) => [row.userId, row.employeeUserId]));
 }
@@ -73,7 +71,7 @@ export async function assertEmployeeUserIdAvailable(employeeUserId: string, user
   const normalized = employeeUserId.trim();
   if (!normalized) return;
 
-  const existing = await prisma.$queryRawUnsafe<Array<{ userId: string }>>(
+  const existing = (await prisma.$queryRawUnsafe(
     `
     SELECT user_id AS "userId"
     FROM user_profiles
@@ -82,7 +80,7 @@ export async function assertEmployeeUserIdAvailable(employeeUserId: string, user
     LIMIT 1
     `,
     ...(userId ? [normalized, userId] : [normalized])
-  );
+  )) as Array<{ userId: string }>;
 
   if (existing.length > 0) {
     throw new Error("EMPLOYEE_USER_ID_TAKEN");

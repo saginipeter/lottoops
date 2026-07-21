@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     take: 1000,
   });
 
-  const counts = packs.reduce<Record<string, number>>((acc, p) => {
+  const counts: Record<string, number> = packs.reduce((acc: Record<string, number>, p: { status: string }) => {
     acc[p.status] = (acc[p.status] ?? 0) + 1;
     return acc;
   }, {});
