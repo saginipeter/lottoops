@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
 
@@ -24,6 +25,7 @@ interface ScanDraftState {
 }
 
 export default function ReceiveWizard() {
+  const router = useRouter();
   const [step, setStep] = useState<WizardStep>(1);
 
 const [shipment, setShipment] = useState<ShipmentState>({
@@ -129,6 +131,10 @@ const [shipment, setShipment] = useState<ShipmentState>({
     } catch (error) {
       console.error("Unable to clear receiving draft:", error);
     }
+
+    function cancelReceiving() {
+      router.push("/inventory");
+    }
   }
 
   return (
@@ -140,6 +146,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
           shipment={shipment}
           setShipment={setShipment}
           nextStep={nextStep}
+          onCancel={cancelReceiving}
         />
       )}
 
@@ -153,6 +160,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
           removePack={removePack}
           nextStep={nextStep}
           previousStep={previousStep}
+          onCancel={cancelReceiving}
         />
       )}
 
@@ -163,6 +171,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
           updatePack={updatePack}
           nextStep={nextStep}
           previousStep={previousStep}
+          onCancel={cancelReceiving}
         />
       )}
 
@@ -172,6 +181,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
           packs={packs}
           previousStep={previousStep}
           onConfirmed={clearDraft}
+          onCancel={cancelReceiving}
         />
       )}
     </div>

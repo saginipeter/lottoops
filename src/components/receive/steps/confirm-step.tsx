@@ -22,6 +22,7 @@ interface ConfirmStepProps {
   packs: PackWithGame[];
   previousStep: () => void;
   onConfirmed?: () => void;
+  onCancel: () => void;
 }
 
 export function ConfirmStep({
@@ -29,6 +30,7 @@ export function ConfirmStep({
   packs,
   previousStep,
   onConfirmed,
+  onCancel,
 }: ConfirmStepProps) {
   const [notes, setNotes] = useState("");
   const [destination, setDestination] = useState<"backstock" | "active">("backstock");
@@ -344,6 +346,14 @@ export function ConfirmStep({
             onClick={previousStep}
           >
             ← Back
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={onCancel}
+          >
+            Cancel
           </Button>
 
           <Button

@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
 import { Header } from "@/components/layout/header";
+import { Button } from "@/components/ui/button";
 import { PackDetailsCard } from "@/components/inventory/pack-details-card";
 import { ShipmentCard } from "@/components/inventory/shipment-card";
 import { PackStatsCard } from "@/components/inventory/pack-stats-card";
@@ -52,6 +54,11 @@ export default async function PackDetailsPage({
       <Header
         title={`Pack ${pack.packNumber}`}
         subtitle={pack.game.name}
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/inventory">Back to Inventory</Link>
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-3 gap-6 p-6">

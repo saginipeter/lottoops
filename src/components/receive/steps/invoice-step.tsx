@@ -12,12 +12,14 @@ interface InvoiceStepProps {
     React.SetStateAction<ShipmentState>
   >;
   nextStep: () => void;
+  onCancel: () => void;
 }
 
 export function InvoiceStep({
   shipment,
   setShipment,
   nextStep,
+  onCancel,
 }: InvoiceStepProps) {
   
 
@@ -299,9 +301,14 @@ export function InvoiceStep({
           </div>
         </div>
 
-        <Button className="mt-8 w-full" onClick={handleContinue}>
-          Next Step: Continue to Scan Packs →
-        </Button>
+        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+          <Button variant="outline" className="w-full" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button className="w-full" onClick={handleContinue}>
+            Next Step: Continue to Scan Packs →
+          </Button>
+        </div>
       </Panel>
     </div>
   );

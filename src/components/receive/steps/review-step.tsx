@@ -19,7 +19,7 @@ interface ReviewStepProps {
   updatePack: (pack: PackWithGame) => void;
 
   nextStep: () => void;
-  previousStep: () => void;
+  onCancel: () => void;
 }
 
 export function ReviewStep({
@@ -28,6 +28,7 @@ export function ReviewStep({
   updatePack,
   nextStep,
   previousStep,
+  onCancel,
 }: ReviewStepProps) {
   const expected = shipment.expectedPacks ?? 0;
   const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
@@ -201,6 +202,10 @@ export function ReviewStep({
             onClick={previousStep}
           >
             ← Back
+          </Button>
+
+          <Button variant="outline" className="w-full" onClick={onCancel}>
+            Cancel
           </Button>
 
           <Button

@@ -49,6 +49,7 @@ interface ScanStepProps {
   removePack: (id: string) => void;
   nextStep: () => void;
   previousStep: () => void;
+  onCancel: () => void;
 }
 
 export function ScanStep({
@@ -60,6 +61,7 @@ export function ScanStep({
   removePack,
   nextStep,
   previousStep,
+  onCancel,
 }: ScanStepProps) {
   const {
     barcode,
@@ -320,9 +322,12 @@ export function ScanStep({
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Button variant="secondary" className="w-full" onClick={previousStep}>
               ← Back
+            </Button>
+            <Button variant="outline" className="w-full" onClick={onCancel}>
+              Cancel
             </Button>
             <Button className="w-full" onClick={nextStep} disabled={packs.length === 0}>
               Step 10: Review Shipment →
