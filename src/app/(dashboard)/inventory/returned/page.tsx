@@ -5,7 +5,7 @@ import { ReturnedTicketsList } from "@/components/inventory/returned-tickets-lis
 
 export default async function ReturnedTicketsPage() {
   const session = await getSession();
-  if (!session?.user) redirect("/login");
+  if (!session) redirect("/login");
 
   const packs = await prisma.pack.findMany({
     where: {
