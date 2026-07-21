@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import {
+  assertEmployeeUserIdAvailable,
+  getEmployeeIdsForUsers,
+  setEmployeeUserId,
+} from "@/lib/user-profiles";
 
 // PATCH /api/users/[id] — update name, role, active, or reset password
 export async function PATCH(
@@ -31,7 +36,7 @@ export async function PATCH(
   }
 
   const body = await req.json().catch(() => ({}));
-  const { name, role, active, password, grantedPermissions } = body;
+  const { name, role, active, password, grantedPermissions, email, employeeUserId } = body;
 
   // OWNER can assign any role; MANAGER cannot assign OWNER
   const allowedRoles = session.role === "OWNER"
@@ -47,6 +52,23 @@ export async function PATCH(
 
   const updateData: Record<string, unknown> = {};
   if (name !== undefined) updateData.name = String(name).trim();
+  if (email !== undefined) {
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (!normalizedEmail) {
+      return NextResponse.json({ error: "Email is required." }, { status: 400 });
+    }
+    const taken = await prisma.user.findFirst({
+      where: {
+        email: normalizedEmail,
+        id: { not: id },
+      },
+      select: { id: true },
+    });
+    if (taken) {
+      return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
+    }
+    updateData.email = normalizedEmail;
+  }
   if (role !== undefined) updateData.role = role;
   if (active !== undefined) updateData.active = Boolean(active);
   if (grantedPermissions !== undefined && Array.isArray(grantedPermissions)) {
@@ -60,25 +82,66 @@ export async function PATCH(
   }
 
   if (Object.keys(updateData).length === 0) {
-    return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
+    if (employeeUserId === undefined) {
+      return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
+    }
   }
 
-  const user = await prisma.user.update({
-    where: { id },
-    data: updateData,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      active: true,
-      createdAt: true,
-      lastLoginAt: true,
-      grantedPermissions: true,
+  if (employeeUserId !== undefined && String(employeeUserId).trim()) {
+    try {
+      await assertEmployeeUserIdAvailable(String(employeeUserId), id);
+    } catch (error) {
+      if (error instanceof Error && error.message === "EMPLOYEE_USER_ID_TAKEN") {
+        return NextResponse.json(
+          { error: "Employee User ID is already assigned to another user." },
+          { status: 409 }
+        );
+      }
+      throw error;
+    }
+  }
+
+  const user = Object.keys(updateData).length
+    ? await prisma.user.update({
+        where: { id },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true,
+          createdAt: true,
+          lastLoginAt: true,
+          grantedPermissions: true,
+        },
+      })
+    : await prisma.user.findUniqueOrThrow({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true,
+          createdAt: true,
+          lastLoginAt: true,
+          grantedPermissions: true,
+        },
+      });
+
+  if (employeeUserId !== undefined) {
+    await setEmployeeUserId(id, String(employeeUserId));
+  }
+
+  const employeeIdMap = await getEmployeeIdsForUsers([id]);
+
+  return NextResponse.json({
+    user: {
+      ...user,
+      employeeUserId: employeeIdMap.get(id) ?? null,
     },
   });
-
-  return NextResponse.json({ user });
 }
 
 // DELETE /api/users/[id] — deactivate (soft delete only)

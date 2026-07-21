@@ -12,8 +12,8 @@ import { BarcodeScanner } from "../barcode-scanner";
 import { TicketPriceOnly } from "../ticket-price-only";
 import { TicketQuantityOnly } from "../ticket-quantity-only";
 import { InvoiceUpload } from "../invoice-upload";
-import { ShipmentSummary } from "../shipment-summary";
 import { ScannedPackTable } from "../scanned-pack-table";
+import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 interface DetectedGame {
   source: "store" | "catalog";
@@ -24,7 +24,6 @@ interface DetectedGame {
 
 interface ScanStepProps {
   shipment: ShipmentState;
-  setShipment: React.Dispatch<React.SetStateAction<ShipmentState>>;
   packs: PackWithGame[];
   scanDraft: {
     barcode: string;
@@ -54,7 +53,6 @@ interface ScanStepProps {
 
 export function ScanStep({
   shipment,
-  setShipment,
   packs,
   scanDraft,
   setScanDraft,
@@ -77,6 +75,7 @@ export function ScanStep({
   const [detecting, setDetecting] = useState(false);
   const [detectedGame, setDetectedGame] = useState<DetectedGame | null>(null);
   const [detectionError, setDetectionError] = useState<string | null>(null);
+  const [justAdded, setJustAdded] = useState(false);
 
   // After a barcode is parsed, auto-detect the game
   const detectGame = useCallback(async (gn: string) => {
@@ -89,10 +88,11 @@ export function ScanStep({
       const data = await res.json();
       if (res.ok && data.found) {
         setDetectedGame(data as DetectedGame);
+        const suggestedQuantity = getSuggestedTicketQuantity(Number(data.price));
         setScanDraft((prev) => ({
           ...prev,
           ticketPrice: data.price,
-          ticketQuantity: data.ticketsPerPack,
+          ticketQuantity: suggestedQuantity,
         }));
       } else {
         setDetectionError("Game not found in catalog — please select price & quantity manually.");
@@ -113,6 +113,7 @@ export function ScanStep({
       packNumber: parsed.packNumber,
       firstTicket: parsed.firstTicket,
     }));
+    setJustAdded(false);
   }
 
   // Trigger detection whenever gameNumber changes
@@ -122,7 +123,14 @@ export function ScanStep({
   }, [gameNumber, detectGame]);
 
   async function handleAddPack() {
+    const cleanedBarcode = barcode.replace(/\D/g, "");
+    const normalizedBarcode = cleanedBarcode.slice(0, 11);
+
     if (!gameNumber || !packNumber) return;
+    if (normalizedBarcode.length < 11) {
+      alert("Barcode must contain at least 11 digits for receiving.");
+      return;
+    }
     if (!/^\d{7}$/.test(packNumber)) { alert("Pack number must be exactly 7 digits."); return; }
     if (!packImage) { alert("Please upload a pack image."); return; }
 
@@ -132,7 +140,7 @@ export function ScanStep({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           shipmentId: shipment.id,
-          barcode,
+          barcode: normalizedBarcode,
           gameNumber,
           packNumber,
           firstTicket: Number(firstTicket),
@@ -146,7 +154,6 @@ export function ScanStep({
       if (!response.ok) { alert(savedPack.error); return; }
 
       addPack(savedPack);
-      setShipment((prev) => ({ ...prev, scannedPacks: (prev.scannedPacks ?? 0) + 1 }));
 
       // Reset for next pack
       setScanDraft((prev) => ({
@@ -158,6 +165,7 @@ export function ScanStep({
         packImage: "",
       }));
       setDetectedGame(null); setDetectionError(null);
+      setJustAdded(true);
     } catch (err) {
       console.error(err);
       alert("Unable to save pack.");
@@ -165,8 +173,7 @@ export function ScanStep({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-6">
-      <div className="col-span-2 space-y-6">
+    <div className="space-y-6">
 
         {/* Step 5: Scan */}
         <Panel className="p-6">
@@ -286,18 +293,42 @@ export function ScanStep({
 
         <ScannedPackTable packs={packs} removePack={removePack} />
 
-        <Panel className="p-6">
-          <Button className="w-full" onClick={nextStep} disabled={packs.length === 0}>
-            Step 10: Review Shipment →
-          </Button>
-        </Panel>
-      </div>
+        <Panel className="space-y-4 p-6">
+          <h3 className="text-lg font-semibold">Shipment Summary</h3>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border bg-purple-50 p-3">
+              <p className="text-xs text-purple-700">Expected Packs</p>
+              <p className="text-xl font-bold text-purple-900">{shipment.expectedPacks ?? 0}</p>
+            </div>
+            <div className="rounded-lg border bg-emerald-50 p-3">
+              <p className="text-xs text-emerald-700">Scanned Packs</p>
+              <p className="text-xl font-bold text-emerald-900">{packs.length}</p>
+            </div>
+            <div className="rounded-lg border bg-amber-50 p-3">
+              <p className="text-xs text-amber-700">Remaining</p>
+              <p className="text-xl font-bold text-amber-900">
+                {Math.max((shipment.expectedPacks ?? 0) - packs.length, 0)}
+              </p>
+            </div>
+          </div>
 
-      <ShipmentSummary shipment={shipment} packs={packs}>
-        <div className="space-y-3">
-          <Button variant="secondary" className="w-full" onClick={previousStep}>← Back</Button>
-        </div>
-      </ShipmentSummary>
+          {justAdded && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              {(shipment.expectedPacks ?? 0) > packs.length
+                ? `Pack added. Next step: scan the next pack (${packs.length}/${shipment.expectedPacks ?? 0}).`
+                : "Pack added. Next step: review shipment details in Step 10."}
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button variant="secondary" className="w-full" onClick={previousStep}>
+              ← Back
+            </Button>
+            <Button className="w-full" onClick={nextStep} disabled={packs.length === 0}>
+              Step 10: Review Shipment →
+            </Button>
+          </div>
+        </Panel>
     </div>
   );
 }

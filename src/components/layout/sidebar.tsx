@@ -18,6 +18,7 @@ import {
   Radio,
   Users,
   Building2,
+  RotateCcw,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -79,6 +80,11 @@ const navSections: NavSection[] = [
         href: "/inventory/active",
         label: "Active Stock",
         icon: Layers,
+      },
+      {
+        href: "/inventory/returned",
+        label: "Returned Tickets",
+        icon: RotateCcw,
       },
     ],
   },

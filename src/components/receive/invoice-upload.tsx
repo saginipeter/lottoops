@@ -59,7 +59,7 @@ export function InvoiceUpload({
         type="file"
         accept="image/*"
         capture="environment"
-        hidden
+        className="sr-only"
         disabled={uploading}
         onChange={async (e) => {
           if (!e.target.files?.length) return;
@@ -70,7 +70,7 @@ export function InvoiceUpload({
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        hidden
+        className="sr-only"
         disabled={uploading}
         onChange={async (e) => {
           if (!e.target.files?.length) return;

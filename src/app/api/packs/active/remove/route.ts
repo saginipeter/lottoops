@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
+import { logInventoryActivity } from "@/lib/activity-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -128,6 +129,18 @@ export async function POST(req: NextRequest) {
         activeRemovalReasonAt: new Date(),
         reassignedToSlotId: activeRemovalReason === "REASSIGNED" ? reassignToSlotId : null,
       },
+    });
+
+    await logInventoryActivity({
+      storeId: session.storeId,
+      action: activeRemovalReason === "REASSIGNED" ? "REASSIGN_DISPLAY" : "REMOVE_FROM_DISPLAY",
+      entityType: "PACK",
+      entityId: packId,
+      detail:
+        activeRemovalReason === "REASSIGNED"
+          ? `Reassigned pack ${packId} to display ${reassignToSlotId}.`
+          : `Removed pack ${packId} from display as inactive with reason ${activeRemovalReason}${activeRemovalReasonText ? ` (${activeRemovalReasonText})` : ""}.`,
+      performedById: session.userId,
     });
 
     return NextResponse.json({

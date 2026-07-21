@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { logInventoryActivity } from "@/lib/activity-log";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     const pack = await prisma.pack.findFirst({
       where: { id: packId, storeId: session.storeId },
-      select: { id: true, status: true, firstTicket: true },
+      select: { id: true, status: true, firstTicket: true, currentTicketNumber: true },
     });
 
     if (!pack) {
@@ -54,10 +55,18 @@ export async function POST(req: NextRequest) {
       data: { currentTicketNumber },
     });
 
+    await logInventoryActivity({
+      storeId: session.storeId,
+      action: "UPDATE_TICKET_NUMBER",
+      entityType: "PACK",
+      entityId: pack.id,
+      detail: `Updated current ticket for pack ${packId} from ${pack.currentTicketNumber ?? pack.firstTicket ?? "N/A"} to ${currentTicketNumber}.`,
+      performedById: session.userId,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[POST /api/packs/update-ticket]", error);
     return NextResponse.json({ error: "Unable to update current ticket." }, { status: 500 });
   }
 }
-

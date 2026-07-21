@@ -2,6 +2,8 @@ import { Header } from "@/components/layout/header";
 import { getSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
 import { FinancialReports } from "@/components/reports/financial-reports";
+import { InventoryStatusReport } from "@/components/reports/inventory-status-report";
+import { ActivityReport } from "@/components/reports/activity-report";
 
 export default async function ReportsPage() {
   const session = await getSession();
@@ -10,11 +12,15 @@ export default async function ReportsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <Header
-        title="Financial Reports"
-        subtitle="Shift P and L, daily totals, and game performance - Export to CSV"
+        title="Reports"
+        subtitle="Financial, activity, and inventory status reports with export and print options"
       />
       <div className="flex-1 overflow-y-auto px-5 py-5">
-        <FinancialReports />
+        <div className="space-y-5">
+          <FinancialReports />
+          <ActivityReport />
+          <InventoryStatusReport />
+        </div>
       </div>
     </div>
   );

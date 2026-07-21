@@ -21,12 +21,14 @@ interface ConfirmStepProps {
   shipment: ShipmentState;
   packs: PackWithGame[];
   previousStep: () => void;
+  onConfirmed?: () => void;
 }
 
 export function ConfirmStep({
   shipment,
   packs,
   previousStep,
+  onConfirmed,
 }: ConfirmStepProps) {
   const [notes, setNotes] = useState("");
   const [destination, setDestination] = useState<"backstock" | "active">("backstock");
@@ -72,6 +74,7 @@ export function ConfirmStep({
       }
 
       setConfirmed(true);
+      onConfirmed?.();
     } catch (error) {
       console.error(error);
       alert("Unable to confirm shipment.");
@@ -100,7 +103,7 @@ export function ConfirmStep({
             All scanned packs have been received {destination === "active" ? "and moved to Active display" : "and moved to Back Stock"}.
           </p>
 
-          <div className="mt-10 grid grid-cols-3 gap-5">
+          <div className="mt-10 grid grid-cols-2 gap-5 md:grid-cols-4">
 
             <SummaryCard
               icon={<FileText size={22} />}
@@ -118,6 +121,12 @@ export function ConfirmStep({
               icon={<User size={22} />}
               label="Destination"
               value={destination === "active" ? "Display" : "Back Stock"}
+            />
+
+            <SummaryCard
+              icon={<Package size={22} />}
+              label="Shipment Value"
+              value={`$${scannedRetailValue.toFixed(2)}`}
             />
 
           </div>

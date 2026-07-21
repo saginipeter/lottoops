@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { logInventoryActivity } from "@/lib/activity-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -75,6 +76,15 @@ export async function POST(req: NextRequest) {
         removalReasonText: removalReasonText || null,
         removalReasonAt: new Date(),
       },
+    });
+
+    await logInventoryActivity({
+      storeId: session.storeId,
+      action: "REMOVE_FROM_BACK_STOCK",
+      entityType: "PACK",
+      entityId: packId,
+      detail: `Marked pack ${packId} inactive from back stock with reason ${removalReason}${removalReasonText ? ` (${removalReasonText})` : ""}.`,
+      performedById: session.userId,
     });
 
     return NextResponse.json({

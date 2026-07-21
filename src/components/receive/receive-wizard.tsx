@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
 
@@ -11,6 +11,7 @@ import { ReviewStep } from "./steps/review-step";
 import { ConfirmStep } from "./steps/confirm-step";
 
 export type WizardStep = 1 | 2 | 3 | 4;
+const RECEIVE_DRAFT_KEY = "lottoops-receive-draft-v1";
 
 interface ScanDraftState {
   barcode: string;
@@ -48,6 +49,44 @@ const [shipment, setShipment] = useState<ShipmentState>({
     packImage: "",
   });
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(RECEIVE_DRAFT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        step?: WizardStep;
+        shipment?: ShipmentState;
+        packs?: PackWithGame[];
+        scanDraft?: ScanDraftState;
+      };
+      if (parsed.step && parsed.step >= 1 && parsed.step <= 4) {
+        setStep(parsed.step);
+      }
+      if (parsed.shipment) {
+        setShipment(parsed.shipment);
+      }
+      if (parsed.packs && Array.isArray(parsed.packs)) {
+        setPacks(parsed.packs);
+      }
+      if (parsed.scanDraft) {
+        setScanDraft(parsed.scanDraft);
+      }
+    } catch (error) {
+      console.error("Unable to restore receiving draft:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        RECEIVE_DRAFT_KEY,
+        JSON.stringify({ step, shipment, packs, scanDraft })
+      );
+    } catch (error) {
+      console.error("Unable to save receiving draft:", error);
+    }
+  }, [step, shipment, packs, scanDraft]);
+
   function nextStep() {
     if (step < 4) {
       setStep((prev) => (prev + 1) as WizardStep);
@@ -84,6 +123,14 @@ const [shipment, setShipment] = useState<ShipmentState>({
     );
   }
 
+  function clearDraft() {
+    try {
+      window.localStorage.removeItem(RECEIVE_DRAFT_KEY);
+    } catch (error) {
+      console.error("Unable to clear receiving draft:", error);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <ProgressStepper currentStep={step} />
@@ -99,7 +146,6 @@ const [shipment, setShipment] = useState<ShipmentState>({
       {step === 2 && (
         <ScanStep
           shipment={shipment}
-          setShipment={setShipment}
           packs={packs}
           scanDraft={scanDraft}
           setScanDraft={setScanDraft}
@@ -125,6 +171,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
           shipment={shipment}
           packs={packs}
           previousStep={previousStep}
+          onConfirmed={clearDraft}
         />
       )}
     </div>

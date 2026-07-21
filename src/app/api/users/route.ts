@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import {
+  assertEmployeeUserIdAvailable,
+  ensureUserProfilesTable,
+  getEmployeeIdsForUsers,
+  setEmployeeUserId,
+} from "@/lib/user-profiles";
 
 // GET /api/users — list all users for the store
 export async function GET() {
@@ -25,7 +31,15 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
   });
 
-  return NextResponse.json({ users });
+  await ensureUserProfilesTable();
+  const employeeIdMap = await getEmployeeIdsForUsers(users.map((u) => u.id));
+
+  return NextResponse.json({
+    users: users.map((u) => ({
+      ...u,
+      employeeUserId: employeeIdMap.get(u.id) ?? null,
+    })),
+  });
 }
 
 // POST /api/users — create a new user
@@ -36,7 +50,7 @@ export async function POST(req: NextRequest) {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const body = await req.json().catch(() => ({}));
-  const { name, email, password, role } = body;
+  const { name, email, password, role, employeeUserId } = body;
 
   if (!name?.trim() || !email?.trim() || !password?.trim() || !role) {
     return NextResponse.json({ error: "Name, email, password, and role are required." }, { status: 400 });
@@ -60,11 +74,25 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedEmail = String(email).toLowerCase().trim();
+  const normalizedEmployeeUserId = employeeUserId ? String(employeeUserId).trim() : "";
 
   // Check email not already taken
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
   if (existing) {
     return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
+  }
+  if (normalizedEmployeeUserId) {
+    try {
+      await assertEmployeeUserIdAvailable(normalizedEmployeeUserId);
+    } catch (error) {
+      if (error instanceof Error && error.message === "EMPLOYEE_USER_ID_TAKEN") {
+        return NextResponse.json(
+          { error: "Employee User ID is already assigned to another user." },
+          { status: 409 }
+        );
+      }
+      throw error;
+    }
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -86,8 +114,21 @@ export async function POST(req: NextRequest) {
       active: true,
       createdAt: true,
       lastLoginAt: true,
+      grantedPermissions: true,
     },
   });
 
-  return NextResponse.json({ user }, { status: 201 });
+  if (employeeUserId !== undefined) {
+    await setEmployeeUserId(user.id, String(employeeUserId));
+  }
+
+  return NextResponse.json(
+    {
+      user: {
+        ...user,
+        employeeUserId: normalizedEmployeeUserId || null,
+      },
+    },
+    { status: 201 }
+  );
 }

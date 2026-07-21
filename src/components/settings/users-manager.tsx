@@ -19,6 +19,7 @@ interface StoreUser {
   id: string;
   name: string;
   email: string;
+  employeeUserId?: string | null;
   role: Role;
   grantedPermissions: string[];
   active: boolean;
@@ -57,6 +58,7 @@ interface AddUserFormProps {
 function AddUserForm({ onCreated, onCancel, canCreateOwner }: AddUserFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [employeeUserId, setEmployeeUserId] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("EMPLOYEE");
   const [loading, setLoading] = useState(false);
@@ -70,7 +72,7 @@ function AddUserForm({ onCreated, onCancel, canCreateOwner }: AddUserFormProps) 
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, employeeUserId, password, role }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to create user."); return; }
@@ -107,6 +109,15 @@ function AddUserForm({ onCreated, onCancel, canCreateOwner }: AddUserFormProps) 
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-text-secondary mb-1">Employee User ID</label>
+          <input
+            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+            placeholder="Optional unique employee ID"
+            value={employeeUserId}
+            onChange={(e) => setEmployeeUserId(e.target.value)}
           />
         </div>
         <div>
@@ -155,6 +166,8 @@ interface EditUserModalProps {
 
 function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserModalProps) {
   const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [employeeUserId, setEmployeeUserId] = useState(user.employeeUserId ?? "");
   const [role, setRole] = useState<Role>(user.role);
   const [newPassword, setNewPassword] = useState("");
   const [grants, setGrants] = useState<string[]>(user.grantedPermissions ?? []);
@@ -174,6 +187,8 @@ function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserMod
     try {
       const body: Record<string, unknown> = {
         name,
+        email,
+        employeeUserId,
         role,
         grantedPermissions: role === "SHIFT_LEAD" ? grants : [],
       };
@@ -211,6 +226,25 @@ function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserMod
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">Email</label>
+            <input
+              type="email"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">Employee User ID</label>
+            <input
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+              placeholder="Optional unique employee ID"
+              value={employeeUserId}
+              onChange={(e) => setEmployeeUserId(e.target.value)}
             />
           </div>
           <div>
@@ -375,6 +409,7 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
                   <th className="py-2 pr-4">Name</th>
+                  <th className="py-2 pr-4">Employee ID</th>
                   <th className="py-2 pr-4">Email</th>
                   <th className="py-2 pr-4">Role</th>
                   <th className="py-2 pr-4">Status</th>
@@ -400,6 +435,7 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
                         </div>
                       </div>
                     </td>
+                    <td className="py-2.5 pr-4 text-text-secondary">{user.employeeUserId ?? "—"}</td>
                     <td className="py-2.5 pr-4 text-text-secondary">{user.email}</td>
                     <td className="py-2.5 pr-4">
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_COLORS[user.role]}`}>

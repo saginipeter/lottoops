@@ -298,7 +298,7 @@ export function LiveScanDashboard({
           <label className="block">
             <span className="text-sm font-medium">Scan Barcode</span>
             <p className="text-xs text-gray-500 mb-2">
-              Scan a ticket barcode to record the sale
+              Scan barcode to sell
             </p>
           </label>
 
@@ -310,7 +310,7 @@ export function LiveScanDashboard({
               onKeyPress={(e) => {
                 if (e.key === "Enter") handleScan();
               }}
-              placeholder="Scan barcode or press Enter to search..."
+              placeholder="Scan barcode to sell"
               className="flex-1 rounded-lg border px-4 py-3 text-lg font-mono"
               autoFocus
             />

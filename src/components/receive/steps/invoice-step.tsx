@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Camera, FileText, Package, User } from "lucide-react";
+import { Calendar, Camera, FileText, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { InvoiceUpload } from "../invoice-upload";
@@ -23,7 +23,7 @@ export function InvoiceStep({
 
   async function handleContinue() {
   if (!shipment.invoiceNumber?.trim()) {
-    alert("Please enter an invoice number.");
+    alert("Please enter an invoice tracking number.");
     return;
   }
 
@@ -90,9 +90,7 @@ export function InvoiceStep({
 }
 
   return (
-    <div className="grid grid-cols-3 gap-6">
-      {/* LEFT */}
-      <div className="col-span-2 space-y-6">
+    <div className="space-y-6">
         <Panel className="p-6">
           <div className="mb-6">
             <h2 className="text-xl font-semibold">
@@ -108,11 +106,12 @@ export function InvoiceStep({
           <div className="mb-5">
             <label className="mb-2 flex items-center gap-2 text-sm font-medium">
               <FileText size={16} />
-              Step 1: Invoice Number
+              Step 1: Invoice Tracking Number
             </label>
 
             <input
-              className="w-full rounded-lg border px-4 py-3"
+              inputMode="numeric"
+              className="w-full rounded-lg border border-purple-300 bg-purple-50 px-4 py-3"
               value={shipment.invoiceNumber ?? ""}
               onChange={(e) =>
                 setShipment((prev) => ({
@@ -120,7 +119,7 @@ export function InvoiceStep({
                   invoiceNumber: e.target.value,
                 }))
               }
-              placeholder="Enter invoice number"
+              placeholder="Enter invoice tracking number"
             />
           </div>
 
@@ -152,7 +151,8 @@ export function InvoiceStep({
             </label>
 
             <input
-              className="w-full rounded-lg border px-4 py-3"
+              inputMode="numeric"
+              className="w-full rounded-lg border border-purple-300 bg-purple-50 px-4 py-3"
               value={shipment.shipmentConfirmationNumber ?? ""}
               onChange={(e) =>
                 setShipment((prev) => ({
@@ -200,7 +200,7 @@ export function InvoiceStep({
 
               <input
                 type="date"
-                className="w-full rounded-lg border px-4 py-3"
+                className="w-full rounded-lg border border-purple-200 bg-purple-50 px-4 py-3"
                 value={shipment.shipmentDate ?? ""}
                 onChange={(e) =>
                   setShipment((prev) => ({
@@ -220,7 +220,8 @@ export function InvoiceStep({
 
               <input
                 type="number"
-                className="w-full rounded-lg border px-4 py-3"
+                inputMode="numeric"
+                className="w-full rounded-lg border border-purple-300 bg-purple-50 px-4 py-3"
                 value={shipment.expectedPacks ?? 0}
                 onChange={(e) =>
                   setShipment((prev) => ({
@@ -241,9 +242,10 @@ export function InvoiceStep({
 
             <input
               type="number"
+              inputMode="decimal"
               min="0"
               step="0.01"
-              className="w-full rounded-lg border px-4 py-3"
+              className="w-full rounded-lg border border-purple-300 bg-purple-50 px-4 py-3"
               value={shipment.expectedRetailValue ?? 0}
               onChange={(e) =>
               setShipment((prev) => ({
@@ -254,98 +256,53 @@ export function InvoiceStep({
             />
           </div>
         </Panel>
-      </div>
 
-      {/* RIGHT */}
-      <div>
-        <Panel className="sticky top-6 p-6">
-          <h3 className="mb-4 text-lg font-semibold">
-            Shipment Summary
-          </h3>
+      <Panel className="p-6">
+        <h3 className="mb-4 text-lg font-semibold">
+          Shipment Summary
+        </h3>
 
-          <div className="space-y-4">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Invoice</span>
-              <span className="font-semibold">
-                {shipment.invoiceNumber || "-"}
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-gray-500">Confirmation #</span>
-              <span className="font-semibold">
-                {shipment.shipmentConfirmationNumber || "-"}
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-gray-500">
-                Received By
-              </span>
-
-              <span className="text-green-600 font-medium">
-                Current User
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-gray-500">
-                Expected Packs
-              </span>
-
-              <span>
-                {shipment.expectedPacks ?? 0}
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-gray-500">Invoice Total Value</span>
-              <span>${Number(shipment.expectedRetailValue ?? 0).toFixed(2)}</span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-gray-500">
-                Status
-              </span>
-
-              <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700">
-                {shipment.status || "IN_PROGRESS"}
-              </span>
-            </div>
-
-            <div className="mt-6">
-              <h4 className="mb-2 text-sm font-semibold">
-                Confirmation Receipt Preview
-              </h4>
-
-              <div className="flex h-40 items-center justify-center rounded-xl border bg-gray-50">
-                {shipment.confirmationReceiptPhoto ? (
-                  <img
-                    src={shipment.confirmationReceiptPhoto}
-                    alt="Confirmation Receipt"
-                    className="h-full w-full rounded-xl object-contain"
-                  />
-                ) : (
-                  <div className="text-center text-gray-500">
-                    <Camera
-                      size={32}
-                      className="mx-auto mb-2 opacity-40"
-                    />
-                    <p className="text-xs">No receipt uploaded</p>
-                  </div>
-                )}
-              </div>
-            </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex justify-between rounded-lg border border-purple-100 bg-purple-50 px-4 py-3">
+            <span className="text-gray-600">Invoice Tracking #</span>
+            <span className="font-semibold">{shipment.invoiceNumber || "-"}</span>
           </div>
+          <div className="flex justify-between rounded-lg border border-purple-100 bg-purple-50 px-4 py-3">
+            <span className="text-gray-600">Confirmation #</span>
+            <span className="font-semibold">{shipment.shipmentConfirmationNumber || "-"}</span>
+          </div>
+          <div className="flex justify-between rounded-lg border border-purple-100 bg-purple-50 px-4 py-3">
+            <span className="text-gray-600">Expected Packs</span>
+            <span className="font-semibold">{shipment.expectedPacks ?? 0}</span>
+          </div>
+          <div className="flex justify-between rounded-lg border border-purple-100 bg-purple-50 px-4 py-3">
+            <span className="text-gray-600">Invoice Total Value</span>
+            <span className="font-semibold">${Number(shipment.expectedRetailValue ?? 0).toFixed(2)}</span>
+          </div>
+        </div>
 
-          <Button
-            className="mt-8 w-full"
-            onClick={handleContinue}
-          >
-            Continue to Scan Packs →
-          </Button>
-        </Panel>
-      </div>
+        <div className="mt-5">
+          <h4 className="mb-2 text-sm font-semibold">Confirmation Receipt Preview</h4>
+          <div className="flex h-40 items-center justify-center rounded-xl border bg-gray-50">
+            {shipment.confirmationReceiptPhoto ? (
+              <img
+                src={shipment.confirmationReceiptPhoto}
+                alt="Confirmation Receipt"
+                className="h-full w-full rounded-xl object-contain"
+              />
+            ) : (
+              <div className="text-center text-gray-500">
+                <Camera size={32} className="mx-auto mb-2 opacity-40" />
+                <p className="text-xs">No receipt uploaded</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Button className="mt-8 w-full" onClick={handleContinue}>
+          Next Step: Continue to Scan Packs →
+        </Button>
+      </Panel>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { queryInventoryActivity } from "@/lib/activity-log";
 
 function escapeCSV(val: unknown): string {
   const str = val === null || val === undefined ? "" : String(val);
@@ -16,7 +17,7 @@ function buildCSV(headers: string[], rows: unknown[][]): string {
   return lines.join("\r\n");
 }
 
-// GET /api/reports/export?type=shifts|games&from=YYYY-MM-DD&to=YYYY-MM-DD
+// GET /api/reports/export?type=shifts|games|inventory|activity&from=YYYY-MM-DD&to=YYYY-MM-DD
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -143,8 +144,36 @@ export async function GET(req: NextRequest) {
     ]);
     csv = buildCSV(headers, rows);
     filename = `inventory_${new Date().toISOString().slice(0, 10)}.csv`;
+  } else if (type === "activity") {
+    const logs = await queryInventoryActivity(session.storeId, {
+      from: fromDate,
+      to: toDate,
+      limit: 2000,
+    });
+    const headers = ["Timestamp", "Action", "Entity", "Entity ID", "Detail", "Performed By"];
+    const rows = logs.map((log) => {
+      const row = log as {
+        createdAt: Date | string;
+        action: string;
+        entityType: string;
+        entityId: string | null;
+        detail: string;
+        performedByName: string | null;
+        performedById: string;
+      };
+      return [
+        new Date(row.createdAt).toISOString(),
+        row.action,
+        row.entityType,
+        row.entityId ?? "",
+        row.detail,
+        row.performedByName ?? row.performedById,
+      ];
+    });
+    csv = buildCSV(headers, rows);
+    filename = `activity_${fromDate.toISOString().slice(0, 10)}_${toDate.toISOString().slice(0, 10)}.csv`;
   } else {
-    return NextResponse.json({ error: "Invalid export type. Use: shifts, games, inventory" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid export type. Use: shifts, games, inventory, activity" }, { status: 400 });
   }
 
   return new NextResponse(csv, {

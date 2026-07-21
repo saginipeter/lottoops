@@ -2,18 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Panel } from "@/components/ui/panel";
-
-const QUANTITY_PRESETS: Record<number, number> = {
-  1: 300,
-  2: 150,
-  3: 100,
-  5: 75,
-  10: 50,
-  20: 25,
-  30: 25,
-  50: 20,
-  100: 15,
-};
+import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 interface TicketQuantityOnlyProps {
   selectedPrice: number;
@@ -32,7 +21,7 @@ export function TicketQuantityOnly({
   // Update quantity when price changes
   useEffect(() => {
     if (!overrideEnabled) {
-      const preset = QUANTITY_PRESETS[selectedPrice] || 30;
+      const preset = getSuggestedTicketQuantity(selectedPrice);
       setQuantity(preset);
       onSelect(preset);
     }
@@ -46,7 +35,7 @@ export function TicketQuantityOnly({
     }
   };
 
-  const suggestedQuantity = QUANTITY_PRESETS[selectedPrice] || 30;
+  const suggestedQuantity = getSuggestedTicketQuantity(selectedPrice);
 
   return (
     <Panel className="p-6">
@@ -90,7 +79,7 @@ export function TicketQuantityOnly({
             onChange={(e) => {
               setOverrideEnabled(e.target.checked);
               if (!e.target.checked) {
-                const preset = QUANTITY_PRESETS[selectedPrice] || 30;
+                const preset = getSuggestedTicketQuantity(selectedPrice);
                 setQuantity(preset);
                 onSelect(preset);
               }

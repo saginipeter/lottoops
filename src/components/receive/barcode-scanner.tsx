@@ -24,7 +24,7 @@ export function BarcodeScanner({
 
       const cleaned = barcode.replace(/\s/g, "");
 
-      if (cleaned.length >= 14) {
+      if (cleaned.length >= 11) {
         onChange(cleaned);
       }
 
@@ -54,7 +54,7 @@ export function BarcodeScanner({
 
           <p className="text-sm text-gray-500">
             The system automatically extracts the Game Number,
-            Pack Number and First Ticket.
+            and Pack Number from the first 11 digits.
           </p>
 
         </div>
@@ -64,10 +64,12 @@ export function BarcodeScanner({
       <input
         ref={inputRef}
         autoFocus
+        inputMode="numeric"
+        pattern="[0-9]*"
         value={barcode}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        placeholder="2632 0029470 025"
+        placeholder="26320029470"
 
         className="
           w-full
@@ -106,7 +108,7 @@ export function BarcodeScanner({
           </div>
 
           <p className="text-sm text-gray-500">
-            Type the barcode and press Enter.
+            Type digits only and press Enter.
           </p>
 
         </div>

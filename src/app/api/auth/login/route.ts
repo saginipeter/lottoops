@@ -31,6 +31,9 @@ export async function POST(req: NextRequest) {
       grantedPermissions: string[];
     } | null = null;
 
+    const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+    const allowOfflineFallback = !hasDatabaseUrl || !prisma;
+
     // Attempt 1: real database
     if (prisma) {
       try {
@@ -63,7 +66,16 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (dbErr) {
-        // No live connection — fall through to offline mock auth below.
+        if (!allowOfflineFallback) {
+          return NextResponse.json(
+            {
+              error:
+                "Database is temporarily unavailable. Please try again in a moment.",
+            },
+            { status: 503 }
+          );
+        }
+        // No live connection in offline mode — fall through to mock auth.
         console.warn(
           "[login] Database unavailable, falling back to offline mode:",
           dbErr instanceof Error ? dbErr.message : dbErr
@@ -71,8 +83,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Attempt 2: offline mock users (DB unavailable, or prisma not generated yet)
+    // Attempt 2: offline mock users (only when offline fallback is allowed)
     if (!authResult) {
+      if (!allowOfflineFallback) {
+        return NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 401 }
+        );
+      }
       const mockUser = findMockUser(normalizedEmail);
       if (!mockUser || !mockUser.active || mockUser.password !== password) {
         return NextResponse.json(

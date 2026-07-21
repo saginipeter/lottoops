@@ -96,7 +96,7 @@ export function FinancialReports() {
 
   useEffect(() => { loadReport(); }, [loadReport]);
 
-  function downloadCSV(type: "shifts" | "games" | "inventory") {
+  function downloadCSV(type: "shifts" | "games" | "inventory" | "activity") {
     window.open(`/api/reports/export?type=${type}&from=${from}&to=${to}`, "_blank");
   }
 
@@ -151,10 +151,16 @@ export function FinancialReports() {
                 <ChevronDown size={12} className="ml-1" />
               </Button>
               <div className="absolute right-0 top-full mt-1 hidden group-hover:block w-44 rounded-md border border-border bg-surface shadow-lg z-10">
-                {(["shifts", "games", "inventory"] as const).map((t) => (
+                {(["shifts", "games", "inventory", "activity"] as const).map((t) => (
                   <button key={t} onClick={() => downloadCSV(t)}
                     className="block w-full px-3 py-2 text-left text-sm text-text hover:bg-surface-soft capitalize">
-                    {t === "shifts" ? "Shift Report" : t === "games" ? "Game Performance" : "Inventory Snapshot"}
+                    {t === "shifts"
+                      ? "Shift Report"
+                      : t === "games"
+                        ? "Game Performance"
+                        : t === "inventory"
+                          ? "Inventory Snapshot"
+                          : "Activity Report"}
                   </button>
                 ))}
               </div>
