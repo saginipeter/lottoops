@@ -131,10 +131,10 @@ const [shipment, setShipment] = useState<ShipmentState>({
     } catch (error) {
       console.error("Unable to clear receiving draft:", error);
     }
+  }
 
-    function cancelReceiving() {
-      router.push("/inventory");
-    }
+  function cancelReceiving() {
+    router.push("/inventory");
   }
 
   return (

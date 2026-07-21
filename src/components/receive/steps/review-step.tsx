@@ -19,6 +19,7 @@ interface ReviewStepProps {
   updatePack: (pack: PackWithGame) => void;
 
   nextStep: () => void;
+  previousStep: () => void;
   onCancel: () => void;
 }
 
