@@ -34,7 +34,7 @@ export function ProgressStepper({
   currentStep,
 }: ProgressStepperProps) {
   return (
-    <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+    <div className="rounded-lg border border-border bg-surface p-4">
 
       <div className="flex items-center justify-between">
 
@@ -53,17 +53,17 @@ export function ProgressStepper({
 
                 <div
                   className={clsx(
-                    "flex h-11 w-11 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all",
+                    "flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all",
 
                     completed &&
-                      "border-purple-600 bg-purple-600 text-white",
+                      "border-blue-700 bg-blue-700 text-white",
 
                     active &&
-                      "border-purple-600 bg-purple-100 text-purple-700",
+                      "border-blue-700 bg-blue-50 text-blue-700",
 
                     !completed &&
                       !active &&
-                      "border-gray-300 bg-white text-gray-400"
+                      "border-border bg-background text-text-tertiary"
                   )}
                 >
                   {completed ? (
@@ -82,16 +82,16 @@ export function ProgressStepper({
                       "text-sm font-semibold",
 
                       active
-                        ? "text-purple-700"
+                        ? "text-blue-700"
                         : completed
-                        ? "text-gray-900"
-                        : "text-gray-400"
+                        ? "text-text"
+                        : "text-text-tertiary"
                     )}
                   >
                     {step.title}
                   </p>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-text-tertiary">
                     {step.description}
                   </p>
 
@@ -107,8 +107,8 @@ export function ProgressStepper({
                     "mx-4 h-1 flex-1 rounded-full",
 
                     step.id < currentStep
-                      ? "bg-purple-600"
-                      : "bg-gray-200"
+                      ? "bg-blue-700"
+                      : "bg-muted"
                   )}
                 />
               )}

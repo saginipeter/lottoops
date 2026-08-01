@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
+import { Panel } from "@/components/ui/panel";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 
 import { ProgressStepper } from "./progress-stepper";
 import { InvoiceStep } from "./steps/invoice-step";
@@ -137,53 +140,93 @@ const [shipment, setShipment] = useState<ShipmentState>({
     router.push("/inventory");
   }
 
+  const expectedPacks = Number(shipment.expectedPacks ?? 0);
+  const scannedPacks = Number(shipment.scannedPacks ?? 0);
+  const completionPercent = expectedPacks > 0 ? Math.min(Math.round((scannedPacks / expectedPacks) * 100), 100) : 0;
+
   return (
-    <div className="space-y-6">
-      <ProgressStepper currentStep={step} />
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <PageToolbar
+        left={<span className="text-xs text-text-secondary">Invoice: {shipment.invoiceNumber || "Not set"}</span>}
+        center={<span>Step {step} of 4</span>}
+        right={<span className="text-xs text-text-tertiary">{shipment.status.replaceAll("_", " ")}</span>}
+      />
 
-      {step === 1 && (
-        <InvoiceStep
-          shipment={shipment}
-          setShipment={setShipment}
-          nextStep={nextStep}
-          onCancel={cancelReceiving}
-        />
-      )}
+      <div className="min-h-0 flex-1 overflow-hidden p-4">
+        <div className="grid h-full grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]">
+          <Panel className="p-4">
+            <h3 className="text-sm font-semibold text-text">Shipment Summary</h3>
+            <div className="mt-4 space-y-3 text-xs">
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <p className="text-text-tertiary">Expected Packs</p>
+                <p className="mt-1 text-lg font-semibold text-text">{expectedPacks}</p>
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <p className="text-text-tertiary">Scanned Packs</p>
+                <p className="mt-1 text-lg font-semibold text-text">{scannedPacks}</p>
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <p className="text-text-tertiary">Completion</p>
+                <p className="mt-1 text-lg font-semibold text-text">{completionPercent}%</p>
+              </div>
+            </div>
+          </Panel>
 
-      {step === 2 && (
-        <ScanStep
-          shipment={shipment}
-          packs={packs}
-          scanDraft={scanDraft}
-          setScanDraft={setScanDraft}
-          addPack={addPack}
-          removePack={removePack}
-          nextStep={nextStep}
-          previousStep={previousStep}
-          onCancel={cancelReceiving}
-        />
-      )}
+          <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+            <ProgressStepper currentStep={step} />
 
-      {step === 3 && (
-        <ReviewStep
-          shipment={shipment}
-          packs={packs}
-          updatePack={updatePack}
-          nextStep={nextStep}
-          previousStep={previousStep}
-          onCancel={cancelReceiving}
-        />
-      )}
+            {step === 1 && (
+              <InvoiceStep
+                shipment={shipment}
+                setShipment={setShipment}
+                nextStep={nextStep}
+                onCancel={cancelReceiving}
+              />
+            )}
 
-      {step === 4 && (
-        <ConfirmStep
-          shipment={shipment}
-          packs={packs}
-          previousStep={previousStep}
-          onConfirmed={clearDraft}
-          onCancel={cancelReceiving}
-        />
-      )}
+            {step === 2 && (
+              <ScanStep
+                shipment={shipment}
+                packs={packs}
+                scanDraft={scanDraft}
+                setScanDraft={setScanDraft}
+                addPack={addPack}
+                removePack={removePack}
+                nextStep={nextStep}
+                previousStep={previousStep}
+                onCancel={cancelReceiving}
+              />
+            )}
+
+            {step === 3 && (
+              <ReviewStep
+                shipment={shipment}
+                packs={packs}
+                updatePack={updatePack}
+                nextStep={nextStep}
+                previousStep={previousStep}
+                onCancel={cancelReceiving}
+              />
+            )}
+
+            {step === 4 && (
+              <ConfirmStep
+                shipment={shipment}
+                packs={packs}
+                previousStep={previousStep}
+                onConfirmed={clearDraft}
+                onCancel={cancelReceiving}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      <StatusBar
+        left={<span>Invoice Date: {shipment.shipmentDate || "Not set"}</span>}
+        center={<span>Scanned: {scannedPacks} / {expectedPacks || 0}</span>}
+        right={<span>{packs.length} packs in draft</span>}
+      />
     </div>
   );
 }

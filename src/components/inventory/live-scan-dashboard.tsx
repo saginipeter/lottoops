@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Radio, TrendingUp, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
@@ -65,6 +65,8 @@ export function LiveScanDashboard({
   });
   const [autoRefreshActive, setAutoRefreshActive] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [scanError, setScanError] = useState("");
+  const scanInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-refresh polling every 10 seconds
   useEffect(() => {
@@ -119,6 +121,28 @@ export function LiveScanDashboard({
     }
   }, [currentShift]);
 
+  useEffect(() => {
+    scanInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        scanInputRef.current?.focus();
+      }
+
+      if (event.key === "Escape") {
+        setBarcode("");
+        setScanError("");
+        scanInputRef.current?.focus();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   async function handleScan() {
     if (!barcode.trim()) return;
 
@@ -134,32 +158,34 @@ export function LiveScanDashboard({
       const data = await res.json();
 
       if (res.ok) {
+        setScanError("");
         setLastScan(data);
         setLastRefreshTime(new Date());
         router.refresh();
       } else {
-        alert(data.error || "Pack not found");
+        setScanError(data.error || "Pack not found");
       }
 
       setBarcode("");
     } catch (err) {
       console.error(err);
-      alert("Error scanning pack");
+      setScanError("Error scanning pack");
     } finally {
       setRefreshing(false);
+      requestAnimationFrame(() => scanInputRef.current?.focus());
     }
   }
 
   async function handleRejectLastSale() {
     if (!lastScan?.id) {
-      alert("No recent scan to reverse.");
+      setScanError("No recent scan to reverse.");
       return;
     }
 
     const pin = window.prompt("Enter manager approval PIN to return this ticket");
     if (pin === null) return;
     if (!pin.trim()) {
-      alert("PIN is required.");
+      setScanError("PIN is required.");
       return;
     }
 
@@ -176,17 +202,19 @@ export function LiveScanDashboard({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Unable to reverse sale.");
+        setScanError(data.error || "Unable to reverse sale.");
         return;
       }
 
+      setScanError("");
       setLastRefreshTime(new Date());
       router.refresh();
     } catch (error) {
       console.error(error);
-      alert("Unable to reverse sale.");
+      setScanError("Unable to reverse sale.");
     } finally {
       setReversing(false);
+      scanInputRef.current?.focus();
     }
   }
 
@@ -201,16 +229,17 @@ export function LiveScanDashboard({
   const hourlyRate = shiftStats.revenueTotal / Math.max(shiftDuration / 60, 1);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="space-y-4">
       {/* Auto-Refresh Control */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 rounded-lg border border-gray-200">
+      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
-          <RefreshCw size={16} className="text-gray-600" />
-          <span className="text-sm text-gray-600">
+          <RefreshCw size={14} className="text-text-secondary" />
+          <span className="text-xs text-text-secondary">
             Auto-refresh: {autoRefreshActive ? "ON (10s)" : "OFF"}
           </span>
           {lastRefreshTime && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-text-tertiary">
               Last: {lastRefreshTime.toLocaleTimeString()}
             </span>
           )}
@@ -226,66 +255,66 @@ export function LiveScanDashboard({
 
       {/* Shift Info Header */}
       {currentShift ? (
-        <div className="grid grid-cols-4 gap-4">
-          <Panel className="bg-blue-50 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock size={18} className="text-blue-600" />
-              <span className="text-xs font-medium text-blue-600">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <Panel className="p-3">
+            <div className="mb-1.5 flex items-center gap-2">
+              <Clock size={16} className="text-text-secondary" />
+              <span className="text-[11px] font-medium text-text-tertiary">
                 SHIFT OPEN
               </span>
             </div>
-            <div className="text-2xl font-bold text-blue-900">
+            <div className="text-xl font-bold text-text">
               {shiftDuration} min
             </div>
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="mt-1 text-[11px] text-text-tertiary">
               Opened by {currentShift.openedBy.name}
             </p>
           </Panel>
 
-          <Panel className="bg-green-50 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp size={18} className="text-green-600" />
-              <span className="text-xs font-medium text-green-600">REVENUE</span>
+          <Panel className="p-3">
+            <div className="mb-1.5 flex items-center gap-2">
+              <TrendingUp size={16} className="text-text-secondary" />
+              <span className="text-[11px] font-medium text-text-tertiary">REVENUE</span>
             </div>
-            <div className="text-2xl font-bold text-green-900">
+            <div className="text-xl font-bold text-text">
               ${shiftStats.revenueTotal.toFixed(2)}
             </div>
-            <p className="text-xs text-green-600 mt-1">
+            <p className="mt-1 text-[11px] text-text-tertiary">
               ${hourlyRate.toFixed(2)}/hour
             </p>
           </Panel>
 
-          <Panel className="bg-purple-50 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Radio size={18} className="text-purple-600" />
-              <span className="text-xs font-medium text-purple-600">
+          <Panel className="p-3">
+            <div className="mb-1.5 flex items-center gap-2">
+              <Radio size={16} className="text-text-secondary" />
+              <span className="text-[11px] font-medium text-text-tertiary">
                 TICKETS SOLD
               </span>
             </div>
-            <div className="text-2xl font-bold text-purple-900">
+            <div className="text-xl font-bold text-text">
               {shiftStats.ticketsSold}
             </div>
-            <p className="text-xs text-purple-600 mt-1">
+            <p className="mt-1 text-[11px] text-text-tertiary">
               {shiftStats.packsSold} packs
             </p>
           </Panel>
 
-          <Panel className="bg-orange-50 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-medium text-orange-600">
+          <Panel className="p-3">
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className="text-[11px] font-medium text-text-tertiary">
                 ACTIVE PACKS
               </span>
             </div>
-            <div className="text-2xl font-bold text-orange-900">
+            <div className="text-xl font-bold text-text">
               {activePacks.length}
             </div>
-            <p className="text-xs text-orange-600 mt-1">
+            <p className="mt-1 text-[11px] text-text-tertiary">
               Available for sale
             </p>
           </Panel>
         </div>
       ) : (
-        <div className="rounded-lg border-2 border-dashed border-yellow-300 bg-yellow-50 p-6 text-center">
+        <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-center">
           <p className="text-sm font-medium text-yellow-900">
             No active shift. Please open a shift first.
           </p>
@@ -293,17 +322,24 @@ export function LiveScanDashboard({
       )}
 
       {/* Barcode Input */}
-      <Panel className="p-6 bg-gray-50">
+      <Panel className="p-4">
         <div className="space-y-4">
           <label className="block">
-            <span className="text-sm font-medium">Scan Barcode</span>
-            <p className="text-xs text-gray-500 mb-2">
+            <span className="text-sm font-medium">Scan Ticket Barcode</span>
+            <p className="mb-2 text-xs text-text-tertiary">
               Scan barcode to sell
             </p>
           </label>
 
+          {scanError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {scanError}
+            </div>
+          )}
+
           <div className="flex gap-2">
             <input
+              ref={scanInputRef}
               type="text"
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
@@ -311,7 +347,7 @@ export function LiveScanDashboard({
                 if (e.key === "Enter") handleScan();
               }}
               placeholder="Scan barcode to sell"
-              className="flex-1 rounded-lg border px-4 py-3 text-lg font-mono"
+              className="flex-1 rounded-md border border-border px-3 py-3 text-lg font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               autoFocus
             />
             <Button
@@ -323,7 +359,7 @@ export function LiveScanDashboard({
           </div>
 
           {lastScan && (
-            <div className="rounded-lg bg-green-50 border border-green-200 p-3">
+            <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3">
               <p className="text-sm font-medium text-green-900">
                 ✓ Pack Found: {lastScan.gameNumber}
               </p>
@@ -340,9 +376,10 @@ export function LiveScanDashboard({
           )}
         </div>
       </Panel>
+      </div>
 
       {/* Status Display and Sales Tracker */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid min-h-0 grid-cols-1 gap-4">
         <ScanStatusDisplay
           activePacks={activePacks}
           currentShift={currentShift}

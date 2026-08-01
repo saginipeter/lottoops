@@ -1,4 +1,8 @@
+import Link from "next/link";
 import { Header } from "@/components/layout/header";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
+import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { LiveScanDashboard } from "@/components/inventory/live-scan-dashboard";
 import { getSession } from "@/lib/get-session";
@@ -111,20 +115,44 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
     )
   );
 
+  const openShiftCount = currentShift ? 1 : 0;
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Live Scan"
         subtitle={`Real-time ticket scanning and sales tracking · Terminal ${terminalId}`}
       />
 
-      <div className="flex-1 overflow-y-auto px-4 py-3.5">
+      <PageToolbar
+        left={
+          <div className="flex items-center gap-1">
+            {(["T1", "T2", "T3", "T4"] as const).map((terminal) => (
+              <Link key={terminal} href={`/inventory/live-scan?terminal=${terminal}`}>
+                <Button size="xs" variant={terminalId === terminal ? "secondary" : "ghost"}>
+                  {terminal}
+                </Button>
+              </Link>
+            ))}
+          </div>
+        }
+        center={<span>Enter Scan | Ctrl+F Focus Scan | Esc Clear</span>}
+        right={<span className="text-xs text-text-tertiary">{currentShift ? "Shift Open" : "No Active Shift"}</span>}
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3.5">
         <LiveScanDashboard
           currentShift={shiftData}
           activePacks={packsData}
           terminalId={terminalId}
         />
       </div>
+
+      <StatusBar
+        left={<span>Terminal: {terminalId}</span>}
+        center={<span>Open Shift: {openShiftCount} | Active Packs: {activePacks.length}</span>}
+        right={<span>Auto-refresh available</span>}
+      />
     </div>
   );
 }
