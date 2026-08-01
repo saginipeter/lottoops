@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
-import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { ActiveStockTable } from "@/components/inventory/active-stock-table";
@@ -30,13 +29,13 @@ export default async function ActiveStockPage() {
   );
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
       <Header
         title="Active Stock"
         subtitle={`${activePacks.length} active lottery packs`}
         actions={
-          <Link href="/inventory/back-stock">
+          <Link href="/inventory">
             <Button>
               Back Stock
             </Button>
@@ -44,15 +43,7 @@ export default async function ActiveStockPage() {
         }
       />
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-
-        <Panel>
-
-          <ActiveStockTable packs={activePacks} />
-
-        </Panel>
-
-      </div>
+      <ActiveStockTable packs={activePacks} />
 
     </div>
   );

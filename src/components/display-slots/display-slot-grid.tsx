@@ -1,6 +1,10 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 import DisplaySlotCard from "./display-slot-card";
 
 interface DisplaySlotGridProps {
@@ -24,8 +28,34 @@ interface DisplaySlotGridProps {
 export default function DisplaySlotGrid({
   slots,
 }: DisplaySlotGridProps) {
+  const [search, setSearch] = useState("");
+  const [viewFilter, setViewFilter] = useState<"ALL" | "ACTIVE" | "EMPTY">("ALL");
+
   const activeCount = slots.filter((slot) => Boolean(slot.pack)).length;
   const emptyCount = slots.length - activeCount;
+
+  const filteredSlots = useMemo(() => {
+    const term = search.toLowerCase();
+
+    return slots.filter((slot) => {
+      if (viewFilter === "ACTIVE" && !slot.pack) return false;
+      if (viewFilter === "EMPTY" && slot.pack) return false;
+
+      if (!term) return true;
+
+      const gameName = slot.pack?.game?.name?.toLowerCase() ?? "";
+      const gameNumber = String(slot.pack?.gameNumber ?? "").toLowerCase();
+      const packNumber = String(slot.pack?.packNumber ?? "").toLowerCase();
+      const slotNumber = String(slot.slotNumber).toLowerCase();
+
+      return (
+        gameName.includes(term) ||
+        gameNumber.includes(term) ||
+        packNumber.includes(term) ||
+        slotNumber.includes(term)
+      );
+    });
+  }, [slots, search, viewFilter]);
 
   if (slots.length === 0) {
     return (
@@ -36,35 +66,64 @@ export default function DisplaySlotGrid({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border bg-surface p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg bg-surface-soft px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Total</p>
-              <p className="text-lg font-semibold text-text">{slots.length}</p>
-            </div>
-            <div className="rounded-lg bg-emerald-50 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-emerald-700">Active</p>
-              <p className="text-lg font-semibold text-emerald-800">{activeCount}</p>
-            </div>
-            <div className="rounded-lg bg-gray-100 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-gray-600">Empty</p>
-              <p className="text-lg font-semibold text-gray-700">{emptyCount}</p>
-            </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageToolbar
+        left={
+          <div className="relative w-full max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-2.5 text-text-tertiary" size={16} />
+            <input
+              className="h-8 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              placeholder="Search display, game, or pack"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
+        }
+        center={
+          <div className="flex items-center gap-1">
+            <Button
+              size="xs"
+              variant={viewFilter === "ALL" ? "secondary" : "ghost"}
+              onClick={() => setViewFilter("ALL")}
+            >
+              All
+            </Button>
+            <Button
+              size="xs"
+              variant={viewFilter === "ACTIVE" ? "secondary" : "ghost"}
+              onClick={() => setViewFilter("ACTIVE")}
+            >
+              Active
+            </Button>
+            <Button
+              size="xs"
+              variant={viewFilter === "EMPTY" ? "secondary" : "ghost"}
+              onClick={() => setViewFilter("EMPTY")}
+            >
+              Empty
+            </Button>
+          </div>
+        }
+        right={<span className="text-xs text-text-tertiary">{filteredSlots.length} visible</span>}
+      />
 
-          <Button variant="outline" disabled>
-            Clear All Disabled (Reason Required Per Display)
-          </Button>
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {filteredSlots.map((slot) => (
+            <DisplaySlotCard key={slot.id} slot={slot} />
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {slots.map((slot) => (
-          <DisplaySlotCard key={slot.id} slot={slot} />
-        ))}
-      </div>
+      <StatusBar
+        left={<span>Total Displays: {slots.length}</span>}
+        center={<span>Active: {activeCount} | Empty: {emptyCount}</span>}
+        right={
+          <Button variant="outline" size="xs" disabled>
+            Bulk Clear Disabled
+          </Button>
+        }
+      />
     </div>
   );
 }

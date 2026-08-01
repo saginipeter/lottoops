@@ -1,4 +1,8 @@
+import Link from "next/link";
 import { Header } from "@/components/layout/header";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
+import { Button } from "@/components/ui/button";
 import ShiftDashboard from "@/components/shifts/shift-dashboard";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
@@ -126,8 +130,11 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       )
     : null;
 
+  const activePackCount = openShift?.lines?.length ?? 0;
+  const eventCount = timelineEvents.length;
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Shift Management"
         subtitle={
@@ -137,13 +144,35 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         }
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <PageToolbar
+        left={
+          <div className="flex items-center gap-1">
+            {(["T1", "T2", "T3", "T4"] as const).map((terminal) => (
+              <Link key={terminal} href={`/shifts?terminal=${terminal}`}>
+                <Button size="xs" variant={terminalId === terminal ? "secondary" : "ghost"}>
+                  {terminal}
+                </Button>
+              </Link>
+            ))}
+          </div>
+        }
+        center={<span>Ctrl+S Save | Alt+C Close Shift</span>}
+        right={<span className="text-xs text-text-tertiary">{openShift ? "Shift Open" : "No Active Shift"}</span>}
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-6">
         <ShiftDashboard
           shift={shiftData}
           shiftEvents={eventData}
           terminalId={terminalId}
         />
       </div>
+
+      <StatusBar
+        left={<span>Terminal: {terminalId}</span>}
+        center={<span>Active Packs: {activePackCount} | Timeline Events: {eventCount}</span>}
+        right={<span>{openShift ? "In Progress" : "Ready to Open"}</span>}
+      />
     </div>
   );
 }

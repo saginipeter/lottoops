@@ -23,20 +23,14 @@ export default async function DisplaySlotsPage() {
   const activeCount = slots.filter((slot: any) => Boolean(slot.pack)).length;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
       <Header
         title="Displays"
         subtitle={`${activeCount} active · ${slots.length - activeCount} empty`}
       />
 
-      <div className="flex-1 overflow-y-auto px-4 py-3.5">
-
-        <DisplaySlotGrid
-          slots={slots}
-        />
-
-      </div>
+      <DisplaySlotGrid slots={slots} />
 
     </div>
   );

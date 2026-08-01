@@ -117,15 +117,15 @@ export default function DisplaySlotCard({
 
   if (!slot.pack) {
     return (
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-text">Display {slot.slotNumber}</h2>
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-text-secondary">
             Empty
           </span>
         </div>
-        <div className="mt-8 text-center">
-          <p className="mb-6 text-sm text-text-secondary">Ready for assignment</p>
+        <div className="mt-4 text-center">
+          <p className="mb-3 text-xs text-text-secondary">Ready for assignment</p>
           <AssignPackDialog slotId={slot.id} />
         </div>
       </div>
@@ -142,38 +142,38 @@ export default function DisplaySlotCard({
   const percent = totalTickets > 0 ? (remaining / totalTickets) * 100 : 0;
 
   return (
-    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white p-6 shadow-sm">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex justify-between">
         <h2 className="font-bold text-text">Display {slot.slotNumber}</h2>
-        <span className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
           ACTIVE
         </span>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-3">
         <p className="font-semibold text-text">{slot.pack.game.name}</p>
-        <p className="text-sm text-text-secondary">Game {slot.pack.gameNumber ?? "N/A"}</p>
-        <p className="text-sm text-text-secondary">Pack {slot.pack.packNumber ?? "N/A"}</p>
+        <p className="text-xs text-text-secondary">Game {slot.pack.gameNumber ?? "N/A"}</p>
+        <p className="text-xs text-text-secondary">Pack {slot.pack.packNumber ?? "N/A"}</p>
       </div>
 
-      <div className="mt-4 rounded-lg border border-emerald-100 bg-white/80 p-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-emerald-700/80">
+      <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
           Current Scratch Card
         </p>
-        <p className="text-4xl font-extrabold tracking-tight text-emerald-700">
+        <p className="text-3xl font-bold tracking-tight text-text">
           {currentTicketNumber}
         </p>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-4">
         <Progress value={percent} />
-        <div className="mt-2 flex justify-between text-xs text-text-secondary">
+        <div className="mt-1.5 flex justify-between text-[11px] text-text-secondary">
           <span>{remaining} tickets remaining</span>
           <span>{ticketQuantity > 0 ? `${Math.round(percent)}%` : "0%"} left</span>
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <Button
           className="w-full"
           onClick={() => {
