@@ -1,5 +1,7 @@
 import { Header } from "@/components/layout/header";
 import { GamesManager } from "@/components/games/games-manager";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 
@@ -43,14 +45,27 @@ export default async function GamesPage() {
   }));
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Games"
         subtitle="Manage game catalog and reference against Texas Lottery scratch game list"
       />
-      <div className="flex-1 overflow-y-auto p-6">
+
+      <PageToolbar
+        left={<span className="text-xs text-text-secondary">Catalog Size: {gameData.length}</span>}
+        center={<span>Ctrl+F Search | Ctrl+S Save</span>}
+        right={<span className="text-xs text-text-tertiary">Role: {session.role}</span>}
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-6">
         <GamesManager initialGames={gameData} userRole={session.role} />
       </div>
+
+      <StatusBar
+        left={<span>Games Loaded: {gameData.length}</span>}
+        center={<span>Use sync tools for catalog updates</span>}
+        right={<span>Store scoped</span>}
+      />
     </div>
   );
 }

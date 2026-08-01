@@ -29,13 +29,8 @@ const features = [
 export default function LoginPage() {
   return (
     <div className="flex h-screen w-full">
-      {/* ── Left panel — brand / feature list ── */}
-      <div className="hidden w-[420px] shrink-0 flex-col justify-between bg-sidebar px-10 py-10 lg:flex relative overflow-hidden">
-        {/* Ambient brand-gradient glow, kept subtle and confined to this hero panel */}
-        <div
-          className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full opacity-20 blur-3xl brand-gradient"
-          aria-hidden="true"
-        />
+      {/* Left panel — enterprise feature list */}
+      <div className="relative hidden w-[420px] shrink-0 flex-col justify-between overflow-hidden bg-sidebar px-10 py-10 lg:flex">
 
         {/* Logo */}
         <div className="relative z-10">
@@ -52,16 +47,16 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Hero copy */}
+        {/* Operational copy */}
         <div className="relative z-10">
           <h1 className="text-[26px] font-medium leading-snug text-white">
-            Scratch-off inventory,
+            Lottery operations,
             <br />
-            <span className="text-white/50">managed properly.</span>
+            <span className="text-white/50">managed with control.</span>
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-white/45">
-            The back-office system built for Texas lottery retailers — real-time
-            display boards, pack tracking, and shift reconciliation in one place.
+            Operational control center for lottery retailers. Manage displays,
+            track packs, and reconcile shifts in real time.
           </p>
 
           <ul className="mt-8 flex flex-col gap-4">
@@ -85,7 +80,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* ── Right panel — login form ── */}
+      {/* Right panel — login form */}
       <div className="flex flex-1 flex-col items-center justify-center bg-bg px-6">
         {/* Mobile logo (only visible < lg) */}
         <div className="mb-8 lg:hidden">
@@ -100,10 +95,10 @@ export default function LoginPage() {
         </div>
 
         <div className="w-full max-w-[360px]">
-          <div className="mb-6 scan-line pt-3">
+          <div className="mb-6 border-t border-border pt-3">
             <h2 className="text-xl font-medium text-text">Sign in</h2>
             <p className="mt-1 text-sm text-text-secondary">
-              Enter your store credentials to continue
+              Enter store credentials to continue
             </p>
           </div>
 

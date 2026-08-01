@@ -1,4 +1,6 @@
 import { Header } from "@/components/layout/header";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
@@ -69,20 +71,37 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
     : 15;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {!kioskMode && (
         <Header
           title="TV Display"
           subtitle={`${activeSlots.length} active slot${activeSlots.length === 1 ? "" : "s"} shown`}
         />
       )}
-      <div className={kioskMode ? "flex-1 bg-[#050816]" : "flex-1 overflow-y-auto px-5 py-5 bg-bg"}>
+
+      {!kioskMode && (
+        <PageToolbar
+          left={<span className="text-xs text-text-secondary">Refresh interval: {refreshSeconds}s</span>}
+          center={<span>Kiosk mode available</span>}
+          right={<span className="text-xs text-text-tertiary">Active slots: {activeSlots.length}</span>}
+        />
+      )}
+
+      <div className={kioskMode ? "flex-1 bg-[#050816]" : "min-h-0 flex-1 overflow-y-auto px-5 py-5 bg-bg"}>
         <TvDisplayBoard
           slots={activeSlots}
           kioskMode={kioskMode}
           refreshSeconds={refreshSeconds}
         />
       </div>
+
+      {!kioskMode && (
+        <StatusBar
+          left={<span>Board feed ready</span>}
+          center={<span>Use kiosk for customer display</span>}
+          right={<span>Interval clamped 5s to 120s</span>}
+        />
+      )}
     </div>
   );
 }

@@ -2,8 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
+import { Header } from "@/components/layout/header";
 import { ReturnedTicketsList } from "@/components/inventory/returned-tickets-list";
 import { Button } from "@/components/ui/button";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 
 export default async function ReturnedTicketsPage() {
   const session = await getSession();
@@ -21,19 +24,32 @@ export default async function ReturnedTicketsPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Returned Tickets</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Packs removed from display/back stock are tracked here and marked inactive.
-        </p>
-        <div className="mt-3">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <Header
+        title="Returned Tickets"
+        subtitle="Removed packs from display and back stock"
+        actions={
           <Button asChild variant="outline" size="sm">
             <Link href="/inventory">Back to Back Stock</Link>
           </Button>
-        </div>
+        }
+      />
+
+      <PageToolbar
+        left={<span className="text-xs text-text-secondary">Compliance and exception tracking</span>}
+        center={<span>Ctrl+F Search | Ctrl+P Print</span>}
+        right={<span className="text-xs text-text-tertiary">Returned Packs: {packs.length}</span>}
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <ReturnedTicketsList packs={packs} />
       </div>
-      <ReturnedTicketsList packs={packs} />
+
+      <StatusBar
+        left={<span>Total Returned: {packs.length}</span>}
+        center={<span>Track removal reasons and audit history</span>}
+        right={<span>Store scoped records</span>}
+      />
     </div>
   );
 }

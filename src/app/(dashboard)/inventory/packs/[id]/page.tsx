@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 import { PackDetailsCard } from "@/components/inventory/pack-details-card";
 import { ShipmentCard } from "@/components/inventory/shipment-card";
 import { PackStatsCard } from "@/components/inventory/pack-stats-card";
@@ -49,7 +51,7 @@ export default async function PackDetailsPage({
   );
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
       <Header
         title={`Pack ${pack.packNumber}`}
@@ -61,27 +63,41 @@ export default async function PackDetailsPage({
         }
       />
 
-      <div className="grid grid-cols-3 gap-6 p-6">
+      <PageToolbar
+        left={<span className="text-xs text-text-secondary">Serial: {pack.serialNumber}</span>}
+        center={<span>Lifecycle details and activity timeline</span>}
+        right={<span className="text-xs text-text-tertiary">Status: {pack.status}</span>}
+      />
 
-        <div className="col-span-2 space-y-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
 
-          <PackDetailsCard pack={data} />
+          <div className="space-y-6 xl:col-span-2">
 
-          <ShipmentCard pack={data} />
+            <PackDetailsCard pack={data} />
 
-          <ScanTimeline logs={data.scanLogs} />
+            <ShipmentCard pack={data} />
+
+            <ScanTimeline logs={data.scanLogs} />
+
+          </div>
+
+          <div className="space-y-6">
+
+            <PackStatsCard pack={data} />
+
+            <PackActions pack={data} />
+
+          </div>
 
         </div>
-
-        <div className="space-y-6">
-
-          <PackStatsCard pack={data} />
-
-          <PackActions pack={data} />
-
-        </div>
-
       </div>
+
+      <StatusBar
+        left={<span>Game: {pack.game.name}</span>}
+        center={<span>Scan Events: {pack.scanLogs.length}</span>}
+        right={<span>Received: {new Date(pack.receivedAt).toLocaleDateString()}</span>}
+      />
 
     </div>
   );

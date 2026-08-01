@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Panel } from "@/components/ui/panel";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -106,13 +108,19 @@ export default async function SalesPage() {
   }, 0);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Sales"
         subtitle="Operational sales center for current shift and reconciliation"
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <PageToolbar
+        left={<span className="text-xs text-text-secondary">Current Shift: {openShift ? "Open" : "Closed"}</span>}
+        center={<span>Ctrl+P Print | Ctrl+F Search</span>}
+        right={<span className="text-xs text-text-tertiary">Active Packs: {activePacks}</span>}
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-6">
         <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
@@ -241,6 +249,12 @@ export default async function SalesPage() {
           </div>
         </div>
       </div>
+
+      <StatusBar
+        left={<span>Shift Tickets: {currentTickets}</span>}
+        center={<span>Shift Sales: {formatCurrency(currentSales)} | Week Sales: {formatCurrency(weekSales)}</span>}
+        right={<span>{recentClosedShifts.length} closed shifts loaded</span>}
+      />
     </div>
   );
 }

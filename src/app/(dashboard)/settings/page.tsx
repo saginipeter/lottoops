@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Panel } from "@/components/ui/panel";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 import { ExternalLink, Settings, Tv, Users } from "lucide-react";
 import { getSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
@@ -12,12 +14,19 @@ export default async function SettingsPage() {
   const isManagerOrOwner = session.role === "MANAGER" || session.role === "OWNER";
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Settings"
         subtitle="Store details, staff roles, and display preferences"
       />
-      <div className="flex-1 overflow-y-auto px-5 py-5">
+
+      <PageToolbar
+        left={<span className="text-xs text-text-secondary">Security and configuration controls</span>}
+        center={<span>Ctrl+F Search Settings</span>}
+        right={<span className="text-xs text-text-tertiary">Role: {session.role}</span>}
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Panel className="h-full p-5">
             <div className="mb-3 inline-flex rounded-lg bg-blue-100 p-2 text-blue-700">
@@ -86,6 +95,12 @@ export default async function SettingsPage() {
           </Panel>
         </div>
       </div>
+
+      <StatusBar
+        left={<span>Managed Store: {session.storeName}</span>}
+        center={<span>{isManagerOrOwner ? "Manager controls enabled" : "Limited access mode"}</span>}
+        right={<span>Audit sensitive changes</span>}
+      />
     </div>
   );
 }

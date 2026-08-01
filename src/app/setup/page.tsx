@@ -96,8 +96,8 @@ export default function SetupPage() {
           <p className="mt-2 text-sm text-text-secondary">
             Set up your owner account and first store location to get started.
           </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-medium text-amber-700">
-            ⚡ First-time setup — runs once
+          <div className="mt-3 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+            First-time setup. Runs once.
           </div>
         </div>
 

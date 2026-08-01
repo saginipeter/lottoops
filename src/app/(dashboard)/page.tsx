@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Panel } from "@/components/ui/panel";
+import { PageToolbar } from "@/components/ui/page-toolbar";
+import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 
@@ -108,10 +110,16 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Enterprise Operations Center"
         subtitle="Unified control for lottery inventory, sales, and compliance"
+      />
+
+      <PageToolbar
+        left={<span className="text-xs text-text-secondary">Store: {session?.storeName ?? "Unknown"}</span>}
+        center={<span>F2 Receive | F3 Search Pack | F4 Open Shift</span>}
+        right={<span className="text-xs text-text-tertiary">{openShift ? "Shift Open" : "No Open Shift"}</span>}
       />
 
       <div className="flex-1 overflow-y-auto px-5 py-5">
@@ -148,6 +156,12 @@ export default async function HomePage() {
         <Section title="Core Operations" cards={operationsCards} />
         <Section title="Management & Governance" cards={managementCards} />
       </div>
+
+      <StatusBar
+        left={<span>Active Display Packs: {activeDisplayPacks}</span>}
+        center={<span>Back Stock: {backStockPacks} | Active Games: {activeGames}</span>}
+        right={<span>{openShift ? "Operations in Progress" : "Open shift to begin"}</span>}
+      />
     </div>
   );
 }
