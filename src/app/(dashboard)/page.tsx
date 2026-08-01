@@ -7,6 +7,7 @@ import {
   Gamepad2,
   MonitorSmartphone,
   Radio,
+  RefreshCw,
   ReceiptText,
   ShieldCheck,
   Store,
@@ -126,6 +127,17 @@ export default async function HomePage() {
               <MetricCard label="Active Games" value={String(activeGames)} />
             </div>
 
+            <Panel className="mb-4 p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-text-tertiary">
+                Touchscreen POS Actions
+              </h3>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <PosTouchButton href="/shifts" label="Open or Close Shift" icon={ClipboardCheck} />
+                <PosTouchButton href="/inventory/live-scan" label="Start Live Scan" icon={Radio} />
+                <PosTouchButton href="/" label="Refresh Dashboard" icon={RefreshCw} />
+              </div>
+            </Panel>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <SimpleActionCard
                 href="/shifts"
@@ -200,6 +212,28 @@ export default async function HomePage() {
         right={<span>{openShift ? "Operations in Progress" : "Open shift to begin"}</span>}
       />
     </div>
+  );
+}
+
+function PosTouchButton({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex min-h-[72px] items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-soft active:bg-surface-soft"
+    >
+      <span className="text-base font-semibold text-text">{label}</span>
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-surface-soft text-accent">
+        <Icon size={18} />
+      </span>
+    </Link>
   );
 }
 
