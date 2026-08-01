@@ -140,6 +140,34 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
         right={<span className="text-xs text-text-tertiary">{currentShift ? "Shift Open" : "No Active Shift"}</span>}
       />
 
+      {session.role === "EMPLOYEE" && (
+        <div className="border-b border-border bg-surface px-4 py-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            <Link
+              href={`/inventory/live-scan?terminal=${terminalId}`}
+              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
+            >
+              <span className="text-base font-semibold text-text">Live Scan</span>
+              <span className="text-xs text-text-tertiary">Scan Tickets</span>
+            </Link>
+            <Link
+              href={`/shifts?terminal=${terminalId}`}
+              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
+            >
+              <span className="text-base font-semibold text-text">Shift Screen</span>
+              <span className="text-xs text-text-tertiary">Reconcile</span>
+            </Link>
+            <Link
+              href="/"
+              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
+            >
+              <span className="text-base font-semibold text-text">Home</span>
+              <span className="text-xs text-text-tertiary">Control Panel</span>
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3.5">
         <LiveScanDashboard
           currentShift={shiftData}
