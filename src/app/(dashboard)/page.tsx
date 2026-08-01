@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Store,
 } from "lucide-react";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { Header } from "@/components/layout/header";
 import { Panel } from "@/components/ui/panel";
 import { PageToolbar } from "@/components/ui/page-toolbar";
@@ -131,10 +132,16 @@ export default async function HomePage() {
               <h3 className="text-sm font-semibold uppercase tracking-wide text-text-tertiary">
                 Touchscreen POS Actions
               </h3>
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
                 <PosTouchButton href="/shifts" label="Open or Close Shift" icon={ClipboardCheck} />
                 <PosTouchButton href="/inventory/live-scan" label="Start Live Scan" icon={Radio} />
                 <PosTouchButton href="/" label="Refresh Dashboard" icon={RefreshCw} />
+                <div className="rounded-lg border border-border bg-surface px-2 py-2">
+                  <LogoutButton
+                    label="Logout"
+                    className="min-h-[72px] justify-between rounded-md bg-rose-50 px-4 py-3 text-base font-semibold text-rose-700 hover:bg-rose-100"
+                  />
+                </div>
               </div>
             </Panel>
 
