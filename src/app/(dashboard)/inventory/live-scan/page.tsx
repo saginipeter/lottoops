@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
 import { Button } from "@/components/ui/button";
@@ -142,7 +143,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
 
       {session.role === "EMPLOYEE" && (
         <div className="border-b border-border bg-surface px-4 py-3">
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
             <Link
               href={`/inventory/live-scan?terminal=${terminalId}`}
               className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
@@ -161,9 +162,13 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
               href="/"
               className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
             >
-              <span className="text-base font-semibold text-text">Home</span>
-              <span className="text-xs text-text-tertiary">Control Panel</span>
+              <span className="text-base font-semibold text-text">Back</span>
+              <span className="text-xs text-text-tertiary">Dashboard</span>
             </Link>
+            <LogoutButton
+              label="Logout"
+              className="min-h-[68px] justify-between rounded-lg border border-border bg-surface-soft px-4 py-3 text-base font-semibold text-text hover:bg-muted"
+            />
           </div>
         </div>
       )}

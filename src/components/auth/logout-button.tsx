@@ -2,8 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export function LogoutButton() {
+interface LogoutButtonProps {
+  className?: string;
+  label?: string;
+}
+
+export function LogoutButton({ className, label = "Sign out" }: LogoutButtonProps) {
   const router = useRouter();
 
   async function handleLogout() {
@@ -15,11 +21,14 @@ export function LogoutButton() {
   return (
     <button
       onClick={handleLogout}
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-strong transition-colors w-full"
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-sidebar-text transition-colors hover:bg-sidebar-hover hover:text-sidebar-text-strong",
+        className
+      )}
       title="Sign out"
     >
       <LogOut size={13} />
-      Sign out
+      {label}
     </button>
   );
 }
