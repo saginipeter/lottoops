@@ -27,11 +27,11 @@ export function StatCard({
   subTone = "neutral",
 }: StatCardProps) {
   return (
-    <Panel className="px-3.5 py-3">
+    <Panel className="px-3.5 py-3.5">
       <p className="text-[10px] uppercase tracking-wide text-text-tertiary">
         {label}
       </p>
-      <p className="mt-1.5 text-[22px] font-medium leading-none text-text">
+      <p className="mt-2 text-[22px] font-semibold leading-none text-text">
         {value}
         {valueSuffix && (
           <span className="ml-1 text-[13px] text-text-tertiary">
@@ -42,7 +42,7 @@ export function StatCard({
       {sub && (
         <p
           className={clsx(
-            "mt-[3px] flex items-center gap-1 text-[10px]",
+            "mt-1.5 flex items-center gap-1 text-[10px]",
             subToneClasses[subTone]
           )}
         >

@@ -234,10 +234,10 @@ function PosTouchButton({
   return (
     <Link
       href={href}
-      className="flex min-h-[72px] items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-soft active:bg-surface-soft"
+      className="card-surface card-interactive flex min-h-[72px] items-center justify-between rounded-lg px-4 py-3 text-left active:bg-surface-soft"
     >
       <span className="text-base font-semibold text-text">{label}</span>
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-surface-soft text-accent">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-surface-soft text-accent">
         <Icon size={18} />
       </span>
     </Link>
@@ -258,14 +258,14 @@ function SimpleActionCard({
   return (
     <Link
       href={href}
-      className="rounded-lg border border-border bg-surface p-5 transition-colors hover:bg-surface-soft"
+      className="card-surface card-interactive rounded-lg p-5"
     >
-      <div className="mb-3 inline-flex rounded-md bg-surface-soft p-2 text-accent">
+      <div className="mb-3 inline-flex rounded-md border border-border bg-surface-soft p-2 text-accent">
         <Icon size={16} />
       </div>
       <h3 className="text-base font-semibold text-text">{title}</h3>
       <p className="mt-1 text-sm text-text-secondary">{description}</p>
-      <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent">
+      <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-accent">
         Open
         <ArrowRight size={12} />
       </div>
@@ -279,14 +279,14 @@ function Section({ title, cards }: { title: string; cards: ActionCard[] }) {
       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-tertiary">{title}</h3>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <Panel key={card.title} className="p-5">
+          <Panel key={card.title} className="card-interactive p-5">
             <div className="flex items-start justify-between">
-              <div className="inline-flex rounded-lg bg-surface-soft p-2 text-accent">
+              <div className="inline-flex rounded-lg border border-border bg-surface-soft p-2 text-accent">
                 <card.icon size={16} />
               </div>
               <Link
                 href={card.href}
-                className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
               >
                 Open
                 <ArrowRight size={12} />
@@ -303,7 +303,7 @@ function Section({ title, cards }: { title: string; cards: ActionCard[] }) {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-surface-soft px-3 py-2.5">
+    <div className="card-surface rounded-lg px-3 py-2.5">
       <p className="text-[11px] uppercase tracking-wide text-text-tertiary">{label}</p>
       <p className="mt-1 text-lg font-semibold text-text">{value}</p>
     </div>
@@ -314,7 +314,7 @@ function QuickAction({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-md border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:bg-surface-soft"
+      className="card-surface card-interactive flex items-center justify-between rounded-md px-3 py-2 text-sm text-text"
     >
       <span>{label}</span>
       <ArrowRight size={14} className="text-text-tertiary" />
