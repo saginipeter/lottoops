@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/ui/panel";
 import { BackStockList } from "@/components/inventory/back-stock-list";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
@@ -67,7 +66,7 @@ const displaySlots = slots.map((slot: { id: string; slotNumber: string; packId: 
 }));
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Back Stock"
         subtitle={`${backStock.length} packs waiting to be activated`}
@@ -80,12 +79,7 @@ const displaySlots = slots.map((slot: { id: string; slotNumber: string; packId: 
           </Link>
         }
       />
-
-      <div className="flex-1 overflow-y-auto px-4 py-3.5">
-        <Panel>
-          <BackStockList packs={backStock} slots={displaySlots} />
-        </Panel>
-      </div>
+      <BackStockList packs={backStock} slots={displaySlots} />
     </div>
   );
 }
