@@ -28,9 +28,11 @@ export default async function DashboardLayout({
       }
     : { name: "Staff", role: "EMPLOYEE" as const, storeName: "Store", initials: "?" };
 
+  const showSidebar = user.role !== "EMPLOYEE";
+
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
-      <Sidebar user={user} />
+      {showSidebar && <Sidebar user={user} />}
       <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
     </div>
   );

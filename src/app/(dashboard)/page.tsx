@@ -109,6 +109,43 @@ export default async function HomePage() {
     activeGames = gamesCount;
   }
 
+  if (session?.role === "EMPLOYEE") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <Header
+          title="Employee Control Panel"
+          subtitle="Choose an action to continue"
+        />
+
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <MetricCard label="Shift Open" value={openShift ? "Yes" : "No"} />
+              <MetricCard label="Active Displays" value={String(activeDisplayPacks)} />
+              <MetricCard label="Back Stock" value={String(backStockPacks)} />
+              <MetricCard label="Active Games" value={String(activeGames)} />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <SimpleActionCard
+                href="/shifts"
+                title="Open or Close Shift"
+                description="Start shift and reconcile tickets quickly."
+                icon={ClipboardCheck}
+              />
+              <SimpleActionCard
+                href="/inventory/live-scan"
+                title="Live Scan"
+                description="Scan ticket sales continuously during shift."
+                icon={Radio}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
@@ -163,6 +200,35 @@ export default async function HomePage() {
         right={<span>{openShift ? "Operations in Progress" : "Open shift to begin"}</span>}
       />
     </div>
+  );
+}
+
+function SimpleActionCard({
+  href,
+  title,
+  description,
+  icon: Icon,
+}: {
+  href: string;
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-lg border border-border bg-surface p-5 transition-colors hover:bg-surface-soft"
+    >
+      <div className="mb-3 inline-flex rounded-md bg-surface-soft p-2 text-accent">
+        <Icon size={16} />
+      </div>
+      <h3 className="text-base font-semibold text-text">{title}</h3>
+      <p className="mt-1 text-sm text-text-secondary">{description}</p>
+      <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent">
+        Open
+        <ArrowRight size={12} />
+      </div>
+    </Link>
   );
 }
 
