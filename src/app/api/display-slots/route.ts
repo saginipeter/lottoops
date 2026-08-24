@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { canManageDisplay } from "@/lib/permissions";
 
 // GET all display slots
 export async function GET() {
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "EMPLOYEE") {
+  if (!canManageDisplay(session)) {
     return NextResponse.json(
       { error: "You don't have permission to assign packs" },
       { status: 403 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
+import { canManageBackstock } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    if (!canManageBackstock(session)) {
+      return NextResponse.json(
+        { error: "You do not have permission to activate back-stock packs." },
+        { status: 403 }
       );
     }
 

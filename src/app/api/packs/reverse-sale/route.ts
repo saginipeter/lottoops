@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { isOwner } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!isOwner(session)) {
+    return NextResponse.json(
+      { error: "Only the store owner can correct or reverse a ticket." },
+      { status: 403 }
+    );
   }
 
   if (!prisma) {

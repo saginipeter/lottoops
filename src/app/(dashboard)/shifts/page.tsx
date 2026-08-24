@@ -165,6 +165,13 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         <div className="border-b border-border bg-surface px-4 py-3">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
             <Link
+              href="/"
+              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
+            >
+              <span className="text-base font-semibold text-text">Back</span>
+              <span className="text-xs text-text-tertiary">Dashboard</span>
+            </Link>
+            <Link
               href="/shifts"
               className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
             >
@@ -178,16 +185,9 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
               <span className="text-base font-semibold text-text">Live Scan</span>
               <span className="text-xs text-text-tertiary">Sales Entry</span>
             </Link>
-            <Link
-              href="/"
-              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
-            >
-              <span className="text-base font-semibold text-text">Back</span>
-              <span className="text-xs text-text-tertiary">Dashboard</span>
-            </Link>
             <LogoutButton
               label="Logout"
-              className="min-h-[68px] justify-between rounded-lg border border-border bg-surface-soft px-4 py-3 text-base font-semibold text-text hover:bg-muted"
+              className="min-h-[68px] justify-between rounded-lg border border-red-300 bg-red-600 px-4 py-3 text-base font-semibold text-white hover:bg-red-700"
             />
           </div>
         </div>

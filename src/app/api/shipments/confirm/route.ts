@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
+import { canReceiveShipments } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    if (!canReceiveShipments(session)) {
+      return NextResponse.json(
+        { error: "You do not have permission to confirm shipments." },
+        { status: 403 }
       );
     }
 
@@ -41,9 +49,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (shipment.storeId !== session.storeId || shipment.status !== "IN_PROGRESS") {
+      return NextResponse.json(
+        { error: "Shipment is unavailable or access is denied." },
+        { status: 409 }
+      );
+    }
+
     const shipmentPacks = await prisma.pack.findMany({
       where: {
         shipmentId,
+        storeId: session.storeId,
       },
       select: {
         id: true,
@@ -111,8 +127,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      await prisma.$transaction(
-        shipmentPacks.map(
+      await prisma.$transaction([
+        ...shipmentPacks.map(
           (
             pack: { id: string; firstTicket: number | null; ticketQuantity: number | null },
             index: number
@@ -130,8 +146,21 @@ export async function POST(req: NextRequest) {
             },
           });
           }
-        )
-      );
+        ),
+        prisma.shipment.update({
+          where: { id: shipmentId },
+          data: {
+            scannedPacks: scanned,
+            status: "RECEIVED",
+            confirmedAt: new Date(),
+          },
+        }),
+      ]);
+      return NextResponse.json({
+        ...shipment,
+        scannedPacks: scanned,
+        status: "RECEIVED",
+      });
     }
 
     const updatedShipment = await prisma.shipment.update({

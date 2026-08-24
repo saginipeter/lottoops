@@ -54,6 +54,7 @@ interface LiveScanDashboardProps {
   currentShift: ShiftData | null;
   activePacks: PackData[];
   terminalId: string;
+  isOwner: boolean;
 }
 
 interface TicketHistoryResult {
@@ -86,6 +87,7 @@ export function LiveScanDashboard({
   currentShift,
   activePacks,
   terminalId,
+  isOwner,
 }: LiveScanDashboardProps) {
   const router = useRouter();
   const [barcode, setBarcode] = useState("");
@@ -424,15 +426,17 @@ export function LiveScanDashboard({
               <p className="text-sm font-medium text-green-900">
                 ✓ Pack Found: {lastScan.gameNumber}
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={handleRejectLastSale}
-                disabled={reversing}
-              >
-                {reversing ? "Reversing..." : "Customer Rejected - Return to Display (PIN)"}
-              </Button>
+              {isOwner && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={handleRejectLastSale}
+                  disabled={reversing}
+                >
+                  {reversing ? "Reversing..." : "Customer Rejected - Return to Display (PIN)"}
+                </Button>
+              )}
             </div>
           )}
         </div>

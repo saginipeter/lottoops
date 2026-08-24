@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
+import { canReceiveShipments } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    if (!canReceiveShipments(session)) {
+      return NextResponse.json(
+        { error: "You do not have permission to receive packs." },
+        { status: 403 }
       );
     }
 
@@ -27,6 +35,22 @@ export async function POST(req: NextRequest) {
       activationNumber,
       firstOrLastTicket,
     } = body;
+
+    if (!shipmentId || typeof shipmentId !== "string") {
+      return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
+    }
+
+    const shipment = await prisma.shipment.findFirst({
+      where: { id: shipmentId, storeId: session.storeId, status: "IN_PROGRESS" },
+      select: { id: true },
+    });
+
+    if (!shipment) {
+      return NextResponse.json(
+        { error: "Shipment not found, already received, or access denied." },
+        { status: 404 }
+      );
+    }
 
     if (!/^\d{7}$/.test(String(packNumber ?? ""))) {
       return NextResponse.json(
@@ -164,6 +188,13 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    if (!canReceiveShipments(session)) {
+      return NextResponse.json(
+        { error: "You do not have permission to correct received packs." },
+        { status: 403 }
       );
     }
 

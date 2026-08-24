@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
+import { canReceiveShipments } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,6 +12,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    if (!canReceiveShipments(session)) {
+      return NextResponse.json(
+        { error: "You do not have permission to receive shipments." },
+        { status: 403 }
       );
     }
 

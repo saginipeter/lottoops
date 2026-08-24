@@ -25,8 +25,10 @@ interface DisplaySlot {
 
 export default function DisplaySlotCard({
   slot,
+  canManageDisplay,
 }: {
   slot: DisplaySlot;
+  canManageDisplay: boolean;
 }) {
   const [clearing, setClearing] = useState(false);
 
@@ -126,7 +128,7 @@ export default function DisplaySlotCard({
         </div>
         <div className="mt-4 text-center">
           <p className="mb-3 text-xs text-text-secondary">Ready for assignment</p>
-          <AssignPackDialog slotId={slot.id} />
+          {canManageDisplay && <AssignPackDialog slotId={slot.id} />}
         </div>
       </div>
     );
@@ -173,7 +175,7 @@ export default function DisplaySlotCard({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      {canManageDisplay && <div className="mt-4 grid grid-cols-2 gap-2">
         <Button
           className="w-full"
           onClick={() => {
@@ -190,7 +192,7 @@ export default function DisplaySlotCard({
         >
           {clearing ? "Removing..." : "Remove from Display"}
         </Button>
-      </div>
+      </div>}
     </div>
   );
 }

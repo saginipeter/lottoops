@@ -172,7 +172,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
             </div>
           </Panel>
 
-          <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+          <div className="min-h-0 space-y-4 overflow-y-auto pr-1 xl:overflow-hidden">
             <ProgressStepper currentStep={step} />
 
             {step === 1 && (

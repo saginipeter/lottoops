@@ -2,6 +2,7 @@ import { Header } from "@/components/layout/header";
 import DisplaySlotGrid from "@/components/display-slots/display-slot-grid";
 import { getDisplaySlots } from "@/lib/services/display-slots";
 import { getSession } from "@/lib/get-session";
+import { canManageDisplay } from "@/lib/permissions";
 
 export default async function DisplaySlotsPage() {
   const session = await getSession();
@@ -30,7 +31,7 @@ export default async function DisplaySlotsPage() {
         subtitle={`${activeCount} active · ${slots.length - activeCount} empty`}
       />
 
-      <DisplaySlotGrid slots={slots} />
+      <DisplaySlotGrid slots={slots} canManageDisplay={canManageDisplay(session)} />
 
     </div>
   );

@@ -11,9 +11,10 @@ import { RemoveBackstockPackModal } from "./remove-backstock-pack-modal";
 interface BackStockListProps {
   packs: any[];
   slots: Array<{ id: string; slotNumber: string; occupied: boolean }>;
+  canManageBackstock: boolean;
 }
 
-export function BackStockList({ packs, slots }: BackStockListProps) {
+export function BackStockList({ packs, slots, canManageBackstock }: BackStockListProps) {
   const [search, setSearch] = useState("");
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [activateModalOpen, setActivateModalOpen] = useState(false);
@@ -137,14 +138,18 @@ export function BackStockList({ packs, slots }: BackStockListProps) {
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex justify-end gap-1.5">
-                    <Button size="sm" onClick={() => openActivateModal(pack)}>
-                      <PlayCircle size={14} />
-                      Activate
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => openRemoveModal(pack)}>
-                      <Trash2 size={14} />
-                      Remove
-                    </Button>
+                    {canManageBackstock && (
+                      <>
+                        <Button size="sm" onClick={() => openActivateModal(pack)}>
+                          <PlayCircle size={14} />
+                          Activate
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => openRemoveModal(pack)}>
+                          <Trash2 size={14} />
+                          Remove
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>

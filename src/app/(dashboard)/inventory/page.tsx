@@ -5,6 +5,7 @@ import { BackStockList } from "@/components/inventory/back-stock-list";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { Plus } from "lucide-react";
+import { canManageBackstock, canReceiveShipments } from "@/lib/permissions";
 
 export default async function InventoryPage() {
  const session = await getSession();
@@ -71,15 +72,21 @@ const displaySlots = slots.map((slot: { id: string; slotNumber: string; packId: 
         title="Back Stock"
         subtitle={`${backStock.length} packs waiting to be activated`}
         actions={
-          <Link href="/inventory/receive">
-            <Button variant="default">
-              <Plus size={14} />
-              Receive Inventory
-            </Button>
-          </Link>
+          canReceiveShipments(session) && (
+            <Link href="/inventory/receive">
+              <Button variant="default">
+                <Plus size={14} />
+                Receive Inventory
+              </Button>
+            </Link>
+          )
         }
       />
-      <BackStockList packs={backStock} slots={displaySlots} />
+      <BackStockList
+        packs={backStock}
+        slots={displaySlots}
+        canManageBackstock={canManageBackstock(session)}
+      />
     </div>
   );
 }
