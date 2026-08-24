@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { FinancialReports } from "@/components/reports/financial-reports";
 import { InventoryStatusReport } from "@/components/reports/inventory-status-report";
 import { ActivityReport } from "@/components/reports/activity-report";
+import { DiscrepancyReport } from "@/components/reports/discrepancy-report";
 
 export default async function ReportsPage() {
   const session = await getSession();
@@ -28,6 +29,7 @@ export default async function ReportsPage() {
         <div className="space-y-5">
           <FinancialReports />
           <ActivityReport />
+          <DiscrepancyReport />
           <InventoryStatusReport />
         </div>
       </div>
