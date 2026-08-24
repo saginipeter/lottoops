@@ -218,9 +218,17 @@ export function OwnerDashboard() {
 
   return (
     <div className="space-y-5">
-      {/* Summary KPIs */}
+      {/* Portfolio overview */}
       {!loading && stores.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <section aria-labelledby="portfolio-overview" className="space-y-3">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Portfolio overview</p>
+              <h2 id="portfolio-overview" className="text-lg font-semibold text-text">Today across all stores</h2>
+            </div>
+            <span className="text-xs text-text-tertiary">Live owner view</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           {[
             { label: "Lottery Sales Today", value: fmt(summary.salesToday), hint: `${summary.ticketsToday} tickets`, icon: TrendingUp, color: "text-green-600 bg-green-50" },
             { label: "Active Packs", value: summary.activePacks.toLocaleString(), hint: "On display", icon: Package, color: "text-blue-600 bg-blue-50" },
@@ -240,7 +248,8 @@ export function OwnerDashboard() {
               {kpi.hint && <p className="mt-1 text-xs text-text-tertiary">{kpi.hint}</p>}
             </Panel>
           ))}
-        </div>
+          </div>
+        </section>
       )}
 
       {/* Message */}
@@ -251,11 +260,13 @@ export function OwnerDashboard() {
         </div>
       )}
 
-      {/* Stores header */}
-      <Panel id="stores" className="p-5">
+      {/* Store portfolio */}
+      <section id="stores" aria-labelledby="store-portfolio">
+      <Panel className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-text">Your Stores</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Portfolio</p>
+            <h2 id="store-portfolio" className="text-base font-semibold text-text">Your Stores</h2>
             <p className="text-xs text-text-secondary mt-0.5">{stores.length} location{stores.length !== 1 ? "s" : ""}</p>
           </div>
           <div className="flex gap-2">
@@ -311,6 +322,7 @@ export function OwnerDashboard() {
           </div>
         )}
       </Panel>
+      </section>
 
     </div>
   );

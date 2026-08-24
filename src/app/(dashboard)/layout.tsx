@@ -18,7 +18,7 @@ export default async function DashboardLayout({
     ? {
         name: session.name,
         role: session.role,
-        storeName: session.storeName ?? "My Store",
+        storeName: session.role === "OWNER" ? "All Stores" : session.storeName ?? "My Store",
         grantedPermissions: session.grantedPermissions ?? [],
         initials: session.name
           .split(" ")

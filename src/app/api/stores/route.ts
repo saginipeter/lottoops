@@ -67,5 +67,11 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ store }, { status: 201 });
+  return NextResponse.json({
+    store: {
+      ...store,
+      users: [],
+      _count: { packs: 0, shifts: 0 },
+    },
+  }, { status: 201 });
 }
