@@ -19,6 +19,7 @@ import {
   Users,
   Building2,
   RotateCcw,
+  CreditCard,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -123,6 +124,7 @@ const ownerNavSections: NavSection[] = [
     items: [
       { href: "/settings/users", label: "People & Access", icon: Users },
       { href: "/settings", label: "Account Settings", icon: Settings },
+      { href: "/billing", label: "Billing", icon: CreditCard },
     ],
   },
 ];
