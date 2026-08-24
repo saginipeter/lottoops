@@ -1,0 +1,3 @@
+ALTER TABLE "plans"
+ADD COLUMN "description" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "features" JSONB NOT NULL DEFAULT '[]';
