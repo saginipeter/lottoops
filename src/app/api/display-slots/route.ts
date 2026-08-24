@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { canManageDisplay } from "@/lib/permissions";
+import { ensureDisplaySlots } from "@/lib/services/display-slots";
 
 // GET all display slots
 export async function GET() {
@@ -18,6 +19,7 @@ export async function GET() {
   }
 
   try {
+    await ensureDisplaySlots(session.storeId);
     const slots = await prisma.displaySlot.findMany({
       where: {
         storeId: session.storeId,
