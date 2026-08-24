@@ -22,6 +22,7 @@ model Store {
   packs        Pack[]
   scanLogs     ScanLogEntry[]
   shifts       Shift[]
+  inventoryAudits InventoryAudit[]
   shipments    Shipment[]
   users        User[]
 
@@ -43,6 +44,8 @@ model User {
   scanLogs          ScanLogEntry[] @relation("ScanLogPerformedBy")
   shiftsClosed      Shift[]        @relation("ShiftsClosedBy")
   shiftsOpened      Shift[]        @relation("ShiftsOpenedBy")
+  auditsBegun       InventoryAudit[] @relation("AuditsBegunBy")
+  auditsEnded       InventoryAudit[] @relation("AuditsEndedBy")
   shipmentsReceived Shipment[]     @relation("ShipmentsReceived")
   store             Store          @relation(fields: [storeId], references: [id])
 
@@ -139,6 +142,7 @@ model Pack {
   store                  Store               @relation(fields: [storeId], references: [id])
   scanLogs               ScanLogEntry[]
   shiftLines             ShiftLine[]
+  auditLines             InventoryAuditLine[]
 
   @@unique([storeId, serialNumber])
   @@index([storeId, status])
@@ -169,12 +173,51 @@ model Shift {
   closedAt   DateTime?
   closedById String?
   lines      ShiftLine[]
+  inventoryAudit InventoryAudit?
   closedBy   User?       @relation("ShiftsClosedBy", fields: [closedById], references: [id])
   openedBy   User        @relation("ShiftsOpenedBy", fields: [openedById], references: [id])
   store      Store       @relation(fields: [storeId], references: [id])
 
   @@index([storeId, status])
   @@map("shifts")
+}
+
+model InventoryAudit {
+  id        String              @id @default(cuid())
+  storeId   String
+  shiftId   String              @unique
+  status    InventoryAuditStatus @default(OPEN)
+  begunById String
+  begunAt   DateTime            @default(now())
+  endedById String?
+  endedAt   DateTime?
+  store     Store               @relation(fields: [storeId], references: [id])
+  shift     Shift               @relation(fields: [shiftId], references: [id])
+  begunBy   User                @relation("AuditsBegunBy", fields: [begunById], references: [id])
+  endedBy   User?               @relation("AuditsEndedBy", fields: [endedById], references: [id])
+  lines     InventoryAuditLine[]
+
+  @@index([storeId, status])
+  @@map("inventory_audits")
+}
+
+model InventoryAuditLine {
+  id                      String         @id @default(cuid())
+  auditId                 String
+  packId                  String
+  slotNumber              String
+  expectedTicket          Int
+  endingExpectedTicket    Int?
+  beginningPhysicalTicket Int?
+  endingPhysicalTicket    Int?
+  variance                Int?
+  varianceReason          String?
+  audit                   InventoryAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  pack                    Pack            @relation(fields: [packId], references: [id])
+
+  @@unique([auditId, packId])
+  @@index([packId])
+  @@map("inventory_audit_lines")
 }
 
 model ShiftLine {
@@ -233,6 +276,11 @@ enum PackStatus {
 enum ShiftStatus {
   OPEN
   CLOSED
+}
+
+enum InventoryAuditStatus {
+  OPEN
+  COMPLETED
 }
 
 enum ScanAction {

@@ -77,6 +77,9 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
               slotNumber: "asc",
             },
           },
+          inventoryAudit: {
+            include: { lines: true, begunBy: { select: { name: true } }, endedBy: { select: { name: true } } },
+          },
         },
       })
     : null;

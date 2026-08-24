@@ -1,0 +1,52 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getApiSession } from "@/lib/api-session";
+
+interface AuditLine {
+  id: string;
+  packId: string;
+  expectedTicket: number;
+}
+
+export async function POST(request: NextRequest) {
+  const session = await getApiSession();
+  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
+
+  const { auditId, serialNumber, phase } = await request.json().catch(() => ({}));
+  if (!auditId || !serialNumber || !["beginning", "ending"].includes(phase)) {
+    return NextResponse.json({ error: "auditId, serialNumber, and phase are required." }, { status: 400 });
+  }
+
+  try {
+    const audit = await prisma.inventoryAudit.findFirst({
+      where: { id: auditId, storeId: session.storeId, status: "OPEN" },
+      include: { lines: true },
+    });
+    if (!audit) return NextResponse.json({ error: "Open audit not found." }, { status: 404 });
+
+    const normalized = String(serialNumber).trim();
+    const pack = await prisma.pack.findFirst({
+      where: { storeId: session.storeId, serialNumber: normalized },
+      select: { id: true },
+    });
+    if (!pack) return NextResponse.json({ error: "Pack is not part of this store's audit." }, { status: 404 });
+
+    const line = (audit.lines as AuditLine[]).find((item) => item.packId === pack.id);
+    if (!line) return NextResponse.json({ error: "Pack is not part of this shift audit." }, { status: 409 });
+
+    const ticketNumber = Number(String(serialNumber).replace(/\D/g, "").slice(-3));
+    if (!Number.isInteger(ticketNumber) || ticketNumber < 0) {
+      return NextResponse.json({ error: "Scan a valid pack or ticket barcode." }, { status: 400 });
+    }
+
+    const data = phase === "beginning"
+      ? { beginningPhysicalTicket: ticketNumber }
+      : { endingPhysicalTicket: ticketNumber, variance: ticketNumber - Number(line.expectedTicket) };
+    const updated = await prisma.inventoryAuditLine.update({ where: { id: line.id }, data });
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("[POST /api/inventory-audits/scan]", error);
+    return NextResponse.json({ error: "Unable to record audit scan." }, { status: 500 });
+  }
+}

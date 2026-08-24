@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Clock, PlayCircle, Radio, Tv } from "lucide-react";
 
 import ShiftPackTable from "./shift-pack-table";
+import PhysicalAuditPanel from "@/components/inventory/physical-audit-panel";
 
 interface ShiftDashboardProps {
   shift: any | null;
@@ -204,6 +205,8 @@ export default function ShiftDashboard({
       </Panel>
 
       <ShiftPackTable shift={shift} />
+
+      <PhysicalAuditPanel shiftId={shift.id} audit={shift.inventoryAudit} />
 
       <Panel className="p-6">
         <h3 className="text-base font-semibold text-text">Shift Timeline</h3>
