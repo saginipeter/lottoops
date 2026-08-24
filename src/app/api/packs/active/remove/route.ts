@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { logInventoryActivity } from "@/lib/activity-log";
+import { canManageDisplay } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +13,10 @@ export async function POST(req: NextRequest) {
         { error: "Unauthorized" },
         { status: 401 }
       );
+    }
+
+    if (!canManageDisplay(session)) {
+      return NextResponse.json({ error: "Manager display permission required." }, { status: 403 });
     }
 
     const {
@@ -67,6 +72,10 @@ export async function POST(req: NextRequest) {
         { error: "Only ACTIVE packs can be removed." },
         { status: 400 }
       );
+    }
+
+    if (pack.sequenceLocked) {
+      return NextResponse.json({ error: "Pack is locked pending manager review." }, { status: 409 });
     }
 
     if (activeRemovalReason === "REASSIGNED") {

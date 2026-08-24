@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { canManageDisplay } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!canManageDisplay(session)) {
+    return NextResponse.json({ error: "Manager display permission required." }, { status: 403 });
   }
 
   if (!prisma) {
@@ -21,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     const pack = await prisma.pack.findFirst({
       where: { id: packId, storeId: session.storeId },
-      select: { id: true, status: true, serialNumber: true },
+      select: { id: true, status: true, serialNumber: true, sequenceLocked: true },
     });
 
     if (!pack) {
@@ -30,6 +35,10 @@ export async function POST(req: NextRequest) {
 
     if (pack.status !== "ACTIVE") {
       return NextResponse.json({ error: "Only ACTIVE packs can be marked sold out." }, { status: 409 });
+    }
+
+    if (pack.sequenceLocked) {
+      return NextResponse.json({ error: "Pack is locked pending manager review." }, { status: 409 });
     }
 
     await prisma.$transaction([
