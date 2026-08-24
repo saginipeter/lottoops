@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Radio, TrendingUp, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock,
+  History,
+  MapPin,
+  Radio,
+  RefreshCw,
+  Search,
+  TrendingUp,
+} from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { ScanStatusDisplay } from "./scan-status-display";
@@ -47,6 +56,32 @@ interface LiveScanDashboardProps {
   terminalId: string;
 }
 
+interface TicketHistoryResult {
+  found: boolean;
+  pack?: {
+    serialNumber: string;
+    gameNumber: string;
+    gameName: string;
+    status: string;
+    slotNumber: string | null;
+    currentTicketNumber: number | null;
+    ticketQuantity: number | null;
+  };
+  lastActivity?: {
+    action: string;
+    detail: string;
+    timestamp: string;
+    performedBy: string;
+  } | null;
+  history?: Array<{
+    id: string;
+    action: string;
+    detail: string;
+    timestamp: string;
+    performedBy: string;
+  }>;
+}
+
 export function LiveScanDashboard({
   currentShift,
   activePacks,
@@ -66,6 +101,9 @@ export function LiveScanDashboard({
   const [autoRefreshActive, setAutoRefreshActive] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [scanError, setScanError] = useState("");
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyResult, setHistoryResult] = useState<TicketHistoryResult | null>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-refresh polling every 10 seconds
@@ -144,7 +182,7 @@ export function LiveScanDashboard({
   }, []);
 
   async function handleScan() {
-    if (!barcode.trim()) return;
+    if (!barcode.trim() || scanError) return;
 
     try {
       setRefreshing(true);
@@ -173,6 +211,21 @@ export function LiveScanDashboard({
     } finally {
       setRefreshing(false);
       requestAnimationFrame(() => scanInputRef.current?.focus());
+    }
+  }
+
+  async function handleHistorySearch() {
+    if (!historyQuery.trim()) return;
+
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/tickets/history?ticket=${encodeURIComponent(historyQuery)}`);
+      const data = await res.json();
+      setHistoryResult(res.ok ? data : { found: false });
+    } catch {
+      setHistoryResult(null);
+    } finally {
+      setHistoryLoading(false);
     }
   }
 
@@ -322,7 +375,7 @@ export function LiveScanDashboard({
       )}
 
       {/* Barcode Input */}
-      <Panel className="p-4">
+      <Panel className={`p-4 ${scanError ? "border-2 border-red-600 bg-red-50" : ""}`}>
         <div className="space-y-4">
           <label className="block">
             <span className="text-sm font-medium">Scan Ticket Barcode</span>
@@ -332,8 +385,9 @@ export function LiveScanDashboard({
           </label>
 
           {scanError && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {scanError}
+            <div role="alert" className="flex items-center gap-2 rounded-md border-2 border-red-600 bg-red-600 px-3 py-3 text-sm font-bold text-white">
+              <AlertTriangle size={20} aria-hidden="true" />
+              <span>TICKET MISMATCH / SCAN BLOCKED: {scanError}</span>
             </div>
           )}
 
@@ -342,17 +396,24 @@ export function LiveScanDashboard({
               ref={scanInputRef}
               type="text"
               value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
+              onChange={(e) => {
+                setBarcode(e.target.value);
+                if (scanError) setScanError("");
+              }}
               onKeyPress={(e) => {
-                if (e.key === "Enter") handleScan();
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleScan();
+                }
               }}
               placeholder="Scan barcode to sell"
-              className="flex-1 rounded-md border border-border px-3 py-3 text-lg font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={`flex-1 rounded-md border-2 px-3 py-3 text-lg font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${scanError ? "border-red-600 bg-white" : "border-border"}`}
               autoFocus
             />
             <Button
               onClick={handleScan}
-              disabled={refreshing || !barcode.trim()}
+              disabled={refreshing || !barcode.trim() || Boolean(scanError)}
+              className={scanError ? "bg-red-300 text-red-900" : ""}
             >
               {refreshing ? "Scanning..." : "Scan"}
             </Button>
@@ -375,6 +436,78 @@ export function LiveScanDashboard({
             </div>
           )}
         </div>
+      </Panel>
+
+      <Panel className="p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <History size={18} className="text-accent" />
+          <div>
+            <h3 className="text-base font-semibold">Ticket History</h3>
+            <p className="text-xs text-text-tertiary">Search a ticket or full barcode</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={historyQuery}
+            onChange={(event) => setHistoryQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                handleHistorySearch();
+              }
+            }}
+            placeholder="Enter ticket number"
+            className="min-w-0 flex-1 rounded-md border-2 border-border px-3 py-3 font-mono text-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            aria-label="Ticket number"
+          />
+          <Button onClick={handleHistorySearch} disabled={historyLoading || !historyQuery.trim()}>
+            <Search size={16} />
+            {historyLoading ? "Searching" : "Search"}
+          </Button>
+        </div>
+
+        {historyResult && !historyResult.found && (
+          <div role="status" className="mt-3 rounded-md border-2 border-red-300 bg-red-50 px-3 py-3 text-sm font-bold text-red-800">
+            NO SUCH TICKET EXISTS IN DATABASE.
+          </div>
+        )}
+
+        {historyResult?.found && historyResult.pack && (
+          <div className="mt-3 grid gap-3 xl:grid-cols-[1.3fr_1fr]">
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase text-text-tertiary">Lifecycle trail</span>
+                <span className="text-xs text-text-tertiary">{historyResult.history?.length ?? 0} events</span>
+              </div>
+              <div className="space-y-1.5">
+                {Array.from(historyResult.history ?? []).reverse().map((entry) => (
+                  <div key={entry.id} className="flex items-start justify-between gap-3 border-b border-border/60 pb-1.5 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-text">{entry.action.replaceAll("_", " ")}</p>
+                      <p className="truncate text-text-secondary">{entry.detail}</p>
+                    </div>
+                    <time className="shrink-0 text-right text-text-tertiary">
+                      {new Date(entry.timestamp).toLocaleDateString()}<br />
+                      {new Date(entry.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                    </time>
+                  </div>
+                ))}
+                {historyResult.history?.length === 0 && <p className="text-sm text-text-secondary">No recorded activity yet.</p>}
+              </div>
+            </div>
+            <div className="rounded-md border border-border bg-surface-soft p-3">
+              <p className="text-xs font-semibold uppercase text-text-tertiary">Last known location / status</p>
+              <p className="mt-1 text-lg font-bold text-text">{historyResult.pack.status.replaceAll("_", " ")}</p>
+              <p className="mt-1 flex items-center gap-1 text-sm text-text-secondary">
+                <MapPin size={14} /> {historyResult.pack.slotNumber ? `Display ${historyResult.pack.slotNumber}` : "No display assigned"}
+              </p>
+              <p className="mt-2 text-xs text-text-tertiary">Pack {historyResult.pack.serialNumber} · Game {historyResult.pack.gameNumber}</p>
+              {historyResult.lastActivity && (
+                <p className="mt-2 border-t border-border pt-2 text-xs text-text-secondary">Last: {historyResult.lastActivity.action.replaceAll("_", " ")}</p>
+              )}
+            </div>
+          </div>
+        )}
       </Panel>
       </div>
 
