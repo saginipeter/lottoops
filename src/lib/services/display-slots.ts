@@ -6,6 +6,16 @@ export async function ensureDisplaySlots(storeId: string) {
   if (!prisma) return;
 
   try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE packs
+      ADD COLUMN IF NOT EXISTS "sequenceLocked" BOOLEAN NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "sequenceLockExpectedTicket" INTEGER,
+      ADD COLUMN IF NOT EXISTS "sequenceLockScannedTicket" INTEGER,
+      ADD COLUMN IF NOT EXISTS "sequenceLockBarcode" TEXT,
+      ADD COLUMN IF NOT EXISTS "sequenceLockedAt" TIMESTAMP(3),
+      ADD COLUMN IF NOT EXISTS "sequenceLockedById" TEXT
+    `);
+
     const existingSlots = (await prisma.displaySlot.findMany({
       where: { storeId },
       select: { slotNumber: true },
