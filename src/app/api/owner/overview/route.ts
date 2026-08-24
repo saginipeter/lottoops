@@ -28,12 +28,13 @@ export async function GET() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [packs, openShifts, todayLines, shiftsToday] = await Promise.all([
+    const [packs, openShifts, todayLines, rawShiftsToday] = await Promise.all([
       prisma.pack.findMany({ where: { storeId: { in: storeIds } }, select: { storeId: true, status: true, sequenceLocked: true } }),
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, status: "OPEN" }, select: { storeId: true } }),
       prisma.shiftLine.findMany({ where: { shift: { AND: [{ storeId: { in: storeIds } }, { openedAt: { gte: today } }] } }, select: { shift: { select: { storeId: true } }, ticketsSold: true, salesAmount: true } }),
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, openedAt: { gte: today } }, select: { id: true, storeId: true } }),
     ]);
+    const shiftsToday = rawShiftsToday as Array<{ id: string; storeId: string }>;
 
     let completedAudits = 0;
     try {
