@@ -169,7 +169,7 @@ function StoreCard({ store }: { store: StoreKPI }) {
   );
 }
 
-export function OwnerDashboard() {
+export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "stores" }) {
   const [stores, setStores] = useState<StoreKPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -221,7 +221,7 @@ export function OwnerDashboard() {
   return (
     <div className="space-y-5">
       {/* Portfolio overview */}
-      {!loading && stores.length > 0 && (
+      {view === "overview" && !loading && stores.length > 0 && (
         <section aria-labelledby="portfolio-overview" className="space-y-3">
           <div className="flex items-end justify-between">
             <div>
@@ -255,7 +255,7 @@ export function OwnerDashboard() {
       )}
 
       {/* Message */}
-      {message && (
+      {view === "stores" && message && (
         <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 flex items-start gap-2">
           <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
           {message}
@@ -263,7 +263,7 @@ export function OwnerDashboard() {
       )}
 
       {/* Store portfolio */}
-      <section id="stores" aria-labelledby="store-portfolio">
+      {view === "stores" && <section id="stores" aria-labelledby="store-portfolio">
       <Panel className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
@@ -318,7 +318,20 @@ export function OwnerDashboard() {
           </div>
         )}
       </Panel>
-      </section>
+      </section>}
+
+      {view === "overview" && !loading && stores.length > 0 && (
+        <Panel className="p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Portfolio health</p>
+              <h2 className="text-base font-semibold text-text">What needs attention</h2>
+              <p className="mt-1 text-sm text-text-secondary">{summary.lockedPacks > 0 ? `${summary.lockedPacks} locked pack${summary.lockedPacks === 1 ? "" : "s"} require review.` : "No locked packs are waiting for review."}</p>
+            </div>
+            <Button variant="outline" onClick={loadStores}>Refresh data</Button>
+          </div>
+        </Panel>
+      )}
 
     </div>
   );

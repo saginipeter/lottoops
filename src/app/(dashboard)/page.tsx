@@ -20,6 +20,7 @@ import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { LockedPacksPanel } from "@/components/owner/locked-packs-panel";
+import { redirect } from "next/navigation";
 
 interface ActionCard {
   href: string;
@@ -84,6 +85,8 @@ const managementCards: ActionCard[] = [
 
 export default async function HomePage() {
   const session = await getSession();
+
+  if (session?.role === "OWNER") redirect("/owner");
 
   let activeDisplayPacks = 0;
   let backStockPacks = 0;

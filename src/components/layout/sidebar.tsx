@@ -114,7 +114,7 @@ const ownerNavSections: NavSection[] = [
     label: "Portfolio",
     items: [
       { href: "/owner", label: "Overview", icon: LayoutDashboard },
-      { href: "/owner#stores", label: "Stores", icon: Building2 },
+      { href: "/owner/stores", label: "Stores", icon: Building2 },
       { href: "/reports", label: "Performance", icon: BarChart3 },
     ],
   },

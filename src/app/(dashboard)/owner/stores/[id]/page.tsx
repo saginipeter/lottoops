@@ -56,7 +56,7 @@ export default async function OwnerStorePage({ params }: { params: Promise<{ id:
             <Panel className="p-5">
               <div className="flex items-center gap-2"><Clock size={17} className="text-accent" /><h2 className="font-semibold">Recent shifts</h2></div>
               <div className="mt-4 divide-y divide-border">
-                {shifts.map((shift) => <div key={shift.id} className="flex items-center justify-between gap-3 py-3 text-sm"><div><p className="font-medium">{shift.openedBy.name}</p><p className="text-xs text-text-tertiary">Opened {new Date(shift.openedAt).toLocaleString()}</p></div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${shift.status === "OPEN" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{shift.status}</span></div>)}
+                {shifts.map((shift: any) => <div key={shift.id} className="flex items-center justify-between gap-3 py-3 text-sm"><div><p className="font-medium">{shift.openedBy.name}</p><p className="text-xs text-text-tertiary">Opened {new Date(shift.openedAt).toLocaleString()}</p></div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${shift.status === "OPEN" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{shift.status}</span></div>)}
                 {shifts.length === 0 && <p className="py-4 text-sm text-text-secondary">No shifts recorded for this store.</p>}
               </div>
             </Panel>
