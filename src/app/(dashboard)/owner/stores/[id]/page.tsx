@@ -27,12 +27,12 @@ export default async function OwnerStorePage({ params }: { params: Promise<{ id:
     prisma.shiftLine.findMany({ where: { shift: { storeId: store.id, openedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } }, }, select: { ticketsSold: true, salesAmount: true } }),
   ]);
 
-  const salesToday = todayLines.reduce((sum, line) => sum + Number(line.salesAmount ?? 0), 0);
-  const ticketsToday = todayLines.reduce((sum, line) => sum + Number(line.ticketsSold ?? 0), 0);
-  const activePacks = packs.filter((pack) => pack.status === "ACTIVE").length;
-  const backstockPacks = packs.filter((pack) => pack.status === "BACK_STOCK").length;
-  const lockedPacks = packs.filter((pack) => pack.sequenceLocked).length;
-  const openShifts = shifts.filter((shift) => shift.status === "OPEN").length;
+  const salesToday = todayLines.reduce((sum: number, line: any) => sum + Number(line.salesAmount ?? 0), 0);
+  const ticketsToday = todayLines.reduce((sum: number, line: any) => sum + Number(line.ticketsSold ?? 0), 0);
+  const activePacks = packs.filter((pack: any) => pack.status === "ACTIVE").length;
+  const backstockPacks = packs.filter((pack: any) => pack.status === "BACK_STOCK").length;
+  const lockedPacks = packs.filter((pack: any) => pack.sequenceLocked).length;
+  const openShifts = shifts.filter((shift: any) => shift.status === "OPEN").length;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
