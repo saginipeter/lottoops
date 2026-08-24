@@ -73,6 +73,17 @@ export async function POST(req: NextRequest) {
 
     if (existingPack) {
       if (liveScan === true) {
+        if (existingPack.sequenceLocked) {
+          return NextResponse.json(
+            {
+              code: "SEQUENCE_LOCKED",
+              error: "Pack is locked pending manager review.",
+              expectedTicket: existingPack.sequenceLockExpectedTicket,
+              scannedTicket: existingPack.sequenceLockScannedTicket,
+            },
+            { status: 409 }
+          );
+        }
         if (existingPack.status !== "ACTIVE") {
           return NextResponse.json(
             { error: "Only ACTIVE packs can be scanned in live mode." },
@@ -183,8 +194,20 @@ export async function POST(req: NextRequest) {
         if (normalizedSerial.length >= 14) {
           const scannedTicketNumber = Number(normalizedSerial.substring(normalizedSerial.length - 3));
           if (Number.isFinite(scannedTicketNumber) && scannedTicketNumber !== currentTicket) {
+            await prisma.pack.update({
+              where: { id: existingPack.id },
+              data: {
+                sequenceLocked: true,
+                sequenceLockExpectedTicket: currentTicket,
+                sequenceLockScannedTicket: scannedTicketNumber,
+                sequenceLockBarcode: normalizedSerial,
+                sequenceLockedAt: new Date(),
+                sequenceLockedById: session.userId,
+              },
+            });
             return NextResponse.json(
               {
+                code: "SEQUENCE_LOCKED",
                 error:
                   scannedTicketNumber > currentTicket
                     ? `Ticket ${scannedTicketNumber} was already scanned. Current sellable ticket is ${currentTicket}.`

@@ -120,6 +120,12 @@ model Pack {
   firstOrLastTicket      String?
   lotNumber              String?
   packImage              String?
+  sequenceLocked         Boolean             @default(false)
+  sequenceLockExpectedTicket Int?
+  sequenceLockScannedTicket  Int?
+  sequenceLockBarcode       String?
+  sequenceLockedAt           DateTime?
+  sequenceLockedById         String?
    
   // Phase 2: Backstock activation details
   activationReceiptPhoto String?
@@ -146,6 +152,7 @@ model Pack {
 
   @@unique([storeId, serialNumber])
   @@index([storeId, status])
+  @@index([storeId, sequenceLocked])
   @@index([shipmentId])
   @@map("packs")
 }
