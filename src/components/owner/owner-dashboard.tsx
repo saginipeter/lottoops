@@ -115,12 +115,13 @@ function AddStoreForm({ onCreated, onCancel }: AddStoreFormProps) {
   );
 }
 
-function StoreCard({ store, onSelect }: { store: StoreKPI; onSelect: (id: string) => void }) {
+function StoreCard({ store }: { store: StoreKPI }) {
   const activeUsers = store.users.filter((u) => u.active).length;
   const tz = TZ_LABELS[store.timezone] ?? store.timezone;
 
   return (
-    <Panel className="p-4 hover:border-accent/50 transition-colors cursor-pointer group" onClick={() => onSelect(store.id)}>
+    <a href={`/owner/stores/${store.id}`} className="block">
+    <Panel className="p-4 hover:border-accent/50 transition-colors cursor-pointer group">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
@@ -164,6 +165,7 @@ function StoreCard({ store, onSelect }: { store: StoreKPI; onSelect: (id: string
         <ChevronRight size={14} className="text-text-tertiary group-hover:text-accent transition-colors" />
       </div>
     </Panel>
+    </a>
   );
 }
 
@@ -311,12 +313,6 @@ export function OwnerDashboard() {
               <StoreCard
                 key={store.id}
                 store={store}
-                onSelect={(id) => {
-                  // In the future: switch store context. For now copy the store ID.
-                  navigator.clipboard?.writeText(id).catch(() => {});
-                  setMessage(`Store ID copied: ${id}`);
-                  setTimeout(() => setMessage(null), 3000);
-                }}
               />
             ))}
           </div>
