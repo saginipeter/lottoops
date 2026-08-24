@@ -3,9 +3,27 @@ import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_PLANS = [
-  { key: "FOUNDING_STORE", name: "Founding Store", monthlyPriceCents: 2499 },
-  { key: "SINGLE_STORE", name: "Single Store", monthlyPriceCents: 3999 },
-  { key: "MULTI_STORE", name: "Multi-Store", monthlyPriceCents: 7999 },
+  {
+    key: "FOUNDING_STORE",
+    name: "Founding Store",
+    description: "The complete Lottoops operating system for one store, with founding pricing.",
+    features: ["One store location", "Receiving and back stock", "Live ticket scanning", "Shift audits and discrepancy controls", "Locked-in founding price"],
+    monthlyPriceCents: 2499,
+  },
+  {
+    key: "SINGLE_STORE",
+    name: "Single Store",
+    description: "Complete daily lottery operations and accountability for one store location.",
+    features: ["One store location", "Receiving, activation, and displays", "Live sales and expected-ticket checks", "Shift audits and reports", "Staff roles and permissions"],
+    monthlyPriceCents: 3999,
+  },
+  {
+    key: "MULTI_STORE",
+    name: "Multi-Store",
+    description: "Centralized oversight for owners managing multiple store locations.",
+    features: ["Multiple owned stores", "Consolidated owner dashboard", "Cross-store performance view", "Centralized staff governance", "Store-level inventory and discrepancy visibility"],
+    monthlyPriceCents: 7999,
+  },
 ];
 
 interface BillingPlan {
@@ -14,6 +32,8 @@ interface BillingPlan {
   name: string;
   monthlyPriceCents: number;
   active: boolean;
+  description: string;
+  features: string[];
 }
 
 async function ensureBillingRecords(ownerId: string, ownerName: string) {

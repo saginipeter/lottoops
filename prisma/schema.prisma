@@ -75,6 +75,8 @@ model Plan {
   id                   String          @id @default(cuid())
   key                  String          @unique
   name                 String
+  description          String
+  features             Json
   monthlyPriceCents    Int
   providerPriceId      String?         @unique
   active               Boolean         @default(true)

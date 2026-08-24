@@ -12,6 +12,8 @@ CREATE TABLE "plans" (
     "id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL DEFAULT '',
+    "features" JSONB NOT NULL DEFAULT '[]',
     "monthlyPriceCents" INTEGER NOT NULL,
     "providerPriceId" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
