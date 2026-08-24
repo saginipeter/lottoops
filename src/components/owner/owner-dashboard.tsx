@@ -22,6 +22,8 @@ interface StoreKPI {
   openShift?: boolean;
   backstock?: number;
   activePacks?: number;
+  ticketsToday?: number;
+  lockedPacks?: number;
 }
 
 const TZ_LABELS: Record<string, string> = {
@@ -170,38 +172,33 @@ export function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [summary, setSummary] = useState({
+    salesToday: 0,
+    ticketsToday: 0,
+    activePacks: 0,
+    backstockPacks: 0,
+    lockedPacks: 0,
+    openShifts: 0,
+    auditCompletionRate: 0,
+  });
 
   const loadStores = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/stores");
+      const res = await fetch("/api/owner/overview");
       if (!res.ok) return;
       const data = await res.json();
       const storeList: StoreKPI[] = data.stores ?? [];
-
-      // Enrich each store with quick KPIs from reports + inventory APIs
-      const enriched = await Promise.all(
-        storeList.map(async (store) => {
-          try {
-            const today = new Date().toISOString().slice(0, 10);
-            const [reportRes, packsRes] = await Promise.all([
-              fetch(`/api/reports/shifts?from=${today}&to=${today}&storeId=${store.id}`),
-              fetch(`/api/packs/back-stock?storeId=${store.id}`),
-            ]);
-            if (reportRes.ok) {
-              const rpt = await reportRes.json();
-              store.salesToday = rpt.summary?.totalGross ?? 0;
-              store.openShift = (rpt.summary?.shiftCount ?? 0) > 0;
-            }
-            if (packsRes.ok) {
-              const pkData = await packsRes.json();
-              store.backstock = (pkData.packs ?? []).length;
-            }
-          } catch { /* silent — KPIs are best-effort */ }
-          return store;
-        })
-      );
-      setStores(enriched);
+      setStores(storeList);
+      setSummary(data.summary ?? {
+        salesToday: 0,
+        ticketsToday: 0,
+        activePacks: 0,
+        backstockPacks: 0,
+        lockedPacks: 0,
+        openShifts: 0,
+        auditCompletionRate: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -217,9 +214,6 @@ export function OwnerDashboard() {
   }
 
   // Summary totals
-  const totalSalesToday = stores.reduce((s, store) => s + (store.salesToday ?? 0), 0);
-  const openShifts = stores.filter((s) => s.openShift).length;
-  const totalPacks = stores.reduce((s, store) => s + store._count.packs, 0);
   const totalStaff = stores.reduce((s, store) => s + store.users.filter((u) => u.active).length, 0);
 
   return (
@@ -228,10 +222,12 @@ export function OwnerDashboard() {
       {!loading && stores.length > 0 && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {[
-            { label: "Sales Today", value: fmt(totalSalesToday), icon: TrendingUp, color: "text-green-600 bg-green-50" },
-            { label: "Open Shifts", value: `${openShifts} / ${stores.length}`, icon: Clock, color: "text-blue-600 bg-blue-50" },
-            { label: "Total Packs", value: totalPacks.toLocaleString(), icon: Package, color: "text-purple-600 bg-purple-50" },
-            { label: "Active Staff", value: totalStaff.toLocaleString(), icon: Users, color: "text-orange-600 bg-orange-50" },
+            { label: "Lottery Sales Today", value: fmt(summary.salesToday), hint: `${summary.ticketsToday} tickets`, icon: TrendingUp, color: "text-green-600 bg-green-50" },
+            { label: "Active Packs", value: summary.activePacks.toLocaleString(), hint: "On display", icon: Package, color: "text-blue-600 bg-blue-50" },
+            { label: "Back Stock Packs", value: summary.backstockPacks.toLocaleString(), hint: "Not activated", icon: Package, color: "text-purple-600 bg-purple-50" },
+            { label: "Locked Packs", value: summary.lockedPacks.toLocaleString(), hint: "Needs review", icon: AlertCircle, color: "text-red-600 bg-red-50" },
+            { label: "Open Shifts", value: summary.openShifts.toLocaleString(), hint: `Across ${stores.length} stores`, icon: Clock, color: "text-orange-600 bg-orange-50" },
+            { label: "Audit Completion", value: `${summary.auditCompletionRate}%`, hint: "Today", icon: CheckCircle2, color: "text-teal-600 bg-teal-50" },
           ].map((kpi) => (
             <Panel key={kpi.label} className="p-4">
               <div className="flex items-center gap-2.5 mb-2">
@@ -241,6 +237,7 @@ export function OwnerDashboard() {
                 <p className="text-xs text-text-secondary">{kpi.label}</p>
               </div>
               <p className="text-2xl font-bold text-text">{kpi.value}</p>
+              {kpi.hint && <p className="mt-1 text-xs text-text-tertiary">{kpi.hint}</p>}
             </Panel>
           ))}
         </div>
