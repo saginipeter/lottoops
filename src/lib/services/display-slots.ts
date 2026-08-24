@@ -5,11 +5,11 @@ export const DISPLAY_SLOT_COUNT = 50;
 export async function ensureDisplaySlots(storeId: string) {
   if (!prisma) return;
 
-  const existingSlots = await prisma.displaySlot.findMany({
+  const existingSlots = (await prisma.displaySlot.findMany({
     where: { storeId },
     select: { slotNumber: true },
-  });
-  const existingNumbers = new Set(existingSlots.map((slot) => slot.slotNumber));
+  })) as Array<{ slotNumber: string }>;
+  const existingNumbers = new Set(existingSlots.map((slot: { slotNumber: string }) => slot.slotNumber));
   const missingSlots = Array.from({ length: DISPLAY_SLOT_COUNT }, (_, index) =>
     String(index + 1).padStart(2, "0")
   )
