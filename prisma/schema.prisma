@@ -17,6 +17,7 @@ model Store {
   phone        String?
   createdAt    DateTime       @default(now())
   ownerUserId  String?        // The OWNER user who created/owns this store
+  organizationId String?
   slots        DisplaySlot[]
   games        Game[]
   packs        Pack[]
@@ -25,6 +26,7 @@ model Store {
   inventoryAudits InventoryAudit[]
   shipments    Shipment[]
   users        User[]
+  organization Organization? @relation(fields: [organizationId], references: [id])
 
   @@map("stores")
 }
@@ -46,11 +48,84 @@ model User {
   shiftsOpened      Shift[]        @relation("ShiftsOpenedBy")
   auditsBegun       InventoryAudit[] @relation("AuditsBegunBy")
   auditsEnded       InventoryAudit[] @relation("AuditsEndedBy")
+  ownedOrganizations Organization[]  @relation("OrganizationOwner")
   shipmentsReceived Shipment[]     @relation("ShipmentsReceived")
   store             Store          @relation(fields: [storeId], references: [id])
 
   @@index([storeId])
   @@map("users")
+}
+
+model Organization {
+  id                   String              @id @default(cuid())
+  name                 String
+  ownerUserId          String              @unique
+  createdAt            DateTime            @default(now())
+  owner                User                @relation("OrganizationOwner", fields: [ownerUserId], references: [id])
+  stores               Store[]
+  plan                 Plan?
+  subscription         Subscription?
+  paymentCustomer      PaymentCustomer?
+  paymentEvents        PaymentEvent[]
+
+  @@map("organizations")
+}
+
+model Plan {
+  id                   String          @id @default(cuid())
+  key                  String          @unique
+  name                 String
+  monthlyPriceCents    Int
+  providerPriceId      String?         @unique
+  active               Boolean         @default(true)
+  organizationId       String?         @unique
+  organization         Organization?   @relation(fields: [organizationId], references: [id])
+  subscriptions        Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  organizationId       String             @unique
+  planId               String
+  providerSubscriptionId String?          @unique
+  status               SubscriptionStatus @default(TRIALING)
+  trialEndsAt          DateTime?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  organization         Organization       @relation(fields: [organizationId], references: [id])
+  plan                 Plan               @relation(fields: [planId], references: [id])
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model PaymentCustomer {
+  id                   String       @id @default(cuid())
+  organizationId       String       @unique
+  providerCustomerId   String       @unique
+  createdAt            DateTime     @default(now())
+  organization         Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("payment_customers")
+}
+
+model PaymentEvent {
+  id                   String       @id @default(cuid())
+  organizationId       String?
+  providerEventId      String       @unique
+  eventType            String
+  payload              Json
+  processedAt           DateTime?
+  createdAt             DateTime     @default(now())
+  organization         Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@map("payment_events")
 }
 
 model Shipment {
@@ -265,6 +340,14 @@ enum Role {
   MANAGER
   SHIFT_LEAD
   EMPLOYEE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
 }
 
 enum ShipmentStatus {

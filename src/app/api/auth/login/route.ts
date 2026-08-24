@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
     } | null = null;
 
     const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-    const allowOfflineFallback = !hasDatabaseUrl || !prisma;
+    const allowOfflineFallback =
+      process.env.NODE_ENV !== "production" &&
+      process.env.ALLOW_OFFLINE_AUTH === "true" &&
+      (!hasDatabaseUrl || !prisma);
 
     // Attempt 1: real database
     if (prisma) {
