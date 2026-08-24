@@ -12,6 +12,18 @@ interface OwnerStore {
   users: Array<{ id: string; role: string; active: boolean }>;
 }
 
+interface OwnerPack {
+  storeId: string;
+  status: string;
+  sequenceLocked: boolean;
+}
+
+interface OwnerLine {
+  shift: { storeId: string };
+  ticketsSold: number | null;
+  salesAmount: unknown;
+}
+
 export async function GET() {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -35,6 +47,8 @@ export async function GET() {
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, openedAt: { gte: today } }, select: { id: true, storeId: true } }),
     ]);
     const shiftsToday = rawShiftsToday as Array<{ id: string; storeId: string }>;
+    const ownerPacks = packs as OwnerPack[];
+    const ownerLines = todayLines as OwnerLine[];
 
     let completedAudits = 0;
     try {
@@ -44,8 +58,8 @@ export async function GET() {
     }
 
     const storeRows = stores.map((store) => {
-      const storePacks = packs.filter((pack) => pack.storeId === store.id);
-      const storeLines = todayLines.filter((line) => line.shift.storeId === store.id);
+      const storePacks = ownerPacks.filter((pack) => pack.storeId === store.id);
+      const storeLines = ownerLines.filter((line) => line.shift.storeId === store.id);
       return {
         id: store.id,
         name: store.name,
