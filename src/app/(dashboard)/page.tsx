@@ -19,6 +19,7 @@ import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
+import { LockedPacksPanel } from "@/components/owner/locked-packs-panel";
 
 interface ActionCard {
   href: string;
@@ -208,6 +209,8 @@ export default async function HomePage() {
             </div>
           </Panel>
         </div>
+
+        <LockedPacksPanel />
 
         <Section title="Core Operations" cards={operationsCards} />
         <Section title="Management & Governance" cards={managementCards} />
