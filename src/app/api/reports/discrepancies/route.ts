@@ -3,6 +3,35 @@ import { getApiSession } from "@/lib/api-session";
 import { canAccessReports } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
+interface LockedPackReport {
+  id: string;
+  serialNumber: string;
+  game: { name: string };
+  slot: { slotNumber: string } | null;
+  sequenceLockExpectedTicket: number | null;
+  sequenceLockScannedTicket: number | null;
+  sequenceLockedAt: Date | null;
+}
+
+interface AuditVarianceReport {
+  id: string;
+  slotNumber: string;
+  expectedTicket: number;
+  endingExpectedTicket: number | null;
+  beginningPhysicalTicket: number | null;
+  endingPhysicalTicket: number | null;
+  variance: number | null;
+  varianceReason: string | null;
+  pack: { serialNumber: string; game: { name: string } };
+  audit: {
+    status: string;
+    begunAt: Date;
+    endedAt: Date | null;
+    begunBy: { name: string };
+    endedBy: { name: string } | null;
+  };
+}
+
 export async function GET() {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -15,14 +44,15 @@ export async function GET() {
       include: { game: { select: { name: true } }, slot: { select: { slotNumber: true } } },
       orderBy: { sequenceLockedAt: "asc" },
     });
-    const auditLines = await prisma.inventoryAuditLine.findMany({
+    const auditLines = (await prisma.inventoryAuditLine.findMany({
       where: { audit: { storeId: session.storeId }, variance: { not: 0 } },
       include: { pack: { select: { serialNumber: true, game: { select: { name: true } } } }, audit: { select: { status: true, begunAt: true, endedAt: true, begunBy: { select: { name: true } }, endedBy: { select: { name: true } } } } },
       orderBy: { id: "desc" },
-    });
+    })) as AuditVarianceReport[];
+    const lockReports = lockedPacks as LockedPackReport[];
 
     return NextResponse.json({
-      unresolved: lockedPacks.map((pack) => ({
+      unresolved: lockReports.map((pack) => ({
         id: pack.id,
         type: "SEQUENCE_LOCK",
         status: "UNRESOLVED",
