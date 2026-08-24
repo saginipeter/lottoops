@@ -423,9 +423,24 @@ export function LiveScanDashboard({
 
           {lastScan && (
             <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3">
-              <p className="text-sm font-medium text-green-900">
-                ✓ Pack Found: {lastScan.gameNumber}
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-green-900">
+                    Ticket accepted · Game {lastScan.gameNumber}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-green-950">
+                    EXPECTED NEXT TICKET: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.currentTicketNumber ?? "—"}
+                  </p>
+                  <p className="text-xs text-green-800">
+                    Display {lastScan.slot?.slotNumber ?? "—"} · Pack {lastScan.serialNumber}
+                  </p>
+                </div>
+                <div className="rounded-md border border-emerald-300 bg-white px-4 py-2 text-right">
+                  <p className="text-[11px] font-semibold uppercase text-text-tertiary">Live lottery sales</p>
+                  <p className="text-lg font-bold text-text">${shiftStats.revenueTotal.toFixed(2)}</p>
+                  <p className="text-xs text-text-secondary">{shiftStats.ticketsSold} tickets scanned</p>
+                </div>
+              </div>
               {isOwner && (
                 <Button
                   variant="outline"
