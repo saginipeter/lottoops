@@ -77,12 +77,21 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
               slotNumber: "asc",
             },
           },
-          inventoryAudit: {
-            include: { lines: true, begunBy: { select: { name: true } }, endedBy: { select: { name: true } } },
-          },
         },
       })
     : null;
+
+  let inventoryAudit = null;
+  if (openShift) {
+    try {
+      inventoryAudit = await prisma.inventoryAudit.findUnique({
+        where: { shiftId: openShift.id },
+        include: { lines: true, begunBy: { select: { name: true } }, endedBy: { select: { name: true } } },
+      });
+    } catch (error) {
+      console.warn("Inventory audit tables are unavailable; loading shift without audit state.", error);
+    }
+  }
 
   const timelineEvents = openShift
     ? await prisma.scanLogEntry.findMany({
@@ -119,7 +128,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
 
   const shiftData = openShift
     ? JSON.parse(
-        JSON.stringify(openShift, (_, value) => {
+        JSON.stringify({ ...openShift, inventoryAudit }, (_, value) => {
           if (typeof value === "bigint") return value.toString();
           if (
             value &&
