@@ -19,6 +19,7 @@ export default async function DashboardLayout({
         name: session.name,
         role: session.role,
         storeName: session.storeName ?? "My Store",
+        grantedPermissions: session.grantedPermissions ?? [],
         initials: session.name
           .split(" ")
           .map((n) => n[0])
@@ -26,7 +27,7 @@ export default async function DashboardLayout({
           .toUpperCase()
           .slice(0, 2),
       }
-    : { name: "Staff", role: "EMPLOYEE" as const, storeName: "Store", initials: "?" };
+    : { name: "Staff", role: "EMPLOYEE" as const, storeName: "Store", initials: "?", grantedPermissions: [] };
 
   const showSidebar = user.role !== "EMPLOYEE";
 

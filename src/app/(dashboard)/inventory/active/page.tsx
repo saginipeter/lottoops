@@ -3,10 +3,16 @@ import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { ActiveStockTable } from "@/components/inventory/active-stock-table";
+import { getSession } from "@/lib/get-session";
+import { canManageDisplay } from "@/lib/permissions";
 
 export default async function ActiveStockPage() {
+  const session = await getSession();
+  if (!session) return null;
+
   const packs = await prisma.pack.findMany({
     where: {
+      storeId: session.storeId,
       status: "ACTIVE",
     },
     include: {
@@ -43,7 +49,7 @@ export default async function ActiveStockPage() {
         }
       />
 
-      <ActiveStockTable packs={activePacks} />
+      <ActiveStockTable packs={activePacks} canManageDisplay={canManageDisplay(session)} />
 
     </div>
   );

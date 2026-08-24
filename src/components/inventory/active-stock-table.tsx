@@ -10,9 +10,10 @@ import { RemoveActivePackModal } from "./remove-active-pack-modal";
 
 interface Props {
   packs: any[];
+  canManageDisplay: boolean;
 }
 
-export function ActiveStockTable({ packs }: Props) {
+export function ActiveStockTable({ packs, canManageDisplay }: Props) {
   const [search, setSearch] = useState("");
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
@@ -128,9 +129,9 @@ export function ActiveStockTable({ packs }: Props) {
                         View
                       </Button>
                     </Link>
-                    <Button size="sm" variant="destructive" onClick={() => openRemoveModal(pack)}>
+                    {canManageDisplay && <Button size="sm" variant="destructive" onClick={() => openRemoveModal(pack)}>
                       Remove
-                    </Button>
+                    </Button>}
                   </div>
                 </td>
               </tr>

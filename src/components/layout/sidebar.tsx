@@ -30,6 +30,7 @@ interface NavItem {
   alert?: boolean;
   managerOnly?: boolean;
   ownerOnly?: boolean;
+  permission?: string;
 }
 
 interface NavSection {
@@ -65,6 +66,7 @@ const navSections: NavSection[] = [
         label: "Receive Shipment",
         icon: ScanLine,
         alert: true,
+        permission: "RECEIVE_SHIPMENTS",
       },
       {
         href: "/display-slots",
@@ -120,6 +122,7 @@ interface SidebarProps {
     role: string;
     storeName: string;
     initials: string;
+    grantedPermissions: string[];
   };
 }
 
@@ -155,6 +158,8 @@ export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const isManager = user.role === "MANAGER" || user.role === "OWNER";
   const isOwner = user.role === "OWNER";
+  const hasPermission = (permission?: string) =>
+    !permission || isManager || user.grantedPermissions.includes(permission);
 
   return (
     <aside className="flex h-full w-[200px] flex-col bg-sidebar">
@@ -185,7 +190,7 @@ export function Sidebar({ user }: SidebarProps) {
 
         {navSections.map((section) => {
           const visibleItems = section.items.filter(
-            (item) => (!item.managerOnly || isManager) && (!item.ownerOnly || isOwner)
+            (item) => (!item.managerOnly || isManager) && (!item.ownerOnly || isOwner) && hasPermission(item.permission)
           );
           if (visibleItems.length === 0) return null;
 
