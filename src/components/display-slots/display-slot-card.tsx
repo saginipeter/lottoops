@@ -190,7 +190,7 @@ export default function DisplaySlotCard({
           onClick={clearSlot}
           disabled={clearing}
         >
-          {clearing ? "Removing..." : "Remove from Display"}
+          {clearing ? "Removing..." : "Remove"}
         </Button>
       </div>}
     </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { signSession, SESSION_COOKIE } from "@/lib/session";
+import { ensureDisplaySlots } from "@/lib/services/display-slots";
 
 // GET /api/setup — check if setup is needed (no OWNER exists yet)
 export async function GET() {
@@ -72,6 +73,8 @@ export async function POST(req: NextRequest) {
     where: { id: store.id },
     data: { ownerUserId: user.id },
   });
+
+  await ensureDisplaySlots(store.id);
 
   // Auto-login: issue a session cookie
   const token = await signSession({

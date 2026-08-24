@@ -110,10 +110,12 @@ async function main() {
     },
   });
 
-  // Empty slots for the rest of the board.
-  for (const n of ["01", "02", "04", "05", "06", "07", "08", "09", "10"]) {
+  // Empty slots for the rest of the 50-position board.
+  for (let n = 1; n <= 50; n++) {
+    const slotNumber = String(n).padStart(2, "0");
+    if (slotNumber === "03") continue;
     await prisma.displaySlot.create({
-      data: { storeId: store.id, slotNumber: n },
+      data: { storeId: store.id, slotNumber },
     });
   }
 
