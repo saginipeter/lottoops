@@ -14,13 +14,13 @@ export default async function OwnerPage() {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Owner Dashboard"
-        subtitle="All stores at a glance — sales, shifts, and inventory"
+        subtitle="Portfolio performance, risk, and store oversight"
       />
 
       <PageToolbar
-        left={<span className="text-xs text-text-secondary">Enterprise scope</span>}
-        center={<span>Regional and store comparison view</span>}
-        right={<span className="text-xs text-text-tertiary">Role: OWNER</span>}
+        left={<span className="text-xs text-text-secondary">All owned stores</span>}
+        center={<span>Today · consolidated view</span>}
+        right={<span className="text-xs font-semibold text-text-tertiary">OWNER</span>}
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">

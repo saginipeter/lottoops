@@ -109,6 +109,24 @@ const navSections: NavSection[] = [
   },
 ];
 
+const ownerNavSections: NavSection[] = [
+  {
+    label: "Portfolio",
+    items: [
+      { href: "/owner", label: "Overview", icon: LayoutDashboard },
+      { href: "/owner#stores", label: "Stores", icon: Building2 },
+      { href: "/reports", label: "Performance", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { href: "/settings/users", label: "People & Access", icon: Users },
+      { href: "/settings", label: "Account Settings", icon: Settings },
+    ],
+  },
+];
+
 const roleLabel: Record<string, string> = {
   OWNER:      "Owner",
   MANAGER:    "Manager",
@@ -188,7 +206,7 @@ export function Sidebar({ user }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         <NavRow item={navTop} isActive={pathname === "/"} />
 
-        {navSections.map((section) => {
+        {(isOwner ? ownerNavSections : navSections).map((section) => {
           const visibleItems = section.items.filter(
             (item) => (!item.managerOnly || isManager) && (!item.ownerOnly || isOwner) && hasPermission(item.permission)
           );
@@ -206,7 +224,7 @@ export function Sidebar({ user }: SidebarProps) {
                 const isActive =
                   item.href === "/inventory"
                     ? pathname === "/inventory"
-                    : pathname === item.href || pathname.startsWith(item.href + "/");
+                    : pathname === item.href.split("#")[0] || pathname.startsWith(item.href.split("#")[0] + "/");
 
                 return (
                   <NavRow

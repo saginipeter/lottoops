@@ -252,7 +252,7 @@ export function OwnerDashboard() {
       )}
 
       {/* Stores header */}
-      <Panel className="p-5">
+      <Panel id="stores" className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-text">Your Stores</h2>
@@ -312,28 +312,6 @@ export function OwnerDashboard() {
         )}
       </Panel>
 
-      {/* Getting started checklist for new owners */}
-      {!loading && stores.length > 0 && (
-        <Panel className="p-5">
-          <h3 className="text-sm font-semibold text-text mb-3">Setup Checklist</h3>
-          <div className="space-y-2 text-sm">
-            {[
-              { label: "Create at least one store location", done: stores.length > 0 },
-              { label: "Add a Manager to each store", done: stores.some((s) => s.users.some((u) => u.role === "MANAGER" && u.active)) },
-              { label: "Add games to your store catalog", done: stores.some((s) => s._count.packs > 0) },
-              { label: "Receive your first shipment", done: stores.some((s) => s._count.packs > 0) },
-              { label: "Run your first shift", done: stores.some((s) => s._count.shifts > 0) },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center gap-2.5">
-                {item.done
-                  ? <CheckCircle2 size={15} className="text-green-600 shrink-0" />
-                  : <div className="h-[15px] w-[15px] shrink-0 rounded-full border-2 border-border" />}
-                <span className={item.done ? "line-through text-text-tertiary" : "text-text"}>{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
     </div>
   );
 }
