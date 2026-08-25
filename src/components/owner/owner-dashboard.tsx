@@ -185,10 +185,10 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
     auditCompletionRate: 0,
   });
 
-  const loadStores = useCallback(async () => {
-    setLoading(true);
+  const loadStores = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
-      const res = await fetch("/api/owner/overview");
+      const res = await fetch("/api/owner/overview", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       const storeList: StoreKPI[] = data.stores ?? [];
@@ -203,11 +203,19 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
         auditCompletionRate: 0,
       });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => { loadStores(); }, [loadStores]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void loadStores({ silent: true });
+    }, 4000);
+
+    return () => window.clearInterval(interval);
+  }, [loadStores]);
 
   function handleStoreCreated(store: StoreKPI) {
     setStores((prev) => [...prev, store]);

@@ -19,6 +19,7 @@ import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { LockedPacksPanel } from "@/components/owner/locked-packs-panel";
 import { TicketReportsPanel } from "@/components/reports/ticket-reports-panel";
+import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { redirect } from "next/navigation";
 
 interface ActionCard {
@@ -117,6 +118,8 @@ export default async function HomePage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <LivePageRefresh intervalMs={3000} />
+
       <Header
         title="Enterprise Operations Center"
         subtitle="Unified control for lottery inventory, sales, and compliance"

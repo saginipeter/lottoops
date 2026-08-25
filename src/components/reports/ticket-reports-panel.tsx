@@ -64,9 +64,9 @@ export function TicketReportsPanel({
   const [error, setError] = useState("");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
-  const loadReports = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const loadReports = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
+    if (!silent) setError("");
     try {
       const res = await fetch("/api/tickets/reports", { cache: "no-store" });
       const data = await res.json().catch(() => null);
@@ -79,12 +79,20 @@ export function TicketReportsPanel({
     } catch {
       setError("Unable to load reports.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadReports();
+  }, [loadReports]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void loadReports({ silent: true });
+    }, 4000);
+
+    return () => window.clearInterval(interval);
   }, [loadReports]);
 
   async function resolveReport(reportId: string) {
