@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
 import { Panel } from "@/components/ui/panel";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
+import { Button } from "@/components/ui/button";
 
 import { ProgressStepper } from "./progress-stepper";
 import { InvoiceStep } from "./steps/invoice-step";
@@ -136,6 +138,34 @@ const [shipment, setShipment] = useState<ShipmentState>({
     }
   }
 
+  function clearFormData() {
+    if (!window.confirm("Clear all receiving form data and scanned packs?")) return;
+
+    setStep(1);
+    setShipment({
+      id: "",
+      invoiceNumber: "",
+      invoicePhoto: "",
+      shipmentDate: new Date().toISOString().split("T")[0],
+      receivedBy: "",
+      expectedPacks: 0,
+      expectedRetailValue: 0,
+      scannedPacks: 0,
+      status: "IN_PROGRESS",
+    });
+    setPacks([]);
+    setScanDraft({
+      barcode: "",
+      gameNumber: "",
+      packNumber: "",
+      firstTicket: "",
+      ticketPrice: 10,
+      ticketQuantity: 50,
+      packImage: "",
+    });
+    clearDraft();
+  }
+
   function cancelReceiving() {
     router.push("/inventory");
   }
@@ -149,7 +179,21 @@ const [shipment, setShipment] = useState<ShipmentState>({
       <PageToolbar
         left={<span className="text-xs text-text-secondary">Invoice: {shipment.invoiceNumber || "Not set"}</span>}
         center={<span>Step {step} of 4</span>}
-        right={<span className="text-xs text-text-tertiary">{shipment.status.replaceAll("_", " ")}</span>}
+        right={
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-tertiary">{shipment.status.replaceAll("_", " ")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={clearFormData}
+              className="border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+            >
+              <Trash2 size={14} />
+              Clear Form Data
+            </Button>
+          </div>
+        }
       />
 
       <div className="min-h-0 flex-1 overflow-hidden p-4">

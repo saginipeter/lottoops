@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera } from "lucide-react";
+import { Camera, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -126,6 +126,18 @@ export function InvoiceUpload({
         >
           Upload Existing Photo
         </Button>
+        {value && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={uploading}
+            onClick={() => onChange("")}
+            className="border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+          >
+            <Trash2 size={15} />
+            Remove Photo
+          </Button>
+        )}
       </div>
     </div>
   );
