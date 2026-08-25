@@ -3,6 +3,32 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { isManagerOrAbove } from "@/lib/permissions";
 
+let schemaReady = false;
+
+async function ensureActivitySchema() {
+  if (schemaReady) return;
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS inventory_activity_logs (
+      id BIGSERIAL PRIMARY KEY,
+      store_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT,
+      detail TEXT NOT NULL,
+      performed_by_id TEXT NOT NULL,
+      performed_by_name TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS idx_inventory_activity_logs_store_created
+    ON inventory_activity_logs (store_id, created_at DESC)
+  `);
+
+  schemaReady = true;
+}
+
 interface TicketReportRow {
   id: number;
   storeId: string;
@@ -31,6 +57,8 @@ export async function GET() {
   }
 
   try {
+    await ensureActivitySchema();
+
     if (session.role === "OWNER") {
       const ownerStores = await prisma.store.findMany({
         where: { ownerUserId: session.userId },
