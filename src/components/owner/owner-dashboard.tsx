@@ -281,7 +281,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
             <p className="text-xs text-text-secondary mt-0.5">{stores.length} location{stores.length !== 1 ? "s" : ""}</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={loadStores} disabled={loading}>
+            <Button variant="outline" onClick={() => loadStores()} disabled={loading}>
               <RefreshCw size={13} className={`mr-1 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
@@ -337,7 +337,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
               <h2 className="text-base font-semibold text-text">What needs attention</h2>
               <p className="mt-1 text-sm text-text-secondary">{summary.lockedPacks > 0 ? `${summary.lockedPacks} locked pack${summary.lockedPacks === 1 ? "" : "s"} require review.` : "No locked packs are waiting for review."}</p>
             </div>
-            <Button variant="outline" onClick={loadStores}>Refresh data</Button>
+            <Button variant="outline" onClick={() => loadStores()}>Refresh data</Button>
           </div>
         </Panel>
       )}
