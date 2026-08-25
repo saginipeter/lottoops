@@ -100,6 +100,11 @@ export function LiveScanDashboard({
   const [shiftActionError, setShiftActionError] = useState("");
   const [scannerConnected, setScannerConnected] = useState(false);
   const [scannerActivityAt, setScannerActivityAt] = useState<number | null>(null);
+  const [reportTicket, setReportTicket] = useState("");
+  const [reportReason, setReportReason] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportStatus, setReportStatus] = useState<"idle" | "success" | "error">("idle");
+  const [reportMessage, setReportMessage] = useState("");
   const [lastScan, setLastScan] = useState<any>(null);
   const [sales, setSales] = useState<any[]>([]);
   const [shiftStats, setShiftStats] = useState({
@@ -324,6 +329,62 @@ export function LiveScanDashboard({
     }
   }
 
+  async function handleReportTicket() {
+    const ticketValue = reportTicket.trim();
+    const reasonValue = reportReason.trim();
+
+    if (!ticketValue) {
+      setReportStatus("error");
+      setReportMessage("Ticket number or barcode is required.");
+      return;
+    }
+
+    if (reasonValue.length < 6) {
+      setReportStatus("error");
+      setReportMessage("Please add a short reason (at least 6 characters).");
+      return;
+    }
+
+    try {
+      setReportLoading(true);
+      setReportStatus("idle");
+      setReportMessage("");
+
+      const res = await fetch("/api/tickets/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticket: ticketValue,
+          reason: reasonValue,
+          terminalId,
+          shiftId: currentShift?.id ?? null,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setReportStatus("error");
+        setReportMessage(
+          (data && typeof data.error === "string" && data.error) ||
+            `Unable to report ticket (HTTP ${res.status}).`
+        );
+        return;
+      }
+
+      setReportStatus("success");
+      setReportMessage("Ticket report submitted for manager review.");
+      setReportTicket("");
+      setReportReason("");
+      scanInputRef.current?.focus();
+    } catch (error) {
+      console.error(error);
+      setReportStatus("error");
+      setReportMessage("Unable to report ticket.");
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   async function handleHistorySearch() {
     if (!historyQuery.trim()) return;
 
@@ -502,6 +563,48 @@ export function LiveScanDashboard({
               </div>
             )}
           </div>
+        </Panel>
+
+        <Panel className="w-full max-w-3xl border p-5">
+          <h3 className="text-base font-semibold text-text">Report Ticket</h3>
+          <p className="mt-1 text-xs text-text-secondary">
+            Report invalid, damaged, or disputed tickets for manager follow-up.
+          </p>
+
+          <div className="mt-3 grid gap-3">
+            <input
+              type="text"
+              value={reportTicket}
+              onChange={(event) => setReportTicket(event.target.value)}
+              placeholder="Ticket number or barcode"
+              className="w-full rounded-md border border-border px-3 py-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            />
+            <textarea
+              value={reportReason}
+              onChange={(event) => setReportReason(event.target.value)}
+              placeholder="Reason for report"
+              className="min-h-[90px] w-full rounded-md border border-border px-3 py-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            />
+            <Button
+              onClick={handleReportTicket}
+              disabled={reportLoading || !reportTicket.trim() || !reportReason.trim()}
+              className="min-h-[44px]"
+            >
+              {reportLoading ? "Submitting..." : "Submit Ticket Report"}
+            </Button>
+          </div>
+
+          {reportStatus !== "idle" && (
+            <div
+              className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+                reportStatus === "success"
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                  : "border-red-300 bg-red-50 text-red-700"
+              }`}
+            >
+              {reportMessage}
+            </div>
+          )}
         </Panel>
       </div>
     );
