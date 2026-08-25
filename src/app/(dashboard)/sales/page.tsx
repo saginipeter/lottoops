@@ -6,6 +6,7 @@ import { StatusBar } from "@/components/ui/status-bar";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 
 export default async function SalesPage() {
   const session = await getSession();
@@ -109,6 +110,7 @@ export default async function SalesPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <LivePageRefresh intervalMs={3000} />
       <Header
         title="Sales"
         subtitle="Operational sales center for current shift and reconciliation"
