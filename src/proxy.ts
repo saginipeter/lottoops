@@ -18,6 +18,12 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // API routes perform their own auth and authorization checks.
+  // Do not apply page-level role redirects to API requests.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const token = req.cookies.get(SESSION_COOKIE)?.value;
 
   if (!token) {
