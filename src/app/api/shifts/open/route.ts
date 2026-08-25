@@ -77,13 +77,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (activePacks.length === 0) {
-      return NextResponse.json(
-        { error: "No active packs found" },
-        { status: 400 }
-      );
-    }
-
     // Create shift
     const shift = await prisma.shift.create({
       data: {
@@ -102,19 +95,7 @@ export async function POST(req: NextRequest) {
       shift.id
     );
 
-    // Snapshot packs
-    await prisma.$transaction([
-      prisma.shiftLine.createMany({
-        data: activePacks.map((pack: any) => ({
-          shiftId: shift.id,
-          packId: pack.id,
-          slotNumber: pack.slot!.slotNumber,
-          beginningTicket:
-            pack.currentTicketNumber ??
-            pack.firstTicket ??
-            0,
-        })),
-      }),
+    const txOps = [
       prisma.scanLogEntry.create({
         data: {
           storeId: session.storeId,
@@ -123,7 +104,25 @@ export async function POST(req: NextRequest) {
           detail: `Shift opened on terminal ${terminalId} with ${activePacks.length} active display pack(s)`,
         },
       }),
-    ]);
+    ];
+
+    if (activePacks.length > 0) {
+      txOps.unshift(
+        prisma.shiftLine.createMany({
+          data: activePacks.map((pack: any) => ({
+            shiftId: shift.id,
+            packId: pack.id,
+            slotNumber: pack.slot!.slotNumber,
+            beginningTicket:
+              pack.currentTicketNumber ??
+              pack.firstTicket ??
+              0,
+          })),
+        })
+      );
+    }
+
+    await prisma.$transaction(txOps);
 
     return NextResponse.json({
       success: true,

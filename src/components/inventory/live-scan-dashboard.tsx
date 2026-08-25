@@ -269,9 +269,12 @@ export function LiveScanDashboard({
         body: JSON.stringify({ terminalId }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setShiftActionError(data.error || "Unable to open shift.");
+        setShiftActionError(
+          (data && typeof data.error === "string" && data.error) ||
+            `Unable to open shift (HTTP ${res.status}).`
+        );
         return;
       }
 
@@ -301,9 +304,12 @@ export function LiveScanDashboard({
         body: JSON.stringify({ shiftId: currentShift.id }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setShiftActionError(data.error || "Unable to close shift.");
+        setShiftActionError(
+          (data && typeof data.error === "string" && data.error) ||
+            `Unable to close shift (HTTP ${res.status}).`
+        );
         return;
       }
 
