@@ -131,18 +131,20 @@ export async function POST(req: NextRequest) {
     ];
 
     if (activePacks.length > 0) {
-      const repairOps = activePacks
-        .map((pack: any) => {
-          const beginningTicket = resolveSellableTicket(pack);
-          if (beginningTicket === null) return null;
-          if (pack.currentTicketNumber && Number(pack.currentTicketNumber) > 0) return null;
+      const repairOps = activePacks.reduce<any[]>((ops, pack: any) => {
+        const beginningTicket = resolveSellableTicket(pack);
+        if (beginningTicket === null) return ops;
+        if (pack.currentTicketNumber && Number(pack.currentTicketNumber) > 0) return ops;
 
-          return prisma.pack.update({
+        ops.push(
+          prisma.pack.update({
             where: { id: pack.id },
             data: { currentTicketNumber: beginningTicket },
-          });
-        })
-        .filter((op): op is ReturnType<typeof prisma.pack.update> => op !== null);
+          })
+        );
+
+        return ops;
+      }, []);
 
       txOps.unshift(...repairOps);
 
