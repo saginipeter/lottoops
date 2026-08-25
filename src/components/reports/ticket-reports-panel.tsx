@@ -132,7 +132,7 @@ export function TicketReportsPanel({
             )}
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={loadReports} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => loadReports()} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           Refresh
         </Button>
