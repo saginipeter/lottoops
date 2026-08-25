@@ -250,6 +250,7 @@ export function LiveScanDashboard({
         setScannerActivityAt(Date.now());
         router.refresh();
       } else {
+        setLastScan(null);
         setScanError(data.error || "Pack not found");
       }
 
