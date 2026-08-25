@@ -60,16 +60,6 @@ export async function GET() {
     await ensureActivitySchema();
 
     if (session.role === "OWNER") {
-      const ownerStores = await prisma.store.findMany({
-        where: { ownerUserId: session.userId },
-        select: { id: true },
-      });
-      const storeIds = ownerStores.map((store: { id: string }) => store.id);
-
-      if (storeIds.length === 0) {
-        return NextResponse.json({ reports: [] });
-      }
-
       const reports = (await prisma.$queryRawUnsafe(
         `
         SELECT
@@ -86,11 +76,11 @@ export async function GET() {
         FROM inventory_activity_logs logs
         JOIN stores ON stores.id = logs.store_id
         WHERE logs.action = 'TICKET_REPORTED'
-          AND logs.store_id = ANY($1)
+          AND stores.owner_user_id = $1
         ORDER BY logs.created_at DESC
         LIMIT 50
         `,
-        storeIds
+        session.userId
       )) as TicketReportRow[];
 
       return NextResponse.json({ reports });
