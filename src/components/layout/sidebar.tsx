@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
+  AlertTriangle,
   LayoutDashboard,
   Package,
   Layers,
@@ -95,6 +96,7 @@ const navSections: NavSection[] = [
     label: "Sales & Reports",
     items: [
       { href: "/sales", label: "Sales", icon: ScanLine },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
       { href: "/reports", label: "Reports", icon: BarChart3 },
     ],
   },
@@ -122,6 +124,7 @@ const ownerNavSections: NavSection[] = [
   {
     label: "Governance",
     items: [
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle },
       { href: "/settings/users", label: "People & Access", icon: Users },
       { href: "/settings", label: "Account Settings", icon: Settings },
       { href: "/billing", label: "Billing", icon: CreditCard },

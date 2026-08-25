@@ -334,7 +334,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
         </Panel>
       )}
 
-      {view === "overview" && <TicketReportsPanel title="Employee Ticket Reports Across Stores" />}
+      <TicketReportsPanel title="Employee Ticket Reports Across Stores" />
 
     </div>
   );

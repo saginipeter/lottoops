@@ -1,17 +1,57 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 
 interface TicketReport {
-  id: number;
+  id: string;
   storeId: string;
   storeName: string;
   detail: string;
   performedByName: string | null;
   createdAt: string;
+}
+
+interface ParsedReportDetail {
+  terminal: string;
+  shiftId?: string;
+  ticket: string;
+  reason: string;
+}
+
+function parseDetail(detail: string): ParsedReportDetail | null {
+  const match = detail.match(
+    /^Ticket reported from\s+(\S+)(?:\s+during shift\s+([^:]+))?:\s+(.+)\.\s+Reason:\s+(.+)$/i
+  );
+
+  if (!match) return null;
+
+  return {
+    terminal: match[1],
+    shiftId: match[2]?.trim() || undefined,
+    ticket: match[3].trim(),
+    reason: match[4].trim(),
+  };
+}
+
+function formatRelativeTime(createdAt: string): string {
+  const timestamp = new Date(createdAt).getTime();
+  const diffMs = Date.now() - timestamp;
+
+  if (!Number.isFinite(diffMs) || diffMs < 0) {
+    return new Date(createdAt).toLocaleString();
+  }
+
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diffMs < minute) return "just now";
+  if (diffMs < hour) return `${Math.floor(diffMs / minute)}m ago`;
+  if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
+  return `${Math.floor(diffMs / day)}d ago`;
 }
 
 export function TicketReportsPanel({
@@ -22,6 +62,7 @@ export function TicketReportsPanel({
   const [reports, setReports] = useState<TicketReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -46,12 +87,42 @@ export function TicketReportsPanel({
     loadReports();
   }, [loadReports]);
 
+  async function resolveReport(reportId: string) {
+    try {
+      setResolvingId(reportId);
+      setError("");
+
+      const res = await fetch(`/api/tickets/reports/${reportId}/resolve`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setError((data && typeof data.error === "string" && data.error) || "Unable to resolve ticket report.");
+        return;
+      }
+
+      setReports((prev) => prev.filter((report) => report.id !== reportId));
+    } catch {
+      setError("Unable to resolve ticket report.");
+    } finally {
+      setResolvingId(null);
+    }
+  }
+
   return (
     <Panel className="p-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Alerts</p>
-          <h3 className="text-base font-semibold text-text">{title}</h3>
+          <div className="mt-1 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-text">{title}</h3>
+            {!loading && reports.length > 0 && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                {reports.length} pending
+              </span>
+            )}
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={loadReports} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -68,25 +139,71 @@ export function TicketReportsPanel({
       {loading ? (
         <p className="text-sm text-text-secondary">Loading ticket reports...</p>
       ) : reports.length === 0 ? (
-        <p className="text-sm text-text-secondary">No employee ticket reports yet.</p>
+        <div className="rounded-md border border-border bg-surface-soft px-3 py-3 text-sm text-text-secondary">
+          No employee ticket reports yet.
+        </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {reports.slice(0, 8).map((report) => (
-            <div key={report.id} className="rounded-md border border-border bg-surface-soft px-3 py-2.5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-text break-words">{report.detail}</p>
-                  <p className="mt-1 text-xs text-text-tertiary">
-                    By {report.performedByName ?? "Unknown"} · {report.storeName}
-                  </p>
+            <div key={report.id} className="rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-surface px-3.5 py-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                  <AlertTriangle size={12} />
+                  Ticket report
                 </div>
-                <div className="shrink-0 text-right">
-                  <AlertTriangle size={14} className="ml-auto text-amber-600" />
-                  <p className="mt-1 text-[11px] text-text-tertiary">
-                    {new Date(report.createdAt).toLocaleString()}
-                  </p>
+                <div className="inline-flex items-center gap-1 text-[11px] text-text-tertiary">
+                  <Clock3 size={12} />
+                  {formatRelativeTime(report.createdAt)}
                 </div>
               </div>
+
+              {(() => {
+                const parsed = parseDetail(report.detail);
+                if (!parsed) {
+                  return (
+                    <div className="space-y-1.5">
+                      <p className="text-sm font-medium text-text break-words">{report.detail}</p>
+                      <p className="text-xs text-text-tertiary">
+                        By {report.performedByName ?? "Unknown"} · {report.storeName}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="rounded bg-surface-soft px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                        {parsed.terminal}
+                      </span>
+                      {parsed.shiftId && (
+                        <span className="rounded bg-surface-soft px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                          Shift {parsed.shiftId.slice(-6)}
+                        </span>
+                      )}
+                      <span className="rounded bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                        {report.storeName}
+                      </span>
+                    </div>
+
+                    <p className="text-sm font-semibold text-text break-words">Ticket: {parsed.ticket}</p>
+                    <p className="text-sm text-text break-words">Reason: {parsed.reason}</p>
+                    <p className="text-xs text-text-tertiary">Reported by {report.performedByName ?? "Unknown"}</p>
+                    <div className="pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => resolveReport(report.id)}
+                        disabled={resolvingId === report.id}
+                        className="h-8"
+                      >
+                        <CheckCircle2 size={14} />
+                        {resolvingId === report.id ? "Resolving..." : "Mark Resolved"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

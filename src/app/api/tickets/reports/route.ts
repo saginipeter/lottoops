@@ -25,6 +25,26 @@ async function ensureActivitySchema() {
     CREATE INDEX IF NOT EXISTS idx_inventory_activity_logs_store_created
     ON inventory_activity_logs (store_id, created_at DESC)
   `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE inventory_activity_logs
+    ADD COLUMN IF NOT EXISTS resolved BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE inventory_activity_logs
+    ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE inventory_activity_logs
+    ADD COLUMN IF NOT EXISTS resolved_by_id TEXT
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE inventory_activity_logs
+    ADD COLUMN IF NOT EXISTS resolved_by_name TEXT
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS idx_inventory_activity_logs_unresolved
+    ON inventory_activity_logs (store_id, resolved, created_at DESC)
+  `);
 
   schemaReady = true;
 }
@@ -83,6 +103,7 @@ export async function GET() {
         FROM inventory_activity_logs logs
         JOIN stores ON stores.id = logs.store_id
         WHERE logs.action = 'TICKET_REPORTED'
+          AND COALESCE(logs.resolved, FALSE) = FALSE
           AND stores.owner_user_id = $1
         ORDER BY logs.created_at DESC
         LIMIT 50
@@ -109,6 +130,7 @@ export async function GET() {
       FROM inventory_activity_logs logs
       JOIN stores ON stores.id = logs.store_id
       WHERE logs.action = 'TICKET_REPORTED'
+        AND COALESCE(logs.resolved, FALSE) = FALSE
         AND logs.store_id = $1
       ORDER BY logs.created_at DESC
       LIMIT 50
