@@ -78,6 +78,8 @@ export function ScanStep({
   const [detectedGame, setDetectedGame] = useState<DetectedGame | null>(null);
   const [detectionError, setDetectionError] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState(false);
+  const expectedPacks = Number(shipment.expectedPacks ?? 0);
+  const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
 
   // After a barcode is parsed, auto-detect the game
   const detectGame = useCallback(async (gn: string) => {
@@ -125,6 +127,11 @@ export function ScanStep({
   }, [gameNumber, detectGame]);
 
   async function handleAddPack() {
+    if (atExpectedLimit) {
+      alert(`This shipment already reached expected packs (${expectedPacks}).`);
+      return;
+    }
+
     const cleanedBarcode = barcode.replace(/\D/g, "");
     const normalizedBarcode = cleanedBarcode.slice(0, 11);
 
@@ -288,9 +295,14 @@ export function ScanStep({
 
         {/* Add Pack */}
         <Panel className="p-6">
-          <Button className="w-full" onClick={handleAddPack} disabled={!gameNumber || !packNumber || !packImage}>
+          <Button className="w-full" onClick={handleAddPack} disabled={!gameNumber || !packNumber || !packImage || atExpectedLimit}>
             Add Pack to Shipment
           </Button>
+          {atExpectedLimit && (
+            <p className="mt-3 text-sm font-medium text-amber-700">
+              Expected pack limit reached. Continue to review/confirm.
+            </p>
+          )}
         </Panel>
 
         <ScannedPackTable packs={packs} removePack={removePack} />

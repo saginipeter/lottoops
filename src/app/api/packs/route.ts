@@ -42,13 +42,29 @@ export async function POST(req: NextRequest) {
 
     const shipment = await prisma.shipment.findFirst({
       where: { id: shipmentId, storeId: session.storeId, status: "IN_PROGRESS" },
-      select: { id: true },
+      select: { id: true, expectedPacks: true },
     });
 
     if (!shipment) {
       return NextResponse.json(
         { error: "Shipment not found, already received, or access denied." },
         { status: 404 }
+      );
+    }
+
+    const scannedCount = await prisma.pack.count({
+      where: {
+        storeId: session.storeId,
+        shipmentId,
+      },
+    });
+
+    if (scannedCount >= shipment.expectedPacks) {
+      return NextResponse.json(
+        {
+          error: `This shipment already reached its expected pack count (${shipment.expectedPacks}).`,
+        },
+        { status: 409 }
       );
     }
 
