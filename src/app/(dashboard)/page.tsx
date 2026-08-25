@@ -18,6 +18,7 @@ import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { LockedPacksPanel } from "@/components/owner/locked-packs-panel";
+import { TicketReportsPanel } from "@/components/reports/ticket-reports-panel";
 import { redirect } from "next/navigation";
 
 interface ActionCard {
@@ -159,6 +160,7 @@ export default async function HomePage() {
         </div>
 
         <LockedPacksPanel />
+        <TicketReportsPanel title="Employee Ticket Reports" />
 
         <Section title="Core Operations" cards={operationsCards} />
         <Section title="Management & Governance" cards={managementCards} />
