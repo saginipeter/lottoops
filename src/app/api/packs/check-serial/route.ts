@@ -352,6 +352,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (liveScan === true) {
+      return NextResponse.json(
+        { error: "Ticket scan rejected: no active display pack matches this barcode." },
+        { status: 404 }
+      );
+    }
+
     // For receiving mode: check if it's a duplicate
     const isDuplicate = await prisma.pack.findFirst({
       where: { storeId: session.storeId, serialNumber },
