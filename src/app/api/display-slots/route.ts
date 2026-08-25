@@ -4,6 +4,18 @@ import { getApiSession } from "@/lib/api-session";
 import { canManageDisplay } from "@/lib/permissions";
 import { ensureDisplaySlots } from "@/lib/services/display-slots";
 
+function resolveSellableTicket(pack: {
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+}) {
+  const candidates = [pack.currentTicketNumber, pack.firstTicket, pack.ticketQuantity]
+    .map((value) => Number(value ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  return candidates.length > 0 ? candidates[0] : null;
+}
+
 // GET all display slots
 export async function GET() {
   const session = await getApiSession();
@@ -123,6 +135,17 @@ export async function POST(req: Request) {
       );
     }
 
+    const sellableTicket = resolveSellableTicket(pack);
+    if (pack.status === "BACK_STOCK" && sellableTicket === null) {
+      return NextResponse.json(
+        {
+          error:
+            "Pack has invalid ticket data. Set first ticket or quantity before assigning to display.",
+        },
+        { status: 409 }
+      );
+    }
+
     const txOps: any[] = [
       prisma.displaySlot.update({
         where: {
@@ -155,7 +178,7 @@ export async function POST(req: Request) {
           data: {
             status: "ACTIVE",
             activatedAt: new Date(),
-            currentTicketNumber: pack.firstTicket ?? 0,
+            currentTicketNumber: sellableTicket,
           },
         })
       );

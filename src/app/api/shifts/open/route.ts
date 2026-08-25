@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 
+function resolveSellableTicket(pack: {
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+}) {
+  const candidates = [pack.currentTicketNumber, pack.firstTicket, pack.ticketQuantity]
+    .map((value) => Number(value ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  return candidates.length > 0 ? candidates[0] : null;
+}
+
 async function ensureShiftTerminalSchema() {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE shifts
@@ -77,6 +89,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const invalidPacks = activePacks.filter((pack: any) => resolveSellableTicket(pack) === null);
+    if (invalidPacks.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Some active packs have invalid ticket state (current/first/quantity). " +
+            `Fix before opening shift: ${invalidPacks.map((pack: any) => pack.serialNumber).join(", ")}`,
+        },
+        { status: 409 }
+      );
+    }
+
     // Create shift
     const shift = await prisma.shift.create({
       data: {
@@ -107,16 +131,28 @@ export async function POST(req: NextRequest) {
     ];
 
     if (activePacks.length > 0) {
+      const repairOps = activePacks
+        .map((pack: any) => {
+          const beginningTicket = resolveSellableTicket(pack);
+          if (beginningTicket === null) return null;
+          if (pack.currentTicketNumber && Number(pack.currentTicketNumber) > 0) return null;
+
+          return prisma.pack.update({
+            where: { id: pack.id },
+            data: { currentTicketNumber: beginningTicket },
+          });
+        })
+        .filter((op): op is ReturnType<typeof prisma.pack.update> => op !== null);
+
+      txOps.unshift(...repairOps);
+
       txOps.unshift(
         prisma.shiftLine.createMany({
           data: activePacks.map((pack: any) => ({
             shiftId: shift.id,
             packId: pack.id,
             slotNumber: pack.slot!.slotNumber,
-            beginningTicket:
-              pack.currentTicketNumber ??
-              pack.firstTicket ??
-              0,
+            beginningTicket: resolveSellableTicket(pack)!,
           })),
         })
       );

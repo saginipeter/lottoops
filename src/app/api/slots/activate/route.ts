@@ -55,9 +55,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (startingTicketNumber < 0 || startingTicketNumber >= pack.game.ticketsPerPack) {
+    if (startingTicketNumber <= 0 || startingTicketNumber > pack.game.ticketsPerPack) {
       return NextResponse.json(
-        { error: `Starting ticket must be between 0 and ${pack.game.ticketsPerPack - 1}` },
+        { error: `Starting ticket must be between 1 and ${pack.game.ticketsPerPack}` },
         { status: 400 }
       );
     }

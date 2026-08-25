@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 
+function resolveSellableTicket(pack: {
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+}) {
+  const candidates = [pack.currentTicketNumber, pack.firstTicket, pack.ticketQuantity]
+    .map((value) => Number(value ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  return candidates.length > 0 ? candidates[0] : null;
+}
+
 async function ensureShiftTerminalSchema() {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE shifts
@@ -167,6 +179,17 @@ export async function POST(req: NextRequest) {
         });
 
         if (!line) {
+          const beginningTicket = resolveSellableTicket(existingPack);
+          if (beginningTicket === null) {
+            return NextResponse.json(
+              {
+                error:
+                  "Pack ticket state is invalid (current/first/quantity). Correct it before scanning.",
+              },
+              { status: 409 }
+            );
+          }
+
           if (!existingPack.slot) {
             return NextResponse.json(
               { error: "Pack must be assigned to a display slot before live scan." },
@@ -179,10 +202,7 @@ export async function POST(req: NextRequest) {
               shiftId: openShift.id,
               packId: existingPack.id,
               slotNumber: existingPack.slot.slotNumber,
-              beginningTicket:
-                existingPack.currentTicketNumber ??
-                existingPack.firstTicket ??
-                0,
+              beginningTicket,
             },
           });
         }

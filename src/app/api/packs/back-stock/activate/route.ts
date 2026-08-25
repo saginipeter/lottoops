@@ -3,6 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { canManageBackstock } from "@/lib/permissions";
 
+function resolveSellableTicket(pack: {
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+}) {
+  const candidates = [pack.currentTicketNumber, pack.firstTicket, pack.ticketQuantity]
+    .map((value) => Number(value ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  return candidates.length > 0 ? candidates[0] : null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
@@ -82,12 +94,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const sellableTicket = resolveSellableTicket(pack);
+    if (sellableTicket === null) {
+      return NextResponse.json(
+        {
+          error:
+            "Pack has invalid ticket data. Set first ticket or quantity before activation.",
+        },
+        { status: 409 }
+      );
+    }
+
     // Update pack with activation details
     const updatedPack = await prisma.pack.update({
       where: { id: packId },
       data: {
         status: "ACTIVE",
         activatedAt: new Date(),
+        currentTicketNumber: sellableTicket,
         activationNumber: activationNumber || undefined,
         activationReceiptPhoto: activationReceiptPhoto || undefined,
         lotNumber: lotNumber || undefined,
