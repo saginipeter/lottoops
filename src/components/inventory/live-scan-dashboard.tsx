@@ -559,7 +559,7 @@ export function LiveScanDashboard({
                 <p className="mt-1 text-xl font-bold text-green-950">
                   Next ticket: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.currentTicketNumber ?? "-"}
                 </p>
-                <p className="text-xs text-green-800">Display {lastScan.slot?.slotNumber ?? "-"} · Pack {lastScan.serialNumber}</p>
+                <p className="text-xs text-green-800">Scanned from Display {lastScan.slot?.slotNumber ?? "-"} · Pack {lastScan.serialNumber}</p>
               </div>
             )}
           </div>
@@ -759,7 +759,7 @@ export function LiveScanDashboard({
                     EXPECTED NEXT TICKET: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.currentTicketNumber ?? "—"}
                   </p>
                   <p className="text-xs text-green-800">
-                    Display {lastScan.slot?.slotNumber ?? "—"} · Pack {lastScan.serialNumber}
+                    Scanned from Display {lastScan.slot?.slotNumber ?? "—"} · Pack {lastScan.serialNumber}
                   </p>
                 </div>
                 <div className="rounded-md border border-emerald-300 bg-white px-4 py-2 text-right">

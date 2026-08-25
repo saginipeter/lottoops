@@ -14,6 +14,18 @@ function resolveSellableTicket(pack: {
   return candidates.length > 0 ? candidates[0] : null;
 }
 
+function resolveScannedTicketNumber(normalizedSerial: string) {
+  if (normalizedSerial.length <= 11) return null;
+
+  const ticketSuffix = normalizedSerial.substring(11);
+  if (ticketSuffix.length > 3) return null;
+
+  const ticketNumber = Number(ticketSuffix);
+  return Number.isInteger(ticketNumber) && ticketNumber > 0
+    ? ticketNumber
+    : null;
+}
+
 async function ensureShiftTerminalSchema() {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE shifts
@@ -211,9 +223,8 @@ export async function POST(req: NextRequest) {
         const currentTicket = existingPack.currentTicketNumber ?? beginning;
 
         // Enforce one-scan-per-ticket and strict sequence from current ticket.
-        if (normalizedSerial.length >= 14) {
-          const scannedTicketNumber = Number(normalizedSerial.substring(normalizedSerial.length - 3));
-          if (Number.isFinite(scannedTicketNumber) && scannedTicketNumber !== currentTicket) {
+        const scannedTicketNumber = resolveScannedTicketNumber(normalizedSerial);
+        if (scannedTicketNumber !== null && scannedTicketNumber !== currentTicket) {
             await prisma.pack.update({
               where: { id: existingPack.id },
               data: {
@@ -228,14 +239,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(
               {
                 code: "SEQUENCE_LOCKED",
-                error:
-                  scannedTicketNumber > currentTicket
-                    ? `Ticket ${scannedTicketNumber} was already scanned. Current sellable ticket is ${currentTicket}.`
-                    : `Out-of-sequence scan. Current sellable ticket is ${currentTicket}.`,
+                error: `Out-of-sequence scan. Expected ticket ${currentTicket}, but scanned ticket ${scannedTicketNumber}. Pack locked pending manager review.`,
               },
               { status: 409 }
             );
-          }
         }
 
         if (currentTicket <= 0) {
