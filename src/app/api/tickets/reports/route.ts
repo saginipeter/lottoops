@@ -30,7 +30,7 @@ async function ensureActivitySchema() {
 }
 
 interface TicketReportRow {
-  id: number;
+  id: number | bigint;
   storeId: string;
   storeName: string;
   action: string;
@@ -40,6 +40,13 @@ interface TicketReportRow {
   performedById: string;
   performedByName: string | null;
   createdAt: Date;
+}
+
+function serializeReports(rows: TicketReportRow[]) {
+  return rows.map((row) => ({
+    ...row,
+    id: typeof row.id === "bigint" ? row.id.toString() : String(row.id),
+  }));
 }
 
 export async function GET() {
@@ -83,7 +90,7 @@ export async function GET() {
         session.userId
       )) as TicketReportRow[];
 
-      return NextResponse.json({ reports });
+      return NextResponse.json({ reports: serializeReports(reports) });
     }
 
     const reports = (await prisma.$queryRawUnsafe(
@@ -109,7 +116,7 @@ export async function GET() {
       session.storeId
     )) as TicketReportRow[];
 
-    return NextResponse.json({ reports });
+    return NextResponse.json({ reports: serializeReports(reports) });
   } catch (error) {
     console.error("[GET /api/tickets/reports]", error);
     return NextResponse.json(
