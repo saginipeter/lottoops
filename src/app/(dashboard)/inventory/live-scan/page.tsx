@@ -117,12 +117,17 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
   );
 
   const openShiftCount = currentShift ? 1 : 0;
+  const isEmployee = session.role === "EMPLOYEE";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
-        title="Live Scan"
-        subtitle={`Real-time ticket scanning and sales tracking · Terminal ${terminalId}`}
+        title={isEmployee ? "Scanner Station" : "Live Scan"}
+        subtitle={
+          isEmployee
+            ? `Terminal ${terminalId} · centered scanner mode with shift controls`
+            : `Real-time ticket scanning and sales tracking · Terminal ${terminalId}`
+        }
       />
 
       <PageToolbar
@@ -137,41 +142,21 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
             ))}
           </div>
         }
-        center={<span>Enter Scan | Ctrl+F Focus Scan | Esc Clear</span>}
-        right={<span className="text-xs text-text-tertiary">{currentShift ? "Shift Open" : "No Active Shift"}</span>}
+        center={<span>{isEmployee ? "Scanner First Mode" : "Enter Scan | Ctrl+F Focus Scan | Esc Clear"}</span>}
+        right={
+          isEmployee ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-tertiary">{currentShift ? "Shift Open" : "No Active Shift"}</span>
+              <LogoutButton
+                label="Logout"
+                className="min-h-[34px] rounded-md border border-red-300 bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+              />
+            </div>
+          ) : (
+            <span className="text-xs text-text-tertiary">{currentShift ? "Shift Open" : "No Active Shift"}</span>
+          )
+        }
       />
-
-      {session.role === "EMPLOYEE" && (
-        <div className="border-b border-border bg-surface px-4 py-3">
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-            <Link
-              href="/"
-              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
-            >
-              <span className="text-base font-semibold text-text">Back</span>
-              <span className="text-xs text-text-tertiary">Dashboard</span>
-            </Link>
-            <Link
-              href={`/inventory/live-scan?terminal=${terminalId}`}
-              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
-            >
-              <span className="text-base font-semibold text-text">Live Scan</span>
-              <span className="text-xs text-text-tertiary">Scan Tickets</span>
-            </Link>
-            <Link
-              href={`/shifts?terminal=${terminalId}`}
-              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
-            >
-              <span className="text-base font-semibold text-text">Shift Screen</span>
-              <span className="text-xs text-text-tertiary">Reconcile</span>
-            </Link>
-            <LogoutButton
-              label="Logout"
-              className="min-h-[68px] justify-between rounded-lg border border-red-300 bg-red-600 px-4 py-3 text-base font-semibold text-white hover:bg-red-700"
-            />
-          </div>
-        </div>
-      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3.5">
         <LiveScanDashboard
@@ -179,6 +164,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
           activePacks={packsData}
           terminalId={terminalId}
           isOwner={session.role === "OWNER"}
+          isEmployee={isEmployee}
         />
       </div>
 

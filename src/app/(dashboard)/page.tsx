@@ -7,12 +7,10 @@ import {
   Gamepad2,
   MonitorSmartphone,
   Radio,
-  RefreshCw,
   ReceiptText,
   ShieldCheck,
   Store,
 } from "lucide-react";
-import { LogoutButton } from "@/components/auth/logout-button";
 import { Header } from "@/components/layout/header";
 import { Panel } from "@/components/ui/panel";
 import { PageToolbar } from "@/components/ui/page-toolbar";
@@ -87,6 +85,7 @@ export default async function HomePage() {
   const session = await getSession();
 
   if (session?.role === "OWNER") redirect("/owner");
+  if (session?.role === "EMPLOYEE") redirect("/inventory/live-scan");
 
   let activeDisplayPacks = 0;
   let backStockPacks = 0;
@@ -113,60 +112,6 @@ export default async function HomePage() {
     backStockPacks = backStockCount;
     openShift = shiftCount > 0;
     activeGames = gamesCount;
-  }
-
-  if (session?.role === "EMPLOYEE") {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <Header
-          title="Employee Control Panel"
-          subtitle="Choose an action to continue"
-        />
-
-        <div className="flex-1 overflow-y-auto px-5 py-5">
-          <div className="mx-auto max-w-5xl">
-            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <MetricCard label="Shift Open" value={openShift ? "Yes" : "No"} />
-              <MetricCard label="Active Displays" value={String(activeDisplayPacks)} />
-              <MetricCard label="Back Stock" value={String(backStockPacks)} />
-              <MetricCard label="Active Games" value={String(activeGames)} />
-            </div>
-
-            <Panel className="mb-4 p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-text-tertiary">
-                Touchscreen POS Actions
-              </h3>
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
-                <PosTouchButton href="/shifts" label="Open or Close Shift" icon={ClipboardCheck} />
-                <PosTouchButton href="/inventory/live-scan" label="Start Live Scan" icon={Radio} />
-                <PosTouchButton href="/" label="Refresh Dashboard" icon={RefreshCw} />
-                <div className="rounded-lg border border-border bg-surface px-2 py-2">
-                  <LogoutButton
-                    label="Logout"
-                    className="min-h-[72px] justify-between rounded-md bg-rose-50 px-4 py-3 text-base font-semibold text-rose-700 hover:bg-rose-100"
-                  />
-                </div>
-              </div>
-            </Panel>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <SimpleActionCard
-                href="/shifts"
-                title="Open or Close Shift"
-                description="Start shift and reconcile tickets quickly."
-                icon={ClipboardCheck}
-              />
-              <SimpleActionCard
-                href="/inventory/live-scan"
-                title="Live Scan"
-                description="Scan ticket sales continuously during shift."
-                icon={Radio}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -225,57 +170,6 @@ export default async function HomePage() {
         right={<span>{openShift ? "Operations in Progress" : "Open shift to begin"}</span>}
       />
     </div>
-  );
-}
-
-function PosTouchButton({
-  href,
-  label,
-  icon: Icon,
-}: {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-}) {
-  return (
-    <Link
-      href={href}
-      className="card-surface card-interactive flex min-h-[72px] items-center justify-between rounded-lg px-4 py-3 text-left active:bg-surface-soft"
-    >
-      <span className="text-base font-semibold text-text">{label}</span>
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-surface-soft text-accent">
-        <Icon size={18} />
-      </span>
-    </Link>
-  );
-}
-
-function SimpleActionCard({
-  href,
-  title,
-  description,
-  icon: Icon,
-}: {
-  href: string;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-}) {
-  return (
-    <Link
-      href={href}
-      className="card-surface card-interactive rounded-lg p-5"
-    >
-      <div className="mb-3 inline-flex rounded-md border border-border bg-surface-soft p-2 text-accent">
-        <Icon size={16} />
-      </div>
-      <h3 className="text-base font-semibold text-text">{title}</h3>
-      <p className="mt-1 text-sm text-text-secondary">{description}</p>
-      <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-accent">
-        Open
-        <ArrowRight size={12} />
-      </div>
-    </Link>
   );
 }
 
