@@ -36,7 +36,7 @@ export async function GET() {
         where: { ownerUserId: session.userId },
         select: { id: true },
       });
-      const storeIds = ownerStores.map((store) => store.id);
+      const storeIds = ownerStores.map((store: { id: string }) => store.id);
 
       if (storeIds.length === 0) {
         return NextResponse.json({ reports: [] });
