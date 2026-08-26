@@ -240,7 +240,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "In-progress shipment not found." }, { status: 404 });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.pack.deleteMany({
         where: { shipmentId: shipment.id },
       });
