@@ -65,7 +65,7 @@ export function ReviewStep({
             <div>
 
               <h2 className="text-xl font-semibold">
-                Step 9: Review Shipment Details
+                Step 3: Review Shipment
               </h2>
 
               <p className="text-sm text-gray-500">
@@ -80,7 +80,7 @@ export function ReviewStep({
             
             {/* Step 1-2: Invoice Info */}
             <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
-              <h4 className="text-sm font-semibold text-blue-900 mb-3">Steps 1-2: Invoice Information</h4>
+              <h4 className="text-sm font-semibold text-blue-900 mb-3">Invoice Information</h4>
               <div className="grid grid-cols-2 gap-3">
                 <Info label="Invoice #" value={shipment.invoiceNumber ?? ""} />
                 <Info label="Status" value={shipment.status ?? ""} />
@@ -94,7 +94,7 @@ export function ReviewStep({
 
             {/* Step 3-4: Confirmation Info */}
             <div className="rounded-lg bg-green-50 p-4 border border-green-200">
-              <h4 className="text-sm font-semibold text-green-900 mb-3">Steps 3-4: Shipment Confirmation</h4>
+              <h4 className="text-sm font-semibold text-green-900 mb-3">Shipment Confirmation</h4>
               <div className="grid grid-cols-2 gap-3">
                 <Info label="Confirmation #" value={shipment.shipmentConfirmationNumber ?? ""} />
               </div>
@@ -175,7 +175,7 @@ export function ReviewStep({
         {/* Pack Details */}
         <Panel className="p-6">
           <h3 className="mb-4 text-lg font-semibold">
-            Steps 5-8: Scanned Packs
+            Scanned Packs
           </h3>
           <p className="text-sm text-gray-500 mb-4">
             Review all pack details: barcode, game, price, quantity, and image.

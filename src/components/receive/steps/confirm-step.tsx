@@ -161,7 +161,7 @@ export function ConfirmStep({
             <div>
 
               <h2 className="text-xl font-semibold">
-                Step 10: Confirm & Choose Destination
+                Step 4: Confirm & Choose Destination
               </h2>
 
               <p className="text-gray-500">

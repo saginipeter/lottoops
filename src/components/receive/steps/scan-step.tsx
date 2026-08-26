@@ -184,9 +184,9 @@ export function ScanStep({
   return (
     <div className="space-y-6">
 
-        {/* Step 5: Scan */}
+        {/* Scan packs */}
         <Panel className="p-6">
-          <h2 className="mb-5 text-xl font-semibold">Step 5: Scan Lottery Pack</h2>
+          <h2 className="mb-5 text-xl font-semibold">Step 2: Scan Packs</h2>
           <BarcodeScanner barcode={barcode} onChange={handleScan} />
 
           {/* Auto-detection result */}
