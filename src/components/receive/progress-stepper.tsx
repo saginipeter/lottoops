@@ -5,6 +5,7 @@ import clsx from "clsx";
 
 interface ProgressStepperProps {
   currentStep: 1 | 2 | 3 | 4;
+  onStepClick?: (step: 1 | 2 | 3 | 4) => void;
 }
 
 const steps = [
@@ -32,6 +33,7 @@ const steps = [
 
 export function ProgressStepper({
   currentStep,
+  onStepClick,
 }: ProgressStepperProps) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
@@ -47,7 +49,13 @@ export function ProgressStepper({
               key={step.id}
               className="flex flex-1 items-center"
             >
-              <div className="flex items-center">
+              <button
+                type="button"
+                className="flex items-center text-left disabled:cursor-default"
+                onClick={() => onStepClick?.(step.id as 1 | 2 | 3 | 4)}
+                disabled={!onStepClick}
+                aria-current={active ? "step" : undefined}
+              >
 
                 {/* Circle */}
 
@@ -97,7 +105,7 @@ export function ProgressStepper({
 
                 </div>
 
-              </div>
+              </button>
 
               {/* Connecting Line */}
 

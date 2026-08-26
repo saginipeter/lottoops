@@ -115,6 +115,11 @@ const [shipment, setShipment] = useState<ShipmentState>({
     }
   }
 
+  function goToStep(targetStep: WizardStep) {
+    setStep(targetStep);
+    router.push(`/inventory/receive/step/${targetStep}`);
+  }
+
   function addPack(pack: PackWithGame) {
     setPacks((prev) => [...prev, pack]);
 
@@ -227,7 +232,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
           </Panel>
 
           <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
-            <ProgressStepper currentStep={step} />
+            <ProgressStepper currentStep={step} onStepClick={goToStep} />
 
             {step === 1 && (
               <InvoiceStep

@@ -96,11 +96,11 @@ export function InvoiceStep({
         <Panel className="p-6">
           <div className="mb-6">
             <h2 className="text-xl font-semibold">
-              Step 1-4: Receive Lottery Shipment
+              Step 1: Shipment Invoice
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              Enter shipment details and upload required documents.
+              Enter the invoice details for this shipment.
             </p>
           </div>
 
