@@ -29,9 +29,13 @@ interface ScanDraftState {
   packImage: string;
 }
 
-export default function ReceiveWizard() {
+interface ReceiveWizardProps {
+  initialStep?: WizardStep;
+}
+
+export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
   const router = useRouter();
-  const [step, setStep] = useState<WizardStep>(1);
+  const [step, setStep] = useState<WizardStep>(initialStep);
 
 const [shipment, setShipment] = useState<ShipmentState>({
   id: "",
@@ -57,6 +61,10 @@ const [shipment, setShipment] = useState<ShipmentState>({
   });
 
   useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(RECEIVE_DRAFT_KEY);
       if (!raw) return;
@@ -66,9 +74,6 @@ const [shipment, setShipment] = useState<ShipmentState>({
         packs?: PackWithGame[];
         scanDraft?: ScanDraftState;
       };
-      if (parsed.step && parsed.step >= 1 && parsed.step <= 4) {
-        setStep(parsed.step);
-      }
       if (parsed.shipment) {
         setShipment(parsed.shipment);
       }
@@ -96,13 +101,17 @@ const [shipment, setShipment] = useState<ShipmentState>({
 
   function nextStep() {
     if (step < 4) {
-      setStep((prev) => (prev + 1) as WizardStep);
+      const next = (step + 1) as WizardStep;
+      setStep(next);
+      router.push(`/inventory/receive/step/${next}`);
     }
   }
 
   function previousStep() {
     if (step > 1) {
-      setStep((prev) => (prev - 1) as WizardStep);
+      const previous = (step - 1) as WizardStep;
+      setStep(previous);
+      router.push(`/inventory/receive/step/${previous}`);
     }
   }
 
@@ -164,6 +173,7 @@ const [shipment, setShipment] = useState<ShipmentState>({
       packImage: "",
     });
     clearDraft();
+    router.push("/inventory/receive/step/1");
   }
 
   function cancelReceiving() {
