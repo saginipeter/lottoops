@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { canReceiveShipments } from "@/lib/permissions";
+import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedTicketPrice = Number(ticketPrice);
-    const normalizedTicketQuantity = Number(ticketQuantity);
+    const requestedTicketQuantity = Number(ticketQuantity);
 
     if (!Number.isFinite(normalizedTicketPrice) || normalizedTicketPrice <= 0) {
       return NextResponse.json(
@@ -85,12 +86,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!Number.isInteger(normalizedTicketQuantity) || normalizedTicketQuantity <= 0) {
+    if (!Number.isInteger(requestedTicketQuantity) || requestedTicketQuantity <= 0) {
       return NextResponse.json(
         { error: "Ticket quantity must be a whole number greater than zero." },
         { status: 400 }
       );
     }
+
+    const normalizedTicketQuantity = getSuggestedTicketQuantity(normalizedTicketPrice);
 
     // Prevent duplicate scans
     const existing = await prisma.pack.findUnique({
@@ -119,7 +122,7 @@ export async function POST(req: NextRequest) {
       // Try to get name/price from TX Lottery catalog
       let catalogName = `Game ${gameNumber}`;
       let catalogPrice = ticketPrice;
-      let catalogQty = ticketQuantity;
+      let catalogQty = normalizedTicketQuantity;
 
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,7 +228,7 @@ export async function PATCH(req: NextRequest) {
 
     const normalizedFirstTicket = Number(firstTicket);
     const normalizedTicketPrice = Number(ticketPrice);
-    const normalizedTicketQuantity = Number(ticketQuantity);
+    const normalizedTicketQuantity = getSuggestedTicketQuantity(normalizedTicketPrice);
 
     if (!Number.isInteger(normalizedFirstTicket) || normalizedFirstTicket < 0) {
       return NextResponse.json(
@@ -237,13 +240,6 @@ export async function PATCH(req: NextRequest) {
     if (!Number.isFinite(normalizedTicketPrice) || normalizedTicketPrice <= 0) {
       return NextResponse.json(
         { error: "Ticket price must be greater than zero." },
-        { status: 400 }
-      );
-    }
-
-    if (!Number.isInteger(normalizedTicketQuantity) || normalizedTicketQuantity <= 0) {
-      return NextResponse.json(
-        { error: "Ticket quantity must be a whole number greater than zero." },
         { status: 400 }
       );
     }

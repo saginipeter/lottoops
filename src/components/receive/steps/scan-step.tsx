@@ -10,7 +10,6 @@ import { Panel } from "@/components/ui/panel";
 
 import { BarcodeScanner } from "../barcode-scanner";
 import { TicketPriceOnly } from "../ticket-price-only";
-import { TicketQuantityOnly } from "../ticket-quantity-only";
 import { InvoiceUpload } from "../invoice-upload";
 import { ScannedPackTable } from "../scanned-pack-table";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
@@ -231,7 +230,7 @@ export function ScanStep({
           )}
         </Panel>
 
-        {/* Step 6: Pack Image */}
+        {/* Pack image */}
         <Panel className="p-6">
           <div className="mb-4">
             <h3 className="text-lg font-semibold">Step 6: Upload Pack Image</h3>
@@ -252,7 +251,7 @@ export function ScanStep({
           {packImage && <p className="mt-3 text-sm text-green-600">✓ Image uploaded</p>}
         </Panel>
 
-        {/* Step 7: Ticket Price — auto-filled, still editable */}
+        {/* Ticket price */}
         <div className="relative">
           {detectedGame && (
             <div className="absolute right-6 top-5 z-10">
@@ -272,26 +271,11 @@ export function ScanStep({
           />
         </div>
 
-        {/* Step 8: Ticket Quantity — auto-filled, still editable */}
-        <div className="relative">
-          {detectedGame && (
-            <div className="absolute right-6 top-5 z-10">
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                Auto-filled ✓
-              </span>
-            </div>
-          )}
-          <TicketQuantityOnly
-            selectedPrice={ticketPrice}
-            selectedQuantity={ticketQuantity}
-            onSelect={(value) =>
-              setScanDraft((prev) => ({
-                ...prev,
-                ticketQuantity: value,
-              }))
-            }
-          />
-        </div>
+        <Panel className="p-6">
+          <h3 className="text-lg font-semibold">Ticket Quantity</h3>
+          <p className="mt-1 text-sm text-gray-500">Quantity is fixed by the selected ticket denomination.</p>
+          <p className="mt-4 rounded-lg bg-gray-50 p-4 text-lg font-semibold">{getSuggestedTicketQuantity(ticketPrice)} tickets per pack</p>
+        </Panel>
 
         {/* Add Pack */}
         <Panel className="p-6">
@@ -330,7 +314,7 @@ export function ScanStep({
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               {(shipment.expectedPacks ?? 0) > packs.length
                 ? `Pack added. Next step: scan the next pack (${packs.length}/${shipment.expectedPacks ?? 0}).`
-                : "Pack added. Next step: review shipment details in Step 10."}
+                : "Pack added. Next step: review shipment details."}
             </div>
           )}
 
@@ -342,7 +326,7 @@ export function ScanStep({
               Cancel
             </Button>
             <Button className="w-full" onClick={nextStep} disabled={packs.length === 0}>
-              Step 10: Review Shipment →
+              Next: Review Shipment →
             </Button>
           </div>
         </Panel>

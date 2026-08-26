@@ -152,8 +152,21 @@ const [shipment, setShipment] = useState<ShipmentState>({
     }
   }
 
-  function clearFormData() {
+  async function clearFormData() {
     if (!window.confirm("Clear all receiving form data and scanned packs?")) return;
+
+    if (shipment.id) {
+      const response = await fetch("/api/shipments", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shipmentId: shipment.id }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        window.alert(data?.error || "Unable to clear the server shipment draft.");
+        return;
+      }
+    }
 
     setStep(1);
     setShipment({

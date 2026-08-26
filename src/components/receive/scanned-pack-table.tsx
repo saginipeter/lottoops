@@ -112,9 +112,7 @@ export function ScannedPackTable({
                 Game
               </th>
 
-              <th className="py-3 text-left text-sm font-semibold">
-                Pack #
-              </th>
+              <th className="py-3 text-left text-sm font-semibold">Pack</th>
 
               <th className="py-3 text-left text-sm font-semibold">
                 First Ticket
@@ -174,9 +172,7 @@ export function ScannedPackTable({
 
                 </td>
 
-                <td className="font-mono">
-                  {pack.packNumber}
-                </td>
+                <td className="font-mono">****</td>
 
                 <td className="font-mono">
                   {pack.firstTicket}

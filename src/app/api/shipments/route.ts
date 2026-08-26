@@ -219,3 +219,37 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || !canReceiveShipments(session)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { shipmentId } = await req.json();
+    if (!shipmentId || typeof shipmentId !== "string") {
+      return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
+    }
+
+    const shipment = await prisma.shipment.findFirst({
+      where: { id: shipmentId, storeId: session.storeId, status: "IN_PROGRESS" },
+      select: { id: true },
+    });
+    if (!shipment) {
+      return NextResponse.json({ error: "In-progress shipment not found." }, { status: 404 });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.pack.deleteMany({
+        where: { shipmentId: shipment.id },
+      });
+      await tx.shipment.delete({ where: { id: shipment.id } });
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Shipment draft deletion failed:", error);
+    return NextResponse.json({ error: "Unable to clear shipment draft." }, { status: 500 });
+  }
+}
