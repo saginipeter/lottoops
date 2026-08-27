@@ -33,6 +33,48 @@ interface ReceiveWizardProps {
   initialStep?: WizardStep;
 }
 
+interface ReceiveDraft {
+  step?: WizardStep;
+  shipment?: ShipmentState;
+  packs?: PackWithGame[];
+  scanDraft?: ScanDraftState;
+}
+
+function readReceiveDraft(): ReceiveDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(RECEIVE_DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as ReceiveDraft) : null;
+  } catch (error) {
+    console.error("Unable to restore receiving draft:", error);
+    return null;
+  }
+}
+
+function createDefaultShipment(): ShipmentState {
+  return {
+    id: "",
+    invoiceNumber: "",
+    invoicePhoto: "",
+    shipmentDate: new Date().toISOString().split("T")[0],
+    receivedBy: "",
+    expectedPacks: 0,
+    expectedRetailValue: 0,
+    scannedPacks: 0,
+    status: "IN_PROGRESS",
+  };
+}
+
+const DEFAULT_SCAN_DRAFT: ScanDraftState = {
+  barcode: "",
+  gameNumber: "",
+  packNumber: "",
+  firstTicket: "",
+  ticketPrice: 10,
+  ticketQuantity: 50,
+  packImage: "",
+};
+
 export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>(initialStep);
@@ -44,52 +86,18 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
     setStep(initialStep);
   }
 
-const [shipment, setShipment] = useState<ShipmentState>({
-  id: "",
-  invoiceNumber: "",
-  invoicePhoto: "",
-  shipmentDate: new Date().toISOString().split("T")[0],
-  receivedBy: "",
-  expectedPacks: 0,
-  expectedRetailValue: 0,
-  scannedPacks: 0,
-  status: "IN_PROGRESS",
-});
+  const [shipment, setShipment] = useState<ShipmentState>(
+    () => readReceiveDraft()?.shipment ?? createDefaultShipment()
+  );
 
-  const [packs, setPacks] = useState<PackWithGame[]>([]);
-  const [scanDraft, setScanDraft] = useState<ScanDraftState>({
-    barcode: "",
-    gameNumber: "",
-    packNumber: "",
-    firstTicket: "",
-    ticketPrice: 10,
-    ticketQuantity: 50,
-    packImage: "",
+  const [packs, setPacks] = useState<PackWithGame[]>(() => {
+    const draftPacks = readReceiveDraft()?.packs;
+    return Array.isArray(draftPacks) ? draftPacks : [];
   });
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(RECEIVE_DRAFT_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as {
-        step?: WizardStep;
-        shipment?: ShipmentState;
-        packs?: PackWithGame[];
-        scanDraft?: ScanDraftState;
-      };
-      if (parsed.shipment) {
-        setShipment(parsed.shipment);
-      }
-      if (parsed.packs && Array.isArray(parsed.packs)) {
-        setPacks(parsed.packs);
-      }
-      if (parsed.scanDraft) {
-        setScanDraft(parsed.scanDraft);
-      }
-    } catch (error) {
-      console.error("Unable to restore receiving draft:", error);
-    }
-  }, []);
+  const [scanDraft, setScanDraft] = useState<ScanDraftState>(
+    () => readReceiveDraft()?.scanDraft ?? DEFAULT_SCAN_DRAFT
+  );
 
   useEffect(() => {
     try {
@@ -175,27 +183,9 @@ const [shipment, setShipment] = useState<ShipmentState>({
     }
 
     setStep(1);
-    setShipment({
-      id: "",
-      invoiceNumber: "",
-      invoicePhoto: "",
-      shipmentDate: new Date().toISOString().split("T")[0],
-      receivedBy: "",
-      expectedPacks: 0,
-      expectedRetailValue: 0,
-      scannedPacks: 0,
-      status: "IN_PROGRESS",
-    });
+    setShipment(createDefaultShipment());
     setPacks([]);
-    setScanDraft({
-      barcode: "",
-      gameNumber: "",
-      packNumber: "",
-      firstTicket: "",
-      ticketPrice: 10,
-      ticketQuantity: 50,
-      packImage: "",
-    });
+    setScanDraft(DEFAULT_SCAN_DRAFT);
     clearDraft();
     router.push("/inventory/receive/step/1");
   }
