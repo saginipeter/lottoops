@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, PlayCircle, Search, SquarePen, Trash2 } from "lucide-react";
+import type { Pack, Game, Shipment } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
@@ -9,8 +10,10 @@ import { ActivatePackModal } from "./activate-pack-modal";
 import { RemoveBackstockPackModal } from "./remove-backstock-pack-modal";
 import { EditInvoiceModal } from "./edit-invoice-modal";
 
+type BackStockPack = Pack & { game: Game; shipment: Shipment | null };
+
 interface BackStockListProps {
-  packs: any[];
+  packs: BackStockPack[];
   slots: Array<{ id: string; slotNumber: string; occupied: boolean }>;
   canManageBackstock: boolean;
 }
@@ -20,12 +23,12 @@ interface InvoiceGroup {
   shipmentId: string | null;
   invoiceNumber: string;
   shipmentConfirmationNumber: string | null;
-  packs: any[];
+  packs: BackStockPack[];
 }
 
 export function BackStockList({ packs, slots, canManageBackstock }: BackStockListProps) {
   const [search, setSearch] = useState("");
-  const [selectedPack, setSelectedPack] = useState<any>(null);
+  const [selectedPack, setSelectedPack] = useState<BackStockPack | null>(null);
   const [activateModalOpen, setActivateModalOpen] = useState(false);
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const [editInvoiceGroup, setEditInvoiceGroup] = useState<InvoiceGroup | null>(null);
@@ -51,7 +54,7 @@ export function BackStockList({ packs, slots, canManageBackstock }: BackStockLis
     const groups = new Map<string, InvoiceGroup>();
 
     for (const pack of filteredPacks) {
-      const shipmentId: string | null = pack.shipmentId ?? pack.shipment?.id ?? null;
+      const shipmentId: string | null = pack.shipmentId ?? pack.shipment?.id ?? null as string | null;
       const invoiceNumber = pack.shipment?.invoiceNumber || "No Invoice";
       const key = shipmentId ?? `no-shipment:${invoiceNumber}`;
 
@@ -102,12 +105,12 @@ export function BackStockList({ packs, slots, canManageBackstock }: BackStockLis
     });
   }
 
-  function openActivateModal(pack: any) {
+  function openActivateModal(pack: BackStockPack) {
     setSelectedPack(pack);
     setActivateModalOpen(true);
   }
 
-  function openRemoveModal(pack: any) {
+  function openRemoveModal(pack: BackStockPack) {
     setSelectedPack(pack);
     setRemoveModalOpen(true);
   }
