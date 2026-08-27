@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
-import { canReceiveShipments } from "@/lib/permissions";
+import { canReceiveShipments, canManageBackstock } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -266,5 +266,76 @@ export async function DELETE(req: NextRequest) {
   } catch (error) {
     console.error("Shipment draft deletion failed:", error);
     return NextResponse.json({ error: "Unable to clear shipment draft." }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || !(canReceiveShipments(session) || canManageBackstock(session))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { shipmentId, invoiceNumber, shipmentConfirmationNumber } = await req.json();
+
+    if (!shipmentId || typeof shipmentId !== "string") {
+      return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
+    }
+
+    const normalizedInvoiceNumber = String(invoiceNumber ?? "").trim();
+    if (!normalizedInvoiceNumber) {
+      return NextResponse.json(
+        { error: "Invoice number is required." },
+        { status: 400 }
+      );
+    }
+
+    const shipment = await prisma.shipment.findFirst({
+      where: { id: shipmentId, storeId: session.storeId },
+      select: { id: true, invoiceNumber: true },
+    });
+    if (!shipment) {
+      return NextResponse.json({ error: "Shipment not found." }, { status: 404 });
+    }
+
+    if (normalizedInvoiceNumber !== shipment.invoiceNumber) {
+      const conflict = await prisma.shipment.findFirst({
+        where: {
+          storeId: session.storeId,
+          invoiceNumber: normalizedInvoiceNumber,
+          NOT: { id: shipment.id },
+        },
+        select: { id: true },
+      });
+      if (conflict) {
+        return NextResponse.json(
+          { error: `Invoice ${normalizedInvoiceNumber} is already used by another shipment.` },
+          { status: 409 }
+        );
+      }
+    }
+
+    const updated = await prisma.shipment.update({
+      where: { id: shipment.id },
+      data: {
+        invoiceNumber: normalizedInvoiceNumber,
+        ...(shipmentConfirmationNumber !== undefined
+          ? { shipmentConfirmationNumber: String(shipmentConfirmationNumber ?? "").trim() || null }
+          : {}),
+      },
+    });
+
+    return NextResponse.json({ success: true, ...updated });
+  } catch (error) {
+    console.error("Shipment update failed:", error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json(
+        { error: "This invoice number is already in use for your store." },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json({ error: "Unable to update shipment." }, { status: 500 });
   }
 }
