@@ -256,8 +256,30 @@ export async function DELETE(req: NextRequest) {
     }
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Packs already referenced by a sale (shift line) or an inventory audit
+      // can't be hard-deleted (FK restrict) — detach them from the shipment
+      // instead so the shipment record itself can be removed cleanly.
+      const blockedPacks = await tx.pack.findMany({
+        where: {
+          shipmentId: shipment.id,
+          OR: [{ shiftLines: { some: {} } }, { auditLines: { some: {} } }],
+        },
+        select: { id: true },
+      });
+      const blockedPackIds = blockedPacks.map((pack: { id: string }) => pack.id);
+
+      if (blockedPackIds.length > 0) {
+        await tx.pack.updateMany({
+          where: { id: { in: blockedPackIds } },
+          data: { shipmentId: null },
+        });
+      }
+
       await tx.pack.deleteMany({
-        where: { shipmentId: shipment.id },
+        where: {
+          shipmentId: shipment.id,
+          id: { notIn: blockedPackIds },
+        },
       });
       await tx.shipment.delete({ where: { id: shipment.id } });
     });
@@ -265,6 +287,17 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Shipment draft deletion failed:", error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json(
+        {
+          error:
+            "Some packs on this shipment are already referenced by a sale or audit and couldn't be removed. Please contact support.",
+        },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json({ error: "Unable to clear shipment draft." }, { status: 500 });
   }
 }
