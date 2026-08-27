@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,14 +35,15 @@ export function EditInvoiceModal({
   const [confirmationNumber, setConfirmationNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loadedShipmentId, setLoadedShipmentId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (shipment) {
-      setInvoiceNumber(shipment.invoiceNumber);
-      setConfirmationNumber(shipment.shipmentConfirmationNumber ?? "");
-      setError("");
-    }
-  }, [shipment]);
+  // Load the shipment's current values into the form once, when it changes.
+  if (shipment && shipment.id !== loadedShipmentId) {
+    setLoadedShipmentId(shipment.id);
+    setInvoiceNumber(shipment.invoiceNumber);
+    setConfirmationNumber(shipment.shipmentConfirmationNumber ?? "");
+    setError("");
+  }
 
   async function handleSave() {
     if (!shipment) return;

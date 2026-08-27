@@ -54,7 +54,7 @@ export function BackStockList({ packs, slots, canManageBackstock }: BackStockLis
     const groups = new Map<string, InvoiceGroup>();
 
     for (const pack of filteredPacks) {
-      const shipmentId: string | null = pack.shipmentId ?? pack.shipment?.id ?? null as string | null;
+      const shipmentId = pack.shipmentId ?? pack.shipment?.id ?? null;
       const invoiceNumber = pack.shipment?.invoiceNumber || "No Invoice";
       const key = shipmentId ?? `no-shipment:${invoiceNumber}`;
 
