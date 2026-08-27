@@ -166,28 +166,42 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
   async function clearFormData() {
     if (!window.confirm("Clear all receiving form data and scanned packs?")) return;
 
+    let serverWarning = "";
+
     if (shipment.id || shipment.invoiceNumber?.trim()) {
-      const response = await fetch("/api/shipments", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          shipmentId: shipment.id,
-          invoiceNumber: shipment.invoiceNumber,
-        }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        window.alert(data?.error || "Unable to clear the server shipment draft.");
-        return;
+      try {
+        const response = await fetch("/api/shipments", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shipmentId: shipment.id,
+            invoiceNumber: shipment.invoiceNumber,
+          }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          serverWarning = data?.error || "Unable to clear the server shipment draft.";
+        }
+      } catch (error) {
+        console.error("Unable to clear the server shipment draft:", error);
+        serverWarning = "Unable to reach the server to clear the shipment draft.";
       }
     }
 
+    // Always reset the local form, even if the server cleanup above failed,
+    // so the wizard never gets stuck showing packs the user asked to clear.
     setStep(1);
     setShipment(createDefaultShipment());
     setPacks([]);
     setScanDraft(DEFAULT_SCAN_DRAFT);
     clearDraft();
     router.push("/inventory/receive/step/1");
+
+    if (serverWarning) {
+      window.alert(
+        `Form cleared locally, but the server record couldn't be removed: ${serverWarning}`
+      );
+    }
   }
 
   function cancelReceiving() {
