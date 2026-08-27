@@ -128,8 +128,8 @@ export function BackStockList({ packs, slots, canManageBackstock }: BackStockLis
                 <td className="px-3 py-2 font-semibold">{pack.game.gameNumber}</td>
                 <td className="px-3 py-2 font-mono text-xs">{pack.serialNumber}</td>
                 <td className="px-3 py-2">{pack.shipment?.invoiceNumber || "-"}</td>
-                <td className="px-3 py-2">${Number(pack.game.price).toFixed(2)}</td>
-                <td className="px-3 py-2">{pack.game.ticketsPerPack}</td>
+                <td className="px-3 py-2">${Number(pack.ticketPrice ?? pack.game.price).toFixed(2)}</td>
+                <td className="px-3 py-2">{pack.ticketQuantity ?? pack.game.ticketsPerPack}</td>
                 <td className="px-3 py-2">{new Date(pack.receivedAt).toLocaleDateString()}</td>
                 <td className="px-3 py-2">
                   <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-[11px] font-semibold text-yellow-700">
