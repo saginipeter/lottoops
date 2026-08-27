@@ -104,7 +104,7 @@ export async function GET() {
         JOIN stores ON stores.id = logs.store_id
         WHERE logs.action = 'TICKET_REPORTED'
           AND COALESCE(logs.resolved, FALSE) = FALSE
-          AND stores.owner_user_id = $1
+          AND stores."ownerUserId" = $1
         ORDER BY logs.created_at DESC
         LIMIT 50
         `,

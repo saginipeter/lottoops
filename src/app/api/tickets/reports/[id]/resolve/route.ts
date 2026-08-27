@@ -83,7 +83,7 @@ export async function POST(
         JOIN stores ON stores.id = logs.store_id
         WHERE logs.id = $1
           AND logs.action = 'TICKET_REPORTED'
-          AND stores.owner_user_id = $2
+          AND stores."ownerUserId" = $2
         LIMIT 1
         `,
         reportId,
