@@ -227,17 +227,32 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { shipmentId } = await req.json();
-    if (!shipmentId || typeof shipmentId !== "string") {
-      return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
+    const { shipmentId, invoiceNumber } = await req.json();
+    const normalizedInvoiceNumber = String(invoiceNumber ?? "").trim();
+
+    if (
+      (!shipmentId || typeof shipmentId !== "string") &&
+      !normalizedInvoiceNumber
+    ) {
+      return NextResponse.json(
+        { error: "Shipment ID or invoice number is required." },
+        { status: 400 }
+      );
     }
 
     const shipment = await prisma.shipment.findFirst({
-      where: { id: shipmentId, storeId: session.storeId, status: "IN_PROGRESS" },
+      where: {
+        storeId: session.storeId,
+        status: "IN_PROGRESS",
+        ...(shipmentId && typeof shipmentId === "string"
+          ? { id: shipmentId }
+          : { invoiceNumber: normalizedInvoiceNumber }),
+      },
       select: { id: true },
     });
     if (!shipment) {
-      return NextResponse.json({ error: "In-progress shipment not found." }, { status: 404 });
+      // Nothing blocking on the server for this invoice/id — treat as already cleared.
+      return NextResponse.json({ success: true, cleared: false });
     }
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {

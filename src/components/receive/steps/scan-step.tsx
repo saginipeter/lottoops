@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
 import { parseBarcode } from "@/lib/barcode";
@@ -105,7 +105,7 @@ export function ScanStep({
     } finally {
       setDetecting(false);
     }
-  }, []);
+  }, [setScanDraft]);
 
   function handleScan(value: string) {
     const parsed = parseBarcode(value);
@@ -117,13 +117,14 @@ export function ScanStep({
       firstTicket: parsed.firstTicket,
     }));
     setJustAdded(false);
-  }
 
-  // Trigger detection whenever gameNumber changes
-  useEffect(() => {
-    if (gameNumber) detectGame(gameNumber);
-    else { setDetectedGame(null); setDetectionError(null); }
-  }, [gameNumber, detectGame]);
+    if (parsed.gameNumber) {
+      detectGame(parsed.gameNumber);
+    } else {
+      setDetectedGame(null);
+      setDetectionError(null);
+    }
+  }
 
   async function handleAddPack() {
     if (atExpectedLimit) {

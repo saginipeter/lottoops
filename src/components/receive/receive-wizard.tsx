@@ -36,6 +36,13 @@ interface ReceiveWizardProps {
 export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>(initialStep);
+  const [syncedInitialStep, setSyncedInitialStep] = useState(initialStep);
+
+  // Keep step in sync with the route-driven initialStep prop without an effect.
+  if (initialStep !== syncedInitialStep) {
+    setSyncedInitialStep(initialStep);
+    setStep(initialStep);
+  }
 
 const [shipment, setShipment] = useState<ShipmentState>({
   id: "",
@@ -59,10 +66,6 @@ const [shipment, setShipment] = useState<ShipmentState>({
     ticketQuantity: 50,
     packImage: "",
   });
-
-  useEffect(() => {
-    setStep(initialStep);
-  }, [initialStep]);
 
   useEffect(() => {
     try {
@@ -155,11 +158,14 @@ const [shipment, setShipment] = useState<ShipmentState>({
   async function clearFormData() {
     if (!window.confirm("Clear all receiving form data and scanned packs?")) return;
 
-    if (shipment.id) {
+    if (shipment.id || shipment.invoiceNumber?.trim()) {
       const response = await fetch("/api/shipments", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shipmentId: shipment.id }),
+        body: JSON.stringify({
+          shipmentId: shipment.id,
+          invoiceNumber: shipment.invoiceNumber,
+        }),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
