@@ -19,6 +19,7 @@ import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { LockedPacksPanel } from "@/components/owner/locked-packs-panel";
 import { TicketReportsPanel } from "@/components/reports/ticket-reports-panel";
+import { TicketReturnRequestsPanel } from "@/components/reports/ticket-return-requests-panel";
 import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { redirect } from "next/navigation";
 
@@ -163,6 +164,7 @@ export default async function HomePage() {
         </div>
 
         <LockedPacksPanel />
+        <TicketReturnRequestsPanel title="Ticket Return Requests" />
         <TicketReportsPanel title="Employee Ticket Reports" />
 
         <Section title="Core Operations" cards={operationsCards} />

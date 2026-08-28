@@ -8,6 +8,7 @@ import {
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { TicketReportsPanel } from "@/components/reports/ticket-reports-panel";
+import { TicketReturnRequestsPanel } from "@/components/reports/ticket-return-requests-panel";
 
 interface StoreKPI {
   id: string;
@@ -342,6 +343,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
         </Panel>
       )}
 
+      <TicketReturnRequestsPanel title="Ticket Return Requests Across Stores" />
       <TicketReportsPanel title="Employee Ticket Reports Across Stores" />
 
     </div>

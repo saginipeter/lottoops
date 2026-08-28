@@ -96,6 +96,9 @@ export function LiveScanDashboard({
   const [barcode, setBarcode] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [reversing, setReversing] = useState(false);
+  const [returnRequestLoading, setReturnRequestLoading] = useState(false);
+  const [returnRequestStatus, setReturnRequestStatus] = useState<"idle" | "success" | "error">("idle");
+  const [returnRequestMessage, setReturnRequestMessage] = useState("");
   const [shiftActionLoading, setShiftActionLoading] = useState(false);
   const [shiftActionError, setShiftActionError] = useState("");
   const [scannerConnected, setScannerConnected] = useState(false);
@@ -443,6 +446,47 @@ export function LiveScanDashboard({
     }
   }
 
+  async function handleReturnTicketRequest() {
+    if (!lastScan?.id) {
+      setScanError("No recent scan to return.");
+      return;
+    }
+    if (!currentShift?.id) {
+      setScanError("No open shift to return this ticket against.");
+      return;
+    }
+
+    try {
+      setReturnRequestLoading(true);
+      setReturnRequestStatus("idle");
+      const res = await fetch("/api/tickets/return-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packId: lastScan.id,
+          shiftId: currentShift.id,
+          reason: "Customer rejected the ticket at time of sale.",
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setReturnRequestStatus("error");
+        setReturnRequestMessage((data && data.error) || "Unable to submit return request.");
+        return;
+      }
+
+      setReturnRequestStatus("success");
+      setReturnRequestMessage("Return request submitted. Waiting for manager approval.");
+    } catch (error) {
+      console.error(error);
+      setReturnRequestStatus("error");
+      setReturnRequestMessage("Unable to submit return request.");
+    } finally {
+      setReturnRequestLoading(false);
+      scanInputRef.current?.focus();
+    }
+  }
+
   const shiftDuration = currentShift
     ? Math.floor(
         (new Date().getTime() - new Date(currentShift.openedAt).getTime()) /
@@ -561,6 +605,24 @@ export function LiveScanDashboard({
                   Next ticket: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.currentTicketNumber ?? "-"}
                 </p>
                 <p className="text-xs text-green-800">Scanned from Display {lastScan.slot?.slotNumber ?? "-"} · Pack {lastScan.serialNumber}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={handleReturnTicketRequest}
+                  disabled={returnRequestLoading}
+                >
+                  {returnRequestLoading ? "Submitting..." : "Customer Rejected - Return Ticket"}
+                </Button>
+                {returnRequestStatus !== "idle" && (
+                  <p
+                    className={`mt-2 text-xs font-medium ${
+                      returnRequestStatus === "success" ? "text-emerald-700" : "text-red-700"
+                    }`}
+                  >
+                    {returnRequestMessage}
+                  </p>
+                )}
               </div>
             )}
           </div>

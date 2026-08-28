@@ -1,7 +1,7 @@
 export const TICKET_QUANTITY_PRESETS: Record<number, number> = {
-  1: 300,
-  2: 150,
-  3: 100,
+  1: 150,
+  2: 125,
+  3: 125,
   5: 75,
   10: 50,
   20: 25,
