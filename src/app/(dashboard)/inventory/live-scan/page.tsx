@@ -125,7 +125,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
         title={isEmployee ? "Scanner Station" : "Live Scan"}
         subtitle={
           isEmployee
-            ? `Terminal ${terminalId} · centered scanner mode with shift controls`
+            ? `${session.name} · Terminal ${terminalId} · centered scanner mode with shift controls`
             : `Real-time ticket scanning and sales tracking · Terminal ${terminalId}`
         }
       />
@@ -146,6 +146,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
         right={
           isEmployee ? (
             <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-text">{session.name}</span>
               <span className="text-xs text-text-tertiary">{currentShift ? "Shift Open" : "No Active Shift"}</span>
               <LogoutButton
                 label="Logout"

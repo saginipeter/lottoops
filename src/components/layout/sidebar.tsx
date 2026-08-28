@@ -67,7 +67,6 @@ const navSections: NavSection[] = [
         href: "/inventory/receive",
         label: "Receive Shipment",
         icon: ScanLine,
-        alert: true,
         permission: "RECEIVE_SHIPMENTS",
       },
       {

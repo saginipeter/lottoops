@@ -152,8 +152,8 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         title="Shift Management"
         subtitle={
           openShift
-            ? `Terminal ${terminalId}: shift is open — reconcile and close when ready`
-            : `Terminal ${terminalId}: open and close daily shifts`
+            ? `${session.role === "EMPLOYEE" ? `${session.name} · ` : ""}Terminal ${terminalId}: shift is open — reconcile and close when ready`
+            : `${session.role === "EMPLOYEE" ? `${session.name} · ` : ""}Terminal ${terminalId}: open and close daily shifts`
         }
       />
 
