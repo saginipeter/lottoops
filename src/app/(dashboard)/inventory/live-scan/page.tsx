@@ -125,7 +125,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
         title={isEmployee ? "Scanner Station" : "Live Scan"}
         subtitle={
           isEmployee
-            ? `${session.name} · Terminal ${terminalId} · centered scanner mode with shift controls`
+            ? `${session.name} · ${session.storeName} · Terminal ${terminalId}`
             : `Real-time ticket scanning and sales tracking · Terminal ${terminalId}`
         }
       />
@@ -142,7 +142,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
             ))}
           </div>
         }
-        center={<span>{isEmployee ? "Scanner First Mode" : "Enter Scan | Ctrl+F Focus Scan | Esc Clear"}</span>}
+        center={<span>{isEmployee ? session.storeName : "Enter Scan | Ctrl+F Focus Scan | Esc Clear"}</span>}
         right={
           isEmployee ? (
             <div className="flex items-center gap-2">
