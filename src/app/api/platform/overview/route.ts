@@ -16,12 +16,12 @@ export async function GET() {
 
   try {
     const [stores, users, owners, managers, packs, openShifts, subscriptions, recentUsers] = await Promise.all([
-      prisma.store.count(),
-      prisma.user.count(),
+      prisma.store.count({ where: { ownerUserId: { not: null } } }),
+      prisma.user.count({ where: { role: { not: "PLATFORM_ADMIN" } } }),
       prisma.user.count({ where: { role: "OWNER" } }),
       prisma.user.count({ where: { role: "MANAGER" } }),
-      prisma.pack.count(),
-      prisma.shift.count({ where: { status: "OPEN" } }),
+      prisma.pack.count({ where: { store: { ownerUserId: { not: null } } } }),
+      prisma.shift.count({ where: { status: "OPEN", store: { ownerUserId: { not: null } } } }),
       prisma.subscription.count(),
       prisma.user.findMany({
         where: { role: { not: "PLATFORM_ADMIN" } },
