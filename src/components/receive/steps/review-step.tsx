@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AlertTriangle, CheckCircle2, FileText, Camera } from "lucide-react";
 
 import type {
@@ -17,6 +18,8 @@ interface ReviewStepProps {
   shipment: ShipmentState;
   packs: PackWithGame[];
   updatePack: (pack: PackWithGame) => void;
+  onOverrideApproved: () => void;
+  overrideApproved?: boolean;
 
   nextStep: () => void;
   previousStep: () => void;
@@ -27,10 +30,14 @@ export function ReviewStep({
   shipment,
   packs,
   updatePack,
+  onOverrideApproved,
+  overrideApproved = false,
   nextStep,
   previousStep,
   onCancel,
 }: ReviewStepProps) {
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [overrideError, setOverrideError] = useState("");
   const expected = shipment.expectedPacks ?? 0;
   const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
   const scanned = packs.length;
@@ -40,6 +47,32 @@ export function ReviewStep({
       sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
     0
   );
+
+  async function requestOverride() {
+    if (!shipment.id) return;
+    const reason = window.prompt("Enter the reason for this shipment override:");
+    if (reason === null || !reason.trim()) return;
+
+    try {
+      setOverrideLoading(true);
+      setOverrideError("");
+      const response = await fetch("/api/shipments/override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shipmentId: shipment.id, reason: reason.trim() }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setOverrideError(data?.error || "Unable to approve shipment override.");
+        return;
+      }
+      onOverrideApproved();
+    } catch {
+      setOverrideError("Unable to approve shipment override.");
+    } finally {
+      setOverrideLoading(false);
+    }
+  }
 
   const duplicatePacks = packs.filter(
     (pack, index) =>
@@ -144,6 +177,17 @@ export function ReviewStep({
             }
           />
 
+          {(remaining !== 0 || expectedRetailValue <= 0 || Math.round(expectedRetailValue * 100) !== Math.round(scannedRetailValue * 100)) && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">Manager or Owner action required</p>
+              <p className="mt-1 text-sm text-amber-800">A manager may approve this shipment discrepancy after reviewing the invoice and scanned packs.</p>
+              <Button type="button" className="mt-3" variant="outline" onClick={requestOverride} disabled={overrideLoading}>
+                {overrideLoading ? "Approving..." : "Approve Shipment Override"}
+              </Button>
+              {overrideError && <p className="mt-2 text-sm text-red-700">{overrideError}</p>}
+            </div>
+          )}
+
           <ValidationItem
             success={duplicatePacks.length === 0}
             title="Duplicate Packs"
@@ -212,11 +256,11 @@ export function ReviewStep({
           <Button
             className="w-full"
             disabled={
-              remaining > 0 ||
+              (!overrideApproved && remaining > 0) ||
               duplicatePacks.length > 0 ||
-              expectedRetailValue <= 0 ||
+              (!overrideApproved && (expectedRetailValue <= 0 ||
               Math.round(expectedRetailValue * 100) !==
-                Math.round(scannedRetailValue * 100)
+                Math.round(scannedRetailValue * 100)))
             }
             onClick={nextStep}
           >

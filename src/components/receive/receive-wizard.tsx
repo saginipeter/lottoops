@@ -98,6 +98,7 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
   const [scanDraft, setScanDraft] = useState<ScanDraftState>(
     () => readReceiveDraft()?.scanDraft ?? DEFAULT_SCAN_DRAFT
   );
+  const [overrideApproved, setOverrideApproved] = useState(false);
 
   useEffect(() => {
     try {
@@ -204,7 +205,22 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
     }
   }
 
-  function cancelReceiving() {
+  async function cancelReceiving() {
+    if (shipment.id || shipment.invoiceNumber?.trim()) {
+      try {
+        await fetch("/api/shipments", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shipmentId: shipment.id,
+            invoiceNumber: shipment.invoiceNumber,
+          }),
+        });
+      } catch (error) {
+        console.error("Unable to clear canceled shipment draft:", error);
+      }
+    }
+    clearDraft();
     router.push("/inventory");
   }
 
@@ -285,6 +301,8 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
                 shipment={shipment}
                 packs={packs}
                 updatePack={updatePack}
+                onOverrideApproved={() => setOverrideApproved(true)}
+                overrideApproved={overrideApproved}
                 nextStep={nextStep}
                 previousStep={previousStep}
                 onCancel={cancelReceiving}

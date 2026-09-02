@@ -172,6 +172,7 @@ export async function POST(req: NextRequest) {
         activationNumber,
         firstOrLastTicket,
 
+        status: "RECEIVING",
         cost: 0,
         retailValue: normalizedTicketPrice * normalizedTicketQuantity,
       },

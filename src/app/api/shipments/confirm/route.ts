@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { canReceiveShipments } from "@/lib/permissions";
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
       destination,
       notes,
       expectedRetailValue,
+      overrideApproved,
     } = await req.json();
 
     if (!shipmentId) {
@@ -56,6 +58,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let hasRecordedOverride = false;
+    if (overrideApproved === true) {
+      try {
+        const overrideRows = (await prisma.$queryRawUnsafe(
+          `
+          SELECT id
+          FROM inventory_activity_logs
+          WHERE store_id = $1
+            AND action = 'SHIPMENT_OVERRIDE'
+            AND entity_type = 'SHIPMENT'
+            AND entity_id = $2
+          LIMIT 1
+          `,
+          session.storeId,
+          shipmentId
+        )) as { id: number | bigint }[];
+        hasRecordedOverride = overrideRows.length > 0;
+      } catch {
+        hasRecordedOverride = false;
+      }
+    }
+
+    if (overrideApproved === true && !hasRecordedOverride) {
+      return NextResponse.json(
+        { error: "Manager or Owner approval is required before confirming this discrepancy." },
+        { status: 403 }
+      );
+    }
+
     const shipmentPacks = await prisma.pack.findMany({
       where: {
         shipmentId,
@@ -71,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     const scanned = shipmentPacks.length;
 
-    if (scanned !== shipment.expectedPacks) {
+    if (scanned !== shipment.expectedPacks && !hasRecordedOverride) {
       return NextResponse.json(
         {
           error: `Expected ${shipment.expectedPacks} packs but scanned ${scanned}.`,
@@ -98,7 +129,8 @@ export async function POST(req: NextRequest) {
 
     if (
       Math.round(parsedExpectedRetailValue * 100) !==
-      Math.round(scannedRetailValue * 100)
+      Math.round(scannedRetailValue * 100) &&
+      !hasRecordedOverride
     ) {
       return NextResponse.json(
         {
@@ -163,15 +195,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const updatedShipment = await prisma.shipment.update({
-      where: {
-        id: shipmentId,
-      },
-      data: {
-        scannedPacks: scanned,
-        status: "RECEIVED",
-        confirmedAt: new Date(),
-      },
+    const updatedShipment = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.pack.updateMany({
+        where: { shipmentId, storeId: shipment.storeId, status: "RECEIVING" },
+        data: { status: "BACK_STOCK" },
+      });
+
+      return tx.shipment.update({
+        where: { id: shipmentId },
+        data: {
+          scannedPacks: scanned,
+          status: "RECEIVED",
+          confirmedAt: new Date(),
+        },
+      });
     });
 
     return NextResponse.json(updatedShipment);

@@ -4,6 +4,7 @@ import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
 import { UsersManager } from "@/components/settings/users-manager";
+import { ManagerStoreAssignments } from "@/components/settings/manager-store-assignments";
 
 export default async function UsersSettingsPage() {
   const session = await getSession();
@@ -23,7 +24,8 @@ export default async function UsersSettingsPage() {
         right={<span className="text-xs text-text-tertiary">Access: {session.role}</span>}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+        {session.role === "OWNER" && <ManagerStoreAssignments />}
         <UsersManager currentUserRole={session.role as "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE"} />
       </div>
 

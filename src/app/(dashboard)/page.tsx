@@ -132,6 +132,15 @@ export default async function HomePage() {
         right={<span className="text-xs text-text-tertiary">{openShift ? "Shift Open" : "No Open Shift"}</span>}
       />
 
+      {session?.role === "SHIFT_LEAD" && (
+        <div className="mx-5 mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Manager or Owner action required</p>
+          <p className="mt-1 text-xs text-amber-800">
+            Shipment overrides, sequence-lock reviews, customer ticket returns, and account or store changes require Manager or Owner approval.
+          </p>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-5 py-5">
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
           <Panel className="xl:col-span-2 p-6">

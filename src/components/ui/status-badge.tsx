@@ -5,6 +5,10 @@ const statusConfig: Record<
   PackStatus | "COMPLETED",
   { label: string; className: string }
 > = {
+  RECEIVING: {
+    label: "Receiving",
+    className: "bg-blue-100 text-blue-700",
+  },
 BACK_STOCK: {
     label: "Back Stock",
     className: "bg-yellow-100 text-yellow-700",

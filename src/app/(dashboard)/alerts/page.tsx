@@ -4,6 +4,7 @@ import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
 import { TicketReportsPanel } from "@/components/reports/ticket-reports-panel";
 import { TicketReturnRequestsPanel } from "@/components/reports/ticket-return-requests-panel";
+import { ShipmentOverrideNotifications } from "@/components/reports/shipment-override-notifications";
 import { getSession } from "@/lib/get-session";
 import { isManagerOrAbove } from "@/lib/permissions";
 
@@ -29,6 +30,7 @@ export default async function AlertsPage() {
         <TicketReturnRequestsPanel
           title={session.role === "OWNER" ? "Ticket Return Requests Across Stores" : "Ticket Return Requests"}
         />
+        <ShipmentOverrideNotifications />
         <TicketReportsPanel
           title={session.role === "OWNER" ? "Employee Ticket Reports Across Stores" : "Employee Ticket Reports"}
         />

@@ -21,6 +21,7 @@ interface ConfirmStepProps {
   shipment: ShipmentState;
   packs: PackWithGame[];
   previousStep: () => void;
+  overrideApproved?: boolean;
   onConfirmed?: () => void;
   onCancel: () => void;
 }
@@ -29,6 +30,7 @@ export function ConfirmStep({
   shipment,
   packs,
   previousStep,
+  overrideApproved = false,
   onConfirmed,
   onCancel,
 }: ConfirmStepProps) {
@@ -47,7 +49,12 @@ export function ConfirmStep({
     Math.round(expectedRetailValue * 100) === Math.round(scannedRetailValue * 100);
 
   async function handleConfirm() {
-    if (!invoiceMatches) {
+    if (packs.length !== Number(shipment.expectedPacks ?? 0) && !overrideApproved) {
+      alert(`Expected ${shipment.expectedPacks ?? 0} packs but scanned ${packs.length}.`);
+      return;
+    }
+
+    if (!invoiceMatches && !overrideApproved) {
       alert("Invoice totals do not match scanned shipment totals.");
       return;
     }
@@ -65,6 +72,7 @@ export function ConfirmStep({
           destination,
           notes,
           expectedRetailValue,
+          overrideApproved,
         }),
       });
 

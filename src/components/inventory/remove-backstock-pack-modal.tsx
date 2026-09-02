@@ -134,8 +134,8 @@ export function RemoveBackstockPackModal({
                   className="mt-1 h-4 w-4"
                 />
                 <div>
-                  <div className="font-medium">Returned</div>
-                  <div className="text-sm text-gray-600">Pack was returned by customer</div>
+                  <div className="font-medium">Returned to the State Lottery Commission</div>
+                  <div className="text-sm text-gray-600">Pack was returned to the State Lottery Commission</div>
                 </div>
               </label>
 

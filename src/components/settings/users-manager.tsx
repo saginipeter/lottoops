@@ -53,9 +53,10 @@ interface AddUserFormProps {
   onCreated: (user: StoreUser) => void;
   onCancel: () => void;
   canCreateOwner: boolean;
+  storeId?: string;
 }
 
-function AddUserForm({ onCreated, onCancel, canCreateOwner }: AddUserFormProps) {
+function AddUserForm({ onCreated, onCancel, canCreateOwner, storeId }: AddUserFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [employeeUserId, setEmployeeUserId] = useState("");
@@ -72,7 +73,7 @@ function AddUserForm({ onCreated, onCancel, canCreateOwner }: AddUserFormProps) 
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, employeeUserId, password, role }),
+        body: JSON.stringify({ name, email, employeeUserId, password, role, storeId }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to create user."); return; }
@@ -312,6 +313,8 @@ function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserMod
 
 export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
   const canCreateOwner = currentUserRole === "OWNER";
+  const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState("");
   const [users, setUsers] = useState<StoreUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -321,7 +324,8 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/users");
+      const query = canCreateOwner && selectedStoreId ? `?storeId=${encodeURIComponent(selectedStoreId)}` : "";
+      const res = await fetch(`/api/users${query}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users ?? []);
@@ -329,9 +333,20 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canCreateOwner, selectedStoreId]);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => {
+    if (!canCreateOwner) return;
+    fetch("/api/stores", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        const ownedStores = data.stores ?? [];
+        setStores(ownedStores);
+        setSelectedStoreId((current) => current || ownedStores[0]?.id || "");
+      });
+  }, [canCreateOwner]);
+
+  useEffect(() => { if (!canCreateOwner || selectedStoreId) loadUsers(); }, [canCreateOwner, selectedStoreId, loadUsers]);
 
   async function toggleActive(user: StoreUser) {
     const res = await fetch(`/api/users/${user.id}`, {
@@ -380,11 +395,25 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
               {users.filter((u) => u.active).length} active · {users.filter((u) => !u.active).length} inactive
             </p>
           </div>
-          <Button onClick={() => setShowAddForm(!showAddForm)} disabled={loading}>
+          <Button onClick={() => setShowAddForm(!showAddForm)} disabled={loading || (canCreateOwner && !selectedStoreId)}>
             <UserPlus size={14} className="mr-1.5" />
             Add Staff
           </Button>
         </div>
+
+        {canCreateOwner && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface-soft px-3 py-2">
+            <label htmlFor="staff-store" className="text-xs font-medium text-text-secondary">Managing staff for</label>
+            <select
+              id="staff-store"
+              value={selectedStoreId}
+              onChange={(event) => setSelectedStoreId(event.target.value)}
+              className="min-w-[220px] rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text"
+            >
+              {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+            </select>
+          </div>
+        )}
 
         {message && (
           <div className="mb-3 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">{message}</div>
@@ -393,7 +422,7 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
         {showAddForm && (
           <div className="mb-5 rounded-lg border border-border bg-surface-soft p-4">
             <h4 className="text-sm font-semibold text-text mb-3">New Staff Member</h4>
-            <AddUserForm onCreated={handleCreated} onCancel={() => setShowAddForm(false)} canCreateOwner={canCreateOwner} />
+            <AddUserForm onCreated={handleCreated} onCancel={() => setShowAddForm(false)} canCreateOwner={canCreateOwner} storeId={selectedStoreId} />
           </div>
         )}
 

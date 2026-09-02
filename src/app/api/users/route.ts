@@ -10,14 +10,27 @@ import {
 } from "@/lib/user-profiles";
 
 // GET /api/users — list all users for the store
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (session.role !== "MANAGER" && session.role !== "OWNER") return NextResponse.json({ error: "Managers only" }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  const requestedStoreId = req.nextUrl.searchParams.get("storeId")?.trim();
+  const storeId = session.role === "OWNER" && requestedStoreId
+    ? requestedStoreId
+    : session.storeId;
+
+  if (session.role === "OWNER") {
+    const ownedStore = await prisma.store.findFirst({
+      where: { id: storeId, ownerUserId: session.userId },
+      select: { id: true },
+    });
+    if (!ownedStore) return NextResponse.json({ error: "Store not found in your portfolio." }, { status: 404 });
+  }
+
   const users = await prisma.user.findMany({
-    where: { storeId: session.storeId },
+    where: { storeId },
     select: {
       id: true,
       name: true,
@@ -60,6 +73,17 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const { name, email, password, role, employeeUserId } = body;
+  const requestedStoreId = typeof body.storeId === "string" ? body.storeId.trim() : "";
+
+  let targetStoreId = session.storeId;
+  if (session.role === "OWNER" && requestedStoreId) {
+    const ownedStore = await prisma.store.findFirst({
+      where: { id: requestedStoreId, ownerUserId: session.userId },
+      select: { id: true },
+    });
+    if (!ownedStore) return NextResponse.json({ error: "Store not found in your portfolio." }, { status: 404 });
+    targetStoreId = ownedStore.id;
+  }
 
   if (!name?.trim() || !email?.trim() || !password?.trim() || !role) {
     return NextResponse.json({ error: "Name, email, password, and role are required." }, { status: 400 });
@@ -108,7 +132,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.create({
     data: {
-      storeId: session.storeId,
+      storeId: targetStoreId,
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,

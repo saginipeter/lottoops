@@ -20,9 +20,11 @@ export async function PATCH(
 
   const { id } = await params;
 
-  // Confirm the user belongs to the same store
+  // Confirm the user belongs to this Manager's store or this Owner's portfolio.
   const existing = await prisma.user.findFirst({
-    where: { id, storeId: session.storeId },
+    where: session.role === "OWNER"
+      ? { id, store: { ownerUserId: session.userId } }
+      : { id, storeId: session.storeId },
     select: { id: true, role: true },
   });
   if (!existing) return NextResponse.json({ error: "User not found." }, { status: 404 });

@@ -20,10 +20,8 @@ export function ActiveStockTable({ packs, canManageDisplay }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredPacks = useMemo(() => {
-    if (!search) return packs;
     const term = search.toLowerCase();
-
-    return packs.filter((pack) => {
+    const filtered = !search ? packs : packs.filter((pack) => {
       const slot = String(pack.slot?.slotNumber ?? "").toLowerCase();
       const gameName = String(pack.game?.name ?? "").toLowerCase();
       const packNumber = String(pack.packNumber ?? "").toLowerCase();
@@ -35,6 +33,14 @@ export function ActiveStockTable({ packs, canManageDisplay }: Props) {
         packNumber.includes(term) ||
         serial.includes(term)
       );
+    });
+
+    return [...filtered].sort((a, b) => {
+      const slotA = Number.parseInt(String(a.slot?.slotNumber ?? ""), 10);
+      const slotB = Number.parseInt(String(b.slot?.slotNumber ?? ""), 10);
+      if (Number.isNaN(slotA)) return 1;
+      if (Number.isNaN(slotB)) return -1;
+      return slotA - slotB;
     });
   }, [packs, search]);
 

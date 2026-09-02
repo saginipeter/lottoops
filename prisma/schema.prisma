@@ -358,6 +358,7 @@ enum ShipmentStatus {
 }
 
 enum PackStatus {
+  RECEIVING
   BACK_STOCK
   ACTIVE
   SOLD_OUT
