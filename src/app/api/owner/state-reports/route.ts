@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
+import { createWorker } from "tesseract.js";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 
@@ -26,6 +27,8 @@ async function ensureSchema() {
   `);
   await prisma.$executeRawUnsafe(`ALTER TABLE state_lottery_reports ADD COLUMN IF NOT EXISTS image_url TEXT`);
   await prisma.$executeRawUnsafe(`ALTER TABLE state_lottery_reports ADD COLUMN IF NOT EXISTS mime_type TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE state_lottery_reports ADD COLUMN IF NOT EXISTS ocr_text TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE state_lottery_reports ADD COLUMN IF NOT EXISTS verification_status TEXT NOT NULL DEFAULT 'PENDING'`);
   schemaReady = true;
 }
 
@@ -58,8 +61,9 @@ export async function GET() {
     const storeIds = stores.map((store: { id: string; name: string }) => store.id);
     const reports = storeIds.length === 0 ? [] : await prisma.$queryRawUnsafe(
       `
-      SELECT id, store_id AS "storeId", report_type AS "reportType", week_start AS "weekStart",
-             file_name AS "fileName", row_count AS "rowCount", uploaded_at AS "uploadedAt"
+            SELECT id, store_id AS "storeId", report_type AS "reportType", week_start AS "weekStart",
+              file_name AS "fileName", row_count AS "rowCount", uploaded_at AS "uploadedAt",
+              image_url AS "imageUrl", verification_status AS "verificationStatus"
       FROM state_lottery_reports
       WHERE store_id = ANY($1::text[]) AND week_start = $2::date
       ORDER BY uploaded_at DESC
@@ -67,7 +71,7 @@ export async function GET() {
       storeIds,
       reportingMonday()
     );
-    return NextResponse.json({ stores, weekStart: currentMonday(), reports });
+    return NextResponse.json({ stores, weekStart: reportingMonday(), reports });
   } catch (error) {
     console.error("[GET /api/owner/state-reports]", error);
     return NextResponse.json({ error: "Unable to load state reports." }, { status: 500 });
@@ -106,28 +110,45 @@ export async function POST(req: NextRequest) {
     const imageUrl = isPhoto
       ? (await put(`stores/${storeId}/${reportingMonday().slice(0, 4)}/${reportingMonday()}/${reportType.toLowerCase()}/${Date.now()}-${file.name}`, file, { access: "public", addRandomSuffix: true })).url
       : null;
+    let ocrText: string | null = null;
+    let verificationStatus = isPhoto ? "OCR_PENDING" : "PENDING";
+    if (isPhoto) {
+      try {
+        const worker = await createWorker("eng");
+        const result = await worker.recognize(Buffer.from(await file.arrayBuffer()));
+        ocrText = result.data.text.trim() || null;
+        verificationStatus = ocrText ? "OCR_COMPLETE" : "OCR_EMPTY";
+        await worker.terminate();
+      } catch (error) {
+        console.error("State report OCR failed:", error);
+        verificationStatus = "OCR_FAILED";
+      }
+    }
 
     const id = `slr_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     await prisma.$executeRawUnsafe(
       `
       INSERT INTO state_lottery_reports
-        (id, store_id, report_type, week_start, file_name, row_count, uploaded_by_id, content, image_url, mime_type)
-      VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10)
+        (id, store_id, report_type, week_start, file_name, row_count, uploaded_by_id, content, image_url, mime_type, ocr_text, verification_status)
+      VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10, $11, $12)
       ON CONFLICT (store_id, report_type, week_start)
       DO UPDATE SET file_name = EXCLUDED.file_name, row_count = EXCLUDED.row_count,
                     uploaded_by_id = EXCLUDED.uploaded_by_id, uploaded_at = NOW(), content = EXCLUDED.content,
                     image_url = EXCLUDED.image_url, mime_type = EXCLUDED.mime_type
+                    , ocr_text = EXCLUDED.ocr_text, verification_status = EXCLUDED.verification_status
       `,
       id,
       storeId,
       reportType,
-      currentMonday(),
+      reportingMonday(),
       file.name,
       rows - 1,
       session.userId,
       content,
       imageUrl,
-      file.type || null
+      file.type || null,
+      ocrText,
+      verificationStatus
     );
     return NextResponse.json({ success: true, reportType, storeId, rowCount: isPhoto ? 0 : rows - 1, imageUrl });
   } catch (error) {

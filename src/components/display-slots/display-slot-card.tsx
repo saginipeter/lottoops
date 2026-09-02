@@ -7,6 +7,7 @@ import AssignPackDialog from "./assign-pack-dialog";
 
 interface SlotPack {
   id: string;
+  status?: string | null;
   gameNumber?: string | null;
   packNumber?: string | null;
   firstTicket?: number | null;

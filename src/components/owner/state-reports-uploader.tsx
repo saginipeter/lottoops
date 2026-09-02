@@ -14,7 +14,7 @@ const REPORTS: Array<{ type: ReportType; label: string; fileName: string; header
 ];
 
 interface Store { id: string; name: string }
-interface UploadedReport { storeId: string; reportType: ReportType; fileName: string; rowCount: number; uploadedAt: string; imageUrl?: string | null }
+interface UploadedReport { storeId: string; reportType: ReportType; fileName: string; rowCount: number; uploadedAt: string; imageUrl?: string | null; verificationStatus?: string }
 
 function csvValue(value: string) { return `"${value.replaceAll('"', '""')}"`; }
 
@@ -114,12 +114,12 @@ export function StateReportsUploader() {
               return (
                 <div key={report.type} className="rounded-md border border-border p-3">
                   <p className="text-sm font-semibold text-text">{report.label}</p>
-                  <p className="mt-1 text-xs text-text-tertiary">{current ? `${current.imageUrl ? "Photo archived" : `${current.rowCount} rows`} · ${current.fileName}` : "Required this Monday"}</p>
+                  <p className="mt-1 text-xs text-text-tertiary">{current ? `${current.imageUrl ? `Photo archived · ${current.verificationStatus ?? "OCR pending"}` : `${current.rowCount} rows`} · ${current.fileName}` : "Required this Monday"}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => downloadTemplate(report)}><Download size={13} /> Template</Button>
                     <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:opacity-90">
                       {uploading === report.type ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />}
-                      Upload Photo/CSV
+                      Snap / Upload Photo or CSV
                       <input type="file" accept=".csv,text/csv,image/*" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
                     </label>
                   </div>

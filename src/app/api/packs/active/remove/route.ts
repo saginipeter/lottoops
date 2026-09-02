@@ -120,7 +120,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Update pack with removal details
-    let newStatus = destination === "BACK_STOCK" ? "BACK_STOCK" : "RETURNED";
+    let newStatus = destination === "BACK_STOCK"
+      ? "BACK_STOCK"
+      : destination === "UNASSIGNED"
+        ? pack.status
+        : "RETURNED";
     if (activeRemovalReason === "STOLEN") {
       newStatus = "RETURNED"; // Could add STOLEN status if needed
     } else if (activeRemovalReason === "REASSIGNED") {
