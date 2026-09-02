@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       activeRemovalReason,
       activeRemovalReasonText,
       reassignToSlotId,
+      destination,
     } = await req.json();
 
     if (!packId) {
@@ -67,15 +68,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (pack.status !== "ACTIVE") {
-      return NextResponse.json(
-        { error: "Only ACTIVE packs can be removed." },
-        { status: 400 }
-      );
-    }
-
     if (pack.sequenceLocked) {
       return NextResponse.json({ error: "Pack is locked pending manager review." }, { status: 409 });
+    }
+
+    if (destination && !["BACK_STOCK", "RETURNED", "UNASSIGNED"].includes(destination)) {
+      return NextResponse.json({ error: "Invalid inventory destination." }, { status: 400 });
     }
 
     if (activeRemovalReason === "REASSIGNED") {
@@ -122,7 +120,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update pack with removal details
-    let newStatus = "RETURNED";
+    let newStatus = destination === "BACK_STOCK" ? "BACK_STOCK" : "RETURNED";
     if (activeRemovalReason === "STOLEN") {
       newStatus = "RETURNED"; // Could add STOLEN status if needed
     } else if (activeRemovalReason === "REASSIGNED") {

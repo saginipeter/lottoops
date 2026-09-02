@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 
@@ -23,14 +24,17 @@ async function ensureSchema() {
       UNIQUE(store_id, report_type, week_start)
     )
   `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE state_lottery_reports ADD COLUMN IF NOT EXISTS image_url TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE state_lottery_reports ADD COLUMN IF NOT EXISTS mime_type TEXT`);
   schemaReady = true;
 }
 
-function currentMonday() {
+function reportingMonday() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   const day = date.getDay();
   date.setDate(date.getDate() - (day === 0 ? 6 : day - 1));
+  date.setDate(date.getDate() - 7);
   return date.toISOString().slice(0, 10);
 }
 
@@ -61,7 +65,7 @@ export async function GET() {
       ORDER BY uploaded_at DESC
       `,
       storeIds,
-      currentMonday()
+      reportingMonday()
     );
     return NextResponse.json({ stores, weekStart: currentMonday(), reports });
   } catch (error) {
@@ -83,27 +87,36 @@ export async function POST(req: NextRequest) {
   if (!storeId || !isReportType(reportType) || !(file instanceof File)) {
     return NextResponse.json({ error: "Store, report type, and CSV file are required." }, { status: 400 });
   }
-  if (!file.name.toLowerCase().endsWith(".csv")) {
-    return NextResponse.json({ error: "Upload a CSV file using the matching template." }, { status: 400 });
+  if (!file.type.startsWith("image/") && !file.name.toLowerCase().endsWith(".csv")) {
+    return NextResponse.json({ error: "Upload a CSV file or receipt photo." }, { status: 400 });
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "Files must be 10 MB or smaller." }, { status: 400 });
   }
 
   try {
     await ensureSchema();
     const store = await prisma.store.findFirst({ where: { id: storeId, ownerUserId: session.userId }, select: { id: true } });
     if (!store) return NextResponse.json({ error: "Store not found in your portfolio." }, { status: 404 });
-    const content = await file.text();
-    const rows = content.split(/\r?\n/).filter((line) => line.trim()).length;
-    if (rows < 2) return NextResponse.json({ error: "The CSV must include a header and at least one report row." }, { status: 400 });
+    const isPhoto = file.type.startsWith("image/");
+    const content = isPhoto ? "" : await file.text();
+    const rows = isPhoto ? 0 : content.split(/\r?\n/).filter((line) => line.trim()).length;
+    if (!isPhoto && rows < 2) return NextResponse.json({ error: "The CSV must include a header and at least one report row." }, { status: 400 });
+
+    const imageUrl = isPhoto
+      ? (await put(`stores/${storeId}/${reportingMonday().slice(0, 4)}/${reportingMonday()}/${reportType.toLowerCase()}/${Date.now()}-${file.name}`, file, { access: "public", addRandomSuffix: true })).url
+      : null;
 
     const id = `slr_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     await prisma.$executeRawUnsafe(
       `
       INSERT INTO state_lottery_reports
-        (id, store_id, report_type, week_start, file_name, row_count, uploaded_by_id, content)
-      VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8)
+        (id, store_id, report_type, week_start, file_name, row_count, uploaded_by_id, content, image_url, mime_type)
+      VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (store_id, report_type, week_start)
       DO UPDATE SET file_name = EXCLUDED.file_name, row_count = EXCLUDED.row_count,
-                    uploaded_by_id = EXCLUDED.uploaded_by_id, uploaded_at = NOW(), content = EXCLUDED.content
+                    uploaded_by_id = EXCLUDED.uploaded_by_id, uploaded_at = NOW(), content = EXCLUDED.content,
+                    image_url = EXCLUDED.image_url, mime_type = EXCLUDED.mime_type
       `,
       id,
       storeId,
@@ -112,9 +125,11 @@ export async function POST(req: NextRequest) {
       file.name,
       rows - 1,
       session.userId,
-      content
+      content,
+      imageUrl,
+      file.type || null
     );
-    return NextResponse.json({ success: true, reportType, storeId, rowCount: rows - 1 });
+    return NextResponse.json({ success: true, reportType, storeId, rowCount: isPhoto ? 0 : rows - 1, imageUrl });
   } catch (error) {
     console.error("[POST /api/owner/state-reports]", error);
     return NextResponse.json({ error: "Unable to save state report." }, { status: 500 });

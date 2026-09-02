@@ -92,6 +92,18 @@ export default function DisplaySlotCard({
           return;
         }
         payload.reassignToSlotId = targetDisplay.id;
+      } else {
+        const destination = window.prompt(
+          "Enter destination: BACK_STOCK, RETURNED, or UNASSIGNED",
+          "BACK_STOCK"
+        );
+        if (!destination) return;
+        const normalizedDestination = destination.trim().toUpperCase();
+        if (!["BACK_STOCK", "RETURNED", "UNASSIGNED"].includes(normalizedDestination)) {
+          alert("Invalid inventory destination.");
+          return;
+        }
+        payload.destination = normalizedDestination;
       }
 
       const res = await fetch("/api/packs/active/remove", {
@@ -148,7 +160,7 @@ export default function DisplaySlotCard({
       <div className="flex justify-between">
         <h2 className="font-bold text-text">Display {slot.slotNumber}</h2>
         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-          ACTIVE
+          {slot.pack.status ?? "ASSIGNED"}
         </span>
       </div>
 

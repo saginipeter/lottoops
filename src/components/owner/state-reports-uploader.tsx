@@ -14,7 +14,7 @@ const REPORTS: Array<{ type: ReportType; label: string; fileName: string; header
 ];
 
 interface Store { id: string; name: string }
-interface UploadedReport { storeId: string; reportType: ReportType; fileName: string; rowCount: number; uploadedAt: string }
+interface UploadedReport { storeId: string; reportType: ReportType; fileName: string; rowCount: number; uploadedAt: string; imageUrl?: string | null }
 
 function csvValue(value: string) { return `"${value.replaceAll('"', '""')}"`; }
 
@@ -91,7 +91,7 @@ export function StateReportsUploader() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Weekly controls</p>
           <h2 className="mt-1 text-base font-semibold text-text">State Lottery Report Uploads</h2>
-          <p className="mt-1 text-sm text-text-secondary">Upload all three reports every Monday to compare State Lottery records with LottoOps activity and inventory.</p>
+              <p className="mt-1 text-sm text-text-secondary">Upload all three prior-week State Lottery receipts every Monday. Photos are archived for compliance review.</p>
         </div>
         <div className={`rounded-full px-3 py-1 text-xs font-semibold ${complete ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
           {selectedReports.length} / 3 complete
@@ -114,13 +114,13 @@ export function StateReportsUploader() {
               return (
                 <div key={report.type} className="rounded-md border border-border p-3">
                   <p className="text-sm font-semibold text-text">{report.label}</p>
-                  <p className="mt-1 text-xs text-text-tertiary">{current ? `${current.rowCount} rows · ${current.fileName}` : "Required this Monday"}</p>
+                  <p className="mt-1 text-xs text-text-tertiary">{current ? `${current.imageUrl ? "Photo archived" : `${current.rowCount} rows`} · ${current.fileName}` : "Required this Monday"}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => downloadTemplate(report)}><Download size={13} /> Template</Button>
                     <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:opacity-90">
                       {uploading === report.type ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />}
-                      Upload CSV
-                      <input type="file" accept=".csv,text/csv" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
+                      Upload Photo/CSV
+                      <input type="file" accept=".csv,text/csv,image/*" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
                     </label>
                   </div>
                   {current && <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-700"><CheckCircle2 size={13} /> Uploaded {new Date(current.uploadedAt).toLocaleString()}</p>}

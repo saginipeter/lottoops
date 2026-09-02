@@ -71,7 +71,7 @@ export async function GET() {
       auditVariances: auditLines.map((line) => ({
         id: line.id,
         type: "INVENTORY_AUDIT",
-        status: line.audit.status === "COMPLETED" ? "REVIEW" : "OPEN",
+        status: "UNRESOLVED",
         game: line.pack.game.name,
         pack: line.pack.serialNumber,
         display: line.slotNumber,
