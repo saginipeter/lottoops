@@ -131,6 +131,15 @@ const ownerNavSections: NavSection[] = [
   },
 ];
 
+const platformNavSections: NavSection[] = [
+  {
+    label: "LottoOps Platform",
+    items: [
+      { href: "/platform", label: "Control Center", icon: LayoutDashboard },
+    ],
+  },
+];
+
 const roleLabel: Record<string, string> = {
   OWNER:      "Owner",
   MANAGER:    "Manager",
@@ -210,7 +219,7 @@ export function Sidebar({ user }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         <NavRow item={navTop} isActive={pathname === "/"} />
 
-        {(isOwner ? ownerNavSections : navSections).map((section) => {
+        {(user.role === "PLATFORM_ADMIN" ? platformNavSections : isOwner ? ownerNavSections : navSections).map((section) => {
           const visibleItems = section.items.filter(
             (item) => (!item.managerOnly || isManager) && (!item.ownerOnly || isOwner) && hasPermission(item.permission)
           );

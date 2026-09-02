@@ -338,6 +338,7 @@ model ScanLogEntry {
 }
 
 enum Role {
+  PLATFORM_ADMIN
   OWNER
   MANAGER
   SHIFT_LEAD

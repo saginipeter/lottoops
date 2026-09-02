@@ -6,7 +6,7 @@ export interface SessionPayload {
   storeName: string;
   name: string;
   email: string;
-  role: "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
+  role: "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
   grantedPermissions: string[];
 }
 

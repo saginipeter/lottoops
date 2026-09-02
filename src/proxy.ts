@@ -47,6 +47,10 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
+  if (pathname.startsWith("/platform") && session.role !== "PLATFORM_ADMIN") {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
   // EMPLOYEE: shift open/close + live scan only — no corrections, no other pages
   if (session.role === "EMPLOYEE") {
     const allowed =

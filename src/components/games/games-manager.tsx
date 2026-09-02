@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
 
-type UserRole = "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
+type UserRole = "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
 
 interface GameItem {
   id: string;
@@ -74,7 +74,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
-  const canManage = userRole !== "EMPLOYEE";
+  const canManage = userRole !== "EMPLOYEE" && userRole !== "PLATFORM_ADMIN";
   const [tab, setTab] = useState<"store" | "catalog">("store");
   const [games, setGames] = useState<GameItem[]>(initialGames);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
