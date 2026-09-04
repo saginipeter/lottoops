@@ -23,7 +23,13 @@ export async function GET(req: NextRequest) {
 
   if (session.role === "OWNER") {
     const ownedStore = await prisma.store.findFirst({
-      where: { id: storeId, ownerUserId: session.userId },
+      where: {
+        id: storeId,
+        OR: [
+          { ownerUserId: session.userId },
+          { users: { some: { id: session.userId, role: "OWNER", active: true } } },
+        ],
+      },
       select: { id: true },
     });
     if (!ownedStore) return NextResponse.json({ error: "Store not found in your portfolio." }, { status: 404 });
@@ -78,7 +84,13 @@ export async function POST(req: NextRequest) {
   let targetStoreId = session.storeId;
   if (session.role === "OWNER" && requestedStoreId) {
     const ownedStore = await prisma.store.findFirst({
-      where: { id: requestedStoreId, ownerUserId: session.userId },
+      where: {
+        id: requestedStoreId,
+        OR: [
+          { ownerUserId: session.userId },
+          { users: { some: { id: session.userId, role: "OWNER", active: true } } },
+        ],
+      },
       select: { id: true },
     });
     if (!ownedStore) return NextResponse.json({ error: "Store not found in your portfolio." }, { status: 404 });

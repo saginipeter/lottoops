@@ -317,19 +317,25 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [users, setUsers] = useState<StoreUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUser, setEditingUser] = useState<StoreUser | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const query = canCreateOwner && selectedStoreId ? `?storeId=${encodeURIComponent(selectedStoreId)}` : "";
       const res = await fetch(`/api/users${query}`, { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data.users ?? []);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Unable to load staff members.");
+        return;
       }
+      setUsers(data.users ?? []);
+    } catch {
+      setError("Unable to reach the staff service.");
     } finally {
       setLoading(false);
     }
@@ -421,6 +427,9 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
 
         {message && (
           <div className="mb-3 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">{message}</div>
+        )}
+        {error && (
+          <div className="mb-3 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>
         )}
 
         {showAddForm && (
