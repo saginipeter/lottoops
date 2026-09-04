@@ -34,7 +34,7 @@ export async function GET() {
   // Manager/Clerk/Viewer: see only their own store
   const store = await prisma.store.findUnique({
     where: { id: session.storeId },
-    select: { id: true, name: true, timezone: true, address: true, phone: true, createdAt: true },
+    select: { id: true, name: true, storeNumber: true, timezone: true, address: true, phone: true, createdAt: true },
   });
   return NextResponse.json({ stores: store ? [store] : [] });
 }
@@ -49,10 +49,13 @@ export async function POST(req: NextRequest) {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const body = await req.json().catch(() => ({}));
-  const { name, timezone, address, phone } = body;
+  const { name, storeNumber, timezone, address, phone } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Store name is required." }, { status: 400 });
+  }
+  if (!storeNumber?.trim()) {
+    return NextResponse.json({ error: "Store number is required." }, { status: 400 });
   }
 
   const tz = timezone && US_TIMEZONES.includes(timezone) ? timezone : "America/Chicago";
@@ -60,6 +63,7 @@ export async function POST(req: NextRequest) {
   const store = await prisma.store.create({
     data: {
       name: name.trim(),
+      storeNumber: storeNumber.trim(),
       timezone: tz,
       address: address?.trim() ?? null,
       phone: phone?.trim() ?? null,

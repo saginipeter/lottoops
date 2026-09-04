@@ -12,6 +12,7 @@ datasource db {
 model Store {
   id           String         @id @default(cuid())
   name         String
+  storeNumber  String?
   timezone     String         @default("America/Chicago")
   address      String?
   phone        String?

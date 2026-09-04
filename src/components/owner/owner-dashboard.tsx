@@ -15,6 +15,7 @@ import { StateReportsUploader } from "@/components/owner/state-reports-uploader"
 interface StoreKPI {
   id: string;
   name: string;
+  storeNumber?: string | null;
   timezone: string;
   address: string | null;
   phone: string | null;
@@ -49,6 +50,7 @@ interface AddStoreFormProps {
 
 function AddStoreForm({ onCreated, onCancel }: AddStoreFormProps) {
   const [name, setName] = useState("");
+  const [storeNumber, setStoreNumber] = useState("");
   const [timezone, setTimezone] = useState("America/Chicago");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
@@ -63,7 +65,7 @@ function AddStoreForm({ onCreated, onCancel }: AddStoreFormProps) {
       const res = await fetch("/api/stores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, timezone, address, phone }),
+        body: JSON.stringify({ name, storeNumber, timezone, address, phone }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to create store."); return; }
@@ -87,6 +89,21 @@ function AddStoreForm({ onCreated, onCancel }: AddStoreFormProps) {
             placeholder="Sunrise Mart #5" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div>
+          <label className="block text-xs font-medium text-text-secondary mb-1">Store Number *</label>
+          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+            placeholder="Store 001" value={storeNumber} onChange={(e) => setStoreNumber(e.target.value)} required />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-text-secondary mb-1">Store Location Address</label>
+          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+            placeholder="123 Main St, Houston TX" value={address} onChange={(e) => setAddress(e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-text-secondary mb-1">Store Phone Number</label>
+          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+            placeholder="(713) 555-0100" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div>
           <label className="block text-xs font-medium text-text-secondary mb-1">Timezone</label>
           <select className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
             value={timezone} onChange={(e) => setTimezone(e.target.value)}>
@@ -96,16 +113,6 @@ function AddStoreForm({ onCreated, onCancel }: AddStoreFormProps) {
             <option value="America/Los_Angeles">Pacific Time (PT)</option>
             <option value="America/Phoenix">Arizona (no DST)</option>
           </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1">Address</label>
-          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
-            placeholder="123 Main St, Houston TX" value={address} onChange={(e) => setAddress(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1">Phone</label>
-          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
-            placeholder="(713) 555-0100" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-1">
@@ -133,6 +140,7 @@ function StoreCard({ store }: { store: StoreKPI }) {
           </div>
           <div>
             <h3 className="font-semibold text-text text-sm">{store.name}</h3>
+            {store.storeNumber && <p className="text-xs text-text-secondary">Store {store.storeNumber}</p>}
             {store.address && <p className="text-xs text-text-tertiary">{store.address}</p>}
           </div>
         </div>
@@ -210,7 +218,10 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
     }
   }, []);
 
-  useEffect(() => { loadStores(); }, [loadStores]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadStores(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadStores]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
