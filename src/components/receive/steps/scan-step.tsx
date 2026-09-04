@@ -77,6 +77,7 @@ export function ScanStep({
   const [detectedGame, setDetectedGame] = useState<DetectedGame | null>(null);
   const [detectionError, setDetectionError] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState(false);
+  const [quantityOverrideEnabled, setQuantityOverrideEnabled] = useState(false);
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
 
@@ -274,8 +275,38 @@ export function ScanStep({
 
         <Panel className="p-6">
           <h3 className="text-lg font-semibold">Ticket Quantity</h3>
-          <p className="mt-1 text-sm text-gray-500">Quantity is fixed by the selected ticket denomination.</p>
-          <p className="mt-4 rounded-lg bg-gray-50 p-4 text-lg font-semibold">{getSuggestedTicketQuantity(ticketPrice)} tickets per pack</p>
+          <p className="mt-1 text-sm text-gray-500">The suggested quantity is used by default. Enable override for store testing.</p>
+          <label className="mt-4 flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={quantityOverrideEnabled}
+              onChange={(event) => {
+                const enabled = event.target.checked;
+                setQuantityOverrideEnabled(enabled);
+                if (!enabled) {
+                  setScanDraft((prev) => ({
+                    ...prev,
+                    ticketQuantity: getSuggestedTicketQuantity(prev.ticketPrice),
+                  }));
+                }
+              }}
+              className="h-4 w-4"
+            />
+            Override default ticket quantity
+          </label>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={ticketQuantity}
+            readOnly={!quantityOverrideEnabled}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              setScanDraft((prev) => ({ ...prev, ticketQuantity: value }));
+            }}
+            className="mt-3 w-full rounded-lg border border-gray-300 px-4 py-3 text-lg font-semibold"
+          />
+          <p className="mt-2 text-xs text-gray-500">Suggested for ${ticketPrice}: {getSuggestedTicketQuantity(ticketPrice)} tickets</p>
         </Panel>
 
         {/* Add Pack */}

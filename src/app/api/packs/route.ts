@@ -93,7 +93,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizedTicketQuantity = getSuggestedTicketQuantity(normalizedTicketPrice);
+    // Preserve a valid manual quantity override; the suggested quantity is only
+    // the default supplied by the receiving UI.
+    const normalizedTicketQuantity = requestedTicketQuantity;
 
     // Prevent duplicate scans
     const existing = await prisma.pack.findUnique({
