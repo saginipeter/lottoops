@@ -346,7 +346,11 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
       });
   }, [canCreateOwner]);
 
-  useEffect(() => { if (!canCreateOwner || selectedStoreId) loadUsers(); }, [canCreateOwner, selectedStoreId, loadUsers]);
+  useEffect(() => {
+    if (!canCreateOwner && !selectedStoreId) return;
+    const timer = window.setTimeout(() => { void loadUsers(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [canCreateOwner, selectedStoreId, loadUsers]);
 
   async function toggleActive(user: StoreUser) {
     const res = await fetch(`/api/users/${user.id}`, {
@@ -421,7 +425,8 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
 
         {showAddForm && (
           <div className="mb-5 rounded-lg border border-border bg-surface-soft p-4">
-            <h4 className="text-sm font-semibold text-text mb-3">New Staff Member</h4>
+            <h4 className="text-sm font-semibold text-text mb-3">New User Account</h4>
+            {canCreateOwner && <p className="mb-3 text-xs text-text-secondary">You can create another Owner account for this store without changing the existing store ownership.</p>}
             <AddUserForm onCreated={handleCreated} onCancel={() => setShowAddForm(false)} canCreateOwner={canCreateOwner} storeId={selectedStoreId} />
           </div>
         )}

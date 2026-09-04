@@ -58,7 +58,14 @@ export async function GET() {
   try {
     await ensureSchema();
     const stores = await prisma.store.findMany({
-      where: session.role === "OWNER" ? { ownerUserId: session.userId } : { id: session.storeId },
+      where: session.role === "OWNER"
+        ? {
+            OR: [
+              { ownerUserId: session.userId },
+              { users: { some: { id: session.userId, role: "OWNER", active: true } } },
+            ],
+          }
+        : { id: session.storeId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });

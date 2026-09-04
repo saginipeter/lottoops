@@ -21,7 +21,12 @@ export async function GET() {
   if (session.role === "OWNER") {
     // Owner sees all stores they created
     const stores = await prisma.store.findMany({
-      where: { ownerUserId: session.userId },
+      where: {
+        OR: [
+          { ownerUserId: session.userId },
+          { users: { some: { id: session.userId, role: "OWNER", active: true } } },
+        ],
+      },
       include: {
         users: { select: { id: true, role: true, active: true } },
         _count: { select: { packs: true, shifts: true } },

@@ -32,7 +32,12 @@ export async function GET() {
 
   try {
     const stores = (await prisma.store.findMany({
-      where: { ownerUserId: session.userId },
+      where: {
+        OR: [
+          { ownerUserId: session.userId },
+          { users: { some: { id: session.userId, role: "OWNER", active: true } } },
+        ],
+      },
       include: { users: { select: { id: true, role: true, active: true } } },
       orderBy: { name: "asc" },
     })) as OwnerStore[];
