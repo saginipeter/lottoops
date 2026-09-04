@@ -52,12 +52,12 @@ export async function GET() {
 
     let compliance: Array<{ storeId: string; uploaded: number }> = [];
     try {
-      compliance = await prisma.$queryRawUnsafe<Array<{ storeId: string; uploaded: number }>>(`
+      compliance = await prisma.$queryRawUnsafe(`
         SELECT store_id AS "storeId", COUNT(*)::int AS uploaded
         FROM state_lottery_reports
         WHERE week_start = (CURRENT_DATE - ((EXTRACT(ISODOW FROM CURRENT_DATE)::int - 1) + 7))::date
         GROUP BY store_id
-      `);
+      `) as Array<{ storeId: string; uploaded: number }>;
     } catch {
       // The compliance table is created lazily by the report route in older deployments.
     }
@@ -66,7 +66,12 @@ export async function GET() {
     return NextResponse.json({
       metrics: { stores, users, owners, managers, packs, openShifts, subscriptions },
       recentUsers,
-      health: health.map((store) => ({
+      health: health.map((store: {
+        id: string;
+        name: string;
+        shifts: Array<{ openedAt: Date; openedBy: { name: string; email: string } }>;
+        packs: Array<{ id: string }>;
+      }) => ({
         id: store.id,
         name: store.name,
         reportCount: complianceByStore.get(store.id) ?? 0,
