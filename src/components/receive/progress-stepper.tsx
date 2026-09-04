@@ -16,7 +16,7 @@ const steps = [
   },
   {
     id: 2,
-    title: "Scan Packs",
+    title: "Scan Pack",
     description: "Scan pack barcodes",
   },
   {
