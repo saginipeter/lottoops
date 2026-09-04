@@ -156,7 +156,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
       const res = await fetch(`/api/games/texas-reference?gameNumber=${encodeURIComponent(form.gameNumber.trim())}`);
       const data = await res.json();
       if (!res.ok) { notify(data.error || "Texas lookup failed.", "err"); return; }
-      if (!data.found || !data.reference) { setLookupResult(null); notify("No Texas Lottery scratch game found for that game number.", "err"); return; }
+      if (!data.found || !data.reference) { setLookupResult(null); notify("No Lottery Scratch_off Management System game found for that game number.", "err"); return; }
       const reference = data.reference as TexasReference;
       setLookupResult(reference);
       setForm((prev) => ({
@@ -164,7 +164,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
         name: prev.name.trim() ? prev.name : reference.gameName,
         price: prev.price.trim() ? prev.price : String(reference.ticketPrice),
       }));
-      notify("Texas Lottery reference found. Review and save.");
+      notify("Lottery Scratch_off Management System reference found. Review and save.");
     } catch { notify("Texas lookup failed.", "err"); }
     finally { setLoading(false); }
   }
@@ -215,7 +215,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
     if (!canManage) return;
     try {
       setSyncing(true);
-      notify("Syncing Texas Lottery games — this may take 30–60 seconds…");
+      notify("Syncing Lottery Scratch_off Management System games — this may take 30–60 seconds…");
       const res = await fetch("/api/games/sync", { method: "POST", headers: { "Content-Type": "application/json" } });
       const data = await res.json();
       if (!res.ok) { notify(data.error || "Sync failed.", "err"); return; }
@@ -262,13 +262,13 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
             onClick={() => { setTab("catalog"); if (catalog.length === 0) refreshCatalog(); }}
             className={`rounded-md px-4 py-1.5 text-xs font-medium transition-colors ${tab === "catalog" ? "bg-accent text-white" : "text-text-secondary hover:text-text"}`}
           >
-            TX Lottery Catalog {catalogTotal > 0 ? `(${catalogTotal})` : ""}
+              Lottery Scratch_off Catalog {catalogTotal > 0 ? `(${catalogTotal})` : ""}
           </button>
         </div>
         <div className="flex gap-2">
           {canManage && (
             <Button onClick={syncTexasGames} disabled={syncing} variant="outline">
-              {syncing ? <><Loader2 size={13} className="animate-spin mr-1.5" />Syncing…</> : <><RefreshCw size={13} className="mr-1.5" />Sync Texas Lottery</>}
+              {syncing ? <><Loader2 size={13} className="animate-spin mr-1.5" />Syncing…</> : <><RefreshCw size={13} className="mr-1.5" />Sync Lottery Scratch_off</>}
             </Button>
           )}
         </div>
@@ -344,7 +344,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                 <div className="py-10 text-center">
                   <Database size={28} className="mx-auto mb-2 text-text-tertiary" />
                   <p className="text-sm text-text-secondary">No store games yet.</p>
-                  <p className="text-xs text-text-tertiary mt-1">Add manually below, or sync Texas Lottery and add from the catalog tab.</p>
+                  <p className="text-xs text-text-tertiary mt-1">Add manually below, or sync Lottery Scratch_off Management System games from the catalog tab.</p>
                 </div>
               )}
             </div>
@@ -352,7 +352,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
 
           <Panel className="p-4">
             <h3 className="text-base font-semibold text-text">{editingId ? "Edit Game" : "Add Game Manually"}</h3>
-            <p className="mt-1 text-xs text-text-secondary">Look up by game # to auto-fill from Texas Lottery.</p>
+            <p className="mt-1 text-xs text-text-secondary">Look up by game # to auto-fill from the Lottery Scratch_off Management System catalog.</p>
             <div className="mt-4 space-y-3">
               <Field label="Game Number">
                 <div className="flex gap-2">
@@ -388,7 +388,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
             </div>
             {lookupResult && (
               <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-                <div className="mb-1 flex items-center gap-1 font-semibold"><CheckCircle2 size={14} />Texas Lottery Reference Found</div>
+                <div className="mb-1 flex items-center gap-1 font-semibold"><CheckCircle2 size={14} />Lottery Scratch_off Management System Reference Found</div>
                 <p>Game #{lookupResult.gameNumber}</p>
                 <p>{lookupResult.gameName} — {formatCurrency(lookupResult.ticketPrice)}</p>
                 <p>Close date: {lookupResult.gameCloseDate ?? "Open / not listed"}</p>
@@ -406,14 +406,14 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
         <Panel className="p-4">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-semibold text-text">Texas Lottery Game Catalog</h3>
+              <h3 className="text-base font-semibold text-text">Lottery Scratch_off Management System Game Catalog</h3>
               {lastSyncedAt && (
                 <p className="text-xs text-text-tertiary mt-0.5">
                   Last synced {new Date(lastSyncedAt).toLocaleString()}
                 </p>
               )}
               {!lastSyncedAt && !catalogLoading && (
-                <p className="text-xs text-amber-600 mt-0.5">Not yet synced — click &quot;Sync Texas Lottery&quot; above to populate.</p>
+                <p className="text-xs text-amber-600 mt-0.5">Not yet synced — click &quot;Sync Lottery Scratch_off&quot; above to populate.</p>
               )}
             </div>
             <div className="flex gap-2">
@@ -449,7 +449,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
             <div className="py-12 text-center">
               <RefreshCw size={28} className="mx-auto mb-2 text-text-tertiary" />
               <p className="text-sm text-text-secondary">No catalog data found.</p>
-              <p className="text-xs text-text-tertiary mt-1">Click &quot;Sync Texas Lottery&quot; above to fetch the latest games.</p>
+              <p className="text-xs text-text-tertiary mt-1">Click &quot;Sync Lottery Scratch_off&quot; above to fetch the latest games.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">

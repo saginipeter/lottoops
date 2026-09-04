@@ -43,7 +43,7 @@ export default function LoginPage() {
             priority
           />
           <p className="mt-1.5 text-[10px] uppercase tracking-widest text-white/35">
-            Texas Lottery
+            Lottery Scratch_off Management System
           </p>
         </div>
 

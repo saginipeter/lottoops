@@ -67,7 +67,7 @@ const managementCards: ActionCard[] = [
   {
     href: "/games",
     title: "Games Catalog",
-    description: "Manage store games and Texas Lottery sync catalog from one workspace.",
+    description: "Manage store games and the Lottery Scratch_off Management System catalog from one workspace.",
     icon: Gamepad2,
   },
   {

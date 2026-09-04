@@ -195,7 +195,7 @@ export function ScanStep({
               {detecting && (
                 <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">
                   <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                  Detecting game from Texas Lottery catalog…
+                  Detecting game from the Lottery Scratch_off Management System catalog…
                 </div>
               )}
               {!detecting && detectedGame && (
@@ -205,7 +205,7 @@ export function ScanStep({
                       <p className="text-sm font-semibold text-emerald-800">
                         ✓ Game Detected
                         <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium ${detectedGame.source === "store" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
-                          {detectedGame.source === "store" ? "Store Catalog" : "TX Lottery Sync"}
+                          {detectedGame.source === "store" ? "Store Catalog" : "Lottery Scratch_off Sync"}
                         </span>
                       </p>
                       <p className="mt-1 text-sm text-emerald-700 font-medium">{detectedGame.name}</p>

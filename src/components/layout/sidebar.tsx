@@ -206,7 +206,7 @@ export function Sidebar({ user }: SidebarProps) {
             priority
           />
           <div className="text-[9px] uppercase tracking-wider text-white/35 mt-3 -ml-0.5">
-            Texas Lottery
+            Lottery Scratch_off Management System
           </div>
         </div>
         <div className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1.5">

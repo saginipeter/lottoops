@@ -48,7 +48,7 @@ export default async function GamesPage() {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Games"
-        subtitle="Manage game catalog and reference against Texas Lottery scratch game list"
+        subtitle="Manage the Lottery Scratch_off Management System game catalog"
       />
 
       <PageToolbar
