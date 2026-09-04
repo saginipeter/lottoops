@@ -27,6 +27,7 @@ export function StateReportsUploader() {
   const [uploading, setUploading] = useState<ReportType | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [canUpload, setCanUpload] = useState(false);
 
   async function load() {
     try {
@@ -38,6 +39,7 @@ export function StateReportsUploader() {
       setSelectedStoreId((current) => current || data.stores?.[0]?.id || "");
       setWeekStart(data.weekStart ?? "");
       setUploaded(data.reports ?? []);
+      setCanUpload(data.canUpload === true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to load reports.");
     } finally {
@@ -117,11 +119,13 @@ export function StateReportsUploader() {
                   <p className="mt-1 text-xs text-text-tertiary">{current ? `${current.imageUrl ? `Photo archived · ${current.verificationStatus ?? "OCR pending"}` : `${current.rowCount} rows`} · ${current.fileName}` : "Required this Monday"}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => downloadTemplate(report)}><Download size={13} /> Template</Button>
-                    <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:opacity-90">
-                      {uploading === report.type ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />}
-                      Snap / Upload Photo or CSV
-                      <input type="file" accept=".csv,text/csv,image/*" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
-                    </label>
+                    {canUpload ? (
+                      <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:opacity-90">
+                        {uploading === report.type ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />}
+                        Snap / Upload Photo or CSV
+                        <input type="file" accept=".csv,text/csv,image/*" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
+                      </label>
+                    ) : <span className="text-xs text-text-tertiary">Manager upload required</span>}
                   </div>
                   {current && <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-700"><CheckCircle2 size={13} /> Uploaded {new Date(current.uploadedAt).toLocaleString()}</p>}
                 </div>

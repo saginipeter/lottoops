@@ -55,12 +55,14 @@ export function InvoiceStep({
   }
 
   try {
+    const hasExistingShipment = Boolean(shipment.id);
     const response = await fetch("/api/shipments", {
-      method: "POST",
+      method: hasExistingShipment ? "PATCH" : "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        ...(hasExistingShipment ? { shipmentId: shipment.id } : {}),
         invoiceNumber: shipment.invoiceNumber,
         invoicePhoto: shipment.invoicePhoto,
         shipmentConfirmationNumber: shipment.shipmentConfirmationNumber,
@@ -80,8 +82,8 @@ export function InvoiceStep({
     setShipment((prev) => ({
       ...prev,
       id: data.id,
-      scannedPacks: data.scannedPacks,
-      status: data.status,
+      scannedPacks: data.scannedPacks ?? prev.scannedPacks,
+      status: data.status ?? prev.status,
     }));
 
     nextStep();

@@ -45,16 +45,20 @@ function isReportType(value: string): value is ReportType {
   return REPORT_TYPES.includes(value as ReportType);
 }
 
+function canViewReports(role: string) {
+  return role === "OWNER" || role === "MANAGER";
+}
+
 export async function GET() {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (session.role !== "OWNER") return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (!canViewReports(session.role)) return NextResponse.json({ error: "Manager access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   try {
     await ensureSchema();
     const stores = await prisma.store.findMany({
-      where: { ownerUserId: session.userId },
+      where: session.role === "OWNER" ? { ownerUserId: session.userId } : { id: session.storeId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
@@ -71,7 +75,7 @@ export async function GET() {
       storeIds,
       reportingMonday()
     );
-    return NextResponse.json({ stores, weekStart: reportingMonday(), reports });
+    return NextResponse.json({ stores, weekStart: reportingMonday(), reports, canUpload: session.role === "MANAGER" });
   } catch (error) {
     console.error("[GET /api/owner/state-reports]", error);
     return NextResponse.json({ error: "Unable to load state reports." }, { status: 500 });
@@ -81,7 +85,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (session.role !== "OWNER") return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (session.role !== "MANAGER") return NextResponse.json({ error: "Only managers can upload state reports." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const form = await req.formData();
@@ -101,7 +105,8 @@ export async function POST(req: NextRequest) {
   try {
     await ensureSchema();
     const store = await prisma.store.findFirst({ where: { id: storeId, ownerUserId: session.userId }, select: { id: true } });
-    if (!store) return NextResponse.json({ error: "Store not found in your portfolio." }, { status: 404 });
+    const managerStore = session.role === "MANAGER" && storeId === session.storeId;
+    if (!store && !managerStore) return NextResponse.json({ error: "Store is not available for this account." }, { status: 404 });
     const isPhoto = file.type.startsWith("image/");
     const content = isPhoto ? "" : await file.text();
     const rows = isPhoto ? 0 : content.split(/\r?\n/).filter((line) => line.trim()).length;

@@ -77,7 +77,9 @@ const DEFAULT_SCAN_DRAFT: ScanDraftState = {
 
 export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
   const router = useRouter();
-  const [step, setStep] = useState<WizardStep>(initialStep);
+  const [step, setStep] = useState<WizardStep>(
+    () => (initialStep === 1 ? readReceiveDraft()?.step ?? initialStep : initialStep)
+  );
   const [syncedInitialStep, setSyncedInitialStep] = useState(initialStep);
 
   // Keep step in sync with the route-driven initialStep prop without an effect.

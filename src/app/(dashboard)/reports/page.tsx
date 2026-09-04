@@ -7,6 +7,7 @@ import { FinancialReports } from "@/components/reports/financial-reports";
 import { InventoryStatusReport } from "@/components/reports/inventory-status-report";
 import { ActivityReport } from "@/components/reports/activity-report";
 import { DiscrepancyReport } from "@/components/reports/discrepancy-report";
+import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
 
 export default async function ReportsPage() {
   const session = await getSession();
@@ -31,6 +32,7 @@ export default async function ReportsPage() {
           <ActivityReport />
           <DiscrepancyReport />
           <InventoryStatusReport />
+          {session.role === "MANAGER" && <StateReportsUploader />}
         </div>
       </div>
 
