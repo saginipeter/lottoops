@@ -124,10 +124,9 @@ export async function POST(req: NextRequest) {
       // Try to get name/price from TX Lottery catalog
       let catalogName = `Game ${gameNumber}`;
       let catalogPrice = ticketPrice;
-      let catalogQty = normalizedTicketQuantity;
+      const catalogQty = normalizedTicketQuantity;
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rows = (await prisma.$queryRawUnsafe(
           `SELECT name, ticket_price FROM game_catalog
            WHERE store_id = $1 AND game_number = $2 LIMIT 1`,
@@ -231,7 +230,10 @@ export async function PATCH(req: NextRequest) {
 
     const normalizedFirstTicket = Number(firstTicket);
     const normalizedTicketPrice = Number(ticketPrice);
-    const normalizedTicketQuantity = getSuggestedTicketQuantity(normalizedTicketPrice);
+    const requestedTicketQuantity = Number(ticketQuantity);
+    const normalizedTicketQuantity = Number.isInteger(requestedTicketQuantity) && requestedTicketQuantity > 0
+      ? requestedTicketQuantity
+      : getSuggestedTicketQuantity(normalizedTicketPrice);
 
     if (!Number.isInteger(normalizedFirstTicket) || normalizedFirstTicket < 0) {
       return NextResponse.json(
