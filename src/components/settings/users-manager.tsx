@@ -325,9 +325,11 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
     try {
       const query = canCreateOwner && selectedStoreId ? `?storeId=${encodeURIComponent(selectedStoreId)}` : "";
-      const res = await fetch(`/api/users${query}`, { cache: "no-store" });
+      const res = await fetch(`/api/users${query}`, { cache: "no-store", signal: controller.signal });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "Unable to load staff members.");
@@ -335,8 +337,9 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
       }
       setUsers(data.users ?? []);
     } catch {
-      setError("Unable to reach the staff service.");
+      setError("Unable to load staff members. Please try again.");
     } finally {
+      window.clearTimeout(timeout);
       setLoading(false);
     }
   }, [canCreateOwner, selectedStoreId]);
@@ -353,7 +356,7 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
   }, [canCreateOwner]);
 
   useEffect(() => {
-    if (!canCreateOwner && !selectedStoreId) return;
+    if (canCreateOwner && !selectedStoreId) return;
     const timer = window.setTimeout(() => { void loadUsers(); }, 0);
     return () => window.clearTimeout(timer);
   }, [canCreateOwner, selectedStoreId, loadUsers]);
