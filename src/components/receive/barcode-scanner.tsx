@@ -69,7 +69,7 @@ export function BarcodeScanner({
         value={barcode}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        placeholder="26320029470"
+        placeholder="Scan Pack"
 
         className="
           w-full
