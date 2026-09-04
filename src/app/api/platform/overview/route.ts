@@ -31,9 +31,51 @@ export async function GET() {
       }),
     ]);
 
+    const health = await prisma.store.findMany({
+      where: { ownerUserId: { not: null } },
+      select: {
+        id: true,
+        name: true,
+        shifts: {
+          where: { status: "OPEN" },
+          select: { openedAt: true, openedBy: { select: { name: true, email: true } } },
+          orderBy: { openedAt: "asc" },
+          take: 1,
+        },
+        packs: {
+          where: { sequenceLocked: true },
+          select: { id: true },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    let compliance: Array<{ storeId: string; uploaded: number }> = [];
+    try {
+      compliance = await prisma.$queryRawUnsafe<Array<{ storeId: string; uploaded: number }>>(`
+        SELECT store_id AS "storeId", COUNT(*)::int AS uploaded
+        FROM state_lottery_reports
+        WHERE week_start = (CURRENT_DATE - ((EXTRACT(ISODOW FROM CURRENT_DATE)::int - 1) + 7))::date
+        GROUP BY store_id
+      `);
+    } catch {
+      // The compliance table is created lazily by the report route in older deployments.
+    }
+    const complianceByStore = new Map(compliance.map((item) => [item.storeId, item.uploaded]));
+
     return NextResponse.json({
       metrics: { stores, users, owners, managers, packs, openShifts, subscriptions },
       recentUsers,
+      health: health.map((store) => ({
+        id: store.id,
+        name: store.name,
+        reportCount: complianceByStore.get(store.id) ?? 0,
+        openShift: store.shifts[0] ? {
+          openedAt: store.shifts[0].openedAt,
+          employee: store.shifts[0].openedBy,
+        } : null,
+        discrepancyCount: store.packs.length,
+      })),
     });
   } catch (error) {
     console.error("[GET /api/platform/overview]", error);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, Building2, CheckCircle2, Loader2, Plus, Users } from "lucide-react";
+import { Activity, Building2, CheckCircle2, Clock3, Loader2, Plus, Users } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 
@@ -25,9 +25,18 @@ interface RecentUser {
   store: { name: string };
 }
 
+interface StoreHealth {
+  id: string;
+  name: string;
+  reportCount: number;
+  discrepancyCount: number;
+  openShift: { openedAt: string; employee: { name: string; email: string } } | null;
+}
+
 export function PlatformControlCenter() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
+  const [health, setHealth] = useState<StoreHealth[]>([]);
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,6 +55,7 @@ export function PlatformControlCenter() {
       if (!response.ok) throw new Error(data.error || "Unable to load platform data.");
       setMetrics(data.metrics);
       setRecentUsers(data.recentUsers ?? []);
+      setHealth(data.health ?? []);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to load platform data.");
     } finally {
@@ -124,6 +134,11 @@ export function PlatformControlCenter() {
       <Panel className="p-5">
         <div className="mb-3 flex items-center gap-2"><Activity size={17} className="text-accent" /><h3 className="text-base font-semibold text-text">Recently created accounts</h3></div>
         {recentUsers.length === 0 ? <p className="text-sm text-text-secondary">No customer accounts yet.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary"><th className="py-2 pr-3">Owner</th><th className="py-2 pr-3">Email</th><th className="py-2 pr-3">Store</th><th className="py-2 pr-3">Role</th><th className="py-2">Created</th></tr></thead><tbody>{recentUsers.map((user) => <tr key={user.id} className="border-b border-border last:border-0"><td className="py-2.5 pr-3 font-medium text-text">{user.name}</td><td className="py-2.5 pr-3 text-text-secondary">{user.email}</td><td className="py-2.5 pr-3 text-text-secondary">{user.store.name}</td><td className="py-2.5 pr-3 text-text-secondary">{user.role}</td><td className="py-2.5 text-text-secondary">{new Date(user.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table></div>}
+      </Panel>
+
+      <Panel className="p-5">
+        <div className="mb-3 flex items-center gap-2"><Activity size={17} className="text-accent" /><h3 className="text-base font-semibold text-text">Store health and compliance</h3></div>
+        {health.length === 0 ? <p className="text-sm text-text-secondary">No customer store health data is available.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[700px] text-sm"><thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary"><th className="py-2 pr-3">Store</th><th className="py-2 pr-3">Monday reports</th><th className="py-2 pr-3">Open shift</th><th className="py-2">Discrepancies</th></tr></thead><tbody>{health.map((store) => <tr key={store.id} className="border-b border-border last:border-0"><td className="py-2.5 pr-3 font-medium text-text">{store.name}</td><td className="py-2.5 pr-3"><span className={store.reportCount === 3 ? "text-emerald-700" : "text-amber-700"}>{store.reportCount} / 3</span></td><td className="py-2.5 pr-3 text-text-secondary">{store.openShift ? <span className="inline-flex items-center gap-1"><Clock3 size={13} /> {store.openShift.employee.name} · {new Date(store.openShift.openedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span> : "Closed"}</td><td className={store.discrepancyCount > 0 ? "py-2.5 font-semibold text-red-700" : "py-2.5 text-emerald-700"}>{store.discrepancyCount}</td></tr>)}</tbody></table></div>}
       </Panel>
     </div>
   );

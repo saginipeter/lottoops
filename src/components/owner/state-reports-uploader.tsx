@@ -31,7 +31,6 @@ export function StateReportsUploader() {
 
   async function load() {
     try {
-      setLoading(true);
       const response = await fetch("/api/owner/state-reports", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load reports.");
@@ -47,7 +46,10 @@ export function StateReportsUploader() {
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const selectedReports = useMemo(
     () => uploaded.filter((report) => report.storeId === selectedStoreId),
