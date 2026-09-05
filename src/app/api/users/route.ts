@@ -121,6 +121,11 @@ export async function POST(req: NextRequest) {
   const normalizedEmail = String(email).toLowerCase().trim();
   const normalizedEmployeeUserId = employeeUserId ? String(employeeUserId).trim() : "";
 
+  const passwordUsers = await prisma.user.findMany({ select: { passwordHash: true } });
+  if (await Promise.all(passwordUsers.map((user: { passwordHash: string }) => bcrypt.compare(password, user.passwordHash))).then((matches) => matches.some(Boolean))) {
+    return NextResponse.json({ error: "Choose a unique password for this account." }, { status: 409 });
+  }
+
   // Check email not already taken
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
   if (existing) {

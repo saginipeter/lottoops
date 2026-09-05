@@ -63,6 +63,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const audit = await prisma.inventoryAudit.findUnique({
+      where: { shiftId: shift.id },
+      select: { id: true, status: true },
+    });
+    if (!audit || audit.status !== "COMPLETED") {
+      return NextResponse.json(
+        { error: "Complete the beginning and ending physical audit before closing this shift." },
+        { status: 409 }
+      );
+    }
+
     let totalSales = 0;
     let totalTickets = 0;
     const txOps: any[] = [];

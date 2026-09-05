@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScanLine, Keyboard } from "lucide-react";
 
 interface BarcodeScannerProps {
@@ -8,11 +8,84 @@ interface BarcodeScannerProps {
   onChange: (value: string) => void;
 }
 
+interface BarcodeDetectorLike {
+  detect(source: HTMLVideoElement): Promise<Array<{ rawValue?: string }>>;
+}
+
+interface BarcodeDetectorConstructorLike {
+  new (options?: { formats?: string[] }): BarcodeDetectorLike;
+}
+
+declare global {
+  interface Window {
+    BarcodeDetector?: BarcodeDetectorConstructorLike;
+  }
+}
+
 export function BarcodeScanner({
   barcode,
   onChange,
 }: BarcodeScannerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraMessage, setCameraMessage] = useState("");
+
+  useEffect(() => () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
+  useEffect(() => {
+    if (cameraOpen && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraOpen]);
+
+  async function toggleCamera() {
+    if (cameraOpen) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setCameraOpen(false);
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraMessage("Camera access is not available in this browser.");
+      return;
+    }
+    if (!window.BarcodeDetector) {
+      setCameraMessage("Camera barcode scanning is not supported on this phone. Use manual entry or a USB scanner.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      streamRef.current = stream;
+      setCameraMessage("");
+      setCameraOpen(true);
+      const detector = new window.BarcodeDetector({ formats: ["code_128", "ean_13", "ean_8", "upc_a", "upc_e"] });
+      const scanFrame = async () => {
+        const video = videoRef.current;
+        if (!video || !streamRef.current) return;
+        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          const detected = await detector.detect(video).catch(() => []);
+          const value = detected[0]?.rawValue?.trim();
+          if (value) {
+            onChange(value);
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+            setCameraOpen(false);
+            inputRef.current?.focus();
+            return;
+          }
+        }
+        window.setTimeout(() => { void scanFrame(); }, 250);
+      };
+      window.setTimeout(() => { void scanFrame(); }, 250);
+    } catch {
+      setCameraMessage("Camera permission was denied or unavailable.");
+    }
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     onChange(e.target.value);
@@ -89,6 +162,16 @@ export function BarcodeScanner({
           focus:ring-purple-100
         "
       />
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => { void toggleCamera(); }} className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-surface-soft">
+          {cameraOpen ? "Close Camera" : "Use Phone Camera"}
+        </button>
+        {cameraMessage && <span className="text-xs text-amber-700">{cameraMessage}</span>}
+      </div>
+      {cameraOpen && (
+        <video ref={videoRef} autoPlay playsInline muted className="mt-3 h-52 w-full rounded-lg bg-black object-cover" />
+      )}
 
       <div className="mt-5 grid grid-cols-2 gap-4">
 

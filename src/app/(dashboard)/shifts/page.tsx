@@ -81,6 +81,19 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       })
     : null;
 
+  const recentClosedShift = openShift
+    ? null
+    : await prisma.shift.findFirst({
+        where: { storeId: session.storeId, status: "CLOSED", closedAt: { not: null } },
+        orderBy: { closedAt: "desc" },
+        select: {
+          openedAt: true,
+          closedAt: true,
+          openedBy: { select: { name: true } },
+          closedBy: { select: { name: true } },
+        },
+      });
+
   let inventoryAudit = null;
   if (openShift) {
     try {
@@ -208,6 +221,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         <ShiftDashboard
           shift={shiftData}
+          recentClosedShift={recentClosedShift ? JSON.parse(JSON.stringify(recentClosedShift)) : null}
           shiftEvents={eventData}
           terminalId={terminalId}
         />

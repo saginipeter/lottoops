@@ -12,6 +12,7 @@ import PhysicalAuditPanel from "@/components/inventory/physical-audit-panel";
 
 interface ShiftDashboardProps {
   shift: any | null;
+  recentClosedShift?: any | null;
   terminalId: string;
   shiftEvents: Array<{
     id: string;
@@ -24,6 +25,7 @@ interface ShiftDashboardProps {
 
 export default function ShiftDashboard({
   shift,
+  recentClosedShift,
   terminalId,
   shiftEvents,
 }: ShiftDashboardProps) {
@@ -77,6 +79,18 @@ export default function ShiftDashboard({
             </Button>
           </div>
         </Panel>
+
+        {recentClosedShift && (
+          <Panel className="p-5">
+            <h3 className="text-base font-semibold text-text">Last completed shift</h3>
+            <p className="mt-2 text-sm text-text-secondary">
+              Started {new Date(recentClosedShift.openedAt).toLocaleString()} by {recentClosedShift.openedBy?.name ?? "Unknown"}
+            </p>
+            <p className="mt-1 text-sm text-text-secondary">
+              Ended {new Date(recentClosedShift.closedAt).toLocaleString()} by {recentClosedShift.closedBy?.name ?? "Unknown"}
+            </p>
+          </Panel>
+        )}
 
         <Panel className="p-6">
           <div className="mb-4 flex flex-wrap items-center gap-2">

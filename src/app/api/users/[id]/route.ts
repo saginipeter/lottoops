@@ -80,6 +80,16 @@ export async function PATCH(
     if (String(password).length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
     }
+    const passwordUsers = await prisma.user.findMany({
+      where: { id: { not: id } },
+      select: { passwordHash: true },
+    });
+    const reusedPassword = await Promise.all(
+      passwordUsers.map((user: { passwordHash: string }) => bcrypt.compare(String(password), user.passwordHash))
+    ).then((matches) => matches.some(Boolean));
+    if (reusedPassword) {
+      return NextResponse.json({ error: "Choose a unique password for this account." }, { status: 409 });
+    }
     updateData.passwordHash = await bcrypt.hash(String(password), 12);
   }
 

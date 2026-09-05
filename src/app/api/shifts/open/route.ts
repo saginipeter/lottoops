@@ -162,6 +162,23 @@ export async function POST(req: NextRequest) {
 
     await prisma.$transaction(txOps);
 
+    // Every shift starts with a physical audit snapshot. Employees must scan
+    // the beginning state before the shift can be used for reconciliation.
+    await prisma.inventoryAudit.create({
+      data: {
+        storeId: session.storeId,
+        shiftId: shift.id,
+        begunById: session.userId,
+        lines: {
+          create: activePacks.map((pack: any) => ({
+            packId: pack.id,
+            slotNumber: pack.slot!.slotNumber,
+            expectedTicket: resolveSellableTicket(pack)!,
+          })),
+        },
+      },
+    });
+
     return NextResponse.json({
       success: true,
       shiftId: shift.id,

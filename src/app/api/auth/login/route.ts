@@ -11,7 +11,11 @@ import { findMockUser } from "@/lib/mock-users";
 // fires and behavior is identical to a normal online login.
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
+    }
+    const { email, password } = body as { email?: unknown; password?: unknown };
 
     if (!email || !password) {
       return NextResponse.json(

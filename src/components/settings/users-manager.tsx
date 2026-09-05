@@ -123,15 +123,15 @@ function AddUserForm({ onCreated, onCancel, canCreateOwner, storeId }: AddUserFo
         </div>
         <div>
           <label className="block text-xs font-medium text-text-secondary mb-1">Temporary Password</label>
-          <input
-            type="password"
-            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
-            placeholder="Min. 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-          />
+            <input
+              type="password"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+              placeholder="Unique password, min. 8 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+            />
         </div>
         <div>
           <label className="block text-xs font-medium text-text-secondary mb-1">Role</label>
