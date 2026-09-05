@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
     const { email, password } = body as { email?: unknown; password?: unknown };
 
-    if (!email || !password) {
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400 }
