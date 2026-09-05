@@ -11,13 +11,13 @@ export function PageToolbar({ left, center, right, className }: PageToolbarProps
   return (
     <div
       className={cn(
-        "grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-border bg-surface px-5",
+        "grid min-h-12 shrink-0 grid-cols-1 items-center gap-2 border-b border-border bg-surface px-3 py-2 sm:h-12 sm:grid-cols-[1fr_auto_1fr] sm:gap-3 sm:px-5 sm:py-0",
         className
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">{left}</div>
-      <div className="flex items-center justify-center text-xs text-text-tertiary">{center}</div>
-      <div className="flex items-center justify-end gap-2">{right}</div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">{left}</div>
+      <div className="flex min-w-0 flex-wrap items-center justify-start text-xs text-text-tertiary sm:justify-center">{center}</div>
+      <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">{right}</div>
     </div>
   );
 }

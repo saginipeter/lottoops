@@ -173,7 +173,7 @@ export function BarcodeScanner({
         <video ref={videoRef} autoPlay playsInline muted className="mt-3 h-52 w-full rounded-lg bg-black object-cover" />
       )}
 
-      <div className="mt-5 grid grid-cols-2 gap-4">
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
 
         <div className="rounded-lg bg-gray-50 p-4">
 

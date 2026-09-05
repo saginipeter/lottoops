@@ -114,7 +114,7 @@ export function ReviewStep({
             {/* Step 1-2: Invoice Info */}
             <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
               <h4 className="text-sm font-semibold text-blue-900 mb-3">Invoice Information</h4>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Info label="Invoice #" value={shipment.invoiceNumber ?? ""} />
                 <Info label="Status" value={shipment.status ?? ""} />
               </div>
@@ -128,7 +128,7 @@ export function ReviewStep({
             {/* Step 3-4: Confirmation Info */}
             <div className="rounded-lg bg-green-50 p-4 border border-green-200">
               <h4 className="text-sm font-semibold text-green-900 mb-3">Shipment Confirmation</h4>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Info label="Confirmation #" value={shipment.shipmentConfirmationNumber ?? ""} />
               </div>
               {shipment.confirmationReceiptPhoto && (
@@ -145,7 +145,7 @@ export function ReviewStep({
               <Info label="Remaining" value={remaining.toString()} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Info
                 label="Expected Invoice Value"
                 value={`$${expectedRetailValue.toFixed(2)}`}

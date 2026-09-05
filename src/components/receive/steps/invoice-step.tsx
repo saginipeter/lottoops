@@ -192,7 +192,7 @@ export function InvoiceStep({
           </div>
 
           {/* Bottom Grid */}
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           
 
             {/* Shipment Date */}

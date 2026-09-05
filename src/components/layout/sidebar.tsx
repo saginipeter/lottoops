@@ -163,14 +163,14 @@ function NavRow({ item, isActive }: { item: NavItem; isActive: boolean }) {
     <Link
       href={item.href}
       className={clsx(
-        "flex items-center gap-2.5 rounded-md px-2.5 py-[7px] text-xs transition-colors mb-px",
+        "flex items-center justify-center gap-2.5 rounded-md px-2.5 py-[7px] text-xs transition-colors mb-px sm:justify-start",
         isActive
           ? "bg-accent text-white"
           : "text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-strong"
       )}
     >
       <Icon size={15} strokeWidth={2} />
-      {item.label}
+      <span className="hidden sm:inline">{item.label}</span>
       {item.badge && (
         <span className="ml-auto rounded-full bg-white/15 px-[5px] py-[1px] text-[9px] text-white/70">
           {item.badge}
@@ -193,9 +193,9 @@ export function Sidebar({ user }: SidebarProps) {
     !permission || isManager || user.grantedPermissions.includes(permission);
 
   return (
-    <aside className="flex h-full w-[200px] flex-col bg-sidebar">
+    <aside className="flex h-full w-16 shrink-0 flex-col bg-sidebar sm:w-[200px]">
       {/* Logo + Store Name */}
-      <div className="border-b border-sidebar-border px-4 py-3">
+      <div className="border-b border-sidebar-border px-2 py-3 sm:px-4">
         <div className="flex items-center gap-2 mb-2">
           <Image
             src="/brand/lottoops-logo.png"
@@ -205,13 +205,13 @@ export function Sidebar({ user }: SidebarProps) {
             className="h-7 w-auto"
             priority
           />
-          <div className="text-[9px] uppercase tracking-wider text-white/35 mt-3 -ml-0.5">
+          <div className="hidden text-[9px] uppercase tracking-wider text-white/35 sm:mt-3 sm:-ml-0.5 sm:block">
             Lottery Scratch_off Management System
           </div>
         </div>
         <div className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1.5">
           <Building2 size={11} className="shrink-0 text-accent/70" />
-          <span className="truncate text-[11px] font-medium text-white/75">{user.storeName}</span>
+          <span className="hidden truncate text-[11px] font-medium text-white/75 sm:block">{user.storeName}</span>
         </div>
       </div>
 
@@ -227,7 +227,7 @@ export function Sidebar({ user }: SidebarProps) {
 
           return (
             <div key={section.label}>
-              <div className="px-2 pb-1 pt-3 text-[9px] uppercase tracking-widest text-white/30">
+              <div className="hidden px-2 pb-1 pt-3 text-[9px] uppercase tracking-widest text-white/30 sm:block">
                 {section.label}
               </div>
            
@@ -258,7 +258,7 @@ export function Sidebar({ user }: SidebarProps) {
           <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white">
             {user.initials}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="hidden min-w-0 flex-1 sm:block">
             <p className="truncate text-[11px] font-medium text-white/85">
               {user.name}
             </p>

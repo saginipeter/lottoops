@@ -113,7 +113,7 @@ export function ConfirmStep({
             All scanned packs have been received {destination === "active" ? "and moved to Active display" : "and moved to Back Stock"}.
           </p>
 
-          <div className="mt-10 grid grid-cols-2 gap-5 md:grid-cols-4">
+          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-4">
 
             <SummaryCard
               icon={<FileText size={22} />}
@@ -188,7 +188,7 @@ export function ConfirmStep({
             Shipment Details
           </h3>
 
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
 
             <Info
               label="Invoice"
