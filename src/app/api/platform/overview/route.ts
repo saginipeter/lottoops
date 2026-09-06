@@ -63,6 +63,22 @@ export async function GET() {
     }
     const complianceByStore = new Map(compliance.map((item) => [item.storeId, item.uploaded]));
 
+    let ocrHealth = { total: 0, complete: 0, pending: 0, failed: 0, empty: 0, photoBytes: 0 };
+    try {
+      const rows = await prisma.$queryRawUnsafe(`
+        SELECT COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE verification_status = 'OCR_COMPLETE')::int AS complete,
+          COUNT(*) FILTER (WHERE verification_status IN ('PENDING', 'OCR_PENDING'))::int AS pending,
+          COUNT(*) FILTER (WHERE verification_status = 'OCR_FAILED')::int AS failed,
+          COUNT(*) FILTER (WHERE verification_status = 'OCR_EMPTY')::int AS empty,
+          COALESCE(SUM(LENGTH(COALESCE(ocr_text, ''))), 0)::bigint AS "photoBytes"
+        FROM state_lottery_reports
+      `) as Array<{ total: number; complete: number; pending: number; failed: number; empty: number; photoBytes: bigint | number }>;
+      if (rows[0]) ocrHealth = { ...rows[0], photoBytes: Number(rows[0].photoBytes) };
+    } catch {
+      // Older deployments may not have created the report table yet.
+    }
+
     return NextResponse.json({
       metrics: { stores, users, owners, managers, packs, openShifts, subscriptions },
       recentUsers,
@@ -81,6 +97,7 @@ export async function GET() {
         } : null,
         discrepancyCount: store.packs.length,
       })),
+      ocrHealth,
     });
   } catch (error) {
     console.error("[GET /api/platform/overview]", error);
