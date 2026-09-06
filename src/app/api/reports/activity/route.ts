@@ -16,5 +16,10 @@ export async function GET(req: NextRequest) {
     limit: 1000,
   });
 
-  return NextResponse.json({ logs });
+  return NextResponse.json({
+    logs: logs.map((log: { id: bigint | number | string; [key: string]: unknown }) => ({
+      ...log,
+      id: typeof log.id === "bigint" ? log.id.toString() : log.id,
+    })),
+  });
 }

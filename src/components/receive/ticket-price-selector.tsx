@@ -34,9 +34,9 @@ export function TicketPriceSelector({
       (item) => item.price === selectedPrice
     );
 
-    if (preset) {
-      setQuantity(preset.quantity);
-    }
+    if (!preset) return;
+    const timer = window.setTimeout(() => setQuantity(preset.quantity), 0);
+    return () => window.clearTimeout(timer);
   }, [selectedPrice, overrideEnabled]);
 
   return (
@@ -52,7 +52,7 @@ export function TicketPriceSelector({
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
 
         {PRICE_PRESETS.map((item) => {
 

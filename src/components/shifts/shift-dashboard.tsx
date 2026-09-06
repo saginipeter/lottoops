@@ -23,6 +23,10 @@ interface ShiftDashboardProps {
   }>;
 }
 
+function formatTimestamp(value: string | Date) {
+  return new Date(value).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+}
+
 export default function ShiftDashboard({
   shift,
   recentClosedShift,
@@ -84,10 +88,10 @@ export default function ShiftDashboard({
           <Panel className="p-5">
             <h3 className="text-base font-semibold text-text">Last completed shift</h3>
             <p className="mt-2 text-sm text-text-secondary">
-              Started {new Date(recentClosedShift.openedAt).toLocaleString()} by {recentClosedShift.openedBy?.name ?? "Unknown"}
+              Started {formatTimestamp(recentClosedShift.openedAt)} by {recentClosedShift.openedBy?.name ?? "Unknown"}
             </p>
             <p className="mt-1 text-sm text-text-secondary">
-              Ended {new Date(recentClosedShift.closedAt).toLocaleString()} by {recentClosedShift.closedBy?.name ?? "Unknown"}
+              Ended {formatTimestamp(recentClosedShift.closedAt)} by {recentClosedShift.closedBy?.name ?? "Unknown"}
             </p>
           </Panel>
         )}
@@ -179,7 +183,7 @@ export default function ShiftDashboard({
             <h2 className="text-xl font-semibold">Shift In Progress</h2>
             <p className="text-sm text-gray-500">Ending tickets update automatically from live ticket movement.</p>
             <p className="mt-1 text-xs text-gray-500">
-              Terminal {terminalId} · Opened {new Date(shift.openedAt).toLocaleString()} by {shift.openedBy?.name ?? "Unknown"}
+              Terminal {terminalId} · Opened {formatTimestamp(shift.openedAt)} by {shift.openedBy?.name ?? "Unknown"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -235,7 +239,7 @@ export default function ShiftDashboard({
                     {event.action.replaceAll("_", " ")}
                   </p>
                   <p className="text-xs text-text-tertiary">
-                    {new Date(event.timestamp).toLocaleString()}
+                    {formatTimestamp(event.timestamp)}
                   </p>
                 </div>
                 <p className="mt-1 text-sm text-text">{event.detail}</p>

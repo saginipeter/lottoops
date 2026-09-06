@@ -192,8 +192,17 @@ export function Sidebar({ user }: SidebarProps) {
   const hasPermission = (permission?: string) =>
     !permission || isManager || user.grantedPermissions.includes(permission);
 
+  const mobileItems = [
+    navTop,
+    navSections[0].items[0],
+    navSections[0].items[1],
+    navSections[1].items[0],
+    navSections[2].items[1],
+  ].filter((item) => hasPermission(item.permission));
+
   return (
-    <aside className="flex h-full w-16 shrink-0 flex-col bg-sidebar sm:w-[200px]">
+    <>
+    <aside className="hidden h-full w-[200px] shrink-0 flex-col bg-sidebar sm:flex">
       {/* Logo + Store Name */}
       <div className="border-b border-sidebar-border px-2 py-3 sm:px-4">
         <div className="flex items-center gap-2 mb-2">
@@ -271,5 +280,20 @@ export function Sidebar({ user }: SidebarProps) {
         <LogoutButton />
       </div>
     </aside>
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-sidebar px-1 pb-[env(safe-area-inset-bottom)] pt-1 sm:hidden">
+      {mobileItems.map((item) => {
+        const isActive = item.href === "/"
+          ? pathname === "/"
+          : pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const Icon = item.icon;
+        return (
+          <Link key={item.label} href={item.href} className={clsx("flex min-w-0 flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px]", isActive ? "bg-accent text-white" : "text-sidebar-text")}>
+            <Icon size={17} />
+            <span className="max-w-full truncate">{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+    </>
   );
 }
