@@ -7,6 +7,7 @@ import {
   getEmployeeIdsForUsers,
   setEmployeeUserId,
 } from "@/lib/user-profiles";
+import { revokeUserSessions } from "@/lib/session-revocation";
 
 // PATCH /api/users/[id] — update name, role, active, or reset password
 export async function PATCH(
@@ -141,6 +142,10 @@ export async function PATCH(
           grantedPermissions: true,
         },
       });
+
+  if (password !== undefined) {
+    await revokeUserSessions(id);
+  }
 
   if (employeeUserId !== undefined) {
     await setEmployeeUserId(id, String(employeeUserId));

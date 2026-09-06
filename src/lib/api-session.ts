@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { verifySession, SESSION_COOKIE, SessionPayload } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { isSessionRevoked } from "@/lib/session-revocation";
 
 /**
  * Reads and verifies the session cookie inside an API route. Returns null
@@ -16,6 +17,7 @@ export async function getApiSession(): Promise<SessionPayload | null> {
   if (!token) return null;
   const session = await verifySession(token);
   if (!session) return null;
+  if (await isSessionRevoked(session)) return null;
   if (!prisma) return process.env.NODE_ENV === "development" && process.env.ALLOW_OFFLINE_AUTH === "true" ? session : null;
 
   try {
