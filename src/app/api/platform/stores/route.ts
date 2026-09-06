@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 
+interface PlatformStore { id: string; name: string; ownerUserId: string | null; users: Array<{ name: string; email: string }> }
+
 let schemaReady = false;
 async function ensureSchema() {
   if (schemaReady || !prisma) return;
@@ -25,7 +27,7 @@ export async function GET() {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
   try {
     await ensureSchema();
-    const stores = await prisma.store.findMany({ where: { ownerUserId: { not: null } }, select: { id: true, name: true, ownerUserId: true, users: { where: { role: "OWNER" }, select: { name: true, email: true }, take: 1 } }, orderBy: { name: "asc" } });
+    const stores = await prisma.store.findMany({ where: { ownerUserId: { not: null } }, select: { id: true, name: true, ownerUserId: true, users: { where: { role: "OWNER" }, select: { name: true, email: true }, take: 1 } }, orderBy: { name: "asc" } }) as PlatformStore[];
     const controls = await prisma.$queryRawUnsafe(`SELECT store_id AS "storeId", suspended, reason, updated_at AS "updatedAt" FROM store_access_controls`) as Array<{ storeId: string; suspended: boolean; reason: string | null; updatedAt: Date }>;
     const controlMap = new Map(controls.map((control) => [control.storeId, control]));
     return NextResponse.json({ stores: stores.map((store) => ({ ...store, owner: store.users[0] ?? null, access: controlMap.get(store.id) ?? { suspended: false, reason: null, updatedAt: null } })) });
