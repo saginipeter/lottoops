@@ -268,6 +268,27 @@ export function FinancialReports() {
                 data.dailyTotals.length === 0 ? (
                   <p className="py-8 text-center text-sm text-text-secondary">No data in this date range.</p>
                 ) : (
+                  <>
+                  <div className="mb-5 rounded-lg border border-border bg-surface-soft p-3 sm:p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-text">Sales trend</p>
+                      <p className="text-xs text-text-tertiary">Daily gross sales</p>
+                    </div>
+                    <div className="flex h-36 items-end gap-1 overflow-x-auto sm:gap-2">
+                      {[...data.dailyTotals].slice(-30).map((day) => {
+                        const maxSales = Math.max(...data.dailyTotals.map((item) => item.grossSales), 1);
+                        const height = Math.max((day.grossSales / maxSales) * 100, day.grossSales > 0 ? 4 : 0);
+                        return (
+                          <div key={day.date} className="group flex h-full min-w-5 flex-1 flex-col justify-end gap-1 sm:min-w-7">
+                            <div className="relative flex h-full items-end">
+                              <div className="w-full rounded-t bg-accent transition-opacity group-hover:opacity-75" style={{ height: `${height}%` }} title={`${fmtDay(day.date)}: ${fmt(day.grossSales)}`} />
+                            </div>
+                            <span className="truncate text-center text-[9px] text-text-tertiary">{day.date.slice(5)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
@@ -301,6 +322,7 @@ export function FinancialReports() {
                       </tr>
                     </tfoot>
                   </table>
+                  </>
                 )
               )}
 
