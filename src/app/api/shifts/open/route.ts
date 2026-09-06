@@ -73,7 +73,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Prevent duplicate shifts per terminal
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existingRows = (await prisma.$queryRawUnsafe(
       `
       SELECT id
