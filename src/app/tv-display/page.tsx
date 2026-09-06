@@ -51,7 +51,19 @@ export default async function TvDisplayKioskPage({
     orderBy: { slotNumber: "asc" },
   });
 
-  const activeSlots = slots
+  const typedSlots = slots as Array<{
+    id: string;
+    slotNumber: string;
+    pack: {
+      status: string;
+      ticketQuantity: number | null;
+      firstTicket: number | null;
+      currentTicketNumber: number | null;
+      packImage: string | null;
+      game: { name: string; gameNumber: string; price: unknown };
+    } | null;
+  }>;
+  const activeSlots = typedSlots
     .filter((slot) => slot.pack && slot.pack.status === "ACTIVE")
     .map((slot) => {
       const pack = slot.pack;
