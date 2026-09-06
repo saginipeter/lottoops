@@ -499,8 +499,8 @@ export function LiveScanDashboard({
 
   if (isEmployee) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-4 py-2">
-        <Panel className="w-full max-w-4xl border-2 p-4">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-3 py-1 sm:gap-4 sm:py-2">
+        <Panel className="w-full max-w-4xl border-2 p-3 sm:p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Scanner status</p>
@@ -519,7 +519,7 @@ export function LiveScanDashboard({
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 md:w-auto">
+            <div className="grid w-full grid-cols-2 gap-2 md:w-auto">
               <Button
                 onClick={handleOpenShift}
                 disabled={shiftActionLoading || Boolean(currentShift)}
@@ -546,11 +546,11 @@ export function LiveScanDashboard({
           )}
         </Panel>
 
-        <Panel className={`w-full max-w-3xl border-2 p-8 ${scanError ? "border-red-500 bg-red-50" : ""}`}>
+        <Panel className={`w-full max-w-3xl border-2 p-4 sm:p-8 ${scanError ? "border-red-500 bg-red-50" : ""}`}>
           <div className="space-y-5 text-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-tertiary">Live scanner</p>
-              <h2 className="mt-2 text-3xl font-semibold text-text">Scan Ticket</h2>
+              <h2 className="mt-2 text-2xl font-semibold text-text sm:text-3xl">Scan Ticket</h2>
               <p className="mt-1 text-sm text-text-secondary">
                 {currentShift
                   ? `Shift open on ${terminalId}. Scanner is ready.`
@@ -581,7 +581,7 @@ export function LiveScanDashboard({
                   }
                 }}
                 placeholder="Scan barcode to sell"
-                className={`w-full rounded-xl border-2 px-5 py-5 text-center font-mono text-3xl tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+                className={`w-full rounded-xl border-2 px-3 py-4 text-center font-mono text-2xl tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:px-5 sm:py-5 sm:text-3xl ${
                   scanError ? "border-red-600 bg-white" : "border-border"
                 }`}
                 autoFocus
@@ -674,7 +674,7 @@ export function LiveScanDashboard({
   }
 
   return (
-    <div className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
+    <div className="grid min-h-0 grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-[1.4fr_1fr]">
       <div className="space-y-4">
       {/* Auto-Refresh Control */}
       <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
@@ -700,7 +700,7 @@ export function LiveScanDashboard({
 
       {/* Shift Info Header */}
       {currentShift ? (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <Panel className="p-3">
             <div className="mb-1.5 flex items-center gap-2">
               <Clock size={16} className="text-text-secondary" />
@@ -767,7 +767,7 @@ export function LiveScanDashboard({
       )}
 
       {/* Barcode Input */}
-      <Panel className={`p-4 ${scanError ? "border-2 border-red-600 bg-red-50" : ""}`}>
+      <Panel className={`p-3 sm:p-4 ${scanError ? "border-2 border-red-600 bg-red-50" : ""}`}>
         <div className="space-y-4">
           <label className="block">
             <span className="text-sm font-medium">Scan Ticket Barcode</span>
@@ -783,7 +783,7 @@ export function LiveScanDashboard({
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               ref={scanInputRef}
               type="text"
@@ -805,7 +805,7 @@ export function LiveScanDashboard({
             <Button
               onClick={handleScan}
               disabled={refreshing || !barcode.trim() || Boolean(scanError)}
-              className={scanError ? "bg-red-300 text-red-900" : ""}
+              className={`min-h-[46px] sm:min-h-0 ${scanError ? "bg-red-300 text-red-900" : ""}`}
             >
               {refreshing ? "Scanning..." : "Scan"}
             </Button>
@@ -818,7 +818,7 @@ export function LiveScanDashboard({
                   <p className="text-sm font-medium text-green-900">
                     Ticket accepted · Game {lastScan.gameNumber}
                   </p>
-                  <p className="mt-1 text-2xl font-bold text-green-950">
+                  <p className="mt-1 text-xl font-bold text-green-950 sm:text-2xl">
                     EXPECTED NEXT TICKET: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.currentTicketNumber ?? "—"}
                   </p>
                   <p className="text-xs text-green-800">
@@ -855,7 +855,7 @@ export function LiveScanDashboard({
             <p className="text-xs text-text-tertiary">Search a ticket or full barcode</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
             value={historyQuery}
             onChange={(event) => setHistoryQuery(event.target.value)}
@@ -869,7 +869,7 @@ export function LiveScanDashboard({
             className="min-w-0 flex-1 rounded-md border-2 border-border px-3 py-3 font-mono text-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
             aria-label="Ticket number"
           />
-          <Button onClick={handleHistorySearch} disabled={historyLoading || !historyQuery.trim()}>
+          <Button className="min-h-[46px] sm:min-h-0" onClick={handleHistorySearch} disabled={historyLoading || !historyQuery.trim()}>
             <Search size={16} />
             {historyLoading ? "Searching" : "Search"}
           </Button>

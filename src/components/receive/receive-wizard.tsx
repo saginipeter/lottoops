@@ -252,21 +252,21 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-hidden p-4">
+      <div className="min-h-0 flex-1 overflow-hidden p-2 sm:p-4">
         <div className="grid h-full grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]">
-          <Panel className="p-4">
+          <Panel className="p-3 sm:p-4">
             <h3 className="text-sm font-semibold text-text">Shipment Summary</h3>
-            <div className="mt-4 space-y-3 text-xs">
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs xl:mt-4 xl:block xl:space-y-3">
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <p className="text-text-tertiary">Expected Packs</p>
+                <p className="text-text-tertiary">Expected</p>
                 <p className="mt-1 text-lg font-semibold text-text">{expectedPacks}</p>
               </div>
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <p className="text-text-tertiary">Scanned Packs</p>
+                <p className="text-text-tertiary">Scanned</p>
                 <p className="mt-1 text-lg font-semibold text-text">{scannedPacks}</p>
               </div>
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <p className="text-text-tertiary">Completion</p>
+                <p className="text-text-tertiary">Done</p>
                 <p className="mt-1 text-lg font-semibold text-text">{completionPercent}%</p>
               </div>
             </div>
