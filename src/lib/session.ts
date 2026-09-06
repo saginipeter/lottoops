@@ -36,4 +36,22 @@ export async function verifySession(
   }
 }
 
+export async function signMfaChallenge(userId: string): Promise<string> {
+  return new SignJWT({ type: "MFA_CHALLENGE", userId })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(getSecret());
+}
+
+export async function verifyMfaChallenge(token: string): Promise<{ userId: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSecret());
+    if (payload.type !== "MFA_CHALLENGE" || typeof payload.userId !== "string") return null;
+    return { userId: payload.userId };
+  } catch {
+    return null;
+  }
+}
+
 export const SESSION_COOKIE = "lottoops_session";

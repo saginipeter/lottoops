@@ -11,6 +11,8 @@ export function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,10 +30,16 @@ export function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(mfaRequired ? { code: mfaCode } : { email, password }),
       });
 
       const data = await res.json();
+
+      if (res.status === 202 && data.mfaRequired) {
+        setMfaRequired(true);
+        setError("");
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error ?? "Login failed. Please try again.");
@@ -57,7 +65,7 @@ export function LoginForm() {
         </div>
       )}
 
-      <div>
+      {!mfaRequired && <div>
         <label
           htmlFor="email"
           className="mb-1.5 block text-xs font-medium text-text-secondary"
@@ -75,9 +83,9 @@ export function LoginForm() {
           placeholder="you@example.com"
           className="w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-tertiary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-colors"
         />
-      </div>
+      </div>}
 
-      <div>
+      {!mfaRequired && <div>
         <label
           htmlFor="password"
           className="mb-1.5 block text-xs font-medium text-text-secondary"
@@ -104,11 +112,18 @@ export function LoginForm() {
             {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
-      </div>
+      </div>}
+      {mfaRequired && (
+        <div>
+          <label htmlFor="mfa-code" className="mb-1.5 block text-xs font-medium text-text-secondary">Authenticator code</label>
+          <input id="mfa-code" inputMode="numeric" autoComplete="one-time-code" required value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" className="w-full rounded-md border border-border bg-surface px-3 py-2.5 text-center text-lg tracking-[0.3em] text-text" />
+          <p className="mt-2 text-xs text-text-secondary">Enter the 6-digit code from your authenticator app.</p>
+        </div>
+      )}
 
       <button
         type="submit"
-        disabled={loading || !email || !password}
+        disabled={loading || (mfaRequired ? mfaCode.length !== 6 : !email || !password)}
         className="mt-1 flex h-10 items-center justify-center gap-2 rounded-md bg-accent text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (

@@ -8,6 +8,7 @@ import { getSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
 import { ApprovalPinCard } from "@/components/settings/approval-pin-card";
 import { DeviceRegistryPanel } from "@/components/settings/device-registry-panel";
+import { MfaSetupCard } from "@/components/settings/mfa-setup-card";
 
 export default async function SettingsPage() {
   const session = await getSession();
@@ -83,6 +84,8 @@ export default async function SettingsPage() {
           )}
 
           {isManagerOrOwner && <ApprovalPinCard />}
+
+          {isManagerOrOwner && <MfaSetupCard />}
 
           {isManagerOrOwner && <DeviceRegistryPanel />}
 
