@@ -375,6 +375,17 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
     }
   }
 
+  async function revokeSessions(user: StoreUser) {
+    const response = await fetch(`/api/users/${user.id}/sessions`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(data.error ?? "Unable to revoke sessions.");
+      return;
+    }
+    setMessage(`${user.name}'s active sessions were revoked.`);
+    setTimeout(() => setMessage(null), 3000);
+  }
+
   function handleCreated(newUser: StoreUser) {
     setUsers((prev) => [...prev, newUser]);
     setShowAddForm(false);
@@ -516,6 +527,13 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
                           className="rounded p-1.5 text-text-tertiary hover:bg-surface-soft hover:text-text transition-colors"
                         >
                           <KeyRound size={13} />
+                        </button>
+                        <button
+                          onClick={() => { void revokeSessions(user); }}
+                          title="Revoke sessions"
+                          className="rounded p-1.5 text-text-tertiary hover:bg-surface-soft hover:text-text transition-colors"
+                        >
+                          <Shield size={13} />
                         </button>
                       </div>
                     </td>
