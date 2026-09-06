@@ -3,6 +3,7 @@ import { put } from "@vercel/blob";
 import { createWorker } from "tesseract.js";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { isStoreFeatureEnabled } from "@/lib/feature-flags";
 
 const REPORT_TYPES = ["SETTLED_PACK", "ACTIVATED", "INVENTORY"] as const;
 type ReportType = (typeof REPORT_TYPES)[number];
@@ -114,6 +115,9 @@ export async function POST(req: NextRequest) {
     const store = await prisma.store.findFirst({ where: { id: storeId, ownerUserId: session.userId }, select: { id: true } });
     const managerStore = session.role === "MANAGER" && storeId === session.storeId;
     if (!store && !managerStore) return NextResponse.json({ error: "Store is not available for this account." }, { status: 404 });
+    if (file.type.startsWith("image/") && !(await isStoreFeatureEnabled(storeId, "OCR_RECEIPTS"))) {
+      return NextResponse.json({ error: "OCR receipt parsing is disabled for this store. Upload a CSV report or contact the Platform Admin." }, { status: 403 });
+    }
     const isPhoto = file.type.startsWith("image/");
     const content = isPhoto ? "" : await file.text();
     const rows = isPhoto ? 0 : content.split(/\r?\n/).filter((line) => line.trim()).length;
