@@ -3,6 +3,10 @@ import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { getPlanAccess } from "@/lib/plan-access";
 
+interface StoreRow { id: string; name: string; storeNumber: string | null }
+interface PackRow { storeId: string; status: string; sequenceLocked: boolean }
+interface ShiftRow { storeId: string; status: string; lines: Array<{ ticketsSold: number | null; salesAmount: unknown }> }
+
 export async function GET(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -20,13 +24,15 @@ export async function GET(request: NextRequest) {
       where: { OR: [{ ownerUserId: session.userId }, { users: { some: { id: session.userId, role: "OWNER", active: true } } }] },
       select: { id: true, name: true, storeNumber: true },
       orderBy: { name: "asc" },
-    });
+    }) as StoreRow[];
     const stores = access.allowed ? allStores : allStores.slice(0, 1);
     const ids = stores.map((store) => store.id);
-    const [packs, shifts] = await Promise.all([
+    const [packsResult, shiftsResult] = await Promise.all([
       prisma.pack.findMany({ where: { storeId: { in: ids } }, select: { storeId: true, status: true, sequenceLocked: true } }),
       prisma.shift.findMany({ where: { storeId: { in: ids }, OR: [{ status: "OPEN" }, { closedAt: { gte: from, lte: to } }] }, select: { storeId: true, status: true, closedAt: true, lines: { select: { ticketsSold: true, salesAmount: true } } } }),
     ]);
+    const packs = packsResult as PackRow[];
+    const shifts = shiftsResult as ShiftRow[];
 
     const rows = stores.map((store) => {
       const storePacks = packs.filter((pack) => pack.storeId === store.id);

@@ -6,6 +6,7 @@ import { TicketReportsPanel } from "@/components/reports/ticket-reports-panel";
 import { TicketReturnRequestsPanel } from "@/components/reports/ticket-return-requests-panel";
 import { ShipmentOverrideNotifications } from "@/components/reports/shipment-override-notifications";
 import { DiscrepancyReport } from "@/components/reports/discrepancy-report";
+import { OperationalAlertsPanel } from "@/components/alerts/operational-alerts-panel";
 import { getSession } from "@/lib/get-session";
 import { isManagerOrAbove } from "@/lib/permissions";
 
@@ -32,6 +33,7 @@ export default async function AlertsPage() {
           title={session.role === "OWNER" ? "Ticket Return Requests Across Stores" : "Ticket Return Requests"}
         />
         <ShipmentOverrideNotifications />
+        <OperationalAlertsPanel />
         <DiscrepancyReport />
         <TicketReportsPanel
           title={session.role === "OWNER" ? "Employee Ticket Reports Across Stores" : "Employee Ticket Reports"}
