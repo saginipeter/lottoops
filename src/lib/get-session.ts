@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { verifySession, SESSION_COOKIE, SessionPayload } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isSessionRevoked } from "@/lib/session-revocation";
+import { isStoreSuspended } from "@/lib/store-access";
 
 export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
@@ -13,6 +14,7 @@ export async function getSession(): Promise<SessionPayload | null> {
   const session = await verifySession(token);
   if (!session) return null;
   if (await isSessionRevoked(session)) return null;
+  if (session.role !== "PLATFORM_ADMIN" && await isStoreSuspended(session.storeId)) return null;
   if (!prisma) return process.env.NODE_ENV === "development" && process.env.ALLOW_OFFLINE_AUTH === "true" ? session : null;
 
   try {

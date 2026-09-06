@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Activity, Building2, CheckCircle2, Clock3, Loader2, Plus, Users } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { StoreAccessPanel } from "./store-access-panel";
 
 interface Metrics {
   stores: number;
@@ -144,6 +145,8 @@ export function PlatformControlCenter() {
           ].map(({ label, value, Icon }) => <Panel key={label} className="p-4"><Icon size={16} className="text-accent" /><p className="mt-3 text-xs text-text-secondary">{label}</p><p className="mt-1 text-2xl font-bold text-text">{value}</p></Panel>)}
         </div>
       )}
+
+      <StoreAccessPanel />
 
       <Panel className="p-5">
         <div className="mb-3 flex items-center gap-2"><Activity size={17} className="text-accent" /><h3 className="text-base font-semibold text-text">Recently created accounts</h3></div>
