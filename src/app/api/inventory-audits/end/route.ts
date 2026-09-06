@@ -7,6 +7,7 @@ interface AuditLine {
   id: string;
   packId: string;
   expectedTicket: number;
+  endingExpectedTicket: number | null;
   beginningPhysicalTicket: number | null;
   endingPhysicalTicket: number | null;
 }
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       action: "ENDING_AUDIT_COMPLETED",
       entityType: "SHIFT",
       entityId: audit.shiftId,
-      detail: `Ending inventory audit completed with ${auditLines.filter((line) => Number(line.endingPhysicalTicket) !== Number(line.expectedTicket)).length} variance(s).`,
+      detail: `Ending inventory audit completed with ${auditLines.filter((line) => Number(line.endingPhysicalTicket) !== Number(line.endingExpectedTicket ?? line.expectedTicket)).length} variance(s).`,
       performedById: session.userId,
       performedByName: session.name,
     });
