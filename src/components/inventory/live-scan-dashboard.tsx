@@ -616,7 +616,7 @@ export function LiveScanDashboard({
                 autoFocus
               />
               <Button
-                onClick={handleScan}
+                onClick={() => { void handleScan(); }}
                 disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift}
                 className="min-h-[54px] text-base font-semibold"
               >
@@ -836,7 +836,7 @@ export function LiveScanDashboard({
               autoFocus
             />
             <Button
-              onClick={handleScan}
+              onClick={() => { void handleScan(); }}
               disabled={refreshing || !barcode.trim() || Boolean(scanError)}
               className={`min-h-[46px] sm:min-h-0 ${scanError ? "bg-red-300 text-red-900" : ""}`}
             >
