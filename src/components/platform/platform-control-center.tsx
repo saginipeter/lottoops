@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StoreAccessPanel } from "./store-access-panel";
 import { FeatureFlagsPanel } from "./feature-flags-panel";
 import { PlatformActivityPanel } from "./platform-activity-panel";
+import { RolePermissionPanel } from "./role-permission-panel";
 
 interface Metrics {
   stores: number;
@@ -157,6 +158,7 @@ export function PlatformControlCenter() {
       <StoreAccessPanel />
       <FeatureFlagsPanel />
       <PlatformActivityPanel />
+      <RolePermissionPanel />
 
       <Panel className="p-5">
         <div className="mb-3 flex items-center gap-2"><Activity size={17} className="text-accent" /><h3 className="text-base font-semibold text-text">Recently created accounts</h3></div>
