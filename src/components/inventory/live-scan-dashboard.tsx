@@ -85,6 +85,15 @@ interface TicketHistoryResult {
   }>;
 }
 
+interface LiveScanResult {
+  id: string;
+  gameNumber?: string;
+  packStatus?: string;
+  currentTicketNumber?: number | null;
+  serialNumber?: string;
+  slot?: { slotNumber?: string } | null;
+}
+
 export function LiveScanDashboard({
   currentShift,
   activePacks,
@@ -108,8 +117,8 @@ export function LiveScanDashboard({
   const [reportLoading, setReportLoading] = useState(false);
   const [reportStatus, setReportStatus] = useState<"idle" | "success" | "error">("idle");
   const [reportMessage, setReportMessage] = useState("");
-  const [lastScan, setLastScan] = useState<any>(null);
-  const [sales, setSales] = useState<any[]>([]);
+  const [lastScan, setLastScan] = useState<LiveScanResult | null>(null);
+  const [sales, setSales] = useState<Array<ShiftData["lines"][number] & { ticketsSold: number; salesAmount: number }>>([]);
   const [shiftStats, setShiftStats] = useState({
     ticketsSold: 0,
     revenueTotal: 0,
@@ -160,20 +169,22 @@ export function LiveScanDashboard({
       const ticketCount = metrics.reduce((sum, line) => sum + line.ticketsSold, 0);
       const packCount = metrics.filter((line) => line.ticketsSold > 0).length;
 
-      setShiftStats({
+      const nextStats = {
         ticketsSold: ticketCount,
         revenueTotal: total,
         packsSold: packCount,
-      });
-
-      setSales(metrics.filter((line) => line.ticketsSold > 0).slice(0, 10));
+      };
+      const timer = window.setTimeout(() => {
+        setShiftStats(nextStats);
+        setSales(metrics.filter((line) => line.ticketsSold > 0).slice(0, 10));
+      }, 0);
+      return () => window.clearTimeout(timer);
     } else {
-      setShiftStats({
-        ticketsSold: 0,
-        revenueTotal: 0,
-        packsSold: 0,
-      });
-      setSales([]);
+      const timer = window.setTimeout(() => {
+        setShiftStats({ ticketsSold: 0, revenueTotal: 0, packsSold: 0 });
+        setSales([]);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
   }, [currentShift]);
 
