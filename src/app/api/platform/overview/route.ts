@@ -15,7 +15,7 @@ export async function GET() {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   try {
-    const [stores, users, owners, managers, packs, openShifts, subscriptions, recentUsers] = await Promise.all([
+    const [stores, users, owners, managers, packs, openShifts, subscriptions, recentUsers, subscriptionRows] = await Promise.all([
       prisma.store.count({ where: { ownerUserId: { not: null } } }),
       prisma.user.count({ where: { role: { not: "PLATFORM_ADMIN" } } }),
       prisma.user.count({ where: { role: "OWNER" } }),
@@ -29,6 +29,7 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
         take: 12,
       }),
+      prisma.subscription.findMany({ select: { status: true, plan: { select: { monthlyPriceCents: true } } } }),
     ]);
 
     const health = await prisma.store.findMany({
@@ -80,7 +81,13 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      metrics: { stores, users, owners, managers, packs, openShifts, subscriptions },
+      metrics: {
+        stores, users, owners, managers, packs, openShifts, subscriptions,
+        mrrCents: subscriptionRows.filter((row: { status: string }) => ["TRIALING", "ACTIVE"].includes(row.status)).reduce((sum: number, row: { plan: { monthlyPriceCents: number } }) => sum + row.plan.monthlyPriceCents, 0),
+        activeSubscriptions: subscriptionRows.filter((row: { status: string }) => ["TRIALING", "ACTIVE"].includes(row.status)).length,
+        pastDueSubscriptions: subscriptionRows.filter((row: { status: string }) => row.status === "PAST_DUE").length,
+        canceledSubscriptions: subscriptionRows.filter((row: { status: string }) => row.status === "CANCELED").length,
+      },
       recentUsers,
       health: health.map((store: {
         id: string;

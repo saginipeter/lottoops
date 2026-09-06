@@ -15,6 +15,10 @@ interface Metrics {
   packs: number;
   openShifts: number;
   subscriptions: number;
+  mrrCents: number;
+  activeSubscriptions: number;
+  pastDueSubscriptions: number;
+  canceledSubscriptions: number;
 }
 
 interface RecentUser {
@@ -143,6 +147,8 @@ export function PlatformControlCenter() {
             { label: "Tracked Packs", value: metrics.packs, Icon: Activity },
             { label: "Open Shifts", value: metrics.openShifts, Icon: Activity },
             { label: "Subscriptions", value: metrics.subscriptions, Icon: CheckCircle2 },
+            { label: "Monthly Recurring Revenue", value: `$${(metrics.mrrCents / 100).toFixed(2)}`, Icon: CheckCircle2 },
+            { label: "Past Due", value: metrics.pastDueSubscriptions, Icon: Activity },
           ].map(({ label, value, Icon }) => <Panel key={label} className="p-4"><Icon size={16} className="text-accent" /><p className="mt-3 text-xs text-text-secondary">{label}</p><p className="mt-1 text-2xl font-bold text-text">{value}</p></Panel>)}
         </div>
       )}
