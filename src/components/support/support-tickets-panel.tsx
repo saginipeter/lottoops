@@ -15,6 +15,14 @@ interface Ticket {
   updatedAt?: string;
 }
 
+const HELP_ARTICLES = [
+  { title: "Phone camera scanning", category: "Scanner", body: "Use the Scan with Camera button on Live Scan, allow camera access, and keep the barcode inside the targeting frame. Manual entry remains available if camera access is unavailable." },
+  { title: "Receiving an invoice", category: "Receiving", body: "Enter the invoice details, scan each pack, review the shipment, then confirm it into Back Stock or an assigned display." },
+  { title: "Resuming an unfinished invoice", category: "Receiving", body: "Return to Receive Shipment on the same device and browser. The saved shipment draft resumes at its last step." },
+  { title: "Opening and closing a shift", category: "Shifts", body: "Open the shift before sales activity. Complete the beginning and ending physical audits before closing so ticket differences can be attributed to the correct employee." },
+  { title: "Passwords and staff accounts", category: "Accounts", body: "Each staff account needs its own unique password. Owners and Managers can create accounts from Settings and reset passwords from the Staff page." },
+];
+
 export function SupportTicketsPanel() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [subject, setSubject] = useState("");
@@ -24,6 +32,7 @@ export function SupportTicketsPanel() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [helpSearch, setHelpSearch] = useState("");
 
   async function load() {
     setLoading(true);
@@ -79,8 +88,26 @@ export function SupportTicketsPanel() {
     else setError((await response.json()).error || "Unable to update ticket.");
   }
 
+  const visibleArticles = HELP_ARTICLES.filter((article) =>
+    `${article.title} ${article.category} ${article.body}`.toLowerCase().includes(helpSearch.toLowerCase().trim())
+  );
+
   return (
     <div className="space-y-4">
+      <Panel className="p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-text">Help Center</h2>
+        <p className="mt-1 text-sm text-text-secondary">Quick answers for common LottoOps setup and daily-use questions.</p>
+        <input value={helpSearch} onChange={(event) => setHelpSearch(event.target.value)} placeholder="Search help articles" className="mt-4 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm" />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {visibleArticles.map((article) => (
+            <details key={article.title} className="rounded-md border border-border bg-surface-soft p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-text">{article.title}<span className="ml-2 text-[10px] uppercase tracking-wide text-text-tertiary">{article.category}</span></summary>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">{article.body}</p>
+            </details>
+          ))}
+          {visibleArticles.length === 0 && <p className="text-sm text-text-secondary">No help articles match your search.</p>}
+        </div>
+      </Panel>
       <Panel className="p-4 sm:p-5">
         <h2 className="text-base font-semibold text-text">Contact LottoOps Support</h2>
         <p className="mt-1 text-sm text-text-secondary">Submit setup, scanner, account, or software-use questions for follow-up.</p>
