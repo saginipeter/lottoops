@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { getApiSession } from "@/lib/api-session";
+import { createInventoryNotification } from "@/lib/inventory-notifications";
 
 interface AuditLine {
   id: string;
@@ -62,6 +63,15 @@ export async function POST(request: NextRequest) {
       performedById: session.userId,
       performedByName: session.name,
     });
+    const varianceLines = auditLines.filter((line) => Number(line.endingPhysicalTicket) !== Number(line.endingExpectedTicket ?? line.expectedTicket));
+    await Promise.all(varianceLines.map((line) => createInventoryNotification({
+      storeId: session.storeId,
+      type: "INVENTORY_AUDIT_VARIANCE",
+      entityId: line.id,
+      title: "Physical audit variance requires review",
+      detail: `Pack ${line.packId}: expected ${line.endingExpectedTicket ?? line.expectedTicket}, observed ${line.endingPhysicalTicket}.`,
+      severity: "URGENT",
+    })));
     return NextResponse.json({ success: true, auditId: audit.id });
   } catch (error) {
     console.error("[POST /api/inventory-audits/end]", error);

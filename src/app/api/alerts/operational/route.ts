@@ -33,6 +33,12 @@ export async function GET() {
     const packs = packsResult as LowTicketPack[];
     const shifts = shiftsResult as OpenShift[];
     const shipments = shipmentsResult as StaleShipment[];
+    let notifications: Array<{ id: string; title: string; detail: string; severity: string; createdAt: Date; entityId: string }> = [];
+    try {
+      notifications = await prisma.$queryRawUnsafe(`SELECT id, title, detail, severity, created_at AS "createdAt", entity_id AS "entityId" FROM inventory_notifications WHERE store_id = $1 ORDER BY created_at DESC LIMIT 100`, session.storeId) as typeof notifications;
+    } catch {
+      // Notifications are created lazily when an audit variance is found.
+    }
 
     const alerts = [
       ...packs.map((pack) => ({ id: `LOW_TICKETS_${pack.id}`, type: "LOW_TICKETS", severity: "HIGH", title: "Low tickets remaining", detail: `${pack.game.name} at display ${pack.slot?.slotNumber ?? "-"} has ${pack.currentTicketNumber ?? 0} ticket(s) remaining.`, createdAt: new Date().toISOString(), entityId: pack.id })),
@@ -43,6 +49,7 @@ export async function GET() {
         return [{ id: `AUDIT_${shift.id}`, type: "INCOMPLETE_AUDIT", severity: "URGENT", title: "Shift audit incomplete", detail: `${incomplete || "The"} audit scan(s) remain incomplete for the shift opened by ${shift.openedBy.name}.`, createdAt: shift.openedAt.toISOString(), entityId: shift.id }];
       }),
       ...shipments.map((shipment) => ({ id: `SHIPMENT_${shipment.id}`, type: "STALE_RECEIVING", severity: "MEDIUM", title: "Receiving draft is overdue", detail: `Invoice ${shipment.invoiceNumber} has been in progress for more than 24 hours (${shipment.expectedPacks} expected pack(s)).`, createdAt: shipment.createdAt.toISOString(), entityId: shipment.id })),
+      ...notifications.map((notification) => ({ id: notification.id, type: "INVENTORY_AUDIT_VARIANCE", severity: notification.severity, title: notification.title, detail: notification.detail, createdAt: notification.createdAt.toISOString(), entityId: notification.entityId })),
     ];
     return NextResponse.json({ alerts });
   } catch (error) {
