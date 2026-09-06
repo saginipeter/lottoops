@@ -63,7 +63,7 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-border bg-surface-soft p-3">
+    <div className="mt-3 rounded-lg border border-border bg-surface-soft p-3 sm:hidden">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-text">Phone camera</p>
@@ -80,7 +80,21 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
           {active ? "Stop Camera" : "Scan with Camera"}
         </Button>
       </div>
-      <div id={READER_ID} className={active ? "mt-3 overflow-hidden rounded-md bg-black" : "hidden"} />
+      <div className={active ? "relative mt-3 overflow-hidden rounded-md bg-black" : "hidden"}>
+        <div id={READER_ID} className="min-h-[180px]" />
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="relative h-28 w-[90%] max-w-[320px] border border-white/50">
+            <span className="absolute -left-0.5 -top-0.5 h-6 w-6 border-l-4 border-t-4 border-emerald-400" />
+            <span className="absolute -right-0.5 -top-0.5 h-6 w-6 border-r-4 border-t-4 border-emerald-400" />
+            <span className="absolute -bottom-0.5 -left-0.5 h-6 w-6 border-b-4 border-l-4 border-emerald-400" />
+            <span className="absolute -bottom-0.5 -right-0.5 h-6 w-6 border-b-4 border-r-4 border-emerald-400" />
+            <span className="absolute left-3 right-3 top-1/2 h-0.5 -translate-y-1/2 animate-pulse bg-emerald-400/80" />
+          </div>
+        </div>
+        <p className="absolute bottom-2 left-0 right-0 text-center text-xs font-semibold text-white drop-shadow">
+          Scanning barcode...
+        </p>
+      </div>
       {message && <p className="mt-2 text-xs font-medium text-amber-700">{message}</p>}
     </div>
   );
