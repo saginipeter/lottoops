@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { Sidebar } from "@/components/layout/sidebar";
 import { verifySession, SESSION_COOKIE } from "@/lib/session";
+import { ImpersonationBanner } from "@/components/platform/impersonation-banner";
 
 export default async function DashboardLayout({
   children,
@@ -34,7 +35,10 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
       {showSidebar && <Sidebar user={user} />}
-      <main className="min-w-0 flex flex-1 flex-col overflow-hidden pb-14 sm:pb-0">{children}</main>
+      <main className="min-w-0 flex flex-1 flex-col overflow-hidden pb-14 sm:pb-0">
+        {session?.impersonatedBy && <ImpersonationBanner adminName={session.impersonatedBy.name} />}
+        {children}
+      </main>
     </div>
   );
 }
