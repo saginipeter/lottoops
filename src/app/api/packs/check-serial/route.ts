@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { recordShiftParticipant } from "@/lib/shift-participants";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -158,6 +159,7 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+        await recordShiftParticipant(openShift.id, session.userId);
 
         // Block duplicate ticket scans in the same open shift.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

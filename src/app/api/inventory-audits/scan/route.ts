@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { logInventoryActivity } from "@/lib/activity-log";
+import { recordShiftParticipant } from "@/lib/shift-participants";
 
 interface AuditLine {
   id: string;
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
       ? { beginningPhysicalTicket: physicalTicket }
       : { endingPhysicalTicket: physicalTicket, variance: physicalTicket - Number(line.expectedTicket) };
     const updated = await prisma.inventoryAuditLine.update({ where: { id: line.id }, data });
+    await recordShiftParticipant(audit.shiftId, session.userId);
     await logInventoryActivity({ storeId: session.storeId, action: phase === "beginning" ? "BEGINNING_AUDIT_SCAN" : "ENDING_AUDIT_SCAN", entityType: "PACK", entityId: pack.id, detail: `${phase} physical ticket recorded as ${physicalTicket} for audit ${auditId}.`, performedById: session.userId, performedByName: session.name });
     return NextResponse.json(updated);
   } catch (error) {

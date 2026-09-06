@@ -13,6 +13,7 @@ import PhysicalAuditPanel from "@/components/inventory/physical-audit-panel";
 interface ShiftDashboardProps {
   shift: any | null;
   recentClosedShift?: any | null;
+  participants?: Array<{ userId: string; name: string; email: string; firstSeenAt: string; lastSeenAt: string }>;
   terminalId: string;
   shiftEvents: Array<{
     id: string;
@@ -30,6 +31,7 @@ function formatTimestamp(value: string | Date) {
 export default function ShiftDashboard({
   shift,
   recentClosedShift,
+  participants = [],
   terminalId,
   shiftEvents,
 }: ShiftDashboardProps) {
@@ -225,6 +227,14 @@ export default function ShiftDashboard({
       <ShiftPackTable shift={shift} />
 
       <PhysicalAuditPanel shiftId={shift.id} audit={shift.inventoryAudit} />
+
+      <Panel className="p-6">
+        <h3 className="text-base font-semibold text-text">Employees active in this shift</h3>
+        <p className="mt-1 text-sm text-text-secondary">People recorded through sales, audit, or ticket activity.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {participants.length === 0 ? <span className="text-sm text-text-secondary">No handoff activity recorded yet.</span> : participants.map((participant) => <span key={participant.userId} className="rounded-full border border-border bg-surface-soft px-3 py-1.5 text-xs text-text">{participant.name}</span>)}
+        </div>
+      </Panel>
 
       <Panel className="p-6">
         <h3 className="text-base font-semibold text-text">Shift Timeline</h3>

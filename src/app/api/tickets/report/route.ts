@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { recordShiftParticipant } from "@/lib/shift-participants";
 import { logInventoryActivity } from "@/lib/activity-log";
 
 export async function POST(request: NextRequest) {
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       performedById: session.userId,
       performedByName: session.name,
     });
+    if (shiftId) await recordShiftParticipant(shiftId, session.userId);
 
     return NextResponse.json({ success: true, matchedPackId: matchedPack?.id ?? null });
   } catch (error) {

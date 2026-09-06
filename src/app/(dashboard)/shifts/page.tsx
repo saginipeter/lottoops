@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import ShiftDashboard from "@/components/shifts/shift-dashboard";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
+import { getShiftParticipants } from "@/lib/shift-participants";
 
 interface ShiftsPageProps {
   searchParams?: Promise<{
@@ -155,6 +156,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         })
       )
     : null;
+  const participants = openShift ? await getShiftParticipants(openShift.id) : [];
 
   const activePackCount = openShift?.lines?.length ?? 0;
   const eventCount = timelineEvents.length;
@@ -222,6 +224,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         <ShiftDashboard
           shift={shiftData}
           recentClosedShift={recentClosedShift ? JSON.parse(JSON.stringify(recentClosedShift)) : null}
+          participants={JSON.parse(JSON.stringify(participants))}
           shiftEvents={eventData}
           terminalId={terminalId}
         />
