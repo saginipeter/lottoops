@@ -52,8 +52,8 @@ export default async function TvDisplayKioskPage({
   });
 
   const activeSlots = slots
-    .filter((slot: any) => slot.pack && slot.pack.status === "ACTIVE")
-    .map((slot: any) => {
+    .filter((slot) => slot.pack && slot.pack.status === "ACTIVE")
+    .map((slot) => {
       const pack = slot.pack;
       const quantity = pack.ticketQuantity ?? 0;
       const firstTicket = pack.firstTicket ?? 0;
