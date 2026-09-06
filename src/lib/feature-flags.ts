@@ -17,3 +17,17 @@ export async function isStoreFeatureEnabled(storeId: string, featureKey: string)
     return true;
   }
 }
+
+export async function getRoleDefaultPermissions(role: string) {
+  if (!prisma || (role !== "SHIFT_LEAD" && role !== "EMPLOYEE")) return [];
+  try {
+    await ensureSchema();
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT permission FROM role_permission_defaults WHERE role = $1 AND enabled = TRUE`,
+      role,
+    ) as Array<{ permission: string }>;
+    return rows.map((row) => row.permission);
+  } catch {
+    return [];
+  }
+}

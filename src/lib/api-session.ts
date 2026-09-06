@@ -3,6 +3,7 @@ import { verifySession, SESSION_COOKIE, SessionPayload } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isSessionRevoked } from "@/lib/session-revocation";
 import { isStoreSuspended } from "@/lib/store-access";
+import { getRoleDefaultPermissions } from "@/lib/feature-flags";
 
 /**
  * Reads and verifies the session cookie inside an API route. Returns null
@@ -34,7 +35,10 @@ export async function getApiSession(): Promise<SessionPayload | null> {
       name: user.name,
       email: user.email,
       role: user.role,
-      grantedPermissions: user.grantedPermissions ?? [],
+      grantedPermissions: Array.from(new Set([
+        ...(user.grantedPermissions ?? []),
+        ...(await getRoleDefaultPermissions(user.role)),
+      ])),
     } as SessionPayload;
   } catch {
     return null;
