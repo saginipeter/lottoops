@@ -4,6 +4,31 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { canReceiveShipments, canManageBackstock } from "@/lib/permissions";
 
+export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canReceiveShipments(session) && !canManageBackstock(session)) {
+    return NextResponse.json({ error: "You do not have permission to view shipments." }, { status: 403 });
+  }
+  if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+
+  const status = req.nextUrl.searchParams.get("status")?.trim();
+  const shipments = await prisma.shipment.findMany({
+    where: {
+      storeId: session.storeId,
+      ...(status === "IN_PROGRESS" || status === "RECEIVED" ? { status } : {}),
+    },
+    include: {
+      receivedBy: { select: { name: true } },
+      _count: { select: { packs: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+
+  return NextResponse.json({ shipments });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
