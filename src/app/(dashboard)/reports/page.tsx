@@ -8,6 +8,7 @@ import { InventoryStatusReport } from "@/components/reports/inventory-status-rep
 import { ActivityReport } from "@/components/reports/activity-report";
 import { DiscrepancyReport } from "@/components/reports/discrepancy-report";
 import { CorrectionReport } from "@/components/reports/correction-report";
+import { InventoryAgingReport } from "@/components/reports/inventory-aging-report";
 import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
 
 export default async function ReportsPage() {
@@ -34,6 +35,7 @@ export default async function ReportsPage() {
           <DiscrepancyReport />
           {(session.role === "MANAGER" || session.role === "OWNER") && <CorrectionReport />}
           <InventoryStatusReport />
+          <InventoryAgingReport />
           {session.role === "MANAGER" && <StateReportsUploader />}
         </div>
       </div>
