@@ -63,9 +63,8 @@ export default async function TvDisplayKioskPage({
       game: { name: string; gameNumber: string; price: unknown };
     } | null;
   }>;
-  const activeSlots = typedSlots
-    .filter((slot) => slot.pack && slot.pack.status === "ACTIVE")
-    .map((slot) => {
+  const activeSlots = typedSlots.flatMap((slot) => {
+      if (!slot.pack || slot.pack.status !== "ACTIVE") return [];
       const pack = slot.pack;
       const quantity = pack.ticketQuantity ?? 0;
       const firstTicket = pack.firstTicket ?? 0;
@@ -73,7 +72,7 @@ export default async function TvDisplayKioskPage({
       const sold = Math.max(currentTicket - firstTicket, 0);
       const remaining = Math.max(quantity - sold, 0);
 
-      return {
+      return [{
         id: slot.id,
         slotNumber: slot.slotNumber,
         gameName: pack.game.name,
@@ -83,7 +82,7 @@ export default async function TvDisplayKioskPage({
         remaining,
         sold,
         quantity,
-      };
+      }];
     });
 
   const resolvedSearchParams = (await searchParams) ?? {};
