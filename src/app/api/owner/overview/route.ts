@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { getPlanAccess } from "@/lib/plan-access";
 
 interface OwnerStore {
   id: string;
@@ -31,7 +32,8 @@ export async function GET() {
   if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
 
   try {
-    const stores = (await prisma.store.findMany({
+    const planAccess = await getPlanAccess(session, "MULTI_STORE");
+    const allStores = (await prisma.store.findMany({
       where: {
         OR: [
           { ownerUserId: session.userId },
@@ -41,6 +43,7 @@ export async function GET() {
       include: { users: { select: { id: true, role: true, active: true } } },
       orderBy: { name: "asc" },
     })) as OwnerStore[];
+    const stores = planAccess.allowed ? allStores : allStores.slice(0, 1);
     const storeIds = stores.map((store) => store.id);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -94,6 +97,10 @@ export async function GET() {
         lockedPacks: storeRows.reduce((sum, store) => sum + store.lockedPacks, 0),
         openShifts: openShifts.length,
         auditCompletionRate: shiftsToday.length ? Math.round((completedAudits / shiftsToday.length) * 100) : 0,
+      },
+      plan: {
+        key: planAccess.planKey,
+        multiStoreEnabled: planAccess.allowed,
       },
     });
   } catch (error) {
