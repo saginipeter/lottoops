@@ -622,10 +622,6 @@ export function LiveScanDashboard({
               >
                 {refreshing ? "Scanning..." : "Submit Scan"}
               </Button>
-              <PhoneBarcodeScanner
-                onScan={(value) => { void handleScan(value); }}
-                disabled={refreshing || Boolean(scanError) || !currentShift}
-              />
               {!currentShift && (
                 <p className="text-xs text-amber-700">Scanning is disabled until the shift is opened.</p>
               )}
@@ -661,7 +657,14 @@ export function LiveScanDashboard({
           </div>
         </Panel>
 
-        <Panel className="w-full max-w-3xl border p-5">
+        <Panel className="w-full max-w-3xl border p-3 sm:hidden">
+          <PhoneBarcodeScanner
+            onScan={(value) => { void handleScan(value); }}
+            disabled={refreshing || Boolean(scanError) || !currentShift}
+          />
+        </Panel>
+
+        <Panel className="hidden w-full max-w-3xl border p-5 sm:block">
           <h3 className="text-base font-semibold text-text">Report Ticket</h3>
           <p className="mt-1 text-xs text-text-secondary">
             Report invalid, damaged, or disputed tickets for manager follow-up.
@@ -843,11 +846,6 @@ export function LiveScanDashboard({
               {refreshing ? "Scanning..." : "Scan"}
             </Button>
           </div>
-          <PhoneBarcodeScanner
-            onScan={(value) => { void handleScan(value); }}
-            disabled={refreshing || Boolean(scanError) || !currentShift}
-          />
-
           {lastScan && (
             <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -882,6 +880,13 @@ export function LiveScanDashboard({
             </div>
           )}
         </div>
+      </Panel>
+
+      <Panel className="p-3 sm:hidden">
+        <PhoneBarcodeScanner
+          onScan={(value) => { void handleScan(value); }}
+          disabled={refreshing || Boolean(scanError) || !currentShift}
+        />
       </Panel>
 
       <Panel className="p-4">
