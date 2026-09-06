@@ -800,7 +800,7 @@ export function LiveScanDashboard({
       )}
 
       {/* Barcode Input */}
-      <Panel className={`p-3 sm:p-4 ${scanError ? "border-2 border-red-600 bg-red-50" : ""}`}>
+      <Panel className={`hidden p-3 sm:block sm:p-4 ${scanError ? "border-2 border-red-600 bg-red-50" : ""}`}>
         <div className="space-y-4">
           <label className="block">
             <span className="text-sm font-medium">Scan Ticket Barcode</span>
