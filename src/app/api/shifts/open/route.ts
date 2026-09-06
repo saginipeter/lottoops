@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 
+interface ActivePack {
+  id: string;
+  serialNumber: string;
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+  slot: { slotNumber: string } | null;
+}
+
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
   firstTicket: number | null;
@@ -101,13 +110,14 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const invalidPacks = activePacks.filter((pack: any) => resolveSellableTicket(pack) === null);
+    const typedActivePacks = activePacks as ActivePack[];
+    const invalidPacks = typedActivePacks.filter((pack) => resolveSellableTicket(pack) === null);
     if (invalidPacks.length > 0) {
       return NextResponse.json(
         {
           error:
             "Some active packs have invalid ticket state (current/first/quantity). " +
-            `Fix before opening shift: ${invalidPacks.map((pack: any) => pack.serialNumber).join(", ")}`,
+            `Fix before opening shift: ${invalidPacks.map((pack) => pack.serialNumber).join(", ")}`,
         },
         { status: 409 }
       );
@@ -131,7 +141,7 @@ export async function POST(req: NextRequest) {
       shift.id
     );
 
-    const txOps = [
+    const txOps: unknown[] = [
       prisma.scanLogEntry.create({
         data: {
           storeId: session.storeId,
@@ -143,9 +153,9 @@ export async function POST(req: NextRequest) {
     ];
 
     if (activePacks.length > 0) {
-      const repairOps: any[] = [];
+      const repairOps: unknown[] = [];
 
-      for (const pack of activePacks as any[]) {
+      for (const pack of typedActivePacks) {
         const beginningTicket = resolveSellableTicket(pack);
         if (beginningTicket === null) continue;
         if (pack.currentTicketNumber && Number(pack.currentTicketNumber) > 0) continue;
@@ -162,7 +172,7 @@ export async function POST(req: NextRequest) {
 
       txOps.unshift(
         prisma.shiftLine.createMany({
-          data: activePacks.map((pack: any) => ({
+          data: typedActivePacks.map((pack) => ({
             shiftId: shift.id,
             packId: pack.id,
             slotNumber: pack.slot!.slotNumber,
@@ -182,7 +192,7 @@ export async function POST(req: NextRequest) {
         shiftId: shift.id,
         begunById: session.userId,
         lines: {
-          create: activePacks.map((pack: any) => ({
+            create: typedActivePacks.map((pack) => ({
             packId: pack.id,
             slotNumber: pack.slot!.slotNumber,
             expectedTicket: resolveSellableTicket(pack)!,
