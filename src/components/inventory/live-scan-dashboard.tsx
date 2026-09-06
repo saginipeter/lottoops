@@ -575,7 +575,7 @@ export function LiveScanDashboard({
           )}
         </Panel>
 
-        <Panel className={`w-full max-w-3xl border-2 p-4 sm:p-8 ${scanError ? "border-red-500 bg-red-50" : ""}`}>
+        <Panel className={`hidden w-full max-w-3xl border-2 p-4 sm:block sm:p-8 ${scanError ? "border-red-500 bg-red-50" : ""}`}>
           <div className="space-y-5 text-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-tertiary">Live scanner</p>
