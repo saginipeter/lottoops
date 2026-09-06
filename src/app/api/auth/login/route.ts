@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { signSession, signMfaChallenge, SESSION_COOKIE } from "@/lib/session";
-import { isMfaEnabled } from "@/lib/mfa";
+import { isMfaRequired } from "@/lib/mfa";
 import { findMockUser } from "@/lib/mock-users";
 
 // Tries the real database first. If there's no live connection (prisma is
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    if (prisma && await isMfaEnabled(authResult.userId)) {
+    if (prisma && await isMfaRequired(authResult.userId)) {
       const response = NextResponse.json({ mfaRequired: true }, { status: 202 });
       response.cookies.set("lottoops_mfa_challenge", await signMfaChallenge(authResult.userId), {
         httpOnly: true,

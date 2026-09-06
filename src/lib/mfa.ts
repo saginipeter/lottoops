@@ -5,6 +5,7 @@ let schemaReady = false;
 async function ensureSchema() {
   if (schemaReady || !prisma) return;
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS user_mfa (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, secret TEXT NOT NULL, enabled BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), enabled_at TIMESTAMPTZ)`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE user_mfa ADD COLUMN IF NOT EXISTS required BOOLEAN NOT NULL DEFAULT FALSE`);
   schemaReady = true;
 }
 
@@ -34,4 +35,21 @@ export async function isMfaEnabled(userId: string) {
   await ensureSchema();
   const rows = await prisma.$queryRawUnsafe(`SELECT enabled FROM user_mfa WHERE user_id = $1 LIMIT 1`, userId) as Array<{ enabled: boolean }>;
   return rows[0]?.enabled === true;
+}
+
+export async function isMfaRequired(userId: string) {
+  if (!prisma) return false;
+  await ensureSchema();
+  const rows = await prisma.$queryRawUnsafe(`SELECT enabled, required FROM user_mfa WHERE user_id = $1 LIMIT 1`, userId) as Array<{ enabled: boolean; required: boolean }>;
+  return rows[0]?.enabled === true || rows[0]?.required === true;
+}
+
+export async function setMfaRequired(userId: string, required: boolean) {
+  if (!prisma) return;
+  await ensureSchema();
+  if (required) {
+    const enrolled = await prisma.$queryRawUnsafe(`SELECT enabled FROM user_mfa WHERE user_id = $1 AND enabled = TRUE LIMIT 1`, userId) as Array<{ enabled: boolean }>;
+    if (enrolled.length === 0) throw new Error("MFA_NOT_ENROLLED");
+  }
+  await prisma.$executeRawUnsafe(`INSERT INTO user_mfa (user_id, secret, required) VALUES ($1, '', $2) ON CONFLICT (user_id) DO UPDATE SET required = EXCLUDED.required`, userId, required);
 }
