@@ -69,11 +69,12 @@ function MarginBar({ pct }: { pct: number }) {
 }
 
 export function FinancialReports() {
-  const today = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-
-  const [from, setFrom] = useState(thirtyDaysAgo);
-  const [to, setTo] = useState(today);
+  const [from, setFrom] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +95,10 @@ export function FinancialReports() {
     }
   }, [from, to]);
 
-  useEffect(() => { loadReport(); }, [loadReport]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadReport(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadReport]);
 
   function downloadCSV(type: "shifts" | "games" | "inventory" | "activity") {
     window.open(`/api/reports/export?type=${type}&from=${from}&to=${to}`, "_blank");
@@ -111,7 +115,11 @@ export function FinancialReports() {
     const t = new Date().toISOString().slice(0, 10);
     const f = days === 0
       ? t
-      : new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+      : (() => {
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        return date.toISOString().slice(0, 10);
+      })();
     setFrom(f);
     setTo(t);
   }
