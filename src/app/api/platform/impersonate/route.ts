@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { signSession, SESSION_COOKIE } from "@/lib/session";
+import { logPlatformActivity } from "@/lib/platform-audit";
 
 const BACKUP_COOKIE = "lottoops_platform_session_backup";
 
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
 
   const token = await signSession({ userId: target.id, storeId: target.storeId, storeName: target.store.name, name: target.name, email: target.email, role: target.role, grantedPermissions: target.grantedPermissions ?? [], impersonatedBy: { userId: session.userId, name: session.name, email: session.email } });
   const response = NextResponse.json({ success: true, store: { id: target.store.id, name: target.store.name }, user: { name: target.name, role: target.role } });
+  await logPlatformActivity({ action: "IMPERSONATION_STARTED", entityType: "STORE", entityId: target.store.id, detail: `Support session started as ${target.email}.`, performedById: session.userId, performedByName: session.name });
   response.cookies.set(BACKUP_COOKIE, await signSession(session), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 30, path: "/" });
   response.cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 30, path: "/" });
   return response;

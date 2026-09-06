@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { logPlatformActivity } from "@/lib/platform-audit";
 
 const FEATURE_KEYS = ["OCR_RECEIPTS", "WHATSAPP_SUMMARIES", "AI_DISCREPANCY_ANALYSIS"] as const;
 type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -51,6 +52,7 @@ export async function PATCH(request: NextRequest) {
     const store = await prisma.store.findFirst({ where: { id: storeId, ownerUserId: { not: null } }, select: { id: true } });
     if (!store) return NextResponse.json({ error: "Store not found." }, { status: 404 });
     await prisma.$executeRawUnsafe(`INSERT INTO store_feature_flags (store_id, feature_key, enabled) VALUES ($1, $2, $3) ON CONFLICT (store_id, feature_key) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = NOW()`, storeId, featureKey, body.enabled);
+    await logPlatformActivity({ action: "FEATURE_FLAG_CHANGED", entityType: "STORE", entityId: storeId, detail: `${featureKey} set to ${body.enabled ? "enabled" : "disabled"}.`, performedById: session.userId, performedByName: session.name });
     return NextResponse.json({ success: true, storeId, featureKey, enabled: body.enabled });
   } catch (error) {
     console.error("[PATCH /api/platform/features]", error);

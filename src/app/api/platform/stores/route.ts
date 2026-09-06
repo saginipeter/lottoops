@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { logPlatformActivity } from "@/lib/platform-audit";
 
 interface PlatformStore { id: string; name: string; ownerUserId: string | null; users: Array<{ name: string; email: string }> }
 
@@ -52,6 +53,7 @@ export async function PATCH(request: NextRequest) {
     const store = await prisma.store.findFirst({ where: { id: storeId, ownerUserId: { not: null } }, select: { id: true } });
     if (!store) return NextResponse.json({ error: "Store not found." }, { status: 404 });
     await prisma.$executeRawUnsafe(`INSERT INTO store_access_controls (store_id, suspended, reason) VALUES ($1, $2, $3) ON CONFLICT (store_id) DO UPDATE SET suspended = EXCLUDED.suspended, reason = EXCLUDED.reason, updated_at = NOW()`, storeId, suspended, suspended ? reason || "Platform compliance hold" : null);
+    await logPlatformActivity({ action: suspended ? "STORE_SUSPENDED" : "STORE_REACTIVATED", entityType: "STORE", entityId: storeId, detail: suspended ? (reason || "Platform compliance hold") : "Store access reactivated.", performedById: session.userId, performedByName: session.name });
     return NextResponse.json({ success: true, storeId, suspended });
   } catch (error) {
     console.error("[PATCH /api/platform/stores]", error);
