@@ -21,6 +21,7 @@ import {
   Building2,
   RotateCcw,
   CreditCard,
+  MessageCircle,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -97,6 +98,7 @@ const navSections: NavSection[] = [
       { href: "/sales", label: "Sales", icon: ScanLine },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
       { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/support", label: "Support", icon: MessageCircle },
     ],
   },
   {
@@ -127,6 +129,7 @@ const ownerNavSections: NavSection[] = [
       { href: "/settings/users", label: "People & Access", icon: Users },
       { href: "/settings", label: "Account Settings", icon: Settings },
       { href: "/billing", label: "Billing", icon: CreditCard },
+      { href: "/support", label: "Support", icon: MessageCircle },
     ],
   },
 ];
