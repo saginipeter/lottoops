@@ -7,6 +7,7 @@ import { ExternalLink, Settings, Tv, Users } from "lucide-react";
 import { getSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
 import { ApprovalPinCard } from "@/components/settings/approval-pin-card";
+import { DeviceRegistryPanel } from "@/components/settings/device-registry-panel";
 
 export default async function SettingsPage() {
   const session = await getSession();
@@ -82,6 +83,8 @@ export default async function SettingsPage() {
           )}
 
           {isManagerOrOwner && <ApprovalPinCard />}
+
+          {isManagerOrOwner && <DeviceRegistryPanel />}
 
           <Panel className={`h-full p-5 ${isManagerOrOwner ? "" : "md:col-span-2"}`}>
             <div className="mb-3 inline-flex rounded-lg bg-gray-100 p-2 text-gray-700">
