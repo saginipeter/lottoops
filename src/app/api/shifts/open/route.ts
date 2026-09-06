@@ -51,6 +51,18 @@ export async function POST(req: NextRequest) {
 
     await ensureShiftTerminalSchema();
 
+    try {
+      const registeredRows = await prisma.$queryRawUnsafe(`SELECT COUNT(*)::int AS count FROM store_devices WHERE store_id = $1`, session.storeId) as Array<{ count: number }>;
+      if (Number(registeredRows[0]?.count ?? 0) > 0) {
+        const activeRows = await prisma.$queryRawUnsafe(`SELECT id FROM store_devices WHERE store_id = $1 AND terminal_id = $2 AND active = TRUE LIMIT 1`, session.storeId, terminalId) as Array<{ id: string }>;
+        if (activeRows.length === 0) {
+          return NextResponse.json({ error: `Terminal ${terminalId} is not registered or is inactive for this store.` }, { status: 403 });
+        }
+      }
+    } catch {
+      // The registry is optional for legacy stores and initializes on first use.
+    }
+
     // Prevent duplicate shifts per terminal
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existingRows = (await prisma.$queryRawUnsafe(
