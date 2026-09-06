@@ -94,6 +94,15 @@ interface LiveScanResult {
   slot?: { slotNumber?: string } | null;
 }
 
+interface SalesEntry {
+  id: string;
+  packId: string;
+  gameNumber?: string;
+  ticketsSold?: number;
+  salesAmount?: number;
+  pack?: { serialNumber: string; game: { name: string } };
+}
+
 export function LiveScanDashboard({
   currentShift,
   activePacks,
@@ -118,7 +127,7 @@ export function LiveScanDashboard({
   const [reportStatus, setReportStatus] = useState<"idle" | "success" | "error">("idle");
   const [reportMessage, setReportMessage] = useState("");
   const [lastScan, setLastScan] = useState<LiveScanResult | null>(null);
-  const [sales, setSales] = useState<Array<ShiftData["lines"][number] & { ticketsSold: number; salesAmount: number }>>([]);
+  const [sales, setSales] = useState<SalesEntry[]>([]);
   const [shiftStats, setShiftStats] = useState({
     ticketsSold: 0,
     revenueTotal: 0,
@@ -176,7 +185,15 @@ export function LiveScanDashboard({
       };
       const timer = window.setTimeout(() => {
         setShiftStats(nextStats);
-        setSales(metrics.filter((line) => line.ticketsSold > 0).slice(0, 10));
+        setSales(metrics.filter((line) => line.ticketsSold > 0).slice(0, 10).map((line) => ({
+          id: line.id,
+          packId: line.packId,
+          ticketsSold: line.ticketsSold,
+          salesAmount: line.salesAmount,
+          pack: line.pack?.serialNumber && line.pack.game?.name
+            ? { serialNumber: line.pack.serialNumber, game: { name: line.pack.game.name } }
+            : undefined,
+        })));
       }, 0);
       return () => window.clearTimeout(timer);
     } else {
