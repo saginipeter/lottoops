@@ -38,7 +38,10 @@ export function DiscrepancyReport() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const visibleRows = useMemo(
     () => filter === "ALL" ? rows : rows.filter((row) => row.status === filter),
