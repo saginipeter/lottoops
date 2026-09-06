@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (session.role !== "PLATFORM_ADMIN") return NextResponse.json({ error: "Platform admin access required." }, { status: 403 });
@@ -24,6 +25,17 @@ export async function GET() {
       ...rows.map((row) => ({ ...row, id: typeof row.id === "bigint" ? row.id.toString() : row.id })),
       ...platformRows.map((row) => ({ ...row, id: `platform_${typeof row.id === "bigint" ? row.id.toString() : row.id}`, storeId: "platform", storeName: "LottoOps Platform" })),
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 100);
+    if (request.nextUrl.searchParams.get("format") === "csv") {
+      const escape = (value: unknown) => {
+        const text = String(value ?? "");
+        return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+      };
+      const csvRows = [
+        ["Timestamp", "Store", "Action", "Entity Type", "Entity ID", "Details", "Performed By"],
+        ...activities.map((activity) => [activity.createdAt, activity.storeName ?? "", activity.action, activity.entityType, activity.entityId ?? "", activity.detail, activity.performedByName ?? ""]),
+      ];
+      return new NextResponse(csvRows.map((row) => row.map(escape).join(",")).join("\r\n"), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": "attachment; filename=platform-activity.csv" } });
+    }
     return NextResponse.json({ activities });
   } catch (error) {
     console.error("[GET /api/platform/activity]", error);
