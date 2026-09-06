@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { isOwner } from "@/lib/permissions";
+import { logCorrection } from "@/lib/correction-log";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { packId, currentTicketNumber } = await req.json();
+    const { packId, currentTicketNumber, reason } = await req.json();
 
     if (!packId || typeof packId !== "string") {
       return NextResponse.json({ error: "packId is required." }, { status: 400 });
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest) {
         { error: "currentTicketNumber must be a non-negative integer." },
         { status: 400 }
       );
+    }
+    if (typeof reason !== "string" || reason.trim().length < 6) {
+      return NextResponse.json({ error: "A correction reason of at least 6 characters is required." }, { status: 400 });
     }
 
     const pack = await prisma.pack.findFirst({
@@ -63,12 +67,24 @@ export async function POST(req: NextRequest) {
       data: { currentTicketNumber },
     });
 
+    await logCorrection({
+      storeId: session.storeId,
+      entityType: "PACK",
+      entityId: pack.id,
+      fieldName: "currentTicketNumber",
+      oldValue: pack.currentTicketNumber ?? pack.firstTicket,
+      newValue: currentTicketNumber,
+      reason: reason.trim(),
+      correctedById: session.userId,
+      correctedByName: session.name,
+    });
+
     await logInventoryActivity({
       storeId: session.storeId,
       action: "UPDATE_TICKET_NUMBER",
       entityType: "PACK",
       entityId: pack.id,
-      detail: `Updated current ticket for pack ${packId} from ${pack.currentTicketNumber ?? pack.firstTicket ?? "N/A"} to ${currentTicketNumber}.`,
+      detail: `Updated current ticket for pack ${packId} from ${pack.currentTicketNumber ?? pack.firstTicket ?? "N/A"} to ${currentTicketNumber}. Reason: ${reason.trim()}`,
       performedById: session.userId,
     });
 
