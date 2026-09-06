@@ -5,6 +5,7 @@ import { Activity, Building2, CheckCircle2, Clock3, Loader2, Plus, Users } from 
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { StoreAccessPanel } from "./store-access-panel";
+import { FeatureFlagsPanel } from "./feature-flags-panel";
 
 interface Metrics {
   stores: number;
@@ -147,6 +148,7 @@ export function PlatformControlCenter() {
       )}
 
       <StoreAccessPanel />
+      <FeatureFlagsPanel />
 
       <Panel className="p-5">
         <div className="mb-3 flex items-center gap-2"><Activity size={17} className="text-accent" /><h3 className="text-base font-semibold text-text">Recently created accounts</h3></div>
