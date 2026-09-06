@@ -8,6 +8,7 @@ export interface SessionPayload {
   email: string;
   role: "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
   grantedPermissions: string[];
+  impersonatedBy?: { userId: string; name: string; email: string };
 }
 
 function getSecret() {
@@ -20,7 +21,7 @@ export async function signSession(payload: SessionPayload): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("8h") // shifts are at most 8 hours
+    .setExpirationTime(payload.impersonatedBy ? "30m" : "8h")
     .sign(getSecret());
 }
 
