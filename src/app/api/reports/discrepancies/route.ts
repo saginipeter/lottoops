@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { canAccessReports } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getResolutionMap } from "@/lib/discrepancy-resolution";
 
 interface LockedPackReport {
   id: string;
@@ -50,12 +51,13 @@ export async function GET() {
       orderBy: { id: "desc" },
     })) as AuditVarianceReport[];
     const lockReports = lockedPacks as LockedPackReport[];
+    const resolutions = await getResolutionMap(session.storeId);
 
     return NextResponse.json({
       unresolved: lockReports.map((pack) => ({
         id: pack.id,
         type: "SEQUENCE_LOCK",
-        status: "UNRESOLVED",
+        status: resolutions.has(`SEQUENCE_LOCK:${pack.id}`) ? "RESOLVED" : "UNRESOLVED",
         game: pack.game.name,
         pack: pack.serialNumber,
         display: pack.slot?.slotNumber ?? "Unassigned",
@@ -66,12 +68,13 @@ export async function GET() {
           : null,
         timestamp: pack.sequenceLockedAt,
         actor: "Live scan",
-        reason: "Pending manager review",
+        reason: resolutions.get(`SEQUENCE_LOCK:${pack.id}`)?.reason ?? "Pending manager review",
+        resolvedBy: resolutions.get(`SEQUENCE_LOCK:${pack.id}`)?.resolvedByName ?? null,
       })),
       auditVariances: auditLines.map((line) => ({
         id: line.id,
         type: "INVENTORY_AUDIT",
-        status: "UNRESOLVED",
+        status: resolutions.has(`INVENTORY_AUDIT:${line.id}`) ? "RESOLVED" : "UNRESOLVED",
         game: line.pack.game.name,
         pack: line.pack.serialNumber,
         display: line.slotNumber,
@@ -80,7 +83,8 @@ export async function GET() {
         variance: line.variance,
         timestamp: line.audit.endedAt ?? line.audit.begunAt,
         actor: line.audit.endedBy?.name ?? line.audit.begunBy.name,
-        reason: line.varianceReason ?? "Inventory count does not match system expectation",
+        reason: resolutions.get(`INVENTORY_AUDIT:${line.id}`)?.reason ?? line.varianceReason ?? "Inventory count does not match system expectation",
+        resolvedBy: resolutions.get(`INVENTORY_AUDIT:${line.id}`)?.resolvedByName ?? null,
       })),
     });
   } catch (error) {

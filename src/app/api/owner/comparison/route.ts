@@ -49,6 +49,18 @@ export async function GET(request: NextRequest) {
         openShifts: storeShifts.filter((shift) => shift.status === "OPEN").length,
       };
     });
+    if (request.nextUrl.searchParams.get("format") === "csv") {
+      const escape = (value: unknown) => {
+        const text = String(value ?? "");
+        return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+      };
+      const csvRows = [
+        ["Store", "Store Number", "Sales", "Tickets", "Active Packs", "Backstock Packs", "Locked Packs", "Open Shifts"],
+        ...rows.map((row) => [row.name, row.storeNumber ?? "", row.sales, row.tickets, row.activePacks, row.backstockPacks, row.lockedPacks, row.openShifts]),
+      ];
+      const csv = csvRows.map((row) => row.map(escape).join(",")).join("\r\n");
+      return new NextResponse(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="store-comparison-${from.toISOString().slice(0, 10)}-${to.toISOString().slice(0, 10)}.csv"` } });
+    }
     return NextResponse.json({ from: from.toISOString(), to: to.toISOString(), multiStoreEnabled: access.allowed, stores: rows });
   } catch (error) {
     console.error("[GET /api/owner/comparison]", error);
