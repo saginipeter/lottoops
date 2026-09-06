@@ -17,6 +17,7 @@ import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { ScanStatusDisplay } from "./scan-status-display";
 import { SalesTracker } from "./sales-tracker";
+import { PhoneBarcodeScanner } from "./phone-barcode-scanner";
 
 interface ShiftData {
   id: string;
@@ -259,8 +260,8 @@ export function LiveScanDashboard({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  async function handleScan() {
-    if (!barcode.trim() || scanError) return;
+  async function handleScan(value = barcode) {
+    if (!value.trim() || scanError) return;
 
     try {
       setRefreshing(true);
@@ -268,7 +269,7 @@ export function LiveScanDashboard({
       const res = await fetch("/api/packs/check-serial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serialNumber: barcode, liveScan: true, terminalId }),
+        body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId }),
       });
 
       const data = await res.json();
@@ -621,6 +622,10 @@ export function LiveScanDashboard({
               >
                 {refreshing ? "Scanning..." : "Submit Scan"}
               </Button>
+              <PhoneBarcodeScanner
+                onScan={(value) => { void handleScan(value); }}
+                disabled={refreshing || Boolean(scanError) || !currentShift}
+              />
               {!currentShift && (
                 <p className="text-xs text-amber-700">Scanning is disabled until the shift is opened.</p>
               )}
@@ -838,6 +843,10 @@ export function LiveScanDashboard({
               {refreshing ? "Scanning..." : "Scan"}
             </Button>
           </div>
+          <PhoneBarcodeScanner
+            onScan={(value) => { void handleScan(value); }}
+            disabled={refreshing || Boolean(scanError) || !currentShift}
+          />
 
           {lastScan && (
             <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3">
