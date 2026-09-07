@@ -23,6 +23,7 @@ import {
   CreditCard,
   MessageCircle,
   CheckCircle2,
+  FileText,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -99,6 +100,7 @@ const navSections: NavSection[] = [
       { href: "/sales", label: "Sales", icon: ScanLine },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
       { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/documents", label: "Documents", icon: FileText },
       { href: "/support", label: "Support", icon: MessageCircle },
     ],
   },
@@ -122,6 +124,7 @@ const ownerNavSections: NavSection[] = [
       { href: "/owner", label: "Overview", icon: LayoutDashboard },
       { href: "/owner/stores", label: "Stores", icon: Building2 },
       { href: "/reports", label: "Performance", icon: BarChart3 },
+      { href: "/documents", label: "Documents", icon: FileText },
     ],
   },
   {
