@@ -11,6 +11,7 @@ import { CorrectionReport } from "@/components/reports/correction-report";
 import { InventoryAgingReport } from "@/components/reports/inventory-aging-report";
 import { ExceptionTrendsReport } from "@/components/reports/exception-trends-report";
 import { AiDiscrepancyAnalysis } from "@/components/reports/ai-discrepancy-analysis";
+import { WhatsAppSummaryCard } from "@/components/reports/whatsapp-summary-card";
 import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
 
 export default async function ReportsPage() {
@@ -40,6 +41,7 @@ export default async function ReportsPage() {
           <InventoryAgingReport />
           <ExceptionTrendsReport />
           {(session.role === "MANAGER" || session.role === "OWNER") && <AiDiscrepancyAnalysis />}
+          {(session.role === "MANAGER" || session.role === "OWNER") && <WhatsAppSummaryCard />}
           {session.role === "MANAGER" && <StateReportsUploader />}
         </div>
       </div>
