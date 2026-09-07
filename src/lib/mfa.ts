@@ -53,3 +53,9 @@ export async function setMfaRequired(userId: string, required: boolean) {
   }
   await prisma.$executeRawUnsafe(`INSERT INTO user_mfa (user_id, secret, required) VALUES ($1, '', $2) ON CONFLICT (user_id) DO UPDATE SET required = EXCLUDED.required`, userId, required);
 }
+
+export async function disableMfa(userId: string) {
+  if (!prisma) return;
+  await ensureSchema();
+  await prisma.$executeRawUnsafe(`UPDATE user_mfa SET enabled = FALSE, required = FALSE, secret = '', enabled_at = NULL WHERE user_id = $1`, userId);
+}

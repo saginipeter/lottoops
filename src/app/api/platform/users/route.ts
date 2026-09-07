@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revokeUserSessions } from "@/lib/session-revocation";
 import bcrypt from "bcryptjs";
 import { setMfaRequired } from "@/lib/mfa";
+import { disableMfa } from "@/lib/mfa";
 
 function platformOnly(role: string) { return role === "PLATFORM_ADMIN"; }
 
@@ -34,6 +35,11 @@ export async function PATCH(request: NextRequest) {
     try { await setMfaRequired(userId, body.requireMfa); } catch (error) { if (error instanceof Error && error.message === "MFA_NOT_ENROLLED") return NextResponse.json({ error: "User must enroll MFA before it can be required." }, { status: 409 }); throw error; }
     if (body.requireMfa) await revokeUserSessions(userId);
     return NextResponse.json({ success: true, mfaRequired: body.requireMfa });
+  }
+  if (body.resetMfa === true) {
+    await disableMfa(userId);
+    await revokeUserSessions(userId);
+    return NextResponse.json({ success: true, mfaReset: true });
   }
   if (typeof body.password === "string") {
     if (body.password.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
