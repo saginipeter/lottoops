@@ -13,6 +13,7 @@ import { ShipmentOverrideNotifications } from "@/components/reports/shipment-ove
 import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
 import { StoreComparisonPanel } from "@/components/owner/store-comparison-panel";
 import { CompanyExceptionsPanel } from "@/components/owner/company-exceptions-panel";
+import { CompanyInventoryPanel } from "@/components/owner/company-inventory-panel";
 
 interface StoreKPI {
   id: string;
@@ -248,6 +249,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
       {view === "overview" && <StateReportsUploader />}
       {view === "overview" && <StoreComparisonPanel />}
       {view === "overview" && <CompanyExceptionsPanel />}
+      {view === "overview" && <CompanyInventoryPanel />}
       {/* Portfolio overview */}
       {view === "overview" && !loading && stores.length > 0 && (
         <section aria-labelledby="portfolio-overview" className="space-y-3">
