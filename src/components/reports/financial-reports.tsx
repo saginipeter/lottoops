@@ -339,6 +339,17 @@ export function FinancialReports() {
                 data.gamePerformance.length === 0 ? (
                   <p className="py-8 text-center text-sm text-text-secondary">No game sales in this date range.</p>
                 ) : (
+                  <>
+                  <div className="mb-5 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Fastest moving</p>
+                      {data.gamePerformance.slice(0, 3).map((game, index) => <div key={game.name} className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="truncate font-medium text-emerald-950">{index + 1}. {game.name}</span><span className="shrink-0 font-semibold text-emerald-800">{game.tickets} tickets</span></div>)}
+                    </div>
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Slowest moving</p>
+                      {[...data.gamePerformance].sort((a, b) => a.tickets - b.tickets).slice(0, 3).map((game, index) => <div key={game.name} className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="truncate font-medium text-amber-950">{index + 1}. {game.name}</span><span className="shrink-0 font-semibold text-amber-800">{game.tickets} tickets</span></div>)}
+                    </div>
+                  </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
@@ -372,6 +383,7 @@ export function FinancialReports() {
                       ))}
                     </tbody>
                   </table>
+                  </>
                 )
               )}
             </div>
