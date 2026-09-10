@@ -170,12 +170,10 @@ export async function POST(req: NextRequest) {
           FROM shifts
           WHERE "storeId" = $1
             AND status = 'OPEN'
-            AND COALESCE("terminalId", 'T1') = $2
           ORDER BY "openedAt" DESC
           LIMIT 1
           `,
-          session.storeId,
-          terminalId
+          session.storeId
         )) as { id: string }[];
         const openShift = openShiftRows[0]
           ? await prisma.shift.findUnique({ where: { id: openShiftRows[0].id } })

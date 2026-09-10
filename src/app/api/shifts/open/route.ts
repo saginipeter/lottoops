@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { findUnassignedActivePacks } from "@/lib/core-validation";
 import { logInventoryActivity } from "@/lib/activity-log";
+import { recordShiftParticipant } from "@/lib/shift-participants";
 
 interface ActivePack {
   id: string;
@@ -74,25 +75,24 @@ export async function POST(req: NextRequest) {
       // The registry is optional for legacy stores and initializes on first use.
     }
 
-    // Prevent duplicate shifts per terminal
+    // One store has one shared open shift; additional terminals join it.
     const existingRows = (await prisma.$queryRawUnsafe(
       `
       SELECT id
       FROM shifts
       WHERE "storeId" = $1
         AND status = 'OPEN'
-        AND COALESCE("terminalId", 'T1') = $2
       LIMIT 1
       `,
-      session.storeId,
-      terminalId
+      session.storeId
     )) as { id: string }[];
     const existing = existingRows[0] ?? null;
 
     if (existing) {
+      await recordShiftParticipant(existing.id, session.userId);
       return NextResponse.json(
-        { error: `Shift already open on terminal ${terminalId}` },
-        { status: 400 }
+        { success: true, shiftId: existing.id, terminalId, alreadyOpen: true },
+        { status: 200 }
       );
     }
 
