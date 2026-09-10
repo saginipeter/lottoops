@@ -171,21 +171,21 @@ function NavRow({ item, isActive }: { item: NavItem; isActive: boolean }) {
     <Link
       href={item.href}
       className={clsx(
-        "flex items-center justify-center gap-2.5 rounded-md px-2.5 py-[7px] text-xs transition-colors mb-px sm:justify-start",
+        "group flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] font-medium transition-colors",
         isActive
-          ? "bg-accent text-white"
+          ? "bg-accent text-white shadow-sm"
           : "text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-strong"
       )}
     >
-      <Icon size={15} strokeWidth={2} />
-      <span className="hidden sm:inline">{item.label}</span>
+      <Icon size={17} strokeWidth={isActive ? 2.3 : 2} className="shrink-0" />
+      <span className="truncate">{item.label}</span>
       {item.badge && (
-        <span className="ml-auto rounded-full bg-white/15 px-[5px] py-[1px] text-[9px] text-white/70">
+        <span className="ml-auto rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-white/70">
           {item.badge}
         </span>
       )}
       {item.alert && (
-        <span className="ml-auto rounded-full bg-danger px-[5px] py-[1px] text-[9px] text-white">
+        <span className="ml-auto rounded-full bg-danger px-2 py-0.5 text-[10px] text-white">
           !
         </span>
       )}
@@ -210,30 +210,32 @@ export function Sidebar({ user }: SidebarProps) {
 
   return (
     <>
-    <aside className="hidden h-full w-[200px] shrink-0 flex-col bg-sidebar sm:flex">
-      {/* Logo + Store Name */}
-      <div className="border-b border-sidebar-border px-2 py-3 sm:px-4">
-        <div className="flex items-center gap-2 mb-2">
+    <aside className="hidden h-full w-[248px] shrink-0 flex-col bg-sidebar sm:flex">
+      <div className="border-b border-sidebar-border px-4 py-4">
+        <div className="flex items-center gap-2">
           <Image
             src="/brand/lottoops-logo.png"
             alt="LottoOps"
-            width={108}
-            height={36}
-            className="h-7 w-auto"
+            width={132}
+            height={44}
+            className="h-9 w-auto"
             priority
           />
-          <div className="hidden text-[9px] uppercase tracking-wider text-white/35 sm:mt-3 sm:-ml-0.5 sm:block">
-            Lottery Scratch_off Management System
-          </div>
         </div>
-        <div className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1.5">
-          <Building2 size={11} className="shrink-0 text-accent/70" />
-          <span className="hidden truncate text-[11px] font-medium text-white/75 sm:block">{user.storeName}</span>
+        <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/40">
+          Lottery operations
+        </p>
+        <div className="mt-4 flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.07] px-3 py-2.5">
+          <Building2 size={15} className="shrink-0 text-accent" />
+          <div className="min-w-0">
+            <p className="text-[9px] uppercase tracking-wider text-white/40">Workspace</p>
+            <p className="truncate text-xs font-semibold text-white/85">{user.storeName}</p>
+          </div>
+          <ChevronDown size={14} className="ml-auto shrink-0 text-white/40" />
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
         <NavRow item={navTop} isActive={pathname === "/"} />
 
         {(user.role === "PLATFORM_ADMIN" ? platformNavSections : isOwner ? ownerNavSections : navSections).map((section) => {
@@ -243,12 +245,10 @@ export function Sidebar({ user }: SidebarProps) {
           if (visibleItems.length === 0) return null;
 
           return (
-            <div key={section.label}>
-              <div className="hidden px-2 pb-1 pt-3 text-[9px] uppercase tracking-widest text-white/30 sm:block">
+            <div key={section.label} className="mt-5 first:mt-4">
+              <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
                 {section.label}
               </div>
-           
-
 
               {visibleItems.map((item) => {
                 const isActive =
@@ -269,23 +269,23 @@ export function Sidebar({ user }: SidebarProps) {
         })}
       </nav>
 
-      {/* User chip + logout */}
-      <div className="border-t border-sidebar-border px-2 py-3">
-        <div className="flex items-center gap-2 rounded-md px-2.5 py-[7px] mb-1">
-          <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white">
+      <div className="border-t border-sidebar-border p-3">
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-white">
             {user.initials}
           </div>
-          <div className="hidden min-w-0 flex-1 sm:block">
-            <p className="truncate text-[11px] font-medium text-white/85">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-white/85">
               {user.name}
             </p>
-            <p className="text-[9px] uppercase tracking-wide text-white/35">
+            <p className="text-[10px] uppercase tracking-wider text-white/40">
               {roleLabel[user.role] ?? user.role}
             </p>
           </div>
-          <ChevronDown size={12} className="text-white/30" />
         </div>
-        <LogoutButton />
+        <div className="mt-1 px-1">
+          <LogoutButton />
+        </div>
       </div>
     </aside>
     <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-sidebar px-1 pb-[env(safe-area-inset-bottom)] pt-1 sm:hidden">
