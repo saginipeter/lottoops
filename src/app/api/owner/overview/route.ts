@@ -48,11 +48,13 @@ export async function GET() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [packs, openShifts, todayLines, rawShiftsToday] = await Promise.all([
+    const [packs, openShifts, todayLines, rawShiftsToday, lockedExceptions, auditExceptions] = await Promise.all([
       prisma.pack.findMany({ where: { storeId: { in: storeIds } }, select: { storeId: true, status: true, sequenceLocked: true } }),
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, status: "OPEN" }, select: { storeId: true } }),
       prisma.shiftLine.findMany({ where: { shift: { AND: [{ storeId: { in: storeIds } }, { openedAt: { gte: today } }] } }, select: { shift: { select: { storeId: true } }, ticketsSold: true, salesAmount: true } }),
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, openedAt: { gte: today } }, select: { id: true, storeId: true } }),
+      prisma.pack.count({ where: { storeId: { in: storeIds }, sequenceLocked: true } }),
+      prisma.inventoryAuditLine.count({ where: { audit: { storeId: { in: storeIds } }, variance: { not: 0 } } }),
     ]);
     const shiftsToday = rawShiftsToday as Array<{ id: string; storeId: string }>;
     const ownerPacks = packs as OwnerPack[];
@@ -83,6 +85,7 @@ export async function GET() {
         backstock: storePacks.filter((pack) => pack.status === "BACK_STOCK").length,
         activePacks: storePacks.filter((pack) => pack.status === "ACTIVE").length,
         lockedPacks: storePacks.filter((pack) => pack.sequenceLocked).length,
+        openExceptions: storePacks.filter((pack) => pack.sequenceLocked).length,
       };
     });
 
@@ -97,6 +100,8 @@ export async function GET() {
         lockedPacks: storeRows.reduce((sum, store) => sum + store.lockedPacks, 0),
         openShifts: openShifts.length,
         auditCompletionRate: shiftsToday.length ? Math.round((completedAudits / shiftsToday.length) * 100) : 0,
+        openExceptions: lockedExceptions + auditExceptions,
+        highestRiskExceptions: lockedExceptions,
       },
       plan: {
         key: planAccess.planKey,

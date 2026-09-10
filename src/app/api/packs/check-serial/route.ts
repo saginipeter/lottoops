@@ -65,6 +65,28 @@ export async function POST(req: NextRequest) {
         : "T1";
     const normalizedSerial = serialNumber.replace(/\D/g, "");
 
+    try {
+      const registeredRows = await prisma.$queryRawUnsafe(
+        `SELECT COUNT(*)::int AS count FROM store_devices WHERE store_id = $1`,
+        session.storeId
+      ) as Array<{ count: number }>;
+      if (Number(registeredRows[0]?.count ?? 0) > 0) {
+        const activeRows = await prisma.$queryRawUnsafe(
+          `SELECT id FROM store_devices WHERE store_id = $1 AND terminal_id = $2 AND active = TRUE LIMIT 1`,
+          session.storeId,
+          terminalId
+        ) as Array<{ id: string }>;
+        if (activeRows.length === 0) {
+          return NextResponse.json(
+            { error: `Terminal ${terminalId} is not registered or is inactive for this store.` },
+            { status: 403 }
+          );
+        }
+      }
+    } catch {
+      // Legacy stores may not have initialized the device registry yet.
+    }
+
     // Check if pack already exists by exact serial first
     let existingPack = await prisma.pack.findFirst({
       where: { storeId: session.storeId, serialNumber },
@@ -294,8 +316,25 @@ export async function POST(req: NextRequest) {
         const soldOut = endingTicket === 0;
         const scanEventId = `lse_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
-        const txOps: any[] = [
-          prisma.$executeRawUnsafe(
+        await prisma.$transaction(async (tx) => {
+          const updatedRows = await tx.$executeRawUnsafe(
+            `
+            UPDATE packs
+            SET "currentTicketNumber" = $1, status = $2
+            WHERE id = $3
+              AND "currentTicketNumber" = $4
+              AND status = 'ACTIVE'
+            `,
+            endingTicket,
+            soldOut ? "SOLD_OUT" : "ACTIVE",
+            existingPack.id,
+            currentTicket
+          );
+          if (updatedRows !== 1) {
+            throw new Error("CONCURRENT_TICKET_SCAN");
+          }
+
+          await tx.$executeRawUnsafe(
             `
             INSERT INTO live_scan_events (id, store_id, shift_id, pack_id, ticket_barcode)
             VALUES ($1, $2, $3, $4, $5)
@@ -305,35 +344,18 @@ export async function POST(req: NextRequest) {
             openShift.id,
             existingPack.id,
             normalizedSerial
-          ),
-          prisma.pack.update({
-            where: { id: existingPack.id },
-            data: {
-              currentTicketNumber: endingTicket,
-              ...(soldOut ? { status: "SOLD_OUT" } : {}),
-            },
-          }),
-          prisma.shiftLine.update({
+          );
+          await tx.shiftLine.update({
             where: { id: line.id },
-            data: {
-              endingTicket,
-              ticketsSold,
-              salesAmount,
-            },
-          }),
-        ];
+            data: { endingTicket, ticketsSold, salesAmount },
+          });
 
-        if (soldOut) {
-          txOps.push(
-            prisma.displaySlot.updateMany({
-              where: {
-                packId: existingPack.id,
-              },
-              data: {
-                packId: null,
-              },
-            }),
-            prisma.scanLogEntry.create({
+          if (soldOut) {
+            await tx.displaySlot.updateMany({
+              where: { packId: existingPack.id },
+              data: { packId: null },
+            });
+            await tx.scanLogEntry.create({
               data: {
                 storeId: session.storeId,
                 action: "SOLD_OUT",
@@ -341,11 +363,9 @@ export async function POST(req: NextRequest) {
                 packId: existingPack.id,
                 detail: `Pack ${existingPack.serialNumber} sold out during live scan.`,
               },
-            })
-          );
-        }
-
-        await prisma.$transaction(txOps);
+            });
+          }
+        });
 
         await logInventoryActivity({
           storeId: session.storeId,
@@ -453,6 +473,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[POST /api/packs/check-serial]", err);
+    if (err instanceof Error && err.message === "CONCURRENT_TICKET_SCAN") {
+      return NextResponse.json(
+        { error: "This pack was advanced by another terminal. Scan the next expected ticket." },
+        { status: 409 }
+      );
+    }
     if (err && typeof err === "object" && "code" in err && err.code === "23505") {
       return NextResponse.json(
         { error: "This scratch card was already scanned in this shift." },

@@ -5,7 +5,7 @@ import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
-interface Exception { id: string; type: string; store: string; game: string; pack: string; display: string; expected: number | null; observed: number | null; timestamp: string | null; status: string }
+interface Exception { id: string; storeId: string; type: string; store: string; game: string; pack: string; display: string; expected: number | null; observed: number | null; timestamp: string | null; status: string }
 
 export function CompanyExceptionsPanel() {
   const [exceptions, setExceptions] = useState<Exception[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
