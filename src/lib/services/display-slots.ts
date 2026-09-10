@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-export const DISPLAY_SLOT_COUNT = 50;
+export const DISPLAY_SLOT_COUNT = 100;
 
 export async function ensureDisplaySlots(storeId: string) {
   if (!prisma) return;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 
 interface ReturnedPack {
   id: string;
@@ -24,6 +24,7 @@ interface ReturnedTicketsListProps {
 
 export function ReturnedTicketsList({ packs }: ReturnedTicketsListProps) {
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(false);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return packs;
@@ -37,7 +38,12 @@ export function ReturnedTicketsList({ packs }: ReturnedTicketsListProps) {
   }, [packs, search]);
 
   return (
-    <div className="space-y-4">
+    <div className="overflow-hidden rounded-xl border border-border bg-surface">
+      <button type="button" onClick={() => setExpanded((value) => !value)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-surface-soft">
+        <span><span className="font-semibold text-text">Returned Tickets</span><span className="ml-2 text-xs text-text-secondary">{packs.length} records</span></span>
+        <ChevronDown size={16} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+      {expanded && <div className="space-y-4 border-t border-border p-4">
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-3 text-gray-400" size={16} />
         <input
@@ -107,6 +113,7 @@ export function ReturnedTicketsList({ packs }: ReturnedTicketsListProps) {
           </tbody>
         </table>
       </div>
+      </div>}
     </div>
   );
 }

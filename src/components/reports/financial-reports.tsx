@@ -104,6 +104,10 @@ export function FinancialReports() {
     window.open(`/api/reports/export?type=${type}&from=${from}&to=${to}`, "_blank");
   }
 
+  function downloadPDF(type: "shifts" | "activity") {
+    window.open(`/api/reports/export?type=${type}&format=pdf&from=${from}&to=${to}`, "_blank");
+  }
+
   const presets = [
     { label: "Today", days: 0 },
     { label: "7 days", days: 7 },
@@ -159,6 +163,7 @@ export function FinancialReports() {
                 <ChevronDown size={12} className="ml-1" />
               </Button>
               <div className="absolute right-0 top-full mt-1 hidden group-hover:block w-44 rounded-md border border-border bg-surface shadow-lg z-10">
+                <div className="border-b border-border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">CSV</div>
                 {(["shifts", "games", "inventory", "activity"] as const).map((t) => (
                   <button key={t} onClick={() => downloadCSV(t)}
                     className="block w-full px-3 py-2 text-left text-sm text-text hover:bg-surface-soft capitalize">
@@ -171,6 +176,9 @@ export function FinancialReports() {
                           : "Activity Report"}
                   </button>
                 ))}
+                <div className="border-y border-border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">PDF</div>
+                <button onClick={() => downloadPDF("shifts")} className="block w-full px-3 py-2 text-left text-sm text-text hover:bg-surface-soft">Shift Report PDF</button>
+                <button onClick={() => downloadPDF("activity")} className="block w-full px-3 py-2 text-left text-sm text-text hover:bg-surface-soft">Shift Log PDF</button>
               </div>
             </div>
           </div>

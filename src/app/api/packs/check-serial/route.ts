@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { recordShiftParticipant } from "@/lib/shift-participants";
+import { logInventoryActivity } from "@/lib/activity-log";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -98,6 +99,30 @@ export async function POST(req: NextRequest) {
 
     if (existingPack) {
       if (liveScan === true) {
+        const scannedTicketNumber = resolveScannedTicketNumber(normalizedSerial);
+        if (existingPack.sequenceLocked && scannedTicketNumber === existingPack.sequenceLockExpectedTicket) {
+          await prisma.pack.update({
+            where: { id: existingPack.id },
+            data: {
+              sequenceLocked: false,
+              sequenceLockExpectedTicket: null,
+              sequenceLockScannedTicket: null,
+              sequenceLockBarcode: null,
+              sequenceLockedAt: null,
+              sequenceLockedById: null,
+            },
+          });
+          await logInventoryActivity({
+            storeId: session.storeId,
+            action: "SEQUENCE_LOCK_SELF_RESOLVED",
+            entityType: "PACK",
+            entityId: existingPack.id,
+            detail: `Employee scanned expected ticket ${scannedTicketNumber} and cleared the sequence lock.`,
+            performedById: session.userId,
+            performedByName: session.name,
+          });
+          existingPack.sequenceLocked = false;
+        }
         if (existingPack.sequenceLocked) {
           return NextResponse.json(
             {
@@ -225,7 +250,6 @@ export async function POST(req: NextRequest) {
         const currentTicket = existingPack.currentTicketNumber ?? beginning;
 
         // Enforce one-scan-per-ticket and strict sequence from current ticket.
-        const scannedTicketNumber = resolveScannedTicketNumber(normalizedSerial);
         if (scannedTicketNumber !== null && scannedTicketNumber !== currentTicket) {
             await prisma.pack.update({
               where: { id: existingPack.id },

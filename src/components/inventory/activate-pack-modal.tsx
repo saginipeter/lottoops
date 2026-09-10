@@ -95,7 +95,7 @@ export function ActivatePackModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>Activate Pack</DialogTitle>
         </DialogHeader>
@@ -107,7 +107,7 @@ export function ActivatePackModal({
           </div>
         )}
 
-        <div className="space-y-6">
+        <div className="min-h-0 space-y-6 overflow-y-auto pr-1">
           {/* Pack Info */}
           {pack && (
             <Panel className="p-4 bg-gray-50">

@@ -17,6 +17,36 @@ function buildCSV(headers: string[], rows: unknown[][]): string {
   return lines.join("\r\n");
 }
 
+function pdfText(value: unknown): string {
+  return String(value ?? "").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function buildSimplePdf(title: string, subtitle: string, rows: string[]): Buffer {
+  const lines = [title, subtitle, "", ...rows].flatMap((line) => {
+    const text = String(line);
+    return text.length <= 105 ? [text] : text.match(/.{1,105}(?:\s|$)/g)?.map((part) => part.trimEnd()) ?? [text.slice(0, 105)];
+  });
+  const content = ["BT", "/F1 9 Tf", "45 760 Td", ...lines.flatMap((line, index) => [index === 0 ? "/F1 14 Tf" : index === 1 ? "/F1 9 Tf" : "/F1 8 Tf", `(${pdfText(line)}) Tj`, "0 -14 Td"]), "ET"].join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${Buffer.byteLength(content, "ascii")} >>\nstream\n${content}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf, "ascii"));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = Buffer.byteLength(pdf, "ascii");
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return Buffer.from(pdf, "ascii");
+}
+
 // GET /api/reports/export?type=shifts|games|inventory|activity&from=YYYY-MM-DD&to=YYYY-MM-DD
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
@@ -25,6 +55,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") ?? "shifts";
+  const format = searchParams.get("format") ?? "csv";
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
@@ -174,6 +205,25 @@ export async function GET(req: NextRequest) {
     filename = `activity_${fromDate.toISOString().slice(0, 10)}_${toDate.toISOString().slice(0, 10)}.csv`;
   } else {
     return NextResponse.json({ error: "Invalid export type. Use: shifts, games, inventory, activity" }, { status: 400 });
+  }
+
+  if (format === "pdf") {
+    if (type === "shifts") {
+      const rows = (shifts as any[]).flatMap((shift) => {
+        const tickets = shift.lines.reduce((sum: number, line: any) => sum + Number(line.ticketsSold ?? 0), 0);
+        const sales = shift.lines.reduce((sum: number, line: any) => sum + Number(line.salesAmount ?? 0), 0);
+        return [`${shift.openedAt.toISOString()} | ${shift.openedBy.name} -> ${shift.closedBy?.name ?? ""}`, `Tickets: ${tickets} | Sales: $${sales.toFixed(2)}`, ""];
+      });
+      const pdf = buildSimplePdf("LottoOps Shift Report", `${fromDate.toISOString().slice(0, 10)} through ${toDate.toISOString().slice(0, 10)}`, rows);
+      return new NextResponse(pdf as unknown as BodyInit, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="shifts_${fromDate.toISOString().slice(0, 10)}.pdf"` } });
+    }
+    if (type === "activity") {
+      const logs = await queryInventoryActivity(session.storeId, { from: fromDate, to: toDate, limit: 2000 });
+      const rows = logs.map((entry: any) => `${new Date(entry.createdAt).toISOString()} | ${entry.action} | ${entry.performedByName ?? entry.performedById} | ${entry.detail}`);
+      const pdf = buildSimplePdf("LottoOps Activity Log", `${fromDate.toISOString().slice(0, 10)} through ${toDate.toISOString().slice(0, 10)}`, rows);
+      return new NextResponse(pdf as unknown as BodyInit, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="activity_${fromDate.toISOString().slice(0, 10)}.pdf"` } });
+    }
+    return NextResponse.json({ error: "PDF is available for shifts and activity reports." }, { status: 400 });
   }
 
   return new NextResponse(csv, {

@@ -36,7 +36,10 @@ export async function GET(req: NextRequest) {
   }
 
   const users = await prisma.user.findMany({
-    where: { storeId },
+    where: {
+      storeId,
+      ...(session.role === "MANAGER" ? { role: { not: "OWNER" } } : {}),
+    },
     select: {
       id: true,
       name: true,

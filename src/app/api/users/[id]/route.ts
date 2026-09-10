@@ -30,6 +30,10 @@ export async function PATCH(
   });
   if (!existing) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
+  if (session.role === "MANAGER" && existing.role === "OWNER") {
+    return NextResponse.json({ error: "Owner accounts are protected from manager changes." }, { status: 403 });
+  }
+
   // Prevent the manager from demoting or deactivating themselves
   if (id === session.userId) {
     return NextResponse.json(
@@ -178,8 +182,8 @@ export async function DELETE(
   }
 
   const existing = await prisma.user.findFirst({
-    where: { id, storeId: session.storeId },
-    select: { id: true },
+    where: { id, storeId: session.storeId, ...(session.role === "MANAGER" ? { role: { not: "OWNER" } } : {}) },
+    select: { id: true, role: true },
   });
   if (!existing) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
