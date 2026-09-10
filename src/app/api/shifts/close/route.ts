@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { validateEndingTicket } from "@/lib/core-validation";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -84,9 +85,10 @@ export async function POST(req: NextRequest) {
         line.pack.currentTicketNumber === null || line.pack.currentTicketNumber === undefined
           ? beginning
           : Number(line.pack.currentTicketNumber);
-      if (!Number.isInteger(currentTicket) || currentTicket < 0 || currentTicket > beginning) {
+      const ticketError = validateEndingTicket(beginning, currentTicket);
+      if (ticketError) {
         return NextResponse.json(
-          { error: `Invalid ending ticket for pack ${line.pack.serialNumber}. Expected a value from 0 through ${beginning}.` },
+          { error: `Invalid ending ticket for pack ${line.pack.serialNumber}. ${ticketError}` },
           { status: 409 }
         );
       }

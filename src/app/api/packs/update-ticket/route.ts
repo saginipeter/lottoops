@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { logInventoryActivity } from "@/lib/activity-log";
-import { isOwner } from "@/lib/permissions";
+import { isManagerOrAbove } from "@/lib/permissions";
 import { logCorrection } from "@/lib/correction-log";
+import { canAuthorizeCorrection } from "@/lib/control-validation";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -11,9 +12,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (!isOwner(session)) {
+  if (!canAuthorizeCorrection(session.role) || !isManagerOrAbove(session)) {
     return NextResponse.json(
-      { error: "Only the store owner can correct a ticket number." },
+      { error: "Manager authorization is required to correct a ticket number." },
       { status: 403 }
     );
   }

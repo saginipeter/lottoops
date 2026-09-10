@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { validateEndingTicket } from "@/lib/core-validation";
 
 interface ShiftLineRecord {
   id: string;
@@ -87,8 +88,9 @@ export async function POST(req: NextRequest) {
           lineRecord.pack.currentTicketNumber === undefined
             ? beginning
             : Number(lineRecord.pack.currentTicketNumber);
-        if (!Number.isInteger(currentTicket) || currentTicket < 0 || currentTicket > beginning) {
-          throw new Error(`Invalid ending ticket for shift line ${lineRecord.id}. Expected a value from 0 through ${beginning}.`);
+        const ticketError = validateEndingTicket(beginning, currentTicket);
+        if (ticketError) {
+          throw new Error(`Invalid ending ticket for shift line ${lineRecord.id}. ${ticketError}`);
         }
         const endingTicket = currentTicket;
         const sold = Math.max(beginning - endingTicket, 0);

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { recordShiftParticipant } from "@/lib/shift-participants";
 import { logInventoryActivity } from "@/lib/activity-log";
+import { canSelfResolveSequenceLock } from "@/lib/control-validation";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
     if (existingPack) {
       if (liveScan === true) {
         const scannedTicketNumber = resolveScannedTicketNumber(normalizedSerial);
-        if (existingPack.sequenceLocked && scannedTicketNumber === existingPack.sequenceLockExpectedTicket) {
+        if (canSelfResolveSequenceLock(existingPack.sequenceLocked, existingPack.sequenceLockExpectedTicket, scannedTicketNumber)) {
           await prisma.pack.update({
             where: { id: existingPack.id },
             data: {
@@ -417,6 +418,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[POST /api/packs/check-serial]", err);
+    if (err && typeof err === "object" && "code" in err && err.code === "23505") {
+      return NextResponse.json(
+        { error: "This scratch card was already scanned in this shift." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to check serial number" },
       { status: 500 }

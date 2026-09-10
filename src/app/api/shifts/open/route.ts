@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { findUnassignedActivePacks } from "@/lib/core-validation";
 
 interface ActivePack {
   id: string;
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
     });
 
     const typedActivePacks = activePacks as ActivePack[];
-    const unassignedPacks = typedActivePacks.filter((pack) => !pack.slot);
+    const unassignedPacks = findUnassignedActivePacks(typedActivePacks);
     if (unassignedPacks.length > 0) {
       return NextResponse.json(
         {

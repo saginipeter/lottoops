@@ -6,6 +6,7 @@
     "dev": "next dev",
     "postinstall": "prisma generate",
     "build": "next build",
+    "test": "tsx --test src/lib/__tests__/**/*.test.ts src/lib/games-sync/__tests__/*.test.ts",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
