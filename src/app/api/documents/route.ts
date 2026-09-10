@@ -11,9 +11,18 @@ export async function GET(request: NextRequest) {
   if (!canAccessReports(session)) return NextResponse.json({ error: "Document access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
   const query = request.nextUrl.searchParams.get("q")?.trim().toLowerCase() ?? "";
+  const type = request.nextUrl.searchParams.get("type")?.trim() ?? "";
+  const fromValue = request.nextUrl.searchParams.get("from")?.trim() ?? "";
+  const toValue = request.nextUrl.searchParams.get("to")?.trim() ?? "";
+  const retention = request.nextUrl.searchParams.get("retention")?.trim() ?? "";
+  const from = fromValue ? new Date(`${fromValue}T00:00:00`) : null;
+  const to = toValue ? new Date(`${toValue}T23:59:59`) : null;
+  if ((fromValue && (!from || Number.isNaN(from.getTime()))) || (toValue && (!to || Number.isNaN(to.getTime())))) {
+    return NextResponse.json({ error: "Document date filters must be valid dates." }, { status: 400 });
+  }
   try {
     const [storedDocuments, shipmentsResult, packsResult] = await Promise.all([
-      prisma.document.findMany({ where: { storeId: session.storeId }, include: { uploadedBy: { select: { name: true } } }, orderBy: { documentDate: "desc" }, take: 1000 }),
+      prisma.document.findMany({ where: { storeId: session.storeId, ...(type ? { type } : {}), ...(from || to ? { documentDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}) }, include: { uploadedBy: { select: { name: true } } }, orderBy: { documentDate: "desc" }, take: 1000 }),
       prisma.shipment.findMany({ where: { storeId: session.storeId }, select: { id: true, invoiceNumber: true, invoicePhoto: true, confirmationReceiptPhoto: true, createdAt: true, shipmentDate: true }, orderBy: { createdAt: "desc" }, take: 250 }),
       prisma.pack.findMany({ where: { storeId: session.storeId }, select: { id: true, serialNumber: true, gameNumber: true, packImage: true, activationReceipt: true, activationReceiptPhoto: true, invoiceReceipt: true, receivedAt: true }, orderBy: { receivedAt: "desc" }, take: 500 }),
     ]);
@@ -43,7 +52,15 @@ export async function GET(request: NextRequest) {
         ...(pack.invoiceReceipt ? [{ id: `pack-invoice-${pack.id}`, type: "Pack Invoice", name: `Invoice ${pack.serialNumber}`, url: pack.invoiceReceipt, createdAt: pack.receivedAt, documentDate: pack.receivedAt, retentionUntil: null, reference: pack.serialNumber, source: "legacy" as const }] : []),
       ]),
     ];
-    const visible = documents.filter((document) => !query || `${document.type} ${document.name} ${document.reference}`.toLowerCase().includes(query)).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const visible = documents.filter((document) => {
+      const matchesQuery = !query || `${document.type} ${document.name} ${document.reference}`.toLowerCase().includes(query);
+      const matchesType = !type || document.type === type;
+      const date = document.documentDate.getTime();
+      const matchesFrom = !from || date >= from.getTime();
+      const matchesTo = !to || date <= to.getTime();
+      const matchesRetention = retention === "expired" ? Boolean(document.retentionUntil && document.retentionUntil.getTime() < Date.now()) : retention === "active" ? !document.retentionUntil || document.retentionUntil.getTime() >= Date.now() : true;
+      return matchesQuery && matchesType && matchesFrom && matchesTo && matchesRetention;
+    }).sort((a, b) => b.documentDate.getTime() - a.documentDate.getTime());
     return NextResponse.json({ documents: visible });
   } catch (error) {
     console.error("[GET /api/documents]", error);
