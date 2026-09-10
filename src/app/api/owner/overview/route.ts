@@ -67,6 +67,16 @@ export async function GET() {
       completedAudits = 0;
     }
 
+    let recentOverrides: Array<{ storeId: string; entityType: string; entityId: string; fieldName: string; reason: string; correctedByName: string | null; createdAt: Date }> = [];
+    try {
+      recentOverrides = await prisma.$queryRawUnsafe(
+        `SELECT store_id AS "storeId", entity_type AS "entityType", entity_id AS "entityId", field_name AS "fieldName", reason, corrected_by_name AS "correctedByName", created_at AS "createdAt" FROM inventory_correction_logs WHERE store_id = ANY($1) ORDER BY created_at DESC LIMIT 10`,
+        storeIds
+      ) as typeof recentOverrides;
+    } catch {
+      recentOverrides = [];
+    }
+
     const storeRows = stores.map((store) => {
       const storePacks = ownerPacks.filter((pack) => pack.storeId === store.id);
       const storeLines = ownerLines.filter((line) => line.shift.storeId === store.id);
@@ -103,6 +113,7 @@ export async function GET() {
         openExceptions: lockedExceptions + auditExceptions,
         highestRiskExceptions: lockedExceptions,
       },
+      recentOverrides,
       plan: {
         key: planAccess.planKey,
         multiStoreEnabled: planAccess.allowed,

@@ -32,6 +32,7 @@ interface StoreKPI {
   activePacks?: number;
   ticketsToday?: number;
   lockedPacks?: number;
+  openExceptions?: number;
 }
 
 const TZ_LABELS: Record<string, string> = {
@@ -197,7 +198,10 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
     lockedPacks: 0,
     openShifts: 0,
     auditCompletionRate: 0,
+    openExceptions: 0,
+    highestRiskExceptions: 0,
   });
+  const [recentOverrides, setRecentOverrides] = useState<Array<{ storeId: string; entityType: string; entityId: string; fieldName: string; reason: string; correctedByName: string | null; createdAt: string }>>([]);
 
   const loadStores = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoading(true);
@@ -215,7 +219,10 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
         lockedPacks: 0,
         openShifts: 0,
         auditCompletionRate: 0,
+        openExceptions: 0,
+        highestRiskExceptions: 0,
       });
+      setRecentOverrides(data.recentOverrides ?? []);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -282,6 +289,26 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
           ))}
           </div>
         </section>
+      )}
+
+      {view === "overview" && recentOverrides.length > 0 && (
+        <Panel className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Recent manager overrides</p>
+              <h2 className="text-base font-semibold text-text">Protected changes across the portfolio</h2>
+            </div>
+            <a href="/reports" className="text-xs font-semibold text-accent hover:underline">View report</a>
+          </div>
+          <div className="space-y-2">
+            {recentOverrides.slice(0, 5).map((override) => (
+              <div key={`${override.storeId}-${override.entityId}-${override.createdAt}`} className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2 text-xs last:border-0 last:pb-0">
+                <span className="font-medium text-text">{override.entityType} · {override.fieldName}</span>
+                <span className="text-text-secondary">{override.correctedByName ?? "Manager"} · {new Date(override.createdAt).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
       )}
 
       {/* Message */}
