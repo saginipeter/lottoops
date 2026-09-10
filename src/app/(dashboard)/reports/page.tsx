@@ -13,6 +13,7 @@ import { ExceptionTrendsReport } from "@/components/reports/exception-trends-rep
 import { AiDiscrepancyAnalysis } from "@/components/reports/ai-discrepancy-analysis";
 import { WhatsAppSummaryCard } from "@/components/reports/whatsapp-summary-card";
 import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
+import { LifecycleAnalyticsReport } from "@/components/reports/lifecycle-analytics-report";
 
 export default async function ReportsPage() {
   const session = await getSession();
@@ -39,6 +40,7 @@ export default async function ReportsPage() {
           {(session.role === "MANAGER" || session.role === "OWNER") && <CorrectionReport />}
           <InventoryStatusReport />
           <InventoryAgingReport />
+          <LifecycleAnalyticsReport />
           <ExceptionTrendsReport />
           {(session.role === "MANAGER" || session.role === "OWNER") && <AiDiscrepancyAnalysis />}
           {(session.role === "MANAGER" || session.role === "OWNER") && <WhatsAppSummaryCard />}
