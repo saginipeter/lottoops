@@ -25,6 +25,11 @@ export async function POST(req: Request) {
     const shipmentId = String(formData.get("shipmentId") ?? "").trim() || null;
     const retentionUntilValue = String(formData.get("retentionUntil") ?? "").trim();
     const retentionUntil = retentionUntilValue ? new Date(retentionUntilValue) : null;
+    const documentDateValue = String(formData.get("documentDate") ?? "").trim();
+    const documentDate = documentDateValue ? new Date(documentDateValue) : new Date();
+    if (documentDateValue && Number.isNaN(documentDate.getTime())) {
+      return NextResponse.json({ error: "documentDate must be a valid date." }, { status: 400 });
+    }
     if (retentionUntilValue && (!retentionUntil || Number.isNaN(retentionUntil.getTime()))) {
       return NextResponse.json({ error: "retentionUntil must be a valid date." }, { status: 400 });
     }
@@ -56,6 +61,7 @@ export async function POST(req: Request) {
               name,
               url: blob.url,
               reference,
+              documentDate,
               ...(retentionUntil ? { retentionUntil } : {}),
               packId,
               shipmentId,
