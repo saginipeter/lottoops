@@ -5,7 +5,7 @@ import { Download, Loader2, Package, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
-interface Pack { store: string; gameNumber: string; game: string; serialNumber: string; status: string; display: string; receivedAt: string; currentTicket: number | null; quantity: number | null; price: number }
+interface Pack { store: string; gameNumber: string; game: string; serialNumber: string; status: string; display: string; receivedAt: string; currentTicket: number | null; quantity: number | null; price: number; estimatedValue: number; ageDays: number }
 const statuses = ["", "RECEIVING", "BACK_STOCK", "ACTIVE", "SOLD_OUT", "RETURNED"];
 
 export function CompanyInventoryPanel() {
