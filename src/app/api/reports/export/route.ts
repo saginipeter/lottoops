@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
       to: toDate,
       limit: 2000,
     });
-    const headers = ["Timestamp", "Action", "Entity", "Entity ID", "Detail", "Performed By"];
+    const headers = ["Timestamp", "Action", "Entity", "Entity ID", "Detail", "Performed By", "Terminal"];
     const rows = logs.map((row: unknown) => {
       const entry = row as {
         createdAt: Date | string;
@@ -191,6 +191,7 @@ export async function GET(req: NextRequest) {
         detail: string;
         performedByName: string | null;
         performedById: string;
+        terminalId: string | null;
       };
       return [
         new Date(entry.createdAt).toISOString(),
@@ -199,6 +200,7 @@ export async function GET(req: NextRequest) {
         entry.entityId ?? "",
         entry.detail,
         entry.performedByName ?? entry.performedById,
+        entry.terminalId ?? "",
       ];
     });
     csv = buildCSV(headers, rows);

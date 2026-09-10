@@ -18,6 +18,7 @@ async function ensureActivitySchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE inventory_activity_logs ADD COLUMN IF NOT EXISTS terminal_id TEXT`);
   await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS idx_inventory_activity_logs_store_created
     ON inventory_activity_logs (store_id, created_at DESC)
@@ -34,6 +35,7 @@ interface ActivityInput {
   detail: string;
   performedById: string;
   performedByName?: string;
+  terminalId?: string;
 }
 
 export async function logInventoryActivity(input: ActivityInput) {
@@ -43,8 +45,8 @@ export async function logInventoryActivity(input: ActivityInput) {
   await prisma.$executeRawUnsafe(
     `
     INSERT INTO inventory_activity_logs
-      (store_id, action, entity_type, entity_id, detail, performed_by_id, performed_by_name)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+      (store_id, action, entity_type, entity_id, detail, performed_by_id, performed_by_name, terminal_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `,
     input.storeId,
     input.action,
@@ -52,7 +54,8 @@ export async function logInventoryActivity(input: ActivityInput) {
     input.entityId ?? null,
     input.detail,
     input.performedById,
-    input.performedByName ?? null
+    input.performedByName ?? null,
+    input.terminalId ?? null
   );
 }
 
@@ -78,6 +81,7 @@ export async function queryInventoryActivity(
       detail,
       performed_by_id AS "performedById",
       performed_by_name AS "performedByName",
+      terminal_id AS "terminalId",
       created_at AS "createdAt"
     FROM inventory_activity_logs
     WHERE store_id = $1

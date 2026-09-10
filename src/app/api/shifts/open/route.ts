@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { findUnassignedActivePacks } from "@/lib/core-validation";
+import { logInventoryActivity } from "@/lib/activity-log";
 
 interface ActivePack {
   id: string;
@@ -208,6 +209,17 @@ export async function POST(req: NextRequest) {
           })),
         },
       },
+    });
+
+    await logInventoryActivity({
+      storeId: session.storeId,
+      action: "SHIFT_OPEN",
+      entityType: "SHIFT",
+      entityId: shift.id,
+      detail: `Shift opened with ${activePacks.length} active display pack(s).`,
+      performedById: session.userId,
+      performedByName: session.name,
+      terminalId,
     });
 
     return NextResponse.json({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { validateEndingTicket } from "@/lib/core-validation";
+import { logInventoryActivity } from "@/lib/activity-log";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -63,6 +64,13 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "terminalId" TEXT`);
+    const terminalRows = await prisma.$queryRawUnsafe(
+      `SELECT COALESCE("terminalId", 'T1') AS "terminalId" FROM shifts WHERE id = $1 LIMIT 1`,
+      shift.id
+    ) as Array<{ terminalId: string }>;
+    const terminalId = terminalRows[0]?.terminalId ?? "T1";
 
     const audit = await prisma.inventoryAudit.findUnique({
       where: { shiftId: shift.id },
@@ -156,6 +164,17 @@ export async function POST(req: NextRequest) {
     );
 
     await prisma.$transaction(txOps);
+
+    await logInventoryActivity({
+      storeId: session.storeId,
+      action: "SHIFT_CLOSE",
+      entityType: "SHIFT",
+      entityId: shift.id,
+      detail: "Shift closed successfully.",
+      performedById: session.userId,
+      performedByName: session.name,
+      terminalId,
+    });
 
     return NextResponse.json({
       success: true,

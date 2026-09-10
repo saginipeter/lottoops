@@ -12,6 +12,7 @@ interface ActivityRow {
   detail: string;
   performedById: string;
   performedByName?: string | null;
+  terminalId?: string | null;
   createdAt: string;
 }
 
@@ -71,12 +72,13 @@ export function ActivityReport() {
               <th className="py-2 pr-3">Entity</th>
               <th className="py-2 pr-3">Detail</th>
               <th className="py-2 pr-3">Performed By</th>
+              <th className="py-2 pr-3">Terminal</th>
             </tr>
           </thead>
           <tbody>
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-text-secondary">
+                <td colSpan={6} className="py-8 text-center text-text-secondary">
                   No activity found for this date range.
                 </td>
               </tr>
@@ -88,6 +90,7 @@ export function ActivityReport() {
                 <td className="py-2 pr-3">{row.entityType}{row.entityId ? ` (${row.entityId})` : ""}</td>
                 <td className="py-2 pr-3">{row.detail}</td>
                 <td className="py-2 pr-3">{row.performedByName ?? row.performedById}</td>
+                <td className="py-2 pr-3">{row.terminalId ?? "—"}</td>
               </tr>
             ))}
           </tbody>

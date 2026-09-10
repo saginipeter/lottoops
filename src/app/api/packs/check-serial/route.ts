@@ -4,6 +4,7 @@ import { getApiSession } from "@/lib/api-session";
 import { recordShiftParticipant } from "@/lib/shift-participants";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { canSelfResolveSequenceLock } from "@/lib/control-validation";
+import { createInventoryNotification } from "@/lib/inventory-notifications";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
             detail: `Employee scanned expected ticket ${scannedTicketNumber} and cleared the sequence lock.`,
             performedById: session.userId,
             performedByName: session.name,
+            terminalId,
           });
           existingPack.sequenceLocked = false;
         }
@@ -263,6 +265,14 @@ export async function POST(req: NextRequest) {
                 sequenceLockedById: session.userId,
               },
             });
+            await createInventoryNotification({
+              storeId: session.storeId,
+              type: "EXPECTED_TICKET_MISMATCH",
+              entityId: existingPack.id,
+              title: "Expected ticket mismatch",
+              detail: `Pack ${existingPack.serialNumber} expected ticket ${currentTicket}, but ticket ${scannedTicketNumber} was scanned.`,
+              severity: "HIGH",
+            });
             return NextResponse.json(
               {
                 code: "SEQUENCE_LOCKED",
@@ -339,6 +349,17 @@ export async function POST(req: NextRequest) {
 
         await prisma.$transaction(txOps);
 
+        await logInventoryActivity({
+          storeId: session.storeId,
+          action: "LIVE_TICKET_SCAN",
+          entityType: "PACK",
+          entityId: existingPack.id,
+          detail: `Scanned ticket ${normalizedSerial} for pack ${existingPack.serialNumber}.`,
+          performedById: session.userId,
+          performedByName: session.name,
+          terminalId,
+        });
+
         return NextResponse.json({
           status: "found",
           id: existingPack.id,
@@ -380,6 +401,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (liveScan === true) {
+      await createInventoryNotification({
+        storeId: session.storeId,
+        type: "WRONG_PACK_OR_GAME",
+        entityId: normalizedSerial,
+        title: "Wrong pack or game scan",
+        detail: `Live scan ${normalizedSerial} did not match an active display pack in this store.`,
+        severity: "HIGH",
+      });
       return NextResponse.json(
         { error: "Ticket scan rejected: no active display pack matches this barcode." },
         { status: 404 }
@@ -393,6 +422,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (isDuplicate) {
+      await createInventoryNotification({
+        storeId: session.storeId,
+        type: "DUPLICATE_PACK",
+        entityId: isDuplicate.id,
+        title: "Duplicate pack received",
+        detail: `Pack ${serialNumber} was submitted for receiving again after it already existed in LottoOps.`,
+        severity: "HIGH",
+      });
       return NextResponse.json({ status: "duplicate" });
     }
 
