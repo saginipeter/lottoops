@@ -84,7 +84,13 @@ export async function POST(req: NextRequest) {
         line.pack.currentTicketNumber === null || line.pack.currentTicketNumber === undefined
           ? beginning
           : Number(line.pack.currentTicketNumber);
-      const ending = Math.min(Math.max(currentTicket, 0), beginning);
+      if (!Number.isInteger(currentTicket) || currentTicket < 0 || currentTicket > beginning) {
+        return NextResponse.json(
+          { error: `Invalid ending ticket for pack ${line.pack.serialNumber}. Expected a value from 0 through ${beginning}.` },
+          { status: 409 }
+        );
+      }
+      const ending = currentTicket;
       const ticketsSold = Math.max(beginning - ending, 0);
       const sales = ticketsSold * Number(line.pack.ticketPrice ?? line.pack.game.price ?? 0);
 

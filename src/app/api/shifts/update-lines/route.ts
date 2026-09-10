@@ -87,7 +87,10 @@ export async function POST(req: NextRequest) {
           lineRecord.pack.currentTicketNumber === undefined
             ? beginning
             : Number(lineRecord.pack.currentTicketNumber);
-        const endingTicket = Math.min(Math.max(currentTicket, 0), beginning);
+        if (!Number.isInteger(currentTicket) || currentTicket < 0 || currentTicket > beginning) {
+          throw new Error(`Invalid ending ticket for shift line ${lineRecord.id}. Expected a value from 0 through ${beginning}.`);
+        }
+        const endingTicket = currentTicket;
         const sold = Math.max(beginning - endingTicket, 0);
         const sales = sold * Number(lineRecord.pack.ticketPrice ?? lineRecord.pack.game.price ?? 0);
 

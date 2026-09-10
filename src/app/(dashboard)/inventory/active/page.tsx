@@ -5,12 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { ActiveStockTable } from "@/components/inventory/active-stock-table";
 import { getSession } from "@/lib/get-session";
 import { canManageDisplay } from "@/lib/permissions";
+import { getDisplaySlots } from "@/lib/services/display-slots";
 
 export default async function ActiveStockPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const packs = await prisma.pack.findMany({
+  const [packs, displaySlots] = await Promise.all([prisma.pack.findMany({
     where: {
       storeId: session.storeId,
       status: "ACTIVE",
@@ -24,7 +25,7 @@ export default async function ActiveStockPage() {
     orderBy: {
       activatedAt: "desc",
     },
-  });
+  }), getDisplaySlots(session.storeId)]);
 
   const activePacks = JSON.parse(
     JSON.stringify(packs, (_, value) =>
@@ -33,6 +34,11 @@ export default async function ActiveStockPage() {
         : value
     )
   );
+  const slots = displaySlots.map((slot) => ({
+    id: slot.id,
+    slotNumber: slot.slotNumber,
+    occupied: Boolean(slot.packId),
+  }));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -49,7 +55,7 @@ export default async function ActiveStockPage() {
         }
       />
 
-      <ActiveStockTable packs={activePacks} canManageDisplay={canManageDisplay(session)} />
+      <ActiveStockTable packs={activePacks} canManageDisplay={canManageDisplay(session)} slots={slots} />
 
     </div>
   );

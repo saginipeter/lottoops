@@ -11,9 +11,10 @@ import { RemoveActivePackModal } from "./remove-active-pack-modal";
 interface Props {
   packs: any[];
   canManageDisplay: boolean;
+  slots: Array<{ id: string; slotNumber: string; occupied: boolean }>;
 }
 
-export function ActiveStockTable({ packs, canManageDisplay }: Props) {
+export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
   const [search, setSearch] = useState("");
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
@@ -79,7 +80,7 @@ export function ActiveStockTable({ packs, canManageDisplay }: Props) {
         isOpen={removeModalOpen}
         onClose={() => setRemoveModalOpen(false)}
         onSuccess={handleSuccess}
-        slots={[]} // TODO: Fetch available slots
+        slots={slots}
       />
 
       <PageToolbar

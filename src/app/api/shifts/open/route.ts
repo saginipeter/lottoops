@@ -94,14 +94,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Load all packs currently on display
+    // Load every active pack so an active pack without a display cannot be
+    // silently omitted from the shift opening snapshot.
     const activePacks = await prisma.pack.findMany({
       where: {
         storeId: session.storeId,
         status: "ACTIVE",
-        slot: {
-          isNot: null,
-        },
       },
       include: {
         game: true,
@@ -110,6 +108,17 @@ export async function POST(req: NextRequest) {
     });
 
     const typedActivePacks = activePacks as ActivePack[];
+    const unassignedPacks = typedActivePacks.filter((pack) => !pack.slot);
+    if (unassignedPacks.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Every active pack must have a display position before opening a shift: " +
+            unassignedPacks.map((pack) => pack.serialNumber).join(", "),
+        },
+        { status: 409 }
+      );
+    }
     const invalidPacks = typedActivePacks.filter((pack) => resolveSellableTicket(pack) === null);
     if (invalidPacks.length > 0) {
       return NextResponse.json(
