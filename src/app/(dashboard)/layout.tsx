@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { Sidebar } from "@/components/layout/sidebar";
 import { verifySession, SESSION_COOKIE } from "@/lib/session";
 import { ImpersonationBanner } from "@/components/platform/impersonation-banner";
+import { prisma } from "@/lib/prisma";
 
 export default async function DashboardLayout({
   children,
@@ -14,6 +15,12 @@ export default async function DashboardLayout({
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySession(token) : null;
+  const store = session && session.role !== "OWNER" && prisma
+    ? await prisma.store.findUnique({
+        where: { id: session.storeId },
+        select: { storeNumber: true, address: true, phone: true, timezone: true },
+      })
+    : null;
 
   const user = session
     ? {
@@ -21,6 +28,10 @@ export default async function DashboardLayout({
         role: session.role,
         storeName: session.role === "OWNER" ? "All Stores" : session.storeName ?? "My Store",
         grantedPermissions: session.grantedPermissions ?? [],
+        storeNumber: store?.storeNumber ?? null,
+        storeAddress: store?.address ?? null,
+        storePhone: store?.phone ?? null,
+        storeTimezone: store?.timezone ?? null,
         initials: session.name
           .split(" ")
           .map((n) => n[0])
@@ -28,7 +39,17 @@ export default async function DashboardLayout({
           .toUpperCase()
           .slice(0, 2),
       }
-    : { name: "Staff", role: "EMPLOYEE" as const, storeName: "Store", initials: "?", grantedPermissions: [] };
+    : {
+        name: "Staff",
+        role: "EMPLOYEE" as const,
+        storeName: "Store",
+        storeNumber: null,
+        storeAddress: null,
+        storePhone: null,
+        storeTimezone: null,
+        initials: "?",
+        grantedPermissions: [],
+      };
 
   const showSidebar = user.role !== "EMPLOYEE";
 

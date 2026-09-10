@@ -19,6 +19,9 @@ import {
   Radio,
   Users,
   Building2,
+  MapPin,
+  Phone,
+  ShieldCheck,
   RotateCcw,
   CreditCard,
   MessageCircle,
@@ -160,6 +163,10 @@ interface SidebarProps {
     name: string;
     role: string;
     storeName: string;
+    storeNumber: string | null;
+    storeAddress: string | null;
+    storePhone: string | null;
+    storeTimezone: string | null;
     initials: string;
     grantedPermissions: string[];
   };
@@ -208,34 +215,59 @@ export function Sidebar({ user }: SidebarProps) {
     navSections[2].items[1],
   ].filter((item) => hasPermission(item.permission));
 
+  const storeDetails = [
+    user.storeNumber ? `Store ${user.storeNumber}` : null,
+    user.storeAddress,
+    user.storePhone,
+  ].filter(Boolean);
+
   return (
     <>
-    <aside className="hidden h-full w-[248px] shrink-0 flex-col bg-sidebar sm:flex">
-      <div className="border-b border-sidebar-border px-4 py-4">
-        <div className="flex items-center gap-2">
+    <aside className="hidden h-full w-[280px] shrink-0 flex-col bg-sidebar sm:flex">
+      <div className="border-b border-sidebar-border px-5 py-5">
+        <div className="flex items-center justify-between gap-3">
           <Image
             src="/brand/lottoops-logo.png"
             alt="LottoOps"
-            width={132}
-            height={44}
-            className="h-9 w-auto"
+            width={144}
+            height={48}
+            className="h-10 w-auto"
             priority
           />
+          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-success">
+            Online
+          </span>
         </div>
-        <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/40">
-          Lottery operations
+        <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
+          Store operations console
         </p>
-        <div className="mt-4 flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.07] px-3 py-2.5">
-          <Building2 size={15} className="shrink-0 text-accent" />
-          <div className="min-w-0">
-            <p className="text-[9px] uppercase tracking-wider text-white/40">Workspace</p>
-            <p className="truncate text-xs font-semibold text-white/85">{user.storeName}</p>
+        <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.07] p-3.5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/20 text-accent">
+              <Building2 size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/40">Current location</p>
+              <p className="mt-1 truncate text-sm font-semibold text-white">{user.storeName}</p>
+              {user.storeNumber && <p className="mt-0.5 text-[10px] text-white/50">Store {user.storeNumber}</p>}
+            </div>
+            <ChevronDown size={15} className="mt-1 shrink-0 text-white/40" />
           </div>
-          <ChevronDown size={14} className="ml-auto shrink-0 text-white/40" />
+          {storeDetails.length > 0 && (
+            <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3 text-[10px] leading-4 text-white/55">
+              {user.storeAddress && <p className="flex gap-2"><MapPin size={12} className="mt-0.5 shrink-0 text-accent/80" />{user.storeAddress}</p>}
+              {user.storePhone && <p className="flex gap-2"><Phone size={12} className="mt-0.5 shrink-0 text-accent/80" />{user.storePhone}</p>}
+              {user.storeTimezone && <p className="flex gap-2"><Clock size={12} className="mt-0.5 shrink-0 text-accent/80" />{user.storeTimezone}</p>}
+            </div>
+          )}
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-[10px] text-white/45">
+          <ShieldCheck size={13} className="text-success" />
+          <span>Operational records protected</span>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-4 py-4">
         <NavRow item={navTop} isActive={pathname === "/"} />
 
         {(user.role === "PLATFORM_ADMIN" ? platformNavSections : isOwner ? ownerNavSections : navSections).map((section) => {
@@ -245,9 +277,10 @@ export function Sidebar({ user }: SidebarProps) {
           if (visibleItems.length === 0) return null;
 
           return (
-            <div key={section.label} className="mt-5 first:mt-4">
-              <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
+            <div key={section.label} className="mt-6 first:mt-5">
+              <div className="flex items-center gap-2 px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
                 {section.label}
+                <span className="h-px flex-1 bg-white/10" />
               </div>
 
               {visibleItems.map((item) => {
@@ -269,22 +302,20 @@ export function Sidebar({ user }: SidebarProps) {
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-white">
+      <div className="border-t border-sidebar-border p-4">
+        <div className="rounded-xl border border-white/10 bg-white/[0.05] p-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-white">
             {user.initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-white/90">{user.name}</p>
+              <p className="text-[10px] uppercase tracking-wider text-white/40">{roleLabel[user.role] ?? user.role}</p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-white/85">
-              {user.name}
-            </p>
-            <p className="text-[10px] uppercase tracking-wider text-white/40">
-              {roleLabel[user.role] ?? user.role}
-            </p>
+          <div className="mt-3 border-t border-white/10 pt-2">
+            <LogoutButton />
           </div>
-        </div>
-        <div className="mt-1 px-1">
-          <LogoutButton />
         </div>
       </div>
     </aside>
