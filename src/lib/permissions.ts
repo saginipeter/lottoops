@@ -6,6 +6,7 @@ import type { SessionPayload } from "@/lib/session";
  *   MANAGER    — full access, NO hard deletes
  *   SHIFT_LEAD — shift/scan + any explicitly granted extras
  *   EMPLOYEE   — shift open/close + live scan only, zero corrections
+ *   AUDITOR    — reports and documents only, no operational writes
  */
 
 /** Permissions that a MANAGER/OWNER can grant to a SHIFT_LEAD */
@@ -34,6 +35,10 @@ export function isOwner(session: SessionPayload): boolean {
   return session.role === "OWNER";
 }
 
+export function isReadOnly(session: SessionPayload): boolean {
+  return session.role === "AUDITOR";
+}
+
 /**
  * Check if the session has a specific permission.
  * OWNER/MANAGER always pass. SHIFT_LEAD passes only if the
@@ -43,6 +48,9 @@ export function hasPermission(
   session: SessionPayload,
   permission: string
 ): boolean {
+  if (session.role === "AUDITOR") {
+    return permission === GRANTABLE_PERMISSIONS.REPORTS;
+  }
   if (session.role === "OWNER" || session.role === "MANAGER") return true;
   if (session.role === "SHIFT_LEAD") {
     return (session.grantedPermissions ?? []).includes(permission);

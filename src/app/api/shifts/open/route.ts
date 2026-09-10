@@ -4,6 +4,7 @@ import { getApiSession } from "@/lib/api-session";
 import { findUnassignedActivePacks } from "@/lib/core-validation";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { recordShiftParticipant } from "@/lib/shift-participants";
+import { isReadOnly } from "@/lib/permissions";
 
 interface ActivePack {
   id: string;
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
+    if (isReadOnly(session)) return NextResponse.json({ error: "Auditor accounts are read-only." }, { status: 403 });
 
     if (!prisma) {
       return NextResponse.json(

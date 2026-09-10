@@ -3,12 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { validateEndingTicket } from "@/lib/core-validation";
 import { logInventoryActivity } from "@/lib/activity-log";
+import { isReadOnly } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+  if (isReadOnly(session)) return NextResponse.json({ error: "Auditor accounts are read-only." }, { status: 403 });
 
   if (!prisma) {
     return NextResponse.json(

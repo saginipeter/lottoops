@@ -47,7 +47,7 @@ export async function PATCH(
 
   // OWNER can assign any role; MANAGER cannot assign OWNER
   const allowedRoles = session.role === "OWNER"
-    ? ["OWNER", "MANAGER", "SHIFT_LEAD", "EMPLOYEE"]
+    ? ["OWNER", "MANAGER", "SHIFT_LEAD", "EMPLOYEE", "AUDITOR"]
     : ["MANAGER", "SHIFT_LEAD", "EMPLOYEE"];
 
   if (role !== undefined && !allowedRoles.includes(role)) {

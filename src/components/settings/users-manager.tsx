@@ -5,7 +5,7 @@ import { UserPlus, Edit2, ToggleLeft, ToggleRight, KeyRound, X, Check, Loader2, 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
-type Role = "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
+type Role = "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE" | "AUDITOR";
 
 const GRANTABLE_PERMISSIONS = [
   { key: "REPORTS",           label: "View Reports" },
@@ -32,6 +32,7 @@ const ROLE_LABELS: Record<Role, string> = {
   MANAGER:    "Manager",
   SHIFT_LEAD: "Shift Lead",
   EMPLOYEE:   "Employee",
+  AUDITOR:    "Auditor",
 };
 
 const ROLE_COLORS: Record<Role, string> = {
@@ -39,6 +40,7 @@ const ROLE_COLORS: Record<Role, string> = {
   MANAGER:    "bg-purple-100 text-purple-700",
   SHIFT_LEAD: "bg-blue-100 text-blue-700",
   EMPLOYEE:   "bg-gray-100 text-gray-600",
+  AUDITOR:    "bg-teal-100 text-teal-700",
 };
 
 function formatDate(iso: string | null) {
@@ -144,6 +146,7 @@ function AddUserForm({ onCreated, onCancel, canCreateOwner, storeId }: AddUserFo
             <option value="SHIFT_LEAD">Shift Lead — Shifts + grantable extras</option>
             <option value="MANAGER">Manager — Full access, no delete</option>
             {canCreateOwner && <option value="OWNER">Owner — Full access + delete</option>}
+            {canCreateOwner && <option value="AUDITOR">Auditor — Reports and documents only</option>}
           </select>
         </div>
       </div>
@@ -259,6 +262,7 @@ function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserMod
               <option value="SHIFT_LEAD">Shift Lead — Shifts + grantable extras</option>
               <option value="MANAGER">Manager — Full access, no delete</option>
               {canCreateOwner && <option value="OWNER">Owner — Full access + delete</option>}
+              {canCreateOwner && <option value="AUDITOR">Auditor — Reports and documents only</option>}
             </select>
           </div>
 

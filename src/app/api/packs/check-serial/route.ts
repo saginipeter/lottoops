@@ -5,6 +5,7 @@ import { recordShiftParticipant } from "@/lib/shift-participants";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { canSelfResolveSequenceLock } from "@/lib/control-validation";
 import { createInventoryNotification } from "@/lib/inventory-notifications";
+import { isReadOnly } from "@/lib/permissions";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+  if (isReadOnly(session)) return NextResponse.json({ error: "Auditor accounts are read-only." }, { status: 403 });
 
   if (!prisma) {
     return NextResponse.json(

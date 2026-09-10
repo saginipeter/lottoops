@@ -27,6 +27,7 @@ model Store {
   inventoryAudits InventoryAudit[]
   shipments    Shipment[]
   users        User[]
+  documents    Document[]
   organization Organization? @relation(fields: [organizationId], references: [id])
 
   @@map("stores")
@@ -52,6 +53,7 @@ model User {
   ownedOrganizations Organization[]  @relation("OrganizationOwner")
   shipmentsReceived Shipment[]     @relation("ShipmentsReceived")
   store             Store          @relation(fields: [storeId], references: [id])
+  documentsUploaded Document[]      @relation("DocumentsUploaded")
 
   @@index([storeId])
   @@map("users")
@@ -148,6 +150,7 @@ model Shipment {
   packs                      Pack[]
   receivedBy                 User           @relation("ShipmentsReceived", fields: [receivedById], references: [id])
   store                      Store          @relation(fields: [storeId], references: [id])
+  documents                  Document[]
 
   @@unique([storeId, invoiceNumber])
   @@index([storeId])
@@ -227,12 +230,38 @@ model Pack {
   scanLogs               ScanLogEntry[]
   shiftLines             ShiftLine[]
   auditLines             InventoryAuditLine[]
+  documents              Document[]
 
   @@unique([storeId, serialNumber])
   @@index([storeId, status])
   @@index([storeId, sequenceLocked])
   @@index([shipmentId])
   @@map("packs")
+}
+
+model Document {
+  id            String    @id @default(cuid())
+  storeId       String
+  uploadedById  String
+  type          String
+  name          String
+  url           String
+  reference     String?
+  documentDate  DateTime  @default(now())
+  retentionUntil DateTime?
+  createdAt     DateTime  @default(now())
+  packId        String?
+  shipmentId    String?
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  uploadedBy    User      @relation("DocumentsUploaded", fields: [uploadedById], references: [id])
+  pack          Pack?     @relation(fields: [packId], references: [id], onDelete: SetNull)
+  shipment      Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, documentDate])
+  @@index([storeId, type])
+  @@index([packId])
+  @@index([shipmentId])
+  @@map("documents")
 }
 
 model DisplaySlot {
@@ -344,6 +373,7 @@ enum Role {
   MANAGER
   SHIFT_LEAD
   EMPLOYEE
+  AUDITOR
 }
 
 enum SubscriptionStatus {

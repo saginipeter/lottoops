@@ -154,11 +154,23 @@ const platformNavSections: NavSection[] = [
   },
 ];
 
+const auditorNavSections: NavSection[] = [
+  {
+    label: "Review",
+    items: [
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/documents", label: "Documents", icon: FileText },
+      { href: "/support", label: "Support", icon: MessageCircle },
+    ],
+  },
+];
+
 const roleLabel: Record<string, string> = {
   OWNER:      "Owner",
   MANAGER:    "Manager",
   SHIFT_LEAD: "Shift Lead",
   EMPLOYEE:   "Employee",
+  AUDITOR:    "Auditor",
 };
 
 interface SidebarProps {
@@ -276,7 +288,7 @@ export function Sidebar({ user }: SidebarProps) {
       <nav className={clsx("flex-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-4")}>
         <NavRow item={navTop} isActive={pathname === "/"} collapsed={collapsed} />
 
-        {(user.role === "PLATFORM_ADMIN" ? platformNavSections : isOwner ? ownerNavSections : navSections).map((section) => {
+        {(user.role === "PLATFORM_ADMIN" ? platformNavSections : user.role === "AUDITOR" ? auditorNavSections : isOwner ? ownerNavSections : navSections).map((section) => {
           const visibleItems = section.items.filter(
             (item) => (!item.managerOnly || isManager) && (!item.ownerOnly || isOwner) && hasPermission(item.permission)
           );

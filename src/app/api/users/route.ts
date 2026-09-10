@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
   // OWNER can create any role including other OWNERs.
   // MANAGER can only create MANAGER, SHIFT_LEAD, EMPLOYEE — not OWNER.
   const allowedRoles = session.role === "OWNER"
-    ? ["OWNER", "MANAGER", "SHIFT_LEAD", "EMPLOYEE"]
+    ? ["OWNER", "MANAGER", "SHIFT_LEAD", "EMPLOYEE", "AUDITOR"]
     : ["MANAGER", "SHIFT_LEAD", "EMPLOYEE"];
 
   if (!allowedRoles.includes(role)) {
