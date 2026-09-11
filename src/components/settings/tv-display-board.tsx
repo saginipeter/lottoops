@@ -32,6 +32,7 @@ export function TvDisplayBoard({
   const [lastRefreshAt, setLastRefreshAt] = useState<Date>(new Date());
   const [now, setNow] = useState<Date>(new Date());
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 1000);
@@ -40,12 +41,18 @@ export function TvDisplayBoard({
 
   useEffect(() => {
     const refresh = setInterval(() => {
-      setLastRefreshAt(new Date());
-      router.refresh();
+      void refreshBoard();
     }, refreshSeconds * 1000);
 
     return () => clearInterval(refresh);
   }, [refreshSeconds, router]);
+
+  function refreshBoard() {
+    setRefreshing(true);
+    setLastRefreshAt(new Date());
+    router.refresh();
+    window.setTimeout(() => setRefreshing(false), 500);
+  }
 
   const summary = useMemo(() => {
     const totalRemaining = slots.reduce((sum, slot) => sum + slot.remaining, 0);
@@ -71,10 +78,14 @@ export function TvDisplayBoard({
           <h2 className="mt-3 text-2xl font-semibold text-white">
             Scratch-Off Display
           </h2>
-          <p className="mt-1 text-sm text-white/70">
-            Auto-refreshing every {refreshSeconds}s · Last refresh{" "}
-            {lastRefreshAt.toLocaleTimeString()}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/70">
+            <span>Auto-refreshing every {refreshSeconds}s</span>
+            <span className="inline-flex items-center gap-1.5 text-emerald-300">
+              <span className="h-2 w-2 rounded-full bg-emerald-300" />
+              Connected
+            </span>
+            <span>Updated {lastRefreshAt.toLocaleTimeString()}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -82,6 +93,16 @@ export function TvDisplayBoard({
             <div className="text-[11px] uppercase tracking-wide text-white/60">Time</div>
             <div className="text-sm font-semibold text-white">{now.toLocaleTimeString()}</div>
           </div>
+          <button
+            type="button"
+            onClick={refreshBoard}
+            disabled={refreshing}
+            aria-label="Refresh TV display"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-60"
+          >
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
           <Link
             href={kioskMode ? "/settings/tv-display" : "/settings/tv-display?kiosk=1"}
             className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
