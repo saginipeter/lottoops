@@ -6,6 +6,7 @@ import { logInventoryActivity } from "@/lib/activity-log";
 import { canSelfResolveSequenceLock } from "@/lib/control-validation";
 import { createInventoryNotification } from "@/lib/inventory-notifications";
 import { isReadOnly } from "@/lib/permissions";
+import { Prisma } from "@prisma/client";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -318,7 +319,7 @@ export async function POST(req: NextRequest) {
         const soldOut = endingTicket === 0;
         const scanEventId = `lse_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           const updatedRows = await tx.$executeRawUnsafe(
             `
             UPDATE packs

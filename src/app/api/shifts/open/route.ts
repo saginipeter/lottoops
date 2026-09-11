@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
         {
           error:
             "Every active pack must have a display position before opening a shift: " +
-            unassignedPacks.map((pack) => pack.serialNumber).join(", "),
+            unassignedPacks.join(", "),
         },
         { status: 409 }
       );
