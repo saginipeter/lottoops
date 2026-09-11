@@ -51,11 +51,9 @@ export default async function DashboardLayout({
         grantedPermissions: [],
       };
 
-  const showSidebar = user.role !== "EMPLOYEE";
-
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
-      {showSidebar && <Sidebar user={user} />}
+      <Sidebar user={user} />
       <main className="min-w-0 flex flex-1 flex-col overflow-hidden">
         {session?.impersonatedBy && <ImpersonationBanner adminName={session.impersonatedBy.name} />}
         {children}

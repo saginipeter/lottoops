@@ -12,6 +12,9 @@ type TvDisplaySlot = {
   gameNumber: string;
   gameImage?: string | null;
   ticketPrice: number;
+  firstTicket: number;
+  currentTicket: number;
+  nextTicket: number;
   remaining: number;
   sold: number;
   quantity: number;
@@ -33,6 +36,7 @@ export function TvDisplayBoard({
   const [now, setNow] = useState<Date>(new Date());
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 1000);
@@ -47,11 +51,21 @@ export function TvDisplayBoard({
     return () => clearInterval(refresh);
   }, [refreshSeconds, router]);
 
+  useEffect(() => {
+    const watchdog = setInterval(() => {
+      setStale(Date.now() - lastRefreshAt.getTime() > refreshSeconds * 2000);
+    }, 1000);
+    return () => clearInterval(watchdog);
+  }, [lastRefreshAt, refreshSeconds]);
+
   function refreshBoard() {
     setRefreshing(true);
-    setLastRefreshAt(new Date());
     router.refresh();
-    window.setTimeout(() => setRefreshing(false), 500);
+    window.setTimeout(() => {
+      setLastRefreshAt(new Date());
+      setStale(false);
+      setRefreshing(false);
+    }, 600);
   }
 
   const summary = useMemo(() => {
@@ -80,11 +94,11 @@ export function TvDisplayBoard({
           </h2>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/70">
             <span>Auto-refreshing every {refreshSeconds}s</span>
-            <span className="inline-flex items-center gap-1.5 text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-300" />
-              Connected
+            <span className={`inline-flex items-center gap-1.5 ${stale ? "text-amber-200" : refreshing ? "text-cyan-200" : "text-emerald-300"}`}>
+              <span className={`h-2 w-2 rounded-full ${stale ? "bg-amber-300" : refreshing ? "animate-pulse bg-cyan-300" : "bg-emerald-300"}`} />
+              {stale ? "Refresh failed / stale" : refreshing ? "Refreshing" : "Connected"}
             </span>
-            <span>Updated {lastRefreshAt.toLocaleTimeString()}</span>
+            <span>Last updated {lastRefreshAt.toLocaleTimeString()}</span>
           </div>
         </div>
 
@@ -146,7 +160,7 @@ export function TvDisplayBoard({
             return (
               <div
                 key={slot.id}
-                className="rounded-xl border border-white/15 bg-gradient-to-br from-white/15 to-white/5 p-5 text-white"
+                className="min-h-[290px] rounded-xl border border-white/15 bg-white/[0.08] p-5 text-white"
               >
                 <div className="flex items-center justify-between">
                   <span className="rounded bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-200">
@@ -184,6 +198,14 @@ export function TvDisplayBoard({
                   <div className="rounded-lg bg-white/10 p-3">
                     <div className="text-white/60">Remaining</div>
                     <div className="mt-1 font-semibold">{slot.remaining}</div>
+                  </div>
+                  <div className="rounded-lg bg-white/10 p-3">
+                    <div className="text-white/60">Current ticket</div>
+                    <div className="mt-1 font-semibold">{slot.currentTicket}</div>
+                  </div>
+                  <div className="rounded-lg bg-white/10 p-3">
+                    <div className="text-white/60">Next ticket</div>
+                    <div className="mt-1 font-semibold">{slot.nextTicket}</div>
                   </div>
                 </div>
 
