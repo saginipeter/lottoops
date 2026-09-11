@@ -7,6 +7,13 @@ export async function POST(req: Request) {
   try {
     const session = await getApiSession();
     if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error("[POST /api/upload] BLOB_READ_WRITE_TOKEN is not configured.");
+      return NextResponse.json(
+        { error: "Image storage is not configured. Set BLOB_READ_WRITE_TOKEN in the deployment environment." },
+        { status: 503 }
+      );
+    }
     const formData = await req.formData();
 
     const file = formData.get("file") as File | null;
@@ -16,6 +23,13 @@ export async function POST(req: Request) {
         { error: "No file uploaded" },
         { status: 400 }
       );
+    }
+
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ error: "Only image files can be uploaded." }, { status: 415 });
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: "Image must be 10 MB or smaller." }, { status: 413 });
     }
 
     const type = String(formData.get("type") ?? "Supporting Document").trim();
@@ -43,8 +57,9 @@ export async function POST(req: Request) {
       if (!shipment) return NextResponse.json({ error: "Shipment not found for this store." }, { status: 404 });
     }
 
+    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const blob = await put(
-      `invoices/${Date.now()}-${file.name}`,
+      `invoices/${Date.now()}-${safeFileName}`,
       file,
       {
         access: "public",
