@@ -17,11 +17,17 @@ interface ActivityRow {
 }
 
 export function ActivityReport() {
-  const today = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const [dateRange] = useState(() => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
+    return {
+      today: today.toISOString().slice(0, 10),
+      thirtyDaysAgo: thirtyDaysAgo.toISOString().slice(0, 10),
+    };
+  });
 
-  const [from, setFrom] = useState(thirtyDaysAgo);
-  const [to, setTo] = useState(today);
+  const [from, setFrom] = useState(dateRange.thirtyDaysAgo);
+  const [to, setTo] = useState(dateRange.today);
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
