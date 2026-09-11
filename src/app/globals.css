@@ -6,15 +6,15 @@
 
 :root {
   /* App background & surfaces (light theme) */
-  --color-bg: #F4F4F7;          /* app background, content area */
+  --color-bg: #F1F3F6;          /* app background, content area */
   --color-surface: #FFFFFF;     /* card / panel / topbar surface */
-  --color-surface-soft: #F6F5FB; /* subtle raised surface, table hover */
-  --color-border: #E4E3ED;      /* hairline borders */
+  --color-surface-soft: #E8ECF2; /* subtle raised surface, table hover */
+  --color-border: #CBD2DC;      /* hairline borders */
 
   /* Text */
-  --color-text: #1D1B30;        /* primary text */
-  --color-text-secondary: #6E6C85; /* secondary text */
-  --color-text-tertiary: #9795A8;  /* tertiary / placeholder */
+  --color-text: #172033;        /* primary text */
+  --color-text-secondary: #526078; /* secondary text */
+  --color-text-tertiary: #758197;  /* tertiary / placeholder */
 
   /* Sidebar (deep indigo, from logo's right edge) */
   --color-sidebar: #241B4D;
@@ -50,8 +50,8 @@
   --color-danger-soft: #FCEBEB;
   --color-danger-soft-text: #A32D2D;
 
-  --font-display: -apple-system, "Segoe UI", system-ui, sans-serif;
-  --font-body: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--font-sans), "Segoe UI", sans-serif;
+  --font-body: var(--font-sans), "Segoe UI", sans-serif;
   --font-mono: "SF Mono", "Cascadia Code", "Consolas", monospace;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -76,7 +76,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -167,19 +167,22 @@
 
 * {
   border-color: var(--color-border);
+  border-radius: 0 !important;
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-text);
   overflow-x: hidden;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  letter-spacing: 0;
 }
 
 /* Visible keyboard focus throughout */
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 0 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -252,7 +255,7 @@ body {
 .card-surface {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
-  box-shadow: 0 1px 2px rgba(20, 20, 31, 0.05), 0 6px 18px rgba(20, 20, 31, 0.04);
+  box-shadow: 0 1px 2px rgba(20, 32, 51, 0.06);
 }
 
 .card-interactive {

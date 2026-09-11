@@ -5,7 +5,7 @@ export function Panel({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={clsx(
-        "card-surface rounded-lg",
+        "card-surface",
         className
       )}
       {...props}
