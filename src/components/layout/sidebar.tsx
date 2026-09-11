@@ -131,7 +131,7 @@ export function Sidebar({ user }: SidebarProps) {
       <div className={clsx("border-b border-sidebar-line py-5", collapsed ? "px-3" : "px-5")}>
         <div className="flex items-center justify-between gap-3">
           <Image
-            src="/brand/lottoops-logo.png"
+            src="/brand/lottoops-logo-transparent.png"
             alt="LottoOps"
             width={collapsed ? 44 : 144}
             height={48}
