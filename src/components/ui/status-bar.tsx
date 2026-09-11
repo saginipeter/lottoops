@@ -11,7 +11,7 @@ export function StatusBar({ left, center, right, className }: StatusBarProps) {
   return (
     <div
       className={cn(
-        "grid h-[42px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-[#cfd6e3] bg-[#e8ecf3] px-5 text-xs text-[#4d5b70]",
+        "grid h-[42px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-border bg-surface-soft px-5 text-xs text-text-secondary",
         className
       )}
     >

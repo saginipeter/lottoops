@@ -6,13 +6,13 @@
 
 :root {
   /* App background & surfaces (light theme) */
-  --color-bg: #F1F3F6;          /* app background, content area */
-  --color-surface: #FFFFFF;     /* card / panel / topbar surface */
-  --color-surface-soft: #E8ECF2; /* subtle raised surface, table hover */
-  --color-border: #CBD2DC;      /* hairline borders */
+  --color-bg: #EEF1F6;          /* unified work area */
+  --color-surface: #FFFFFF;     /* primary work surface */
+  --color-surface-soft: #E7EBF2; /* secondary work surface */
+  --color-border: #CFD6E3;      /* shared structural line */
 
   /* Text */
-  --color-text: #172033;        /* primary text */
+  --color-text: #17233F;        /* primary navy text */
   --color-text-secondary: #526078; /* secondary text */
   --color-text-tertiary: #758197;  /* tertiary / placeholder */
 
@@ -22,6 +22,13 @@
   --color-sidebar-text: rgba(255,255,255,0.6);
   --color-sidebar-text-strong: rgba(255,255,255,0.9);
   --color-sidebar-border: rgba(255,255,255,0.1);
+  --color-chrome: #17233F;
+  --color-chrome-border: #31415F;
+  --color-chrome-soft: #EEF1F6;
+  --color-sidebar-deep: #211943;
+  --color-sidebar-panel: #2A2352;
+  --color-sidebar-line: #465276;
+  --color-sidebar-active: #35275F;
 
   /* Brand accent — magenta/violet, lifted from the LottoOps wordmark */
   --color-accent: #A33D9A;
@@ -102,6 +109,13 @@
   --color-sidebar-text: var(--color-sidebar-text);
   --color-sidebar-text-strong: var(--color-sidebar-text-strong);
   --color-sidebar-border: var(--color-sidebar-border);
+  --color-chrome: var(--color-chrome);
+  --color-chrome-border: var(--color-chrome-border);
+  --color-chrome-soft: var(--color-chrome-soft);
+  --color-sidebar-deep: var(--color-sidebar-deep);
+  --color-sidebar-panel: var(--color-sidebar-panel);
+  --color-sidebar-line: var(--color-sidebar-line);
+  --color-sidebar-active: var(--color-sidebar-active);
 
   --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent-hover);
