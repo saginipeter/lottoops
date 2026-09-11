@@ -138,7 +138,6 @@ export function Sidebar({ user }: SidebarProps) {
             className={collapsed ? "h-8 w-8 object-contain object-left" : "h-10 w-auto"}
             priority
           />
-          {!collapsed && <span className="rounded-full border border-success/30 bg-success/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-success">Online</span>}
           {mobileOpen && <button type="button" aria-label="Close navigation" onClick={() => setMobileOpen(false)} className="rounded-md p-1 text-white/70 hover:bg-white/10 sm:hidden"><X size={18} /></button>}
           {!mobileOpen && <button type="button" aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} onClick={() => setCollapsed((value) => !value)} className="rounded-md p-1 text-white/60 hover:bg-white/10 sm:block"><Menu size={18} /></button>}
         </div>
