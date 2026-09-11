@@ -8,19 +8,25 @@ import {
   AlertTriangle,
   LayoutDashboard,
   Package,
+  Layers,
   ScanLine,
   Clock,
   BarChart3,
+  Tv,
   Settings,
   ChevronDown,
+  Gamepad2,
+  Radio,
   Users,
   Building2,
   MapPin,
   Phone,
   ShieldCheck,
+  RotateCcw,
   CreditCard,
   MessageCircle,
   FileText,
+  CheckCircle2,
   Menu,
   X,
 } from "lucide-react";
@@ -52,10 +58,11 @@ const navSections: NavSection[] = [
     label: "Operations",
     items: [
       {
-        href: "/shifts",
-        label: "Operations",
-        icon: Clock,
+        href: "/inventory/live-scan",
+        label: "Live Scan",
+        icon: Radio,
       },
+      { href: "/shifts", label: "Shifts", icon: Clock },
     ],
   },
   {
@@ -63,24 +70,33 @@ const navSections: NavSection[] = [
     items: [
       {
         href: "/inventory",
-        label: "Inventory",
+        label: "Back Stock",
         icon: Package,
       },
+      { href: "/inventory/active", label: "Active Stock", icon: Layers },
+      { href: "/inventory/receive", label: "Receive Shipment", icon: ScanLine, permission: "RECEIVE_SHIPMENTS" },
+      { href: "/display-slots", label: "Displays", icon: Tv },
+      { href: "/inventory/returned", label: "Returned Tickets", icon: RotateCcw },
     ],
   },
   {
     label: "Reports",
     items: [
+      { href: "/sales", label: "Sales", icon: ScanLine },
       { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
+      { href: "/documents", label: "Documents", icon: FileText },
     ],
   },
   {
     label: "Workspace",
     items: [
-      { href: "/sales", label: "Sales", icon: ScanLine },
       { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
       { href: "/support", label: "Support", icon: MessageCircle },
       { href: "/owner", label: "All Stores", icon: Building2, ownerOnly: true },
+      { href: "/games", label: "Games", icon: Gamepad2, managerOnly: true },
+      { href: "/settings/tv-display", label: "TV Display", icon: Tv, managerOnly: true },
+      { href: "/onboarding", label: "Onboarding", icon: CheckCircle2, managerOnly: true },
     ],
   },
 ];
@@ -180,6 +196,7 @@ function NavRow({ item, isActive, collapsed = false }: { item: NavItem; isActive
 export function Sidebar({ user }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
   const isManager = user.role === "MANAGER" || user.role === "OWNER";
   const isOwner = user.role === "OWNER";
@@ -256,14 +273,29 @@ export function Sidebar({ user }: SidebarProps) {
           );
           if (visibleItems.length === 0) return null;
 
+          const sectionItems = visibleItems.map((item) => {
+            const basePath = item.href.split("#")[0];
+            return item.href === "/inventory"
+              ? pathname === "/inventory"
+              : pathname === basePath || pathname.startsWith(`${basePath}/`);
+          });
+          const sectionIsActive = sectionItems.some(Boolean);
+          const sectionIsOpen = collapsed || openSections[section.label] === true || (openSections[section.label] === undefined && sectionIsActive);
+
           return (
             <div key={section.label} className="mt-6 first:mt-5">
-              <div className={clsx("flex items-center gap-2 px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35", collapsed && "hidden")}>
-                {section.label}
+              <button
+                type="button"
+                onClick={() => setOpenSections((current) => ({ ...current, [section.label]: !sectionIsOpen }))}
+                className={clsx("flex w-full items-center gap-2 px-3 pb-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35 hover:text-white/70", collapsed && "hidden")}
+                aria-expanded={sectionIsOpen}
+              >
+                <span>{section.label}</span>
                 <span className="h-px flex-1 bg-white/10" />
-              </div>
+                <ChevronDown size={13} className={clsx("transition-transform", sectionIsOpen && "rotate-180")} />
+              </button>
 
-              {visibleItems.map((item) => {
+              {sectionIsOpen && visibleItems.map((item) => {
                 const isActive =
                   item.href === "/inventory"
                     ? pathname === "/inventory"
