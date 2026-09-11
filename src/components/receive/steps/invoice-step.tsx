@@ -180,6 +180,9 @@ export function InvoiceStep({
 
             <InvoiceUpload
               value={shipment.confirmationReceiptPhoto ?? ""}
+              title="Upload Confirmation Receipt Photo"
+              previewAlt="Confirmation receipt photo"
+              errorMessage="Failed to upload confirmation receipt photo."
            
 
               onChange={(url) =>
