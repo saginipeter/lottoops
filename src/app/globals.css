@@ -212,6 +212,44 @@ body {
   box-shadow: 0 1px 0 rgba(20, 20, 31, 0.04);
 }
 
+/* Touch-first authenticated application baseline. Platform/login screens are outside this shell. */
+.dashboard-shell button,
+.dashboard-shell a[role="button"],
+.dashboard-shell input,
+.dashboard-shell select,
+.dashboard-shell textarea {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.dashboard-shell a.group,
+.dashboard-shell nav a {
+  touch-action: manipulation;
+}
+
+.dashboard-shell main > * {
+  min-width: 0;
+}
+
+.dashboard-shell [class*="overflow-y-auto"],
+.dashboard-shell [class*="overflow-auto"] {
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-sidebar-line) transparent;
+}
+
+@media (pointer: coarse) {
+  .dashboard-shell {
+    font-size: 14px;
+  }
+
+  .dashboard-shell button,
+  .dashboard-shell a[role="button"],
+  .dashboard-shell input,
+  .dashboard-shell select {
+    min-height: 48px;
+  }
+}
+
 /* Visible keyboard focus throughout */
 :focus-visible {
   outline: 2px solid var(--color-accent);
