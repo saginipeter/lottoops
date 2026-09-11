@@ -13,7 +13,6 @@ import {
   BarChart3,
   Settings,
   ChevronDown,
-  Radio,
   Users,
   Building2,
   MapPin,
@@ -53,13 +52,8 @@ const navSections: NavSection[] = [
     label: "Operations",
     items: [
       {
-        href: "/inventory/live-scan",
-        label: "Live Scan",
-        icon: Radio,
-      },
-      {
         href: "/shifts",
-        label: "Shifts",
+        label: "Operations",
         icon: Clock,
       },
     ],
@@ -75,19 +69,17 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    label: "Insights",
+    label: "Reports",
     items: [
-      { href: "/sales", label: "Sales", icon: ScanLine },
       { href: "/reports", label: "Reports", icon: BarChart3 },
-      { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
-      { href: "/documents", label: "Documents", icon: FileText },
     ],
   },
   {
     label: "Workspace",
     items: [
-      { href: "/support", label: "Support", icon: MessageCircle },
+      { href: "/sales", label: "Sales", icon: ScanLine },
       { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
+      { href: "/support", label: "Support", icon: MessageCircle },
       { href: "/owner", label: "All Stores", icon: Building2, ownerOnly: true },
     ],
   },
