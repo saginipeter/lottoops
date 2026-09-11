@@ -17,7 +17,7 @@
   --color-text-tertiary: #758197;  /* tertiary / placeholder */
 
   /* Sidebar (deep indigo, from logo's right edge) */
-  --color-sidebar: #241B4D;
+  --color-sidebar: #17233F;
   --color-sidebar-hover: rgba(255,255,255,0.07);
   --color-sidebar-text: rgba(255,255,255,0.6);
   --color-sidebar-text-strong: rgba(255,255,255,0.9);
@@ -25,10 +25,10 @@
   --color-chrome: #17233F;
   --color-chrome-border: #31415F;
   --color-chrome-soft: #EEF1F6;
-  --color-sidebar-deep: #211943;
-  --color-sidebar-panel: #2A2352;
-  --color-sidebar-line: #465276;
-  --color-sidebar-active: #35275F;
+  --color-sidebar-deep: #17233F;
+  --color-sidebar-panel: #223150;
+  --color-sidebar-line: #31415F;
+  --color-sidebar-active: #2A3860;
 
   /* Brand accent — magenta/violet, lifted from the LottoOps wordmark */
   --color-accent: #A33D9A;
