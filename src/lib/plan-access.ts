@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 export type PlanCapability = "MULTI_STORE" | "ADVANCED_REPORTS" | "LIVE_DISPLAY";
 
 const CAPABILITY_PLANS: Record<PlanCapability, string[]> = {
-  MULTI_STORE: ["MULTI_STORE"],
-  ADVANCED_REPORTS: ["MULTI_STORE"],
-  LIVE_DISPLAY: ["MULTI_STORE"],
+  MULTI_STORE: ["COMMAND"],
+  ADVANCED_REPORTS: ["CONTROL", "COMMAND"],
+  LIVE_DISPLAY: ["COMMAND"],
 };
 
 interface PlanAccess {

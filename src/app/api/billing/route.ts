@@ -4,24 +4,24 @@ import { prisma } from "@/lib/prisma";
 
 const DEFAULT_PLANS = [
   {
-    key: "FOUNDING_STORE",
-    name: "Founding Store",
-    description: "The complete Lottoops operating system for one store, with founding pricing.",
-    features: ["One store location", "Receiving and back stock", "Live ticket scanning", "Shift audits and discrepancy controls", "Locked-in founding price"],
-    monthlyPriceCents: 2499,
-  },
-  {
-    key: "SINGLE_STORE",
-    name: "Single Store",
-    description: "Complete daily lottery operations and accountability for one store location.",
-    features: ["One store location", "Receiving, activation, and displays", "Live sales and expected-ticket checks", "Shift audits and reports", "Staff roles and permissions"],
+    key: "CORE",
+    name: "CORE",
+    description: "Core single-store receiving, inventory, shifts, and standard reports.",
+    features: ["Pack receiving and back stock", "Activation and display assignment", "Shift readings and sales", "Standard operational reports", "Individual employee access"],
     monthlyPriceCents: 3999,
   },
   {
-    key: "MULTI_STORE",
-    name: "Multi-Store",
-    description: "Centralized oversight for owners managing multiple store locations.",
-    features: ["Multiple owned stores", "Consolidated owner dashboard", "Cross-store performance view", "Centralized staff governance", "Store-level inventory and discrepancy visibility"],
+    key: "CONTROL",
+    name: "CONTROL",
+    description: "Live ticket control, exceptions, protected corrections, and accountability.",
+    features: ["Everything in CORE", "Live expected-ticket controls", "Exception alerts and resolution", "Audit and correction history", "Standard price $79/month; founding offer $59/month for 12 months when eligible"],
+    monthlyPriceCents: 7900,
+  },
+  {
+    key: "COMMAND",
+    name: "COMMAND",
+    description: "Multi-store oversight, customer display, and advanced operational visibility.",
+    features: ["Everything in CONTROL", "Multiple store locations", "Consolidated owner dashboard", "Customer-facing Live display", "Cross-store reports and analytics"],
     monthlyPriceCents: 7999,
   },
 ];
@@ -44,6 +44,10 @@ async function ensureBillingRecords(ownerId: string, ownerName: string) {
       create: plan,
     });
   }
+  await prisma.plan.updateMany({
+    where: { key: { in: ["FOUNDING_STORE", "SINGLE_STORE", "MULTI_STORE"] } },
+    data: { active: false },
+  });
 
   let organization = await prisma.organization.findUnique({ where: { ownerUserId: ownerId } });
   if (!organization) {
@@ -91,7 +95,7 @@ export async function POST(request: NextRequest) {
     const subscription = await prisma.subscription.upsert({
       where: { organizationId: organization.id },
       update: { planId: plan.id, status: "TRIALING", cancelAtPeriodEnd: false },
-      create: { organizationId: organization.id, planId: plan.id, status: "TRIALING", trialEndsAt: new Date(Date.now() + 14 * 86400000) },
+      create: { organizationId: organization.id, planId: plan.id, status: "TRIALING", trialEndsAt: new Date(Date.now() + 30 * 86400000) },
       include: { plan: true },
     });
     return NextResponse.json({ subscription });
