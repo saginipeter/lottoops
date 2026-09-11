@@ -52,7 +52,7 @@ export default async function DashboardLayout({
       };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg">
+    <div className="dashboard-shell flex h-screen overflow-hidden bg-bg">
       <Sidebar user={user} />
       <main className="min-w-0 flex flex-1 flex-col overflow-hidden">
         {session?.impersonatedBy && <ImpersonationBanner adminName={session.impersonatedBy.name} />}

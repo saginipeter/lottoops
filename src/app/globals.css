@@ -50,8 +50,8 @@
   --color-danger-soft: #FCEBEB;
   --color-danger-soft-text: #A32D2D;
 
-  --font-display: -apple-system, "Segoe UI", system-ui, sans-serif;
-  --font-body: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Arial Narrow", "Roboto Condensed", "Segoe UI", sans-serif;
+  --font-body: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   --font-mono: "SF Mono", "Cascadia Code", "Consolas", monospace;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -76,7 +76,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0px;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -173,6 +173,26 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   overflow-x: hidden;
+}
+
+/* Professional operations shell: square geometry and compact enterprise typography. */
+.dashboard-shell {
+  font-family: var(--font-body);
+  letter-spacing: -0.005em;
+}
+
+.dashboard-shell .rounded-sm,
+.dashboard-shell .rounded-md,
+.dashboard-shell .rounded-lg,
+.dashboard-shell .rounded-xl,
+.dashboard-shell .rounded-2xl,
+.dashboard-shell .rounded-3xl,
+.dashboard-shell .rounded-full {
+  border-radius: 0 !important;
+}
+
+.dashboard-shell .card-surface {
+  box-shadow: 0 1px 0 rgba(20, 20, 31, 0.04);
 }
 
 /* Visible keyboard focus throughout */
