@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { canAccessReports } from "@/lib/permissions";
+import type { Document as PrismaDocument } from "@prisma/client";
 
 interface DocumentRow { id: string; type: string; name: string; url: string; createdAt: Date; documentDate: Date; retentionUntil: Date | null; reference: string; uploadedByName?: string | null; source: "stored" | "legacy" }
 
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     const shipments = shipmentsResult as Array<{ id: string; invoiceNumber: string; invoicePhoto: string | null; confirmationReceiptPhoto: string | null; createdAt: Date; shipmentDate: Date | null }>;
     const packs = packsResult as Array<{ id: string; serialNumber: string; gameNumber: string | null; packImage: string | null; activationReceipt: string | null; activationReceiptPhoto: string | null; invoiceReceipt: string | null; receivedAt: Date }>;
     const documents: DocumentRow[] = [
-      ...storedDocuments.map((document) => ({
+      ...storedDocuments.map((document: PrismaDocument & { uploadedBy: { name: string } }) => ({
         id: document.id,
         type: document.type,
         name: document.name,
