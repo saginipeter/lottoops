@@ -34,7 +34,7 @@ export default async function ActiveStockPage() {
         : value
     )
   );
-  const slots = displaySlots.map((slot) => ({
+  const slots = displaySlots.map((slot: { id: string; slotNumber: string; packId: string | null }) => ({
     id: slot.id,
     slotNumber: slot.slotNumber,
     occupied: Boolean(slot.packId),
