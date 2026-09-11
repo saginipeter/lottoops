@@ -8,24 +8,19 @@ import {
   AlertTriangle,
   LayoutDashboard,
   Package,
-  Layers,
   ScanLine,
   Clock,
   BarChart3,
-  Tv,
   Settings,
   ChevronDown,
-  Gamepad2,
   Radio,
   Users,
   Building2,
   MapPin,
   Phone,
   ShieldCheck,
-  RotateCcw,
   CreditCard,
   MessageCircle,
-  CheckCircle2,
   FileText,
   Menu,
   X,
@@ -55,7 +50,7 @@ const navTop: NavItem = { href: "/", label: "Dashboard", icon: LayoutDashboard }
 
 const navSections: NavSection[] = [
   {
-    label: "Daily Operations",
+    label: "Operations",
     items: [
       {
         href: "/inventory/live-scan",
@@ -73,52 +68,27 @@ const navSections: NavSection[] = [
     label: "Inventory",
     items: [
       {
-        href: "/inventory/receive",
-        label: "Receive Shipment",
-        icon: ScanLine,
-        permission: "RECEIVE_SHIPMENTS",
-      },
-      {
-        href: "/display-slots",
-        label: "Displays",
-        icon: Tv,
-      },
-      {
         href: "/inventory",
-        label: "Back Stock",
+        label: "Inventory",
         icon: Package,
       },
-      {
-        href: "/inventory/active",
-        label: "Active Stock",
-        icon: Layers,
-      },
-      {
-        href: "/inventory/returned",
-        label: "Returned Tickets",
-        icon: RotateCcw,
-      },
     ],
   },
   {
-    label: "Sales & Reports",
+    label: "Insights",
     items: [
       { href: "/sales", label: "Sales", icon: ScanLine },
-      { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
       { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
       { href: "/documents", label: "Documents", icon: FileText },
-      { href: "/support", label: "Support", icon: MessageCircle },
     ],
   },
   {
-    label: "Administration",
+    label: "Workspace",
     items: [
-      { href: "/owner", label: "All Stores", icon: Building2, ownerOnly: true },
-      { href: "/games", label: "Games", icon: Gamepad2, managerOnly: true },
-      { href: "/settings/users", label: "Staff", icon: Users, managerOnly: true },
-      { href: "/settings/tv-display", label: "TV Display", icon: Tv, managerOnly: true },
+      { href: "/support", label: "Support", icon: MessageCircle },
       { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
-      { href: "/onboarding", label: "Onboarding", icon: CheckCircle2, managerOnly: true },
+      { href: "/owner", label: "All Stores", icon: Building2, ownerOnly: true },
     ],
   },
 ];
@@ -130,16 +100,16 @@ const ownerNavSections: NavSection[] = [
       { href: "/owner", label: "Overview", icon: LayoutDashboard },
       { href: "/owner/stores", label: "Stores", icon: Building2 },
       { href: "/reports", label: "Performance", icon: BarChart3 },
-      { href: "/documents", label: "Documents", icon: FileText },
     ],
   },
   {
-    label: "Governance",
+    label: "Management",
     items: [
       { href: "/alerts", label: "Alerts", icon: AlertTriangle },
       { href: "/settings/users", label: "People & Access", icon: Users },
       { href: "/settings", label: "Account Settings", icon: Settings },
       { href: "/billing", label: "Billing", icon: CreditCard },
+      { href: "/documents", label: "Documents", icon: FileText },
       { href: "/support", label: "Support", icon: MessageCircle },
     ],
   },
