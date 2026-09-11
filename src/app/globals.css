@@ -178,6 +178,26 @@ body {
   letter-spacing: 0;
 }
 
+/* Professional operations shell: square geometry and compact enterprise typography. */
+.dashboard-shell {
+  font-family: var(--font-body);
+  letter-spacing: -0.005em;
+}
+
+.dashboard-shell .rounded-sm,
+.dashboard-shell .rounded-md,
+.dashboard-shell .rounded-lg,
+.dashboard-shell .rounded-xl,
+.dashboard-shell .rounded-2xl,
+.dashboard-shell .rounded-3xl,
+.dashboard-shell .rounded-full {
+  border-radius: 0 !important;
+}
+
+.dashboard-shell .card-surface {
+  box-shadow: 0 1px 0 rgba(20, 20, 31, 0.04);
+}
+
 /* Visible keyboard focus throughout */
 :focus-visible {
   outline: 2px solid var(--color-accent);
