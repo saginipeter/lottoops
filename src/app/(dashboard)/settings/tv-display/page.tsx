@@ -4,6 +4,7 @@ import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
+import { TvKioskLink } from "@/components/settings/tv-kiosk-link";
 import { calculateTicketProgress } from "@/lib/tv-display";
 
 interface TvDisplayPageProps {
@@ -88,6 +89,7 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
       )}
 
       <div className={kioskMode ? "flex-1 bg-[#050816]" : "min-h-0 flex-1 overflow-y-auto px-5 py-5 bg-bg"}>
+        {!kioskMode && <TvKioskLink />}
         <TvDisplayBoard
           slots={activeSlots}
           kioskMode={kioskMode}

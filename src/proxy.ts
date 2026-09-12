@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySession, SESSION_COOKIE } from "@/lib/session";
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/setup"];
+const PUBLIC_ROUTES = ["/login", "/setup", "/tv-display"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

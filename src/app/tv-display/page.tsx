@@ -3,19 +3,23 @@ import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 import { getPlanAccess } from "@/lib/plan-access";
 import { calculateTicketProgress } from "@/lib/tv-display";
+import { verifyTvKioskToken } from "@/lib/tv-kiosk";
 
 interface TvDisplayKioskPageProps {
   searchParams?: Promise<{
     interval?: string;
+    token?: string;
   }>;
 }
 
 export default async function TvDisplayKioskPage({
   searchParams,
 }: TvDisplayKioskPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const kioskToken = resolvedSearchParams.token ? await verifyTvKioskToken(resolvedSearchParams.token) : null;
   const session = await getSession();
 
-  if (!session) {
+  if (!session && !kioskToken) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#050816] p-6">
         <div className="rounded-lg border border-red-300 bg-red-50 p-6 text-center">
@@ -25,7 +29,7 @@ export default async function TvDisplayKioskPage({
     );
   }
 
-  const displayAccess = session.role === "OWNER" || session.role === "MANAGER"
+  const displayAccess = session && (session.role === "OWNER" || session.role === "MANAGER")
     ? await getPlanAccess(session, "LIVE_DISPLAY")
     : { allowed: true };
   if (!displayAccess.allowed) {
@@ -40,8 +44,11 @@ export default async function TvDisplayKioskPage({
     );
   }
 
+  const storeId = kioskToken?.storeId ?? session?.storeId;
+  if (!storeId) return null;
+
   const slots = await prisma.displaySlot.findMany({
-    where: { storeId: session.storeId },
+    where: { storeId },
     include: {
       pack: {
         include: {
@@ -88,7 +95,6 @@ export default async function TvDisplayKioskPage({
       }];
     });
 
-  const resolvedSearchParams = (await searchParams) ?? {};
   const parsedInterval = Number(resolvedSearchParams.interval ?? 15);
   const refreshSeconds = Number.isFinite(parsedInterval)
     ? Math.min(Math.max(parsedInterval, 5), 120)
