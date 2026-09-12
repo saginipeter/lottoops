@@ -82,6 +82,9 @@ export async function POST(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (session.role !== "OWNER") return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (process.env.BILLING_ENABLED !== "true") {
+    return NextResponse.json({ error: "Billing is not enabled. Plan changes are available after payment provider integration." }, { status: 503 });
+  }
   if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
 
   const body = await request.json().catch(() => ({}));

@@ -8,12 +8,17 @@ export default function SetupPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [alreadySetup, setAlreadySetup] = useState(false);
+  const [setupLocked, setSetupLocked] = useState(false);
 
   // First check if setup is even needed
   useEffect(() => {
     fetch("/api/setup")
       .then((r) => r.json())
       .then((d) => {
+        if (d.locked) {
+          setSetupLocked(true);
+          return;
+        }
         if (!d.needed) {
           setAlreadySetup(true);
           setTimeout(() => router.push("/login"), 2000);
@@ -67,6 +72,19 @@ export default function SetupPage() {
           <CheckCircle2 size={40} className="mx-auto mb-3 text-green-500" />
           <p className="font-semibold text-text">Setup already complete.</p>
           <p className="text-sm text-text-secondary mt-1">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (setupLocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg px-4">
+        <div className="max-w-md text-center">
+          <CheckCircle2 size={40} className="mx-auto mb-3 text-accent" />
+          <p className="font-semibold text-text">Initial setup is locked.</p>
+          <p className="mt-1 text-sm text-text-secondary">Ask the deployment administrator to enable provisioning temporarily, or continue to the login page.</p>
+          <a href="/login" className="mt-4 inline-flex rounded-md bg-accent px-4 py-2 text-sm font-medium text-white">Go to login</a>
         </div>
       </div>
     );

@@ -6,6 +6,9 @@ import { ensureDisplaySlots } from "@/lib/services/display-slots";
 
 // GET /api/setup — check if setup is needed (no OWNER exists yet)
 export async function GET() {
+  if (process.env.SETUP_ENABLED !== "true") {
+    return NextResponse.json({ needed: false, locked: true });
+  }
   if (!prisma) return NextResponse.json({ needed: true });
 
   const ownerCount = await prisma.user.count({ where: { role: "OWNER" } });
@@ -14,6 +17,9 @@ export async function GET() {
 
 // POST /api/setup — create the first owner + first store (one-time only)
 export async function POST(req: NextRequest) {
+  if (process.env.SETUP_ENABLED !== "true") {
+    return NextResponse.json({ error: "Initial setup is locked. Set SETUP_ENABLED=true only during provisioning." }, { status: 403 });
+  }
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   // Double-check: refuse if an OWNER already exists
