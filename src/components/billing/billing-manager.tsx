@@ -50,12 +50,17 @@ export function BillingManager() {
   async function selectPlan(planId: string) {
     setSaving(planId);
     setMessage("");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }) });
+      const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }), signal: controller.signal });
       const data = await response.json();
       if (!response.ok || typeof data.url !== "string") { setMessage(data.error ?? "Unable to start checkout."); return; }
       window.location.assign(data.url);
+    } catch (error) {
+      setMessage(error instanceof DOMException && error.name === "AbortError" ? "Checkout timed out. Please verify the Stripe and database environment variables, then try again." : "Unable to reach checkout. Please try again.");
     } finally {
+      window.clearTimeout(timeout);
       setSaving(null);
     }
   }
