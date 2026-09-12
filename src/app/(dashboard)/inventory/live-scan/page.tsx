@@ -146,6 +146,11 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
         right={
           isEmployee ? (
             <div className="flex items-center gap-2">
+              <Link href={`/shifts?terminal=${terminalId}#physical-audit`}>
+                <Button size="sm" variant="secondary">
+                  Physical Audit
+                </Button>
+              </Link>
               <span className="text-xs font-medium text-text">{session.name}</span>
               <span className="text-xs text-text-tertiary">{currentShift ? "Shift Open" : "No Active Shift"}</span>
               <LogoutButton
