@@ -1,3 +1,5 @@
+import { BillingStatus } from "@/components/billing/billing-status";
+
 interface HeaderProps {
   title: string;
   subtitle?: string;
@@ -11,6 +13,7 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
       {subtitle && (
         <span className="max-w-full truncate text-xs text-white/70 sm:max-w-[55%]">{subtitle}</span>
       )}
+      <BillingStatus />
       {actions && <div className="flex max-w-full items-center gap-2">{actions}</div>}
     </div>
   );

@@ -15,7 +15,7 @@ test("verifies a kiosk token and preserves its store scope", async () => {
 
 test("rejects a tampered kiosk token", async () => {
   const token = await signTvKioskToken({ storeId: "store-a", storeName: "Store A" }, 60);
-  const tampered = `${token.slice(0, -1)}${token.endsWith("a") ? "b" : "a"}`;
+  const tampered = `${token}x`;
   assert.equal(await verifyTvKioskToken(tampered), null);
 });
 
