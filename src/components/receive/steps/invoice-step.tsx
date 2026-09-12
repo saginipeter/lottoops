@@ -22,6 +22,7 @@ export function InvoiceStep({
   nextStep,
   onCancel,
 }: InvoiceStepProps) {
+  const hasConfirmationPdf = shipment.confirmationReceiptPhoto?.toLowerCase().includes(".pdf");
 
 
   async function handleContinue() {
@@ -31,7 +32,7 @@ export function InvoiceStep({
   }
 
   if (!shipment.invoicePhoto) {
-    alert("Please upload an invoice photo.");
+    alert("Please upload an invoice photo or PDF.");
     return;
   }
 
@@ -41,7 +42,7 @@ export function InvoiceStep({
   }
 
   if (!shipment.confirmationReceiptPhoto) {
-    alert("Please upload a confirmation receipt photo.");
+    alert("Please upload a confirmation receipt photo or PDF.");
     return;
   }
 
@@ -132,13 +133,13 @@ export function InvoiceStep({
           <div className="mb-5">
             <label className="mb-2 flex items-center gap-2 text-sm font-medium">
               <Camera size={16} />
-              Step 2: Invoice Photo
+              Step 2: Invoice Photo or PDF
             </label>
 
             <InvoiceUpload
               value={shipment.invoicePhoto ?? ""}
-
-
+              title="Upload Invoice Photo or PDF"
+              allowPdf
               onChange={(url) =>
                 setShipment((prev) => ({
                   ...prev,
@@ -176,16 +177,15 @@ export function InvoiceStep({
           <div className="mb-5">
             <label className="mb-2 flex items-center gap-2 text-sm font-medium">
               <Camera size={16} />
-              Step 4: Confirmation Receipt Photo
+              Step 4: Confirmation Receipt Photo or PDF
             </label>
 
             <InvoiceUpload
               value={shipment.confirmationReceiptPhoto ?? ""}
-              title="Upload Confirmation Receipt Photo"
+              title="Upload Confirmation Receipt Photo or PDF"
               previewAlt="Confirmation receipt photo"
               errorMessage="Failed to upload confirmation receipt photo."
-
-
+              allowPdf
               onChange={(url) =>
                 setShipment((prev) => ({
                   ...prev,
@@ -293,14 +293,28 @@ export function InvoiceStep({
           <h4 className="mb-2 text-sm font-semibold">Confirmation Receipt Preview</h4>
           <div className="flex h-40 items-center justify-center rounded-xl border bg-gray-50">
             {shipment.confirmationReceiptPhoto ? (
-              <Image
-                src={shipment.confirmationReceiptPhoto}
-                alt="Confirmation Receipt"
-                width={640}
-                height={160}
-                unoptimized
-                className="h-full w-full rounded-xl object-contain"
-              />
+              hasConfirmationPdf ? (
+                <div className="text-center text-gray-600">
+                  <FileText size={32} className="mx-auto mb-2 opacity-70" />
+                  <a
+                    href={shipment.confirmationReceiptPhoto}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-purple-700 underline"
+                  >
+                    Open uploaded PDF
+                  </a>
+                </div>
+              ) : (
+                <Image
+                  src={shipment.confirmationReceiptPhoto}
+                  alt="Confirmation Receipt"
+                  width={640}
+                  height={160}
+                  unoptimized
+                  className="h-full w-full rounded-xl object-contain"
+                />
+              )
             ) : (
               <div className="text-center text-gray-500">
                 <Camera size={32} className="mx-auto mb-2 opacity-40" />

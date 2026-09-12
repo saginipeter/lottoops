@@ -39,6 +39,8 @@ export function ReviewStep({
 }: ReviewStepProps) {
   const [overrideLoading, setOverrideLoading] = useState(false);
   const [overrideError, setOverrideError] = useState("");
+  const invoiceIsPdf = shipment.invoicePhoto?.toLowerCase().includes(".pdf");
+  const confirmationIsPdf = shipment.confirmationReceiptPhoto?.toLowerCase().includes(".pdf");
   const expected = shipment.expectedPacks ?? 0;
   const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
   const scanned = packs.length;
@@ -121,7 +123,19 @@ export function ReviewStep({
               </div>
               {shipment.invoicePhoto && (
                 <div className="mt-3 flex h-24 items-center rounded border bg-white p-2">
-                  <Image src={shipment.invoicePhoto} alt="Invoice" width={320} height={96} unoptimized className="h-full object-contain" />
+                  {invoiceIsPdf ? (
+                    <a
+                      href={shipment.invoicePhoto}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-sm font-medium text-purple-700 underline"
+                    >
+                      <FileText size={18} />
+                      Open uploaded invoice PDF
+                    </a>
+                  ) : (
+                    <Image src={shipment.invoicePhoto} alt="Invoice" width={320} height={96} unoptimized className="h-full object-contain" />
+                  )}
                 </div>
               )}
             </div>
@@ -134,7 +148,19 @@ export function ReviewStep({
               </div>
               {shipment.confirmationReceiptPhoto && (
                 <div className="mt-3 flex h-24 items-center rounded border bg-white p-2">
-                  <Image src={shipment.confirmationReceiptPhoto} alt="Confirmation" width={320} height={96} unoptimized className="h-full object-contain" />
+                  {confirmationIsPdf ? (
+                    <a
+                      href={shipment.confirmationReceiptPhoto}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-sm font-medium text-purple-700 underline"
+                    >
+                      <FileText size={18} />
+                      Open uploaded confirmation PDF
+                    </a>
+                  ) : (
+                    <Image src={shipment.confirmationReceiptPhoto} alt="Confirmation" width={320} height={96} unoptimized className="h-full object-contain" />
+                  )}
                 </div>
               )}
             </div>
