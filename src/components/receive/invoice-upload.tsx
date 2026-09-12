@@ -25,7 +25,13 @@ export function InvoiceUpload({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   async function handleFile(file: File) {
+    if (file.size > 10 * 1024 * 1024) {
+      alert("This image is larger than 10 MB. Please retake it or choose a smaller image.");
+      return;
+    }
     setUploading(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 30_000);
 
     try {
       const formData = new FormData();
@@ -34,21 +40,26 @@ export function InvoiceUpload({
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error("Upload failed");
+        throw new Error(typeof data.error === "string" ? data.error : "Upload failed");
       }
 
-      const data = await response.json();
-
-      console.log("Blob upload:", data);
-
+      if (typeof data.url !== "string") throw new Error("Upload completed without a file URL.");
       onChange(data.url);
     } catch (error) {
       console.error(error);
-      alert(errorMessage);
+      const message = error instanceof DOMException && error.name === "AbortError"
+        ? "Image upload timed out. Check your connection and try again."
+        : error instanceof Error && error.message
+          ? error.message
+          : errorMessage;
+      alert(message);
     } finally {
+      window.clearTimeout(timeout);
       setUploading(false);
     }
   }
