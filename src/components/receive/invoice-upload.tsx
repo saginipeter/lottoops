@@ -20,12 +20,22 @@ export function InvoiceUpload({
   errorMessage = "Failed to upload image.",
   onChange,
 }: Props) {
+  const UPLOAD_TIMEOUT_MS = 45_000;
   const [uploading, setUploading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  function resetInputs() {
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function handleFile(file: File) {
+    if (uploading) return;
+
     setUploading(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
     try {
       const formData = new FormData();
@@ -34,21 +44,25 @@ export function InvoiceUpload({
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
+      const data = await response.json().catch(() => null);
+      if (!response.ok || typeof data?.url !== "string") {
+        throw new Error(data?.error || errorMessage);
       }
-
-      const data = await response.json();
-
-      console.log("Blob upload:", data);
-
       onChange(data.url);
     } catch (error) {
       console.error(error);
-      alert(errorMessage);
+      alert(
+        error instanceof DOMException && error.name === "AbortError"
+          ? "Upload timed out. Please try again."
+          : error instanceof Error && error.message
+            ? error.message
+            : errorMessage
+      );
     } finally {
+      window.clearTimeout(timeout);
+      resetInputs();
       setUploading(false);
     }
   }
