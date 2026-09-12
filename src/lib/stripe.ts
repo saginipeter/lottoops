@@ -5,7 +5,7 @@ let stripeClient: Stripe | null = null;
 export function getStripe(): Stripe | null {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) return null;
-  stripeClient ??= new Stripe(secretKey);
+  stripeClient ??= new Stripe(secretKey, { timeout: 10_000, maxNetworkRetries: 1 });
   return stripeClient;
 }
 
