@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, FileText, Camera } from "lucide-react";
+import Image from "next/image";
+import { AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 
 import type {
   ShipmentState,
@@ -110,7 +111,7 @@ export function ReviewStep({
           </div>
 
           <div className="space-y-4">
-            
+
             {/* Step 1-2: Invoice Info */}
             <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
               <h4 className="text-sm font-semibold text-blue-900 mb-3">Invoice Information</h4>
@@ -120,7 +121,7 @@ export function ReviewStep({
               </div>
               {shipment.invoicePhoto && (
                 <div className="mt-3 flex h-24 items-center rounded border bg-white p-2">
-                  <img src={shipment.invoicePhoto} alt="Invoice" className="h-full object-contain" />
+                  <Image src={shipment.invoicePhoto} alt="Invoice" width={320} height={96} unoptimized className="h-full object-contain" />
                 </div>
               )}
             </div>
@@ -133,7 +134,7 @@ export function ReviewStep({
               </div>
               {shipment.confirmationReceiptPhoto && (
                 <div className="mt-3 flex h-24 items-center rounded border bg-white p-2">
-                  <img src={shipment.confirmationReceiptPhoto} alt="Confirmation" className="h-full object-contain" />
+                  <Image src={shipment.confirmationReceiptPhoto} alt="Confirmation" width={320} height={96} unoptimized className="h-full object-contain" />
                 </div>
               )}
             </div>

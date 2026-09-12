@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
     const {
       shipmentId,
       destination,
-      notes,
       expectedRetailValue,
       overrideApproved,
     } = await req.json();

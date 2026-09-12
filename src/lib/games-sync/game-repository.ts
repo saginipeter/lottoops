@@ -8,12 +8,6 @@ function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function syntheticDrawNumber(name: string): string {
-  const normalized = name.toUpperCase().replace(/[^A-Z0-9]+/g, "");
-  const body = normalized.slice(0, 20) || "DRAW";
-  return `DRAW-${body}`;
-}
-
 export interface GameRepository {
   ensureSchema(): Promise<void>;
   upsertGame(storeId: string, game: ClassifiedGame): Promise<void>;
@@ -90,8 +84,6 @@ export class PrismaGameRepository implements GameRepository {
   }
 
   async upsertGame(storeId: string, game: ClassifiedGame): Promise<void> {
-    const gameNumber = game.gameNumber ?? syntheticDrawNumber(game.name);
-    const isActive = game.status === "active" || game.status === "closing";
     const normalizedName = normalizeName(game.name);
     const nowIso = new Date().toISOString();
 
@@ -257,4 +249,3 @@ export class InMemoryGameRepository implements GameRepository {
     return this.logs;
   }
 }
-

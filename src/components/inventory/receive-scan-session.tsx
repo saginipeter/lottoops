@@ -63,10 +63,10 @@ export function ReceiveScanSession() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
- 
+
   const retailValuePerPack = activeGame
     ? Number(activeGame.price) * activeGame.ticketsPerPack
     : 0;
@@ -303,7 +303,7 @@ export function ReceiveScanSession() {
             </button>
 
 
-            
+
           </div>
 
           <ScanInput
@@ -317,7 +317,7 @@ export function ReceiveScanSession() {
                 : undefined
             }
           />
-          
+
           <div className="mt-2 min-h-[34px]">
             {checking && (
               <div className="flex items-center gap-1.5 rounded-md bg-surface-soft px-3 py-2 text-xs text-text-secondary">

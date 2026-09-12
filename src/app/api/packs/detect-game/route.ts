@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
     // 2. Fall back to Texas Lottery synced catalog
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const rows = (await prisma.$queryRawUnsafe(
         `SELECT name, game_number, ticket_price
          FROM game_catalog

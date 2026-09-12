@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Maximize2, Minimize2, RefreshCw, Tv, ShieldCheck, CircleAlert } from "lucide-react";
 
@@ -39,19 +40,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
     return () => clearInterval(tick);
   }, []);
 
-  useEffect(() => {
-    const refresh = setInterval(() => void refreshBoard(), refreshSeconds * 1000);
-    return () => clearInterval(refresh);
-  }, [refreshSeconds]);
-
-  useEffect(() => {
-    const watchdog = setInterval(() => {
-      setStale(Date.now() - lastRefreshAt.getTime() > refreshSeconds * 2000);
-    }, 1000);
-    return () => clearInterval(watchdog);
-  }, [lastRefreshAt, refreshSeconds]);
-
-  function refreshBoard() {
+  const refreshBoard = useCallback(() => {
     setRefreshing(true);
     router.refresh();
     window.setTimeout(() => {
@@ -59,7 +48,19 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
       setStale(false);
       setRefreshing(false);
     }, 600);
-  }
+  }, [router]);
+
+  useEffect(() => {
+    const refresh = setInterval(() => void refreshBoard(), refreshSeconds * 1000);
+    return () => clearInterval(refresh);
+  }, [refreshBoard, refreshSeconds]);
+
+  useEffect(() => {
+    const watchdog = setInterval(() => {
+      setStale(Date.now() - lastRefreshAt.getTime() > refreshSeconds * 2000);
+    }, 1000);
+    return () => clearInterval(watchdog);
+  }, [lastRefreshAt, refreshSeconds]);
 
   const summary = useMemo(() => ({
     totalRemaining: slots.reduce((sum, slot) => sum + slot.remaining, 0),
@@ -139,7 +140,7 @@ function DisplayCard({ slot, broken, onBroken }: { slot: TvDisplaySlot; broken?:
   return <article className="border border-white/15 bg-white/10 p-5 text-white">
     <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-3"><span className="border border-[#8fe3c166] bg-[#8fe3c11a] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#8fe3c1]">Display {slot.slotNumber}</span><span className="text-sm text-white/60">Game #{slot.gameNumber}</span></div>
     <div className="mt-4 flex items-center gap-4">
-      {slot.gameImage && !broken ? <img src={slot.gameImage} alt="" className="h-16 w-16 border border-white/20 bg-white/10 object-cover" onError={onBroken} /> : <div className="flex h-16 w-16 items-center justify-center border border-white/20 bg-white/10 text-2xl font-semibold text-[#e58bd9]">{slot.gameName.slice(0, 1).toUpperCase()}</div>}
+      {slot.gameImage && !broken ? <Image src={slot.gameImage} alt="" width={64} height={64} unoptimized className="h-16 w-16 border border-white/20 bg-white/10 object-cover" onError={onBroken} /> : <div className="flex h-16 w-16 items-center justify-center border border-white/20 bg-white/10 text-2xl font-semibold text-[#e58bd9]">{slot.gameName.slice(0, 1).toUpperCase()}</div>}
       <div><h3 className="text-2xl font-semibold leading-tight">{slot.gameName}</h3><p className="mt-1 text-sm text-white/60">${slot.ticketPrice.toFixed(2)} per ticket</p></div>
     </div>
     <div className="mt-5 border border-[#b85eaa66] bg-[#241b4d] px-4 py-3"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">Next ticket to process</p><p className="mt-1 text-4xl font-semibold tabular-nums tracking-wide text-white">{slot.nextTicket}</p><p className="mt-1 text-xs text-white/55">Current ticket {slot.currentTicket}</p></div>

@@ -30,7 +30,7 @@ export async function GET() {
 
   try {
     await ensureApprovalPinSchema();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const rows = (await prisma.$queryRawUnsafe(
       `
       SELECT updated_at

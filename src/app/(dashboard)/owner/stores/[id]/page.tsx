@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, AlertTriangle, Boxes, Clock, Users } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Boxes, Clock } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { Panel } from "@/components/ui/panel";

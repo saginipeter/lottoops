@@ -3,7 +3,7 @@
 // locally after setting DATABASE_URL in .env. Until then, the build
 // uses a typed stub so type-checking passes without the generated client.
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 type AnyPrismaClient = any;
 
 let prismaInstance: AnyPrismaClient;

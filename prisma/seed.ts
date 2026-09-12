@@ -60,7 +60,7 @@ async function main() {
     )
   );
 
-  const [g1, g2, g3, g4, g5, g6] = games;
+  const [g1, , g3, , , g6] = games;
 
   // A handful of back-stock and active packs, mirroring the old mock data
   // so the UI looks the same once it's wired to real queries.

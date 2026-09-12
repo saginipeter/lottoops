@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       )
     `);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const securityRows = (await prisma.$queryRawUnsafe(
       `
       SELECT approval_pin_hash

@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       orderBy: { gameNumber: "asc" },
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const serialized = games.map((g: any) => ({
       ...g,
       price: Number(g.price),

@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: "Some serial numbers are already in the system",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           duplicates: existing.map((p: any) => p.serialNumber),
         },
         { status: 409 }
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       count: createdPacks.length,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       packs: createdPacks.map((p: any) => ({
         id: p.id,
         serialNumber: p.serialNumber,

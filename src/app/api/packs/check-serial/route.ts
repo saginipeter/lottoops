@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
         `);
 
         await ensureShiftTerminalSchema();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const openShiftRows = (await prisma.$queryRawUnsafe(
           `
           SELECT id
@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
         await recordShiftParticipant(openShift.id, session.userId);
 
         // Block duplicate ticket scans in the same open shift.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const duplicateRows = (await prisma.$queryRawUnsafe(
           `
           SELECT id

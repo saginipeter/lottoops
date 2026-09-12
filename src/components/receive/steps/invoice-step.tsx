@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Calendar, Camera, FileText, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -21,7 +22,7 @@ export function InvoiceStep({
   nextStep,
   onCancel,
 }: InvoiceStepProps) {
-  
+
 
   async function handleContinue() {
   if (!shipment.invoiceNumber?.trim()) {
@@ -136,7 +137,7 @@ export function InvoiceStep({
 
             <InvoiceUpload
               value={shipment.invoicePhoto ?? ""}
-           
+
 
               onChange={(url) =>
                 setShipment((prev) => ({
@@ -183,7 +184,7 @@ export function InvoiceStep({
               title="Upload Confirmation Receipt Photo"
               previewAlt="Confirmation receipt photo"
               errorMessage="Failed to upload confirmation receipt photo."
-           
+
 
               onChange={(url) =>
                 setShipment((prev) => ({
@@ -196,7 +197,7 @@ export function InvoiceStep({
 
           {/* Bottom Grid */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          
+
 
             {/* Shipment Date */}
             <div>
@@ -292,9 +293,12 @@ export function InvoiceStep({
           <h4 className="mb-2 text-sm font-semibold">Confirmation Receipt Preview</h4>
           <div className="flex h-40 items-center justify-center rounded-xl border bg-gray-50">
             {shipment.confirmationReceiptPhoto ? (
-              <img
+              <Image
                 src={shipment.confirmationReceiptPhoto}
                 alt="Confirmation Receipt"
+                width={640}
+                height={160}
+                unoptimized
                 className="h-full w-full rounded-xl object-contain"
               />
             ) : (

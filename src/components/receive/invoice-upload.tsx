@@ -2,6 +2,7 @@
 
 import { Camera, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -81,9 +82,12 @@ export function InvoiceUpload({
       <div className="flex h-48 flex-col items-center justify-center rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 transition hover:bg-purple-100">
         {value ? (
           <div className="relative h-full w-full">
-            <img
+            <Image
               src={value}
               alt={previewAlt}
+              width={640}
+              height={360}
+              unoptimized
               className="h-full w-full rounded-xl object-contain"
             />
 

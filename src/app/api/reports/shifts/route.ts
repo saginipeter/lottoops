@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   });
 
   // Build per-shift summaries
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const shiftSummaries = (shifts as any[]).map((shift) => {
     let grossSales = 0;
     let cogs = 0;

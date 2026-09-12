@@ -248,9 +248,6 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
     setTimeout(() => setMessage(null), 6000);
   }
 
-  // Summary totals
-  const totalStaff = stores.reduce((s, store) => s + store.users.filter((u) => u.active).length, 0);
-
   return (
     <div className="space-y-5">
       {view === "overview" && <StateReportsUploader />}

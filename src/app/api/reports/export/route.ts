@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
       "Shift ID", "Opened At", "Closed At", "Opened By", "Closed By",
       "Tickets Sold", "Gross Sales ($)", "Est. COGS ($)", "Net Margin ($)", "Margin %",
     ];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const rows = (shifts as any[]).map((shift) => {
       let gross = 0, cogs = 0, tickets = 0;
       for (const line of shift.lines) {
@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
       orderBy: { receivedAt: "desc" },
     });
     const headers = ["Pack ID", "Serial #", "Game #", "Game Name", "Status", "Ticket Price ($)", "Qty", "Cost ($)", "Retail Value ($)", "Received At"];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const rows = (packs as any[]).map((p) => [
       p.id, p.serialNumber, p.game.gameNumber, p.game.name, p.status,
       Number(p.ticketPrice ?? p.game.price).toFixed(2),

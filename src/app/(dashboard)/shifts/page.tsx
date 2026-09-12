@@ -42,7 +42,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
     ADD COLUMN IF NOT EXISTS "terminalId" TEXT
   `);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const openShiftRows = (await prisma.$queryRawUnsafe(
     `
     SELECT id

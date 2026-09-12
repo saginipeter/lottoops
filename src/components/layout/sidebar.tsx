@@ -25,8 +25,6 @@ interface NavItem {
 
 interface NavSection { label: string; items: NavItem[]; }
 
-const navTop: NavItem = { href: "/", label: "Dashboard", icon: LayoutDashboard };
-
 const navSections: NavSection[] = [
   { label: "Operations", items: [
     { href: "/inventory/live-scan", label: "Live Scan", icon: Radio },

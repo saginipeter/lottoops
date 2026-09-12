@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // Get catalog entries from raw game_catalog table
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const rows = (await prisma.$queryRawUnsafe(
       `SELECT id, external_key, name, game_type, status, game_number, ticket_price,
               odds, top_prize, prizes_claimed, remaining_top_prizes, end_date,
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Look up the catalog entry
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const rows = (await prisma.$queryRawUnsafe(
       `SELECT name, game_number, ticket_price FROM game_catalog WHERE store_id = $1 AND external_key = $2 LIMIT 1`,
       session.storeId,

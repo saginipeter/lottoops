@@ -26,7 +26,7 @@ export async function GET() {
       },
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const serialized = slots.map((s: any) => ({
       slotNumber: s.slotNumber,
       pack: s.pack
