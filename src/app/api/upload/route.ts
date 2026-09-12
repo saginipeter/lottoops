@@ -9,6 +9,7 @@ const ALLOWED_TYPES = new Set([
   "image/png",
   "image/webp",
   "image/heic",
+  "image/heif",
   "application/pdf",
 ]);
 
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     const file = formData.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     if (!ALLOWED_TYPES.has(file.type)) {
-      return NextResponse.json({ error: "Only JPEG, PNG, WebP, HEIC, and PDF files are allowed." }, { status: 415 });
+      return NextResponse.json({ error: "Only JPEG, PNG, WebP, HEIC, HEIF, and PDF files are allowed." }, { status: 415 });
     }
     if (file.size <= 0 || file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ error: "Files must be between 1 byte and 10 MB." }, { status: 413 });

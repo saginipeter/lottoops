@@ -21,6 +21,15 @@ export function InvoiceUpload({
   onChange,
 }: Props) {
   const UPLOAD_TIMEOUT_MS = 45_000;
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const ALLOWED_FILE_TYPES = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+  ]);
+  const ACCEPTED_IMAGE_TYPES = ".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif";
   const [uploading, setUploading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -32,6 +41,16 @@ export function InvoiceUpload({
 
   async function handleFile(file: File) {
     if (uploading) return;
+    if (!ALLOWED_FILE_TYPES.has(file.type)) {
+      alert("Only JPEG, PNG, WebP, HEIC, and HEIF images are allowed.");
+      resetInputs();
+      return;
+    }
+    if (file.size <= 0 || file.size > MAX_FILE_SIZE) {
+      alert("Images must be between 1 byte and 10 MB.");
+      resetInputs();
+      return;
+    }
 
     setUploading(true);
     const controller = new AbortController();
@@ -46,9 +65,20 @@ export function InvoiceUpload({
         body: formData,
         signal: controller.signal,
       });
-      const data = await response.json().catch(() => null);
+      const raw = await response.text();
+      let data: { error?: string; url?: string } | null = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw) as { error?: string; url?: string };
+        } catch {
+          data = null;
+        }
+      }
       if (!response.ok || typeof data?.url !== "string") {
-        throw new Error(data?.error || errorMessage);
+        const fallbackMessage = response.status >= 500
+          ? "Upload service is unavailable right now. Please try again."
+          : `Upload failed (${response.status}). Please try again.`;
+        throw new Error(data?.error || raw.trim() || fallbackMessage);
       }
       onChange(data.url);
     } catch (error) {
@@ -72,7 +102,7 @@ export function InvoiceUpload({
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*"
+        accept={ACCEPTED_IMAGE_TYPES}
         capture="environment"
         className="sr-only"
         disabled={uploading}
@@ -84,7 +114,7 @@ export function InvoiceUpload({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={ACCEPTED_IMAGE_TYPES}
         className="sr-only"
         disabled={uploading}
         onChange={async (e) => {
