@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getApiSession } from "@/lib/api-session";
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getApiSession();
+    if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+
     const { gameNumber, packNumber, ticketNumber } = await req.json();
 
     if (!gameNumber || !packNumber || ticketNumber === undefined) {
@@ -14,6 +19,7 @@ export async function POST(req: NextRequest) {
 
     const pack = await prisma.pack.findFirst({
       where: {
+        storeId: session.storeId,
         gameNumber,
         packNumber,
         status: "ACTIVE",

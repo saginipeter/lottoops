@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/get-session";
+import { getApiSession } from "@/lib/api-session";
 import { canReceiveShipments, canManageBackstock } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
-  const session = await getSession();
+  const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canReceiveShipments(session) && !canManageBackstock(session)) {
     return NextResponse.json({ error: "You do not have permission to view shipments." }, { status: 403 });
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getApiSession();
 
     if (!session) {
       return NextResponse.json(
@@ -47,11 +47,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("Session:", session);
-
     const body = await req.json();
-
-    console.log("Shipment request body:", body);
 
     const {
       invoiceNumber,
@@ -204,16 +200,11 @@ export async function POST(req: NextRequest) {
 
     
 
-    console.log("Shipment created:", shipment);
-
     return NextResponse.json({
       success: true,
       ...shipment,
     });
   } catch (error: unknown) {
-    console.error("Shipment creation failed:");
-    console.error(error);
-
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2002") {
         return NextResponse.json(
@@ -247,7 +238,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getApiSession();
     if (!session || !canReceiveShipments(session)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -329,7 +320,7 @@ export async function DELETE(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getApiSession();
     if (!session || !(canReceiveShipments(session) || canManageBackstock(session))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/get-session";
+import { getApiSession } from "@/lib/api-session";
 import { canReceiveShipments } from "@/lib/permissions";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getApiSession();
 
     if (!session) {
       return NextResponse.json(
@@ -203,7 +203,7 @@ return NextResponse.json(savedPack);
 
 export async function PATCH(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getApiSession();
 
     if (!session) {
       return NextResponse.json(
