@@ -41,7 +41,12 @@ export async function GET() {
     const organization = await ensureBillingRecords(session.userId, session.name);
     const plans = (await prisma.plan.findMany({ where: { active: true }, orderBy: { monthlyPriceCents: "asc" } })) as BillingPlan[];
     const subscription = await prisma.subscription.findUnique({ where: { organizationId: organization.id }, include: { plan: true } });
-    return NextResponse.json({ organization: { id: organization.id, name: organization.name }, plans, subscription });
+    return NextResponse.json({
+      organization: { id: organization.id, name: organization.name },
+      plans,
+      subscription,
+      billingEnabled: process.env.BILLING_ENABLED === "true" && Boolean(process.env.STRIPE_SECRET_KEY),
+    });
   } catch (error) {
     console.error("[GET /api/billing]", error);
     return NextResponse.json({ error: "Unable to load billing information." }, { status: 500 });

@@ -22,7 +22,7 @@ interface Subscription {
 }
 
 export function BillingManager() {
-  const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === "true";
+  const [billingEnabled, setBillingEnabled] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [organizationName, setOrganizationName] = useState("");
@@ -33,9 +33,10 @@ export function BillingManager() {
   async function load() {
     setLoading(true);
     try {
-      const response = await fetch("/api/billing");
+      const response = await fetch("/api/billing", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) { setMessage(data.error ?? "Unable to load billing."); return; }
+      setBillingEnabled(data.billingEnabled === true);
       setPlans(data.plans ?? []);
       setSubscription(data.subscription ?? null);
       setOrganizationName(data.organization?.name ?? "Owner account");
