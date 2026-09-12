@@ -16,12 +16,12 @@ export default async function BillingPage() {
       <PageToolbar
         left={<span className="text-xs text-text-secondary">Owner account</span>}
         center={<span>Plans and subscription</span>}
-        right={<span className="text-xs text-text-tertiary">Payment setup pending</span>}
+        right={<span className="text-xs text-text-tertiary">Stripe checkout</span>}
       />
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
         <BillingManager />
       </div>
-      <StatusBar left={<span>Billing settings</span>} center={<span>Owner access only</span>} right={<span>Payment provider not connected</span>} />
+      <StatusBar left={<span>Billing settings</span>} center={<span>Owner access only</span>} right={<span>Stripe billing</span>} />
     </div>
   );
 }
