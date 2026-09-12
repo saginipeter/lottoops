@@ -78,12 +78,12 @@ export function LifecycleAnalyticsReport() {
             <span className="rounded-full bg-surface-soft px-2 py-1">Active over 30 days: {data.summary.activeOver30Days}</span>
             <span className="rounded-full bg-surface-soft px-2 py-1">Reassigned packs: {data.summary.reassignedPacks}</span>
           </div>
-          <div className="mt-5 overflow-x-auto">
+          {data.games.length === 0 ? <p className="mt-5 rounded-md border border-border bg-surface-soft px-3 py-3 text-sm text-text-secondary">No pack lifecycle records are available yet. Receive or activate a pack to populate this report.</p> : <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary"><th className="py-2 pr-3">Game</th><th className="py-2 pr-3 text-right">Packs</th><th className="py-2 pr-3 text-right">Tickets moved</th><th className="py-2 text-right">Value</th></tr></thead>
               <tbody>{data.games.map((game) => <tr key={game.gameNumber} className="border-b border-border last:border-0"><td className="py-2.5 pr-3"><span className="font-medium">{game.game}</span><span className="ml-1 text-xs text-text-tertiary">#{game.gameNumber}</span></td><td className="py-2.5 pr-3 text-right">{game.packs}</td><td className="py-2.5 pr-3 text-right">{game.tickets}</td><td className="py-2.5 text-right">{currency(game.value)}</td></tr>)}</tbody>
             </table>
-          </div>
+          </div>}
         </>
       ) : null}
     </Panel>

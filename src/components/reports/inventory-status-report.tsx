@@ -27,19 +27,24 @@ export function InventoryStatusReport() {
   const [rows, setRows] = useState<PackRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
     const load = async () => {
       setLoading(true);
+      setError("");
       try {
         const params = new URLSearchParams({ status });
         if (q.trim()) params.set("q", q.trim());
         const res = await fetch(`/api/reports/inventory-status?${params.toString()}`);
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Unable to load inventory status.");
         if (!active) return;
         setRows(data.packs ?? []);
         setCounts(data.counts ?? {});
+      } catch (reason) {
+        if (active) setError(reason instanceof Error ? reason.message : "Unable to load inventory status.");
       } finally {
         if (active) setLoading(false);
       }
@@ -88,6 +93,8 @@ export function InventoryStatusReport() {
           </Button>
         </div>
       </div>
+
+      {error && <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <div className="mb-3 flex flex-wrap gap-2 text-xs text-text-secondary">
         {Object.entries(counts).map(([key, value]) => (
