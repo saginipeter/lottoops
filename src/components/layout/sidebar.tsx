@@ -149,11 +149,11 @@ export function Sidebar({ user }: SidebarProps) {
       <div className={clsx("border-b border-sidebar-line py-5", collapsed ? "px-3" : "px-5")}>
         <div className="flex items-center justify-between gap-3">
           <Image
-            src="/brand/lottoops-logo-transparent.png"
+            src="/brand/lottoops-logo-new.png"
             alt="LottoOps"
             width={collapsed ? 44 : 144}
             height={48}
-            className={collapsed ? "h-8 w-8 object-contain object-left" : "h-10 w-auto"}
+            className={collapsed ? "h-8 w-8 object-contain" : "h-12 w-12 object-contain"}
             priority
           />
           {mobileOpen && <button type="button" aria-label="Close navigation" onClick={() => setMobileOpen(false)} className="rounded-md p-1 text-white/70 hover:bg-white/10 sm:hidden"><X size={18} /></button>}
