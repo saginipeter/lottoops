@@ -70,13 +70,13 @@ export async function POST(req: Request) {
     }
 
     const pathname = `stores/${session.storeId}/documents/${crypto.randomUUID()}.${safeFileExtension(file.name, file.type)}`;
-    await put(pathname, file, {
-      access: "private",
+    const blob = await put(pathname, file, {
+      access: "public",
       addRandomSuffix: false,
       contentType: file.type,
     });
 
-    const url = `/api/files/${pathname}`;
+    const url = blob.url;
     let document = null;
     let warning: string | null = null;
     if (prisma) {
