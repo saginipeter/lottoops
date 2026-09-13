@@ -77,8 +77,11 @@ export async function POST(req: Request) {
     });
 
     const url = `/api/files/${pathname}`;
-    const document = prisma
-      ? await prisma.document.create({
+    let document = null;
+    let warning: string | null = null;
+    if (prisma) {
+      try {
+        document = await prisma.document.create({
           data: {
             storeId: session.storeId,
             uploadedById: session.userId,
@@ -91,10 +94,14 @@ export async function POST(req: Request) {
             packId,
             shipmentId,
           },
-        })
-      : null;
+        });
+      } catch (error) {
+        console.error("[POST /api/upload] Document history write failed:", error);
+        warning = "Image uploaded, but its document history could not be saved. Apply the latest database migrations.";
+      }
+    }
 
-    return NextResponse.json({ success: true, url, document });
+    return NextResponse.json({ success: true, url, document, warning });
   } catch (error) {
     console.error("Blob upload error:", error);
     return NextResponse.json({ success: false, error: "Upload failed" }, { status: 500 });
