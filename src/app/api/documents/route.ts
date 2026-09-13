@@ -22,8 +22,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Document date filters must be valid dates." }, { status: 400 });
   }
   try {
-    const [storedDocuments, shipmentsResult, packsResult] = await Promise.all([
-      prisma.document.findMany({ where: { storeId: session.storeId, ...(type ? { type } : {}), ...(from || to ? { documentDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}) }, include: { uploadedBy: { select: { name: true } } }, orderBy: { documentDate: "desc" }, take: 1000 }),
+    let storedDocuments: Array<PrismaDocument & { uploadedBy: { name: string } }> = [];
+    let warning: string | null = null;
+    try {
+      storedDocuments = await prisma.document.findMany({ where: { storeId: session.storeId, ...(type ? { type } : {}), ...(from || to ? { documentDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}) }, include: { uploadedBy: { select: { name: true } } }, orderBy: { documentDate: "desc" }, take: 1000 });
+    } catch (error) {
+      console.error("[GET /api/documents] Document history query failed:", error);
+      warning = "Document history is unavailable until the latest database migrations are applied.";
+    }
+    const [shipmentsResult, packsResult] = await Promise.all([
       prisma.shipment.findMany({ where: { storeId: session.storeId }, select: { id: true, invoiceNumber: true, invoicePhoto: true, confirmationReceiptPhoto: true, createdAt: true, shipmentDate: true }, orderBy: { createdAt: "desc" }, take: 250 }),
       prisma.pack.findMany({ where: { storeId: session.storeId }, select: { id: true, serialNumber: true, gameNumber: true, packImage: true, activationReceipt: true, activationReceiptPhoto: true, invoiceReceipt: true, receivedAt: true }, orderBy: { receivedAt: "desc" }, take: 500 }),
     ]);
@@ -62,7 +69,7 @@ export async function GET(request: NextRequest) {
       const matchesRetention = retention === "expired" ? Boolean(document.retentionUntil && document.retentionUntil.getTime() < Date.now()) : retention === "active" ? !document.retentionUntil || document.retentionUntil.getTime() >= Date.now() : true;
       return matchesQuery && matchesType && matchesFrom && matchesTo && matchesRetention;
     }).sort((a, b) => b.documentDate.getTime() - a.documentDate.getTime());
-    return NextResponse.json({ documents: visible });
+    return NextResponse.json({ documents: visible, warning });
   } catch (error) {
     console.error("[GET /api/documents]", error);
     return NextResponse.json({ error: "Unable to load documents." }, { status: 500 });
