@@ -7,7 +7,7 @@ import clsx from "clsx";
 import {
   AlertTriangle, LayoutDashboard, Package, Layers, ScanLine, Clock, BarChart3, Tv,
   Settings, ChevronDown, Gamepad2, Radio, Users, Building2, MapPin, Phone, ShieldCheck,
-  RotateCcw, CreditCard, MessageCircle, FileText, CheckCircle2, Menu, X, History,
+  RotateCcw, CreditCard, MessageCircle, FileText, CheckCircle2, Menu, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -42,12 +42,6 @@ const navSections: NavSection[] = [
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
     { href: "/documents", label: "Documents", icon: FileText },
-    { href: "/reports#activity", label: "Activity", icon: History },
-    { href: "/reports#corrections", label: "Corrections", icon: CheckCircle2, managerOnly: true },
-    { href: "/reports#inventory-status", label: "Inventory Status", icon: Package },
-    { href: "/reports#inventory-aging", label: "Inventory Aging", icon: Clock },
-    { href: "/reports#exception-trends", label: "Exception Trends", icon: AlertTriangle, managerOnly: true },
-    { href: "/reports#analytics", label: "Analytics", icon: BarChart3, managerOnly: true },
   ] },
   { label: "Workspace", items: [
     { href: "/settings/users", label: "Staff / People & Access", icon: Users, managerOnly: true },
