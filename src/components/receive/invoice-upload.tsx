@@ -10,6 +10,7 @@ interface Props {
   title?: string;
   previewAlt?: string;
   errorMessage?: string;
+  compact?: boolean;
   onChange: (url: string) => void;
 }
 
@@ -18,6 +19,7 @@ export function InvoiceUpload({
   title = "Upload Invoice Photo",
   previewAlt = "Uploaded image",
   errorMessage = "Failed to upload image.",
+  compact = false,
   onChange,
 }: Props) {
   const [uploading, setUploading] = useState(false);
@@ -90,7 +92,7 @@ export function InvoiceUpload({
         }}
       />
 
-      <div className="flex h-48 flex-col items-center justify-center rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 transition hover:bg-purple-100">
+      <div className={`flex ${compact ? "h-32" : "h-48"} flex-col items-center justify-center rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 transition hover:bg-purple-100`}>
         {value ? (
           <div className="relative h-full w-full">
             <Image
@@ -124,7 +126,7 @@ export function InvoiceUpload({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-3">
+      <div className={`mt-3 flex flex-wrap gap-2 ${compact ? "[&>button]:min-h-9 [&>button]:px-2 [&>button]:text-xs" : "gap-3"}`}>
         <Button
           type="button"
           variant="outline"

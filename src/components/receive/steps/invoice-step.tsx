@@ -9,316 +9,100 @@ import type { ShipmentState } from "@/lib/types";
 
 interface InvoiceStepProps {
   shipment: ShipmentState;
-  setShipment: React.Dispatch<
-    React.SetStateAction<ShipmentState>
-  >;
+  setShipment: React.Dispatch<React.SetStateAction<ShipmentState>>;
   nextStep: () => void;
   onCancel: () => void;
 }
 
-export function InvoiceStep({
-  shipment,
-  setShipment,
-  nextStep,
-  onCancel,
-}: InvoiceStepProps) {
-
-
+export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: InvoiceStepProps) {
   async function handleContinue() {
-  if (!shipment.invoiceNumber?.trim()) {
-    alert("Please enter an invoice tracking number.");
-    return;
-  }
+    if (!shipment.invoiceNumber?.trim()) return alert("Please enter an invoice tracking number.");
+    if (!shipment.invoicePhoto) return alert("Please upload an invoice photo.");
+    if (!shipment.shipmentConfirmationNumber?.trim()) return alert("Please enter a shipment confirmation number.");
+    if (!shipment.confirmationReceiptPhoto) return alert("Please upload a confirmation receipt photo.");
+    if (!shipment.expectedPacks || shipment.expectedPacks <= 0) return alert("Expected packs must be greater than zero.");
+    if (!shipment.expectedRetailValue || shipment.expectedRetailValue <= 0) return alert("Expected invoice total value must be greater than zero.");
 
-  if (!shipment.invoicePhoto) {
-    alert("Please upload an invoice photo.");
-    return;
-  }
-
-  if (!shipment.shipmentConfirmationNumber?.trim()) {
-    alert("Please enter a shipment confirmation number.");
-    return;
-  }
-
-  if (!shipment.confirmationReceiptPhoto) {
-    alert("Please upload a confirmation receipt photo.");
-    return;
-  }
-
-  if (!shipment.expectedPacks || shipment.expectedPacks <= 0) {
-    alert("Expected packs must be greater than zero.");
-    return;
-  }
-
-  if (!shipment.expectedRetailValue || shipment.expectedRetailValue <= 0) {
-    alert("Expected invoice total value must be greater than zero.");
-    return;
-  }
-
-  try {
-    const hasExistingShipment = Boolean(shipment.id);
-    const response = await fetch("/api/shipments", {
-      method: hasExistingShipment ? "PATCH" : "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...(hasExistingShipment ? { shipmentId: shipment.id } : {}),
-        invoiceNumber: shipment.invoiceNumber,
-        invoicePhoto: shipment.invoicePhoto,
-        shipmentConfirmationNumber: shipment.shipmentConfirmationNumber,
-        confirmationReceiptPhoto: shipment.confirmationReceiptPhoto,
-        shipmentDate: shipment.shipmentDate,
-        expectedPacks: shipment.expectedPacks,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      alert(data.error || "Unable to create shipment.");
-      return;
+    try {
+      const hasExistingShipment = Boolean(shipment.id);
+      const response = await fetch("/api/shipments", {
+        method: hasExistingShipment ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(hasExistingShipment ? { shipmentId: shipment.id } : {}),
+          invoiceNumber: shipment.invoiceNumber,
+          invoicePhoto: shipment.invoicePhoto,
+          shipmentConfirmationNumber: shipment.shipmentConfirmationNumber,
+          confirmationReceiptPhoto: shipment.confirmationReceiptPhoto,
+          shipmentDate: shipment.shipmentDate,
+          expectedPacks: shipment.expectedPacks,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) return alert(data.error || "Unable to create shipment.");
+      setShipment((prev) => ({ ...prev, id: data.id, scannedPacks: data.scannedPacks ?? prev.scannedPacks, status: data.status ?? prev.status }));
+      nextStep();
+    } catch (error) {
+      console.error(error);
+      alert("Unable to create shipment.");
     }
-
-    setShipment((prev) => ({
-      ...prev,
-      id: data.id,
-      scannedPacks: data.scannedPacks ?? prev.scannedPacks,
-      status: data.status ?? prev.status,
-    }));
-
-    nextStep();
-  } catch (error) {
-    console.error(error);
-    alert("Unable to create shipment.");
   }
-}
 
   return (
-    <div className="space-y-6">
-        <Panel className="p-6">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold">
-              Step 1: Shipment Invoice
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Enter the invoice details for this shipment.
-            </p>
-          </div>
-
-          {/* STEP 1: Invoice Number */}
-          <div className="mb-5">
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-              <FileText size={16} />
-              Step 1: Invoice Tracking Number
-            </label>
-
-            <input
-              inputMode="numeric"
-              className="w-full rounded-lg border border-purple-300 bg-purple-50 px-4 py-3"
-              value={shipment.invoiceNumber ?? ""}
-              onChange={(e) =>
-                setShipment((prev) => ({
-                  ...prev,
-                  invoiceNumber: e.target.value,
-                }))
-              }
-              placeholder="Enter invoice tracking number"
-            />
-          </div>
-
-          {/* STEP 2: Invoice Upload */}
-          <div className="mb-5">
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-              <Camera size={16} />
-              Step 2: Invoice Photo
-            </label>
-
-            <InvoiceUpload
-              value={shipment.invoicePhoto ?? ""}
-
-
-              onChange={(url) =>
-                setShipment((prev) => ({
-                  ...prev,
-                  invoicePhoto: url,
-                }))
-              }
-            />
-          </div>
-
-          {/* STEP 3: Shipment Confirmation Number */}
-          <div className="mb-5">
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-              <FileText size={16} />
-              Step 3: Shipment Confirmation Number
-            </label>
-
-            <input
-              inputMode="numeric"
-              className="w-full rounded-lg border border-purple-300 bg-purple-50 px-4 py-3"
-              value={shipment.shipmentConfirmationNumber ?? ""}
-              onChange={(e) =>
-                setShipment((prev) => ({
-                  ...prev,
-                  shipmentConfirmationNumber: e.target.value,
-                }))
-              }
-              placeholder="Enter confirmation number"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              This is different from the invoice number
-            </p>
-          </div>
-
-          {/* STEP 4: Confirmation Receipt Photo */}
-          <div className="mb-5">
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-              <Camera size={16} />
-              Step 4: Confirmation Receipt Photo
-            </label>
-
-            <InvoiceUpload
-              value={shipment.confirmationReceiptPhoto ?? ""}
-              title="Upload Confirmation Receipt Photo"
-              previewAlt="Confirmation receipt photo"
-              errorMessage="Failed to upload confirmation receipt photo."
-
-
-              onChange={(url) =>
-                setShipment((prev) => ({
-                  ...prev,
-                  confirmationReceiptPhoto: url,
-                }))
-              }
-            />
-          </div>
-
-          {/* Bottom Grid */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-
-            {/* Shipment Date */}
-            <div>
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-                <Calendar size={16} />
-                Shipment Date
-              </label>
-
-              <input
-                type="date"
-                className="w-full rounded-lg border border-purple-200 bg-purple-50 px-4 py-3"
-                value={shipment.shipmentDate ?? ""}
-                onChange={(e) =>
-                  setShipment((prev) => ({
-                    ...prev,
-                    shipmentDate: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            {/* Expected Packs */}
-            <div>
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-                <Package size={16} />
-                Expected Packs
-              </label>
-
-              <input
-                type="number"
-                inputMode="numeric"
-                className="w-full rounded-lg border border-purple-300 bg-purple-50 px-4 py-3"
-                value={shipment.expectedPacks ?? 0}
-                onChange={(e) =>
-                  setShipment((prev) => ({
-                    ...prev,
-                    expectedPacks: Number(e.target.value),
-                  }))
-                }
-              />
-            </div>
-
-          </div>
-
-          <div className="mt-5">
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-              <Package size={16} />
-              Expected Invoice Total Value ($)
-            </label>
-
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              className="w-full rounded-lg border border-purple-300 bg-purple-50 px-4 py-3"
-              value={shipment.expectedRetailValue ?? 0}
-              onChange={(e) =>
-              setShipment((prev) => ({
-                ...prev,
-                expectedRetailValue: Number(e.target.value),
-              }))
-              }
-            />
-          </div>
-        </Panel>
-
-      <Panel className="p-6">
-        <h3 className="mb-4 text-lg font-semibold">
-          Shipment Summary
-        </h3>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex justify-between rounded-lg border border-purple-100 bg-purple-50 px-4 py-3">
-            <span className="text-gray-600">Invoice Tracking #</span>
-            <span className="font-semibold">{shipment.invoiceNumber || "-"}</span>
-          </div>
-          <div className="flex justify-between rounded-lg border border-purple-100 bg-purple-50 px-4 py-3">
-            <span className="text-gray-600">Confirmation #</span>
-            <span className="font-semibold">{shipment.shipmentConfirmationNumber || "-"}</span>
-          </div>
-          <div className="flex justify-between rounded-lg border border-purple-100 bg-purple-50 px-4 py-3">
-            <span className="text-gray-600">Expected Packs</span>
-            <span className="font-semibold">{shipment.expectedPacks ?? 0}</span>
-          </div>
-          <div className="flex justify-between rounded-lg border border-purple-100 bg-purple-50 px-4 py-3">
-            <span className="text-gray-600">Invoice Total Value</span>
-            <span className="font-semibold">${Number(shipment.expectedRetailValue ?? 0).toFixed(2)}</span>
-          </div>
+    <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
+      <Panel className="p-4 sm:p-5">
+        <div className="mb-4 flex items-start justify-between gap-3 border-b border-border pb-3">
+          <div><h2 className="text-lg font-semibold text-text">Shipment details</h2><p className="mt-1 text-xs text-text-secondary">Enter the shipment information and attach both required photos.</p></div>
+          <span className="shrink-0 border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent">Step 1</span>
         </div>
 
-        <div className="mt-5">
-          <h4 className="mb-2 text-sm font-semibold">Confirmation Receipt Preview</h4>
-          <div className="flex h-40 items-center justify-center rounded-xl border bg-gray-50">
-            {shipment.confirmationReceiptPhoto ? (
-              <Image
-                src={shipment.confirmationReceiptPhoto}
-                alt="Confirmation Receipt"
-                width={640}
-                height={160}
-                unoptimized
-                className="h-full w-full rounded-xl object-contain"
-              />
-            ) : (
-              <div className="text-center text-gray-500">
-                <Camera size={32} className="mx-auto mb-2 opacity-40" />
-                <p className="text-xs">No receipt uploaded</p>
-              </div>
-            )}
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Invoice tracking number" icon={<FileText size={15} />}>
+            <input inputMode="numeric" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.invoiceNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, invoiceNumber: e.target.value }))} placeholder="Enter invoice number" />
+          </Field>
+          <Field label="Shipment date" icon={<Calendar size={15} />}>
+            <input type="date" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.shipmentDate ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentDate: e.target.value }))} />
+          </Field>
+          <Field label="Confirmation number" icon={<FileText size={15} />} hint="Different from invoice number">
+            <input inputMode="numeric" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.shipmentConfirmationNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentConfirmationNumber: e.target.value }))} placeholder="Enter confirmation number" />
+          </Field>
+          <Field label="Expected packs" icon={<Package size={15} />}>
+            <input type="number" inputMode="numeric" min="1" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.expectedPacks ?? 0} onChange={(e) => setShipment((prev) => ({ ...prev, expectedPacks: Number(e.target.value) }))} />
+          </Field>
+          <Field label="Expected invoice total" icon={<Package size={15} />}>
+            <div className="relative"><span className="absolute left-3 top-3 text-sm text-text-tertiary">$</span><input type="number" inputMode="decimal" min="0" step="0.01" className="h-11 w-full border border-border bg-muted/20 pl-7 pr-3 text-sm outline-none focus:border-accent" value={shipment.expectedRetailValue ?? 0} onChange={(e) => setShipment((prev) => ({ ...prev, expectedRetailValue: Number(e.target.value) }))} /></div>
+          </Field>
         </div>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
-          <Button variant="outline" className="w-full" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button className="w-full" onClick={handleContinue}>
-            Next Step: Continue to Scan Packs →
-          </Button>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <UploadField label="Invoice photo" value={shipment.invoicePhoto ?? ""} title="Upload invoice photo" previewAlt="Invoice photo" onChange={(url) => setShipment((prev) => ({ ...prev, invoicePhoto: url }))} />
+          <UploadField label="Confirmation receipt photo" value={shipment.confirmationReceiptPhoto ?? ""} title="Upload confirmation receipt" previewAlt="Confirmation receipt photo" onChange={(url) => setShipment((prev) => ({ ...prev, confirmationReceiptPhoto: url }))} />
         </div>
+      </Panel>
+
+      <Panel className="flex flex-col p-4 sm:p-5">
+        <div className="border-b border-border pb-3"><h3 className="text-base font-semibold text-text">Shipment summary</h3><p className="mt-1 text-xs text-text-secondary">Review before moving to pack scanning.</p></div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
+          <SummaryRow label="Invoice tracking #" value={shipment.invoiceNumber || "—"} />
+          <SummaryRow label="Confirmation #" value={shipment.shipmentConfirmationNumber || "—"} />
+          <SummaryRow label="Expected packs" value={String(shipment.expectedPacks ?? 0)} />
+          <SummaryRow label="Invoice total" value={`$${Number(shipment.expectedRetailValue ?? 0).toFixed(2)}`} />
+        </div>
+        <div className="mt-4 flex-1"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Receipt preview</p><div className="flex min-h-32 items-center justify-center border border-border bg-muted/20 p-2">{shipment.confirmationReceiptPhoto ? <Image src={shipment.confirmationReceiptPhoto} alt="Confirmation receipt" width={640} height={160} unoptimized className="max-h-40 w-full object-contain" /> : <div className="text-center text-text-tertiary"><Camera size={26} className="mx-auto mb-2 opacity-50" /><p className="text-xs">No receipt uploaded</p></div>}</div></div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 2xl:grid-cols-1"><Button variant="outline" className="w-full" onClick={onCancel}>Cancel</Button><Button className="w-full" onClick={handleContinue}>Continue to scan packs →</Button></div>
       </Panel>
     </div>
   );
+}
+
+function Field({ label, icon, hint, children }: { label: string; icon: React.ReactNode; hint?: string; children: React.ReactNode }) {
+  return <label className="block"><span className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-text"><span className="text-accent">{icon}</span>{label}</span>{children}{hint && <span className="mt-1 block text-[10px] text-text-tertiary">{hint}</span>}</label>;
+}
+
+function UploadField({ label, value, title, previewAlt, onChange }: { label: string; value: string; title: string; previewAlt: string; onChange: (url: string) => void }) {
+  return <div className="border border-border bg-muted/10 p-3"><p className="mb-2 flex items-center gap-2 text-xs font-semibold text-text"><Camera size={14} className="text-accent" />{label}</p><InvoiceUpload value={value} title={title} previewAlt={previewAlt} compact onChange={onChange} /></div>;
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return <div className="flex min-h-10 items-center justify-between gap-3 border border-border bg-muted/20 px-3 py-2 text-xs"><span className="text-text-secondary">{label}</span><strong className="max-w-[60%] truncate text-right text-text">{value}</strong></div>;
 }
