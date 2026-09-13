@@ -88,7 +88,18 @@ export function StateReportsUploader() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to upload report.");
       setMessage(`${file.name} uploaded for this Monday review.`);
-      await load();
+      setUploaded((current) => [
+        ...current.filter((report) => !(report.storeId === selectedStoreId && report.reportType === reportType)),
+        {
+          storeId: selectedStoreId,
+          reportType,
+          fileName: file.name,
+          rowCount: Number(data.rowCount ?? 0),
+          uploadedAt: new Date().toISOString(),
+          imageUrl: typeof data.imageUrl === "string" ? data.imageUrl : null,
+          verificationStatus: file.type.startsWith("image/") ? "OCR pending" : "Pending",
+        },
+      ]);
     } catch (reason) {
       setError(reason instanceof DOMException && reason.name === "AbortError" ? "Upload timed out. Check your connection and try again." : reason instanceof Error ? reason.message : "Unable to upload report.");
     } finally {
