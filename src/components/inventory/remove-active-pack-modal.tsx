@@ -128,86 +128,19 @@ export function RemoveActivePackModal({
 
           {/* Removal Reason */}
           <div>
-            <label className="block text-sm font-medium mb-3">
+            <label className="block text-sm font-medium mb-2">
               Reason for Removal *
             </label>
-            <div className="space-y-3">
-              <label className="flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all"
-                style={{
-                  borderColor: activeRemovalReason === "STOLEN" ? "#9333ea" : "#e5e7eb",
-                  backgroundColor: activeRemovalReason === "STOLEN" ? "#f3e8ff" : "#ffffff",
-                }}>
-                <input
-                  type="radio"
-                  name="reason"
-                  value="STOLEN"
-                  checked={activeRemovalReason === "STOLEN"}
-                  onChange={() => setActiveRemovalReason("STOLEN")}
-                  className="mt-1 h-4 w-4"
-                />
-                <div>
-                  <div className="font-medium">Stolen</div>
-                  <div className="text-sm text-gray-600">Pack was stolen from display</div>
-                </div>
-              </label>
-
-              <label className="flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all"
-                style={{
-                  borderColor: activeRemovalReason === "RETURNED" ? "#9333ea" : "#e5e7eb",
-                  backgroundColor: activeRemovalReason === "RETURNED" ? "#f3e8ff" : "#ffffff",
-                }}>
-                <input
-                  type="radio"
-                  name="reason"
-                  value="RETURNED"
-                  checked={activeRemovalReason === "RETURNED"}
-                  onChange={() => setActiveRemovalReason("RETURNED")}
-                  className="mt-1 h-4 w-4"
-                />
-                <div>
-                  <div className="font-medium">Returned to State</div>
-                  <div className="text-sm text-gray-600">Pack was returned to the state</div>
-                </div>
-              </label>
-
-              <label className="flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all"
-                style={{
-                  borderColor: activeRemovalReason === "REASSIGNED" ? "#9333ea" : "#e5e7eb",
-                  backgroundColor: activeRemovalReason === "REASSIGNED" ? "#f3e8ff" : "#ffffff",
-                }}>
-                <input
-                  type="radio"
-                  name="reason"
-                  value="REASSIGNED"
-                  checked={activeRemovalReason === "REASSIGNED"}
-                  onChange={() => setActiveRemovalReason("REASSIGNED")}
-                  className="mt-1 h-4 w-4"
-                />
-                <div>
-                  <div className="font-medium">Reassigned to Display</div>
-                  <div className="text-sm text-gray-600">Move pack to another display number</div>
-                </div>
-              </label>
-
-              <label className="flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all"
-                style={{
-                  borderColor: activeRemovalReason === "OTHER" ? "#9333ea" : "#e5e7eb",
-                  backgroundColor: activeRemovalReason === "OTHER" ? "#f3e8ff" : "#ffffff",
-                }}>
-                <input
-                  type="radio"
-                  name="reason"
-                  value="OTHER"
-                  checked={activeRemovalReason === "OTHER"}
-                  onChange={() => setActiveRemovalReason("OTHER")}
-                  className="mt-1 h-4 w-4"
-                />
-                <div>
-                  <div className="font-medium">Other</div>
-                  <div className="text-sm text-gray-600">Specify another reason</div>
-                </div>
-              </label>
-            </div>
+            <select
+              value={activeRemovalReason}
+              onChange={(event) => setActiveRemovalReason(event.target.value as typeof activeRemovalReason)}
+              className="w-full rounded-lg border px-4 py-2"
+            >
+              <option value="RETURNED">Returned to State</option>
+              <option value="STOLEN">Stolen</option>
+              <option value="REASSIGNED">Reassign to Display</option>
+              <option value="OTHER">Other</option>
+            </select>
           </div>
 
           {/* Reassignment Display Selection */}

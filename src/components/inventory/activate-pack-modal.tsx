@@ -32,7 +32,6 @@ export function ActivatePackModal({
 }: ActivatePackModalProps) {
   const [activationNumber, setActivationNumber] = useState("");
   const [activationReceiptPhoto, setActivationReceiptPhoto] = useState("");
-  const [lotNumber, setLotNumber] = useState("");
   const [firstOrLastTicket, setFirstOrLastTicket] = useState<"FIRST" | "LAST">("FIRST");
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -64,7 +63,6 @@ export function ActivatePackModal({
           slotId: selectedSlotId,
           activationNumber: activationNumber || undefined,
           activationReceiptPhoto: activationReceiptPhoto || undefined,
-          lotNumber: lotNumber || undefined,
           firstOrLastTicket: firstOrLastTicket || undefined,
         }),
       });
@@ -82,7 +80,6 @@ export function ActivatePackModal({
       // Reset form
       setActivationNumber("");
       setActivationReceiptPhoto("");
-      setLotNumber("");
       setFirstOrLastTicket("FIRST");
       setSelectedSlotId("");
     } catch (err) {
@@ -153,20 +150,6 @@ export function ActivatePackModal({
               previewAlt="Activation receipt photo"
               errorMessage="Failed to upload activation receipt photo."
               onChange={setActivationReceiptPhoto}
-            />
-          </div>
-
-          {/* Lot Number */}
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Lot Number
-            </label>
-            <input
-              type="text"
-              value={lotNumber}
-              onChange={(e) => setLotNumber(e.target.value)}
-              placeholder="e.g., LOT-456789"
-              className="w-full rounded-lg border px-4 py-2"
             />
           </div>
 
