@@ -183,10 +183,10 @@ export function ScanStep({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-4 lg:grid-cols-2">
 
         {/* Scan packs */}
-        <Panel className="p-6">
+        <Panel className="p-5">
           <h2 className="mb-5 text-xl font-semibold">Scan Pack</h2>
           <BarcodeScanner barcode={barcode} onChange={handleScan} />
 
@@ -233,7 +233,7 @@ export function ScanStep({
         </Panel>
 
         {/* Pack image */}
-        <Panel className="p-6">
+        <Panel className="p-5">
           <div className="mb-4">
             <h3 className="text-lg font-semibold">Step 6: Upload Pack Image</h3>
             <p className="text-sm text-gray-500">Upload a photo of the pack.</p>
@@ -273,7 +273,7 @@ export function ScanStep({
           />
         </div>
 
-        <Panel className="p-6">
+        <Panel className="p-5">
           <h3 className="text-lg font-semibold">Ticket Quantity</h3>
           <p className="mt-1 text-sm text-gray-500">The suggested quantity is used by default. Enable override for store testing.</p>
           <label className="mt-4 flex items-center gap-2 text-sm font-medium">
@@ -310,7 +310,7 @@ export function ScanStep({
         </Panel>
 
         {/* Add Pack */}
-        <Panel className="p-6">
+        <Panel className="p-5 lg:col-span-2">
           <Button className="w-full" onClick={handleAddPack} disabled={!gameNumber || !packNumber || !packImage || atExpectedLimit}>
             Add Pack to Shipment
           </Button>
@@ -321,9 +321,9 @@ export function ScanStep({
           )}
         </Panel>
 
-        <ScannedPackTable packs={packs} removePack={removePack} />
+        <div className="lg:col-span-2"><ScannedPackTable packs={packs} removePack={removePack} /></div>
 
-        <div className="space-y-3 border-t border-border pt-4">
+        <div className="space-y-3 border-t border-border pt-4 lg:col-span-2">
           {justAdded && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               {(shipment.expectedPacks ?? 0) > packs.length

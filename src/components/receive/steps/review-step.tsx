@@ -84,12 +84,12 @@ export function ReviewStep({
   );
 
   return (
-    <div className="grid grid-cols-3 gap-6">
+    <div className="grid gap-4">
 
-      <div className="col-span-2 space-y-6">
+      <div className="space-y-4">
 
         {/* Step 1-4: Shipment Details */}
-        <Panel className="p-6">
+        <Panel className="p-5">
 
           <div className="mb-5 flex items-center gap-3">
 
@@ -109,7 +109,7 @@ export function ReviewStep({
 
           </div>
 
-          <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
 
             {/* Step 1-2: Invoice Info */}
             <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
@@ -161,7 +161,7 @@ export function ReviewStep({
         </Panel>
 
         {/* Validation Results */}
-        <Panel className="p-6">
+        <Panel className="p-5">
 
           <h3 className="mb-5 text-lg font-semibold">
             Validation Results
@@ -217,7 +217,7 @@ export function ReviewStep({
         </Panel>
 
         {/* Pack Details */}
-        <Panel className="p-6">
+        <Panel className="p-4">
           <h3 className="mb-4 text-lg font-semibold">
             Scanned Packs
           </h3>
@@ -234,7 +234,7 @@ export function ReviewStep({
 
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-3 border-t border-border pt-4">
+      <div className="flex flex-wrap gap-3 border-t border-border pt-4">
 
           <Button
             variant="secondary"

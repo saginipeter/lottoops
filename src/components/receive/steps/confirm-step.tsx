@@ -156,11 +156,11 @@ export function ConfirmStep({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:gap-6">
+    <div className="grid grid-cols-1 gap-4">
 
-      <div className="space-y-4 sm:space-y-6">
+      <div className="grid gap-4 lg:grid-cols-2">
 
-        <Panel className="p-6">
+        <Panel className="p-5 lg:col-span-2">
 
           <div className="flex items-center gap-3">
 
@@ -182,9 +182,9 @@ export function ConfirmStep({
 
         </Panel>
 
-        <Panel className="p-6">
+        <Panel className="p-5">
 
-          <h3 className="mb-6 text-lg font-semibold">
+          <h3 className="mb-4 text-lg font-semibold">
             Choose Destination
           </h3>
 
