@@ -323,25 +323,7 @@ export function ScanStep({
 
         <ScannedPackTable packs={packs} removePack={removePack} />
 
-        <Panel className="space-y-4 p-6">
-          <h3 className="text-lg font-semibold">Shipment Summary</h3>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border bg-purple-50 p-3">
-              <p className="text-xs text-purple-700">Expected Packs</p>
-              <p className="text-xl font-bold text-purple-900">{shipment.expectedPacks ?? 0}</p>
-            </div>
-            <div className="rounded-lg border bg-emerald-50 p-3">
-              <p className="text-xs text-emerald-700">Scanned Packs</p>
-              <p className="text-xl font-bold text-emerald-900">{packs.length}</p>
-            </div>
-            <div className="rounded-lg border bg-amber-50 p-3">
-              <p className="text-xs text-amber-700">Remaining</p>
-              <p className="text-xl font-bold text-amber-900">
-                {Math.max((shipment.expectedPacks ?? 0) - packs.length, 0)}
-              </p>
-            </div>
-          </div>
-
+        <div className="space-y-3 border-t border-border pt-4">
           {justAdded && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               {(shipment.expectedPacks ?? 0) > packs.length
@@ -361,7 +343,7 @@ export function ScanStep({
               Next: Review Shipment →
             </Button>
           </div>
-        </Panel>
+        </div>
     </div>
   );
 }

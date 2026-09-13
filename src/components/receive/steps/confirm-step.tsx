@@ -156,9 +156,9 @@ export function ConfirmStep({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:gap-6 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:gap-6">
 
-      <div className="space-y-4 sm:space-y-6 xl:col-span-2">
+      <div className="space-y-4 sm:space-y-6">
 
         <Panel className="p-6">
 
@@ -177,48 +177,6 @@ export function ConfirmStep({
               </p>
 
             </div>
-
-          </div>
-
-        </Panel>
-
-        <Panel className="p-6">
-
-          <h3 className="mb-6 text-lg font-semibold">
-            Shipment Details
-          </h3>
-
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-            <Info
-              label="Invoice"
-              value={shipment.invoiceNumber ?? ""}
-            />
-
-            <Info
-              label="Confirmation #"
-              value={shipment.shipmentConfirmationNumber ?? ""}
-            />
-
-            <Info
-              label="Expected Packs"
-              value={(shipment.expectedPacks ?? 0).toString()}
-            />
-
-            <Info
-              label="Scanned Packs"
-              value={packs.length.toString()}
-            />
-
-            <Info
-              label="Expected Invoice Value"
-              value={`$${expectedRetailValue.toFixed(2)}`}
-            />
-
-            <Info
-              label="Scanned Invoice Value"
-              value={`$${scannedRetailValue.toFixed(2)}`}
-            />
 
           </div>
 
@@ -284,128 +242,19 @@ export function ConfirmStep({
 
         </Panel>
 
-        <Panel className="p-6">
-
-          <h3 className="mb-4 text-lg font-semibold">
-            Manager Notes (Optional)
-          </h3>
-
-          <textarea
-            rows={4}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Optional notes about this shipment..."
-            className="w-full rounded-lg border border-gray-300 p-4 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-          />
-
+        <Panel className="p-5">
+          <h3 className="mb-3 text-lg font-semibold">Manager notes and confirmation</h3>
+          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes about this shipment..." className="w-full border border-gray-300 p-3 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200" />
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4">
+            <div className="flex-1 text-sm font-semibold text-green-700">{invoiceMatches ? <span className="inline-flex items-center gap-2"><CheckCircle2 size={18} />Ready to confirm</span> : "Invoice totals must match before confirmation"}</div>
+            <Button variant="secondary" onClick={previousStep}>← Back</Button>
+            <Button variant="outline" onClick={onCancel}>Cancel</Button>
+            <Button disabled={loading || !invoiceMatches} onClick={handleConfirm}>{loading ? "Confirming..." : "Confirm receipt"}</Button>
+          </div>
         </Panel>
 
       </div>
 
-      <Panel className="sticky top-6 p-6">
-
-        <h3 className="text-lg font-semibold">
-          Final Summary
-        </h3>
-
-        <div className="mt-6 space-y-4">
-
-          <Summary
-            label="Invoice"
-            value={shipment.invoiceNumber ?? ""}
-          />
-
-          <Summary
-            label="Expected"
-            value={(shipment.expectedPacks ?? 0).toString()}
-          />
-
-          <Summary
-            label="Scanned"
-            value={packs.length.toString()}
-          />
-
-          <Summary
-            label="Destination"
-            value={destination === "active" ? "Display (Active)" : "Back Stock"}
-          />
-
-        </div>
-
-        <div className="mt-8 rounded-xl bg-green-50 p-5">
-
-          <div className="flex items-center gap-2">
-
-            <CheckCircle2 className="text-green-600" />
-
-            <span className="font-semibold text-green-700">
-              {invoiceMatches ? "Ready to Confirm" : "Invoice totals must match before confirmation"}
-            </span>
-
-          </div>
-
-        </div>
-
-        <div className="mt-8 space-y-3">
-
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={previousStep}
-          >
-            ← Back
-          </Button>
-
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            className="w-full"
-            disabled={loading || !invoiceMatches}
-            onClick={handleConfirm}
-          >
-            {loading ? "Confirming..." : "Confirm Receipt"}
-          </Button>
-
-        </div>
-
-      </Panel>
-
-    </div>
-  );
-}
-
-function Summary({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex justify-between border-b pb-3">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-semibold">{value}</span>
-    </div>
-  );
-}
-
-function Info({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border bg-gray-50 p-4">
-      <div className="text-xs uppercase text-gray-500">{label}</div>
-      <div className="mt-2 font-semibold">{value}</div>
     </div>
   );
 }

@@ -12,7 +12,6 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
-import { ShipmentSummary } from "../shipment-summary";
 import { ScannedPackTable } from "../scanned-pack-table";
 
 interface ReviewStepProps {
@@ -235,27 +234,22 @@ export function ReviewStep({
 
       </div>
 
-      <ShipmentSummary
-        shipment={shipment}
-        packs={packs}
-      >
-
-        <div className="space-y-3">
+      <div className="mt-4 flex flex-wrap gap-3 border-t border-border pt-4">
 
           <Button
             variant="secondary"
-            className="w-full"
+            className="min-w-40 flex-1"
             onClick={previousStep}
           >
             ← Back
           </Button>
 
-          <Button variant="outline" className="w-full" onClick={onCancel}>
+          <Button variant="outline" className="min-w-40 flex-1" onClick={onCancel}>
             Cancel
           </Button>
 
           <Button
-            className="w-full"
+            className="min-w-56 flex-[2]"
             disabled={
               (!overrideApproved && remaining > 0) ||
               duplicatePacks.length > 0 ||
@@ -268,9 +262,7 @@ export function ReviewStep({
             Next: Choose Destination →
           </Button>
 
-        </div>
-
-      </ShipmentSummary>
+      </div>
 
     </div>
   );
