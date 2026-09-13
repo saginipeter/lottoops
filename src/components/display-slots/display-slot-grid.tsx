@@ -112,7 +112,16 @@ export default function DisplaySlotGrid({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filteredSlots.map((slot) => (
-            <DisplaySlotCard key={slot.id} slot={slot} canManageDisplay={canManageDisplay} />
+            <DisplaySlotCard
+              key={slot.id}
+              slot={slot}
+              canManageDisplay={canManageDisplay}
+              slots={slots.map((displaySlot) => ({
+                id: displaySlot.id,
+                slotNumber: displaySlot.slotNumber,
+                occupied: Boolean(displaySlot.pack),
+              }))}
+            />
           ))}
         </div>
       </div>

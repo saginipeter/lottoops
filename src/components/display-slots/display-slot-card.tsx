@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import AssignPackDialog from "./assign-pack-dialog";
+import { RemoveActivePackModal } from "@/components/inventory/remove-active-pack-modal";
 
 interface SlotPack {
   id: string;
@@ -27,108 +28,13 @@ interface DisplaySlot {
 export default function DisplaySlotCard({
   slot,
   canManageDisplay,
+  slots,
 }: {
   slot: DisplaySlot;
   canManageDisplay: boolean;
+  slots: Array<{ id: string; slotNumber: string; occupied: boolean }>;
 }) {
-  const [clearing, setClearing] = useState(false);
-
-  async function clearSlot() {
-    if (!slot.pack) {
-      return;
-    }
-
-    const rawReason = window.prompt(
-      "Enter removal reason: RETURNED, STOLEN, REASSIGNED, or OTHER",
-      "RETURNED"
-    );
-    if (!rawReason) return;
-
-    const reason = rawReason.trim().toUpperCase();
-    if (!["RETURNED", "STOLEN", "REASSIGNED", "OTHER"].includes(reason)) {
-      alert("Invalid reason.");
-      return;
-    }
-
-    try {
-      setClearing(true);
-      const payload: Record<string, string> = {
-        packId: slot.pack.id,
-        activeRemovalReason: reason,
-      };
-
-      if (reason === "OTHER") {
-        const details = window.prompt("Enter reason details");
-        if (!details?.trim()) {
-          alert("Reason details are required for OTHER.");
-          return;
-        }
-        payload.activeRemovalReasonText = details.trim();
-      }
-
-      if (reason === "REASSIGNED") {
-        const slotsRes = await fetch("/api/display-slots");
-        const slotsData = await slotsRes.json();
-        if (!slotsRes.ok || !Array.isArray(slotsData)) {
-          alert("Unable to load displays.");
-          return;
-        }
-        const openDisplays = slotsData
-          .filter((item: { id: string; slotNumber: string; packId: string | null }) => !item.packId)
-          .map((item: { id: string; slotNumber: string }) => item.slotNumber);
-        if (openDisplays.length === 0) {
-          alert("No empty display available for reassignment.");
-          return;
-        }
-        const target = window.prompt(
-          `Enter target Display #. Available: ${openDisplays.join(", ")}`
-        );
-        if (!target) return;
-        const targetDisplay = slotsData.find(
-          (item: { id: string; slotNumber: string; packId: string | null }) =>
-            item.slotNumber === target && !item.packId
-        );
-        if (!targetDisplay) {
-          alert("Invalid display selected.");
-          return;
-        }
-        payload.reassignToSlotId = targetDisplay.id;
-      } else {
-        const destination = window.prompt(
-          "Enter destination: BACK_STOCK, RETURNED, or UNASSIGNED",
-          "BACK_STOCK"
-        );
-        if (!destination) return;
-        const normalizedDestination = destination.trim().toUpperCase();
-        if (!["BACK_STOCK", "RETURNED", "UNASSIGNED"].includes(normalizedDestination)) {
-          alert("Invalid inventory destination.");
-          return;
-        }
-        payload.destination = normalizedDestination;
-      }
-
-      const res = await fetch("/api/packs/active/remove", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Unable to remove pack from display.");
-        return;
-      }
-
-      window.location.reload();
-    } catch (error) {
-      console.error(error);
-      alert("Unable to remove pack from display.");
-    } finally {
-      setClearing(false);
-    }
-  }
+  const [removeOpen, setRemoveOpen] = useState(false);
 
   if (!slot.pack) {
     return (
@@ -200,12 +106,18 @@ export default function DisplaySlotCard({
         <Button
           className="w-full"
           variant="outline"
-          onClick={clearSlot}
-          disabled={clearing}
+          onClick={() => setRemoveOpen(true)}
         >
-          {clearing ? "Removing..." : "Remove"}
+          Remove
         </Button>
       </div>}
+      <RemoveActivePackModal
+        pack={slot.pack as never}
+        isOpen={removeOpen}
+        onClose={() => setRemoveOpen(false)}
+        onSuccess={() => window.location.reload()}
+        slots={slots}
+      />
     </div>
   );
 }
