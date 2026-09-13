@@ -17,7 +17,7 @@ export default function LoginPage() {
         <div className="pointer-events-none absolute -right-32 top-[-14rem] h-[34rem] w-[34rem] rounded-full bg-magenta/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-40 -left-24 h-[28rem] w-[28rem] rounded-full bg-amber/15 blur-3xl" />
         <div className="relative z-10 flex items-center gap-4">
-          <Image src="/brand/lottoops-logo-transparent.png" alt="LottoOps" width={180} height={64} className="h-11 w-auto object-contain object-left" priority />
+          <Image src="/brand/lottoops-lq-logo.svg" alt="LottoOps" width={64} height={64} className="h-12 w-12 object-contain" priority />
           <span className="h-6 w-px bg-white/20" />
           <span className="text-[10px] uppercase tracking-[0.22em] text-white/45">Operations platform</span>
         </div>
@@ -50,7 +50,7 @@ export default function LoginPage() {
       <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-10 lg:px-16">
         <div className="w-full max-w-[430px]">
           <div className="mb-10 flex items-center justify-between lg:hidden">
-            <Image src="/brand/lottoops-logo-transparent.png" alt="LottoOps" width={156} height={56} className="h-10 w-auto" priority />
+            <Image src="/brand/lottoops-lq-logo.svg" alt="LottoOps" width={56} height={56} className="h-11 w-11 object-contain" priority />
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">Secure access</span>
           </div>
 
