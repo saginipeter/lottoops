@@ -25,6 +25,7 @@ export function StateReportsUploader() {
   const [uploaded, setUploaded] = useState<UploadedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<ReportType | null>(null);
+  const [uploadingFileName, setUploadingFileName] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [canUpload, setCanUpload] = useState(false);
@@ -67,23 +68,32 @@ export function StateReportsUploader() {
 
   async function upload(reportType: ReportType, file: File | undefined) {
     if (!file || !selectedStoreId) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Files must be 10 MB or smaller.");
+      return;
+    }
     try {
       setUploading(reportType);
+      setUploadingFileName(file.name);
       setMessage("");
       setError("");
       const form = new FormData();
       form.set("storeId", selectedStoreId);
       form.set("reportType", reportType);
       form.set("file", file);
-      const response = await fetch("/api/owner/state-reports", { method: "POST", body: form });
-      const data = await response.json();
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 30_000);
+      const response = await fetch("/api/owner/state-reports", { method: "POST", body: form, signal: controller.signal });
+      window.clearTimeout(timeout);
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to upload report.");
       setMessage(`${file.name} uploaded for this Monday review.`);
       await load();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to upload report.");
+      setError(reason instanceof DOMException && reason.name === "AbortError" ? "Upload timed out. Check your connection and try again." : reason instanceof Error ? reason.message : "Unable to upload report.");
     } finally {
       setUploading(null);
+      setUploadingFileName("");
     }
   }
 
@@ -120,15 +130,16 @@ export function StateReportsUploader() {
                   <p className="text-sm font-semibold text-text">{report.label}</p>
                   <p className="mt-1 text-xs text-text-tertiary">{current ? `${current.imageUrl ? `Photo archived · ${current.verificationStatus ?? "OCR pending"}` : `${current.rowCount} rows`} · ${current.fileName}` : "Required this Monday"}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => downloadTemplate(report)}><Download size={13} /> Template</Button>
+                    <Button size="sm" variant="outline" onClick={() => downloadTemplate(report)} disabled={uploading !== null}><Download size={13} /> Template</Button>
                     {canUpload ? (
                       <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:opacity-90">
                         {uploading === report.type ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />}
-                        Snap / Upload Photo or CSV
+                        {uploading === report.type ? "Uploading..." : "Snap / Upload Photo or CSV"}
                         <input type="file" accept=".csv,text/csv,image/*" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
                       </label>
                     ) : <span className="text-xs text-text-tertiary">Manager upload required</span>}
                   </div>
+                  {uploading === report.type && <p role="status" className="mt-2 text-xs text-text-secondary">Uploading {uploadingFileName}. Keep this page open.</p>}
                   {current && <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-700"><CheckCircle2 size={13} /> Uploaded {new Date(current.uploadedAt).toLocaleString()}</p>}
                 </div>
               );
