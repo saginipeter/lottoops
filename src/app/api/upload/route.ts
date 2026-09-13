@@ -104,6 +104,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, url, document, warning });
   } catch (error) {
     console.error("Blob upload error:", error);
-    return NextResponse.json({ success: false, error: "Upload failed" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "";
+    const storageError = /blob|token|storage|upload/i.test(message);
+    return NextResponse.json(
+      {
+        success: false,
+        error: storageError
+          ? "Image storage rejected the upload. Verify the production BLOB_READ_WRITE_TOKEN and Vercel Blob store configuration."
+          : "Upload failed while saving the document. Check the production database and migrations.",
+      },
+      { status: storageError ? 502 : 500 },
+    );
   }
 }
