@@ -28,7 +28,7 @@ export function TicketPriceOnly({
 
       <div className="mb-6">
         <h3 className="text-lg font-semibold">
-          Step 7: Select Ticket Price
+          Select ticket price
         </h3>
 
         <p className="text-sm text-gray-500">

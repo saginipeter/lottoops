@@ -20,7 +20,7 @@ export default async function ReceiveStepPage({ params }: ReceiveStepPageProps) 
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Receive Packs"
-        subtitle={`Shipment receiving · Step ${step} of 4`}
+        subtitle="Shipment receiving"
       />
       <ReceiveWizard initialStep={step} />
     </div>

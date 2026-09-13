@@ -76,9 +76,9 @@ export function ProgressStepper({
                 >
                   {completed ? (
                     <Check size={18} />
-                  ) : (
-                    step.id
-                  )}
+                  ) : active ? (
+                    <span className="h-2.5 w-2.5 rounded-full bg-blue-700" aria-hidden="true" />
+                  ) : null}
                 </div>
 
                 {/* Text */}

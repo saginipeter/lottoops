@@ -88,7 +88,7 @@ export function ReviewStep({
 
       <div className="space-y-4">
 
-        {/* Step 1-4: Shipment Details */}
+        {/* Shipment details */}
         <Panel className="p-5">
 
           <div className="mb-5 flex items-center gap-3">
@@ -98,7 +98,7 @@ export function ReviewStep({
             <div>
 
               <h2 className="text-xl font-semibold">
-                Step 3: Review Shipment
+                Review shipment
               </h2>
 
               <p className="text-sm text-gray-500">
@@ -114,7 +114,7 @@ export function ReviewStep({
             <details className="sm:col-span-2 border border-border bg-muted/10 p-3">
               <summary className="cursor-pointer text-sm font-semibold text-text">View source documents</summary>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {/* Step 1-2: Invoice Info */}
+            {/* Invoice information */}
             <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
               <h4 className="text-sm font-semibold text-blue-900 mb-3">Invoice Information</h4>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -128,7 +128,7 @@ export function ReviewStep({
               )}
             </div>
 
-            {/* Step 3-4: Confirmation Info */}
+            {/* Shipment confirmation */}
             <div className="rounded-lg bg-green-50 p-4 border border-green-200">
               <h4 className="text-sm font-semibold text-green-900 mb-3">Shipment Confirmation</h4>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

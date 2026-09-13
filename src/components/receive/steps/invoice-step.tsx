@@ -27,7 +27,7 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
   }
 
   return <Panel className="p-4 sm:p-5">
-    <div className="mb-4 flex items-start justify-between gap-3 border-b border-border pb-3"><div><h2 className="text-lg font-semibold text-text">Shipment details</h2><p className="mt-1 text-xs text-text-secondary">Enter the shipment information and attach both required photos.</p></div><span className="shrink-0 border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent">Step 1</span></div>
+    <div className="mb-4 flex items-start justify-between gap-3 border-b border-border pb-3"><div><h2 className="text-lg font-semibold text-text">Shipment details</h2><p className="mt-1 text-xs text-text-secondary">Enter the shipment information and attach both required photos.</p></div></div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <Field label="Invoice tracking number" icon={<FileText size={15} />}><input inputMode="numeric" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.invoiceNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, invoiceNumber: e.target.value }))} placeholder="Enter invoice number" /></Field>
       <Field label="Shipment date" icon={<Calendar size={15} />}><input type="date" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.shipmentDate ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentDate: e.target.value }))} /></Field>
