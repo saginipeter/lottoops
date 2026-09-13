@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { createWorker } from "tesseract.js";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
-import { isStoreFeatureEnabled } from "@/lib/feature-flags";
 
 const REPORT_TYPES = ["SETTLED_PACK", "ACTIVATED", "INVENTORY"] as const;
 type ReportType = (typeof REPORT_TYPES)[number];
@@ -115,9 +113,6 @@ export async function POST(req: NextRequest) {
     const store = await prisma.store.findFirst({ where: { id: storeId, ownerUserId: session.userId }, select: { id: true } });
     const managerStore = session.role === "MANAGER" && storeId === session.storeId;
     if (!store && !managerStore) return NextResponse.json({ error: "Store is not available for this account." }, { status: 404 });
-    if (file.type.startsWith("image/") && !(await isStoreFeatureEnabled(storeId, "OCR_RECEIPTS"))) {
-      return NextResponse.json({ error: "OCR receipt parsing is disabled for this store. Upload a CSV report or contact the Platform Admin." }, { status: 403 });
-    }
     const isPhoto = file.type.startsWith("image/");
     const content = isPhoto ? "" : await file.text();
     const rows = isPhoto ? 0 : content.split(/\r?\n/).filter((line) => line.trim()).length;
@@ -126,20 +121,8 @@ export async function POST(req: NextRequest) {
     const imageUrl = isPhoto
       ? (await put(`stores/${storeId}/${reportingMonday().slice(0, 4)}/${reportingMonday()}/${reportType.toLowerCase()}/${Date.now()}-${file.name}`, file, { access: "public", addRandomSuffix: true })).url
       : null;
-    let ocrText: string | null = null;
-    let verificationStatus = isPhoto ? "OCR_PENDING" : "PENDING";
-    if (isPhoto) {
-      try {
-        const worker = await createWorker("eng");
-        const result = await worker.recognize(Buffer.from(await file.arrayBuffer()));
-        ocrText = result.data.text.trim() || null;
-        verificationStatus = ocrText ? "OCR_COMPLETE" : "OCR_EMPTY";
-        await worker.terminate();
-      } catch (error) {
-        console.error("State report OCR failed:", error);
-        verificationStatus = "OCR_FAILED";
-      }
-    }
+    const ocrText: string | null = null;
+    const verificationStatus = isPhoto ? "OCR_PENDING" : "PENDING";
 
     const id = `slr_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     await prisma.$executeRawUnsafe(
