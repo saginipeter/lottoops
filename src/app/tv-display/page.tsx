@@ -105,6 +105,7 @@ export default async function TvDisplayKioskPage({
       slots={activeSlots}
       kioskMode
       refreshSeconds={refreshSeconds}
+      kioskToken={resolvedSearchParams.token}
     />
   );
 }

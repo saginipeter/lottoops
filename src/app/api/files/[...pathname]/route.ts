@@ -1,17 +1,21 @@
 import { get } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
+import { verifyTvKioskToken } from "@/lib/tv-kiosk";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ pathname: string[] }> },
 ) {
   const session = await getApiSession();
-  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const kioskToken = new URL(request.url).searchParams.get("token");
+  const kiosk = !session && kioskToken ? await verifyTvKioskToken(kioskToken) : null;
+  if (!session && !kiosk) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const { pathname: pathnameParts } = await params;
   const pathname = pathnameParts.join("/");
-  const expectedPrefix = `stores/${session.storeId}/`;
+  const storeId = session?.storeId ?? kiosk?.storeId;
+  const expectedPrefix = `stores/${storeId}/`;
   if (!pathname.startsWith(expectedPrefix)) {
     return NextResponse.json({ error: "File not found." }, { status: 404 });
   }
