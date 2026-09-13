@@ -42,7 +42,7 @@ export function TicketQuantityOnly({
 
       <div className="mb-6">
         <h3 className="text-lg font-semibold">
-          Step 8: Select Ticket Quantity
+          Select ticket quantity
         </h3>
 
         <p className="text-sm text-gray-500">

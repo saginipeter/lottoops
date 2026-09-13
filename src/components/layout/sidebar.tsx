@@ -94,6 +94,7 @@ export function Sidebar({ user }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [hash, setHash] = useState("");
   const pathname = usePathname();
   const isManager = user.role === "MANAGER" || user.role === "OWNER";
   const isOwner = user.role === "OWNER";
@@ -115,6 +116,13 @@ export function Sidebar({ user }: SidebarProps) {
     if (activeSection) setOpenSections((current) => ({ ...current, [activeSection]: true }));
   }, [pathname]);
 
+  useEffect(() => {
+    const syncHash = () => setHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, [pathname]);
+
   function toggleSection(label: string, isOpen: boolean) {
     const next = { ...openSections, [label]: !isOpen };
     setOpenSections(next);
@@ -122,6 +130,24 @@ export function Sidebar({ user }: SidebarProps) {
   }
 
   const storeDetails = [user.storeNumber ? `Store ${user.storeNumber}` : null, user.storeAddress, user.storePhone].filter(Boolean);
+  const visibleSections = sections.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => (!item.managerOnly || isManager) && (!item.ownerOnly || isOwner) && hasPermission(item.permission)),
+  })).filter((section) => section.items.length > 0);
+  const activeItemKey = visibleSections.flatMap((section) => section.items.map((item) => ({ section, item })))
+    .filter(({ item }) => {
+      const [basePath, itemHash] = item.href.split("#");
+      const pathMatches = pathname === basePath || pathname.startsWith(`${basePath}/`);
+      return pathMatches && (!itemHash || hash === `#${itemHash}`);
+    })
+    .sort((a, b) => {
+      const aBase = a.item.href.split("#")[0].length;
+      const bBase = b.item.href.split("#")[0].length;
+      const aHash = a.item.href.includes("#") ? 1 : 0;
+      const bHash = b.item.href.includes("#") ? 1 : 0;
+      return (bHash - aHash) || (bBase - aBase);
+    })[0];
+  const activeItemKeyValue = activeItemKey ? `${activeItemKey.section.label}:${activeItemKey.item.label}` : pathname === "/" ? "dashboard" : "";
 
   return <>
     <button type="button" aria-label="Open navigation" onClick={() => setMobileOpen(true)} className="fixed left-3 top-3 z-40 rounded-lg bg-sidebar p-2 text-white shadow-lg sm:hidden"><Menu size={20} /></button>
@@ -144,15 +170,13 @@ export function Sidebar({ user }: SidebarProps) {
         {!collapsed && <div className="mt-3 flex items-center gap-2 text-[10px] text-white/45"><ShieldCheck size={13} className="text-success" /><span>Operational records protected</span></div>}
       </div>
       <nav className={clsx("flex-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-4")} aria-label="Primary navigation">
-        <Link href="/" onClick={() => setMobileOpen(false)} aria-current={pathname === "/" ? "page" : undefined} className={clsx("group flex min-h-11 items-center border-l-2 text-[13px] font-medium transition-colors", collapsed ? "justify-center border-transparent px-2" : "gap-3 px-3", pathname === "/" ? "border-accent bg-sidebar-active text-white" : "border-transparent text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-strong")}><LayoutDashboard size={17} strokeWidth={pathname === "/" ? 2.3 : 2} /><span className={clsx("truncate", collapsed && "hidden")}>Dashboard</span></Link>
-        {sections.map((section) => {
-          const visibleItems = section.items.filter((item) => (!item.managerOnly || isManager) && (!item.ownerOnly || isOwner) && hasPermission(item.permission));
-          if (!visibleItems.length) return null;
-          const sectionIsActive = visibleItems.some((item) => { const basePath = item.href.split("#")[0]; return pathname === basePath || pathname.startsWith(`${basePath}/`); });
+        <Link href="/" onClick={() => setMobileOpen(false)} aria-current={activeItemKeyValue === "dashboard" ? "page" : undefined} className={clsx("group flex min-h-11 items-center border-l-2 text-[13px] font-medium transition-colors", collapsed ? "justify-center border-transparent px-2" : "gap-3 px-3", activeItemKeyValue === "dashboard" ? "border-accent bg-sidebar-active text-white" : "border-transparent text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-strong")}><LayoutDashboard size={17} strokeWidth={activeItemKeyValue === "dashboard" ? 2.3 : 2} /><span className={clsx("truncate", collapsed && "hidden")}>Dashboard</span></Link>
+        {visibleSections.map((section) => {
+          const sectionIsActive = section.items.some((item) => { const basePath = item.href.split("#")[0]; return pathname === basePath || pathname.startsWith(`${basePath}/`); });
           const sectionIsOpen = collapsed || openSections[section.label] === true || (openSections[section.label] === undefined && sectionIsActive);
           return <div key={section.label} className="mt-6 first:mt-5">
             <button type="button" onClick={() => toggleSection(section.label, sectionIsOpen)} className={clsx("flex w-full items-center gap-2 px-3 pb-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35 hover:text-white/70", collapsed && "hidden")} aria-expanded={sectionIsOpen}><span>{section.label}</span><span className="h-px flex-1 bg-white/10" /><ChevronDown size={13} className={clsx("transition-transform", sectionIsOpen && "rotate-180")} /></button>
-            {sectionIsOpen && visibleItems.map((item) => { const Icon = item.icon; const basePath = item.href.split("#")[0]; const isActive = pathname === basePath || pathname.startsWith(`${basePath}/`); return <Link key={item.label} href={item.href} onClick={() => setMobileOpen(false)} aria-current={isActive ? "page" : undefined} className={clsx("group flex min-h-11 items-center border-l-2 text-[13px] font-medium transition-colors", collapsed ? "justify-center border-transparent px-2" : "gap-3 px-3", isActive ? "border-accent bg-sidebar-active text-white" : "border-transparent text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-strong")}><Icon size={17} strokeWidth={isActive ? 2.3 : 2} className="shrink-0" /><span className={clsx("truncate", collapsed && "hidden")}>{item.label}</span>{item.badge && <span className="ml-auto border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] text-white/70">{item.badge}</span>}{item.alert && <span className="ml-auto bg-danger px-2 py-0.5 text-[10px] text-white">!</span>}</Link>; })}
+            {sectionIsOpen && section.items.map((item) => { const Icon = item.icon; const isActive = activeItemKeyValue === `${section.label}:${item.label}`; return <Link key={item.label} href={item.href} onClick={() => setMobileOpen(false)} aria-current={isActive ? "page" : undefined} className={clsx("group flex min-h-11 items-center border-l-2 text-[13px] font-medium transition-colors", collapsed ? "justify-center border-transparent px-2" : "gap-3 px-3", isActive ? "border-accent bg-sidebar-active text-white" : "border-transparent text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-strong")}><Icon size={17} strokeWidth={isActive ? 2.3 : 2} className="shrink-0" /><span className={clsx("truncate", collapsed && "hidden")}>{item.label}</span>{item.badge && <span className="ml-auto border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] text-white/70">{item.badge}</span>}{item.alert && <span className="ml-auto bg-danger px-2 py-0.5 text-[10px] text-white">!</span>}</Link>; })}
           </div>;
         })}
       </nav>

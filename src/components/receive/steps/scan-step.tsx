@@ -238,7 +238,7 @@ export function ScanStep({
         {/* Pack image */}
         <Panel className="p-5">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold">Step 6: Upload Pack Image</h3>
+            <h3 className="text-lg font-semibold">Pack image</h3>
             <p className="text-sm text-gray-500">Upload a photo of the pack.</p>
           </div>
           <InvoiceUpload
@@ -331,8 +331,8 @@ export function ScanStep({
           {justAdded && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               {(shipment.expectedPacks ?? 0) > packs.length
-                ? `Pack added. Next step: scan the next pack (${packs.length}/${shipment.expectedPacks ?? 0}).`
-                : "Pack added. Next step: review shipment details."}
+                ? `Pack added. Scan the next pack (${packs.length}/${shipment.expectedPacks ?? 0}).`
+                : "Pack added. Review the shipment details."}
             </div>
           )}
 
