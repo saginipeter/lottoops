@@ -78,6 +78,7 @@ export function ScanStep({
   const [detectionError, setDetectionError] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState(false);
   const [quantityOverrideEnabled, setQuantityOverrideEnabled] = useState(false);
+  const [manualOverrideEnabled, setManualOverrideEnabled] = useState(false);
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
 
@@ -92,6 +93,7 @@ export function ScanStep({
       const data = await res.json();
       if (res.ok && data.found) {
         setDetectedGame(data as DetectedGame);
+        setManualOverrideEnabled(false);
         const suggestedQuantity = getSuggestedTicketQuantity(Number(data.price));
         setScanDraft((prev) => ({
           ...prev,
@@ -100,6 +102,7 @@ export function ScanStep({
         }));
       } else {
         setDetectionError("Game not found in catalog — please select price & quantity manually.");
+        setManualOverrideEnabled(true);
       }
     } catch {
       setDetectionError("Could not reach server for auto-detect.");
@@ -124,6 +127,7 @@ export function ScanStep({
     } else {
       setDetectedGame(null);
       setDetectionError(null);
+      setManualOverrideEnabled(false);
     }
   }
 
@@ -142,7 +146,6 @@ export function ScanStep({
       return;
     }
     if (!/^\d{7}$/.test(packNumber)) { alert("Pack number must be exactly 7 digits."); return; }
-    if (!packImage) { alert("Please upload a pack image."); return; }
 
     try {
       const response = await fetch("/api/packs", {
@@ -216,7 +219,7 @@ export function ScanStep({
                     </div>
                     <button
                       className="text-xs text-emerald-500 hover:text-emerald-700 underline mt-0.5"
-                      onClick={() => setDetectedGame(null)}
+                      onClick={() => setManualOverrideEnabled(true)}
                     >
                       Override
                     </button>
@@ -250,11 +253,12 @@ export function ScanStep({
               }))
             }
           />
-          {packImage && <p className="mt-3 text-sm text-green-600">✓ Image uploaded</p>}
+          <p className="mt-2 text-[11px] text-text-tertiary">Optional — add a photo only when the pack needs visual verification.</p>
+          {packImage && <p className="mt-2 text-sm text-green-600">✓ Image uploaded</p>}
         </Panel>
 
         {/* Ticket price */}
-        <div className="relative">
+        {(!detectedGame || manualOverrideEnabled) && <div className="relative">
           {detectedGame && (
             <div className="absolute right-6 top-5 z-10">
               <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
@@ -271,9 +275,9 @@ export function ScanStep({
               }))
             }
           />
-        </div>
+        </div>}
 
-        <Panel className="p-5">
+        {(!detectedGame || manualOverrideEnabled) && <Panel className="p-5">
           <h3 className="text-lg font-semibold">Ticket Quantity</h3>
           <p className="mt-1 text-sm text-gray-500">The suggested quantity is used by default. Enable override for store testing.</p>
           <label className="mt-4 flex items-center gap-2 text-sm font-medium">
@@ -307,11 +311,11 @@ export function ScanStep({
             className="mt-3 w-full rounded-lg border border-gray-300 px-4 py-3 text-lg font-semibold"
           />
           <p className="mt-2 text-xs text-gray-500">Suggested for ${ticketPrice}: {getSuggestedTicketQuantity(ticketPrice)} tickets</p>
-        </Panel>
+        </Panel>}
 
         {/* Add Pack */}
         <Panel className="p-5 lg:col-span-2">
-          <Button className="w-full" onClick={handleAddPack} disabled={!gameNumber || !packNumber || !packImage || atExpectedLimit}>
+          <Button className="w-full" onClick={handleAddPack} disabled={!gameNumber || !packNumber || atExpectedLimit}>
             Add Pack to Shipment
           </Button>
           {atExpectedLimit && (

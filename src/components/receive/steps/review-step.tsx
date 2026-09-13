@@ -111,6 +111,9 @@ export function ReviewStep({
 
           <div className="grid gap-3 sm:grid-cols-2">
 
+            <details className="sm:col-span-2 border border-border bg-muted/10 p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-text">View source documents</summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {/* Step 1-2: Invoice Info */}
             <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
               <h4 className="text-sm font-semibold text-blue-900 mb-3">Invoice Information</h4>
@@ -137,6 +140,8 @@ export function ReviewStep({
                 </div>
               )}
             </div>
+              </div>
+            </details>
 
             {/* Summary */}
             <div className="grid grid-cols-3 gap-3">

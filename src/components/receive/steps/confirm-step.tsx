@@ -192,7 +192,7 @@ export function ConfirmStep({
             Where should these packs be sent after receipt?
           </p>
 
-          <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
 
             {/* Back Stock Option */}
             <label className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all ${
