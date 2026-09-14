@@ -136,6 +136,7 @@ export function LiveScanDashboard({
   });
   const [autoRefreshActive, setAutoRefreshActive] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
   const [scanError, setScanError] = useState("");
   const [historyQuery, setHistoryQuery] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -208,6 +209,18 @@ export function LiveScanDashboard({
 
   useEffect(() => {
     scanInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -540,11 +553,14 @@ export function LiveScanDashboard({
                   }`}
                 />
                 <p className="text-base font-semibold text-text">
-                  {scannerConnected ? "Scanner connected" : "Waiting for scanner activity"}
+                  {scannerConnected ? "Scanner connected" : "Ready for scan"}
                 </p>
               </div>
               <p className="mt-1 text-xs text-text-secondary">
-                Focus the scan field and scan one ticket to confirm device connection.
+                Use the camera or scan directly into the field. The field refocuses after every result.
+              </p>
+              <p className={`mt-2 text-xs font-semibold ${isOnline ? "text-success-soft-text" : "text-danger-soft-text"}`} role="status">
+                {isOnline ? "Online · results sync immediately" : "Offline · reconnect before scanning"}
               </p>
             </div>
 
@@ -575,7 +591,7 @@ export function LiveScanDashboard({
           )}
         </Panel>
 
-        <Panel className={`hidden w-full max-w-3xl border-2 p-4 sm:block sm:p-8 ${scanError ? "border-red-500 bg-red-50" : ""}`}>
+        <Panel className={`w-full max-w-3xl border-2 p-3 sm:p-8 ${scanError ? "border-red-500 bg-red-50" : ""}`}>
           <div className="space-y-5 text-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-tertiary">Live scanner</p>
@@ -617,7 +633,7 @@ export function LiveScanDashboard({
               />
               <Button
                 onClick={() => { void handleScan(); }}
-                disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift}
+                disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift || !isOnline}
                 className="min-h-[54px] text-base font-semibold"
               >
                 {refreshing ? "Scanning..." : "Submit Scan"}
@@ -660,7 +676,7 @@ export function LiveScanDashboard({
         <Panel className="w-full max-w-3xl border p-3 sm:hidden">
           <PhoneBarcodeScanner
             onScan={(value) => { void handleScan(value); }}
-            disabled={refreshing || Boolean(scanError) || !currentShift}
+            disabled={refreshing || Boolean(scanError) || !currentShift || !isOnline}
           />
         </Panel>
 
