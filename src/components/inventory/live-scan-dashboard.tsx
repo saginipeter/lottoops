@@ -747,7 +747,7 @@ export function LiveScanDashboard({
           />
         </Panel>
 
-        <Panel className="hidden w-full max-w-3xl border p-5 sm:block">
+        <Panel id="report-ticket" className="w-full max-w-3xl scroll-mt-4 border p-4 sm:p-5">
           <h3 className="text-base font-semibold text-text">Report Ticket</h3>
           <p className="mt-1 text-xs text-text-secondary">
             Report invalid, damaged, or disputed tickets for manager follow-up.
