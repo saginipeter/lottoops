@@ -55,6 +55,7 @@ export async function proxy(req: NextRequest) {
   if (session.role === "EMPLOYEE") {
     const allowed =
       pathname === "/" ||
+      pathname.startsWith("/employee") ||
       pathname.startsWith("/shifts") ||
       pathname.startsWith("/inventory/live-scan");
     if (!allowed) return NextResponse.redirect(new URL("/shifts", req.url));

@@ -46,8 +46,9 @@ export function LoginForm() {
         return;
       }
 
-      // Redirect to the page they were trying to reach, or the dashboard
-      const from = searchParams.get("from") ?? "/";
+      // Employees start in the focused mobile workspace unless they were sent to a specific workflow.
+      const requestedFrom = searchParams.get("from");
+      const from = requestedFrom ?? (data.user?.role === "EMPLOYEE" ? "/employee" : "/");
       router.push(from);
       router.refresh();
     } catch {
