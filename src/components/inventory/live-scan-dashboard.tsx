@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -18,6 +18,12 @@ import { Button } from "@/components/ui/button";
 import { ScanStatusDisplay } from "./scan-status-display";
 import { SalesTracker } from "./sales-tracker";
 import { PhoneBarcodeScanner } from "./phone-barcode-scanner";
+import {
+  enqueueOfflineScan,
+  readOfflineScanQueue,
+  removeOfflineScan,
+  type OfflineScan,
+} from "@/lib/offline-scan-queue";
 
 interface ShiftData {
   id: string;
@@ -137,6 +143,9 @@ export function LiveScanDashboard({
   const [autoRefreshActive, setAutoRefreshActive] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineScan[]>([]);
+  const [syncingQueue, setSyncingQueue] = useState(false);
+  const [queueMessage, setQueueMessage] = useState("");
   const [scanError, setScanError] = useState("");
   const [historyQuery, setHistoryQuery] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -224,6 +233,43 @@ export function LiveScanDashboard({
   }, []);
 
   useEffect(() => {
+    setOfflineQueue(readOfflineScanQueue(window.localStorage, terminalId));
+  }, [terminalId]);
+
+  const syncOfflineScans = useCallback(async () => {
+    if (!isEmployee || !isOnline || !currentShift || syncingQueue) return;
+    const queued = readOfflineScanQueue(window.localStorage, terminalId);
+    if (queued.length === 0) return;
+
+    setSyncingQueue(true);
+    setQueueMessage(`Syncing ${queued.length} queued scan${queued.length === 1 ? "" : "s"}...`);
+    let synced = 0;
+    for (const item of queued) {
+      try {
+        const response = await fetch("/api/packs/check-serial", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ serialNumber: item.serialNumber, liveScan: true, terminalId }),
+        });
+        if (!response.ok) break;
+        removeOfflineScan(window.localStorage, terminalId, item.id);
+        synced += 1;
+      } catch {
+        break;
+      }
+    }
+    const remaining = readOfflineScanQueue(window.localStorage, terminalId);
+    setOfflineQueue(remaining);
+    setQueueMessage(synced > 0 ? `${synced} queued scan${synced === 1 ? "" : "s"} synced.` : "Queued scans are waiting to retry.");
+    setSyncingQueue(false);
+    if (synced > 0) router.refresh();
+  }, [currentShift, isEmployee, isOnline, router, syncingQueue, terminalId]);
+
+  useEffect(() => {
+    void syncOfflineScans();
+  }, [syncOfflineScans]);
+
+  useEffect(() => {
     if (!scannerActivityAt) return;
     const idleInterval = window.setInterval(() => {
       if (Date.now() - scannerActivityAt > 45000) {
@@ -275,6 +321,22 @@ export function LiveScanDashboard({
 
   async function handleScan(value = barcode) {
     if (!value.trim() || scanError) return;
+
+    if (!currentShift) {
+      setScanError("Open a shift before scanning.");
+      return;
+    }
+
+    if (!isOnline && isEmployee) {
+      const nextQueue = enqueueOfflineScan(window.localStorage, terminalId, value);
+      setOfflineQueue(nextQueue);
+      setQueueMessage("Saved on this device. It will sync when the connection returns.");
+      setBarcode("");
+      setScannerConnected(true);
+      setScannerActivityAt(Date.now());
+      requestAnimationFrame(() => scanInputRef.current?.focus());
+      return;
+    }
 
     try {
       setRefreshing(true);
@@ -560,8 +622,13 @@ export function LiveScanDashboard({
                 Use the camera or scan directly into the field. The field refocuses after every result.
               </p>
               <p className={`mt-2 text-xs font-semibold ${isOnline ? "text-success-soft-text" : "text-danger-soft-text"}`} role="status">
-                {isOnline ? "Online · results sync immediately" : "Offline · reconnect before scanning"}
+                {isOnline ? "Online · results sync immediately" : "Offline · scans save locally until reconnect"}
               </p>
+              {(offlineQueue.length > 0 || queueMessage) && (
+                <p className="mt-1 text-xs font-semibold text-accent" role="status">
+                  {offlineQueue.length > 0 ? `${offlineQueue.length} scan${offlineQueue.length === 1 ? "" : "s"} queued on this device` : queueMessage}
+                </p>
+              )}
             </div>
 
             <div className="grid w-full grid-cols-2 gap-2 md:w-auto">
@@ -633,7 +700,7 @@ export function LiveScanDashboard({
               />
               <Button
                 onClick={() => { void handleScan(); }}
-                disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift || !isOnline}
+                disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift}
                 className="min-h-[54px] text-base font-semibold"
               >
                 {refreshing ? "Scanning..." : "Submit Scan"}
@@ -676,7 +743,7 @@ export function LiveScanDashboard({
         <Panel className="w-full max-w-3xl border p-3 sm:hidden">
           <PhoneBarcodeScanner
             onScan={(value) => { void handleScan(value); }}
-            disabled={refreshing || Boolean(scanError) || !currentShift || !isOnline}
+            disabled={refreshing || Boolean(scanError) || !currentShift}
           />
         </Panel>
 
