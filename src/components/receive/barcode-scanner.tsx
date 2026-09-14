@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ScanLine, Keyboard } from "lucide-react";
+import { normalizeBarcodeInput } from "@/lib/barcode";
 
 interface BarcodeScannerProps {
   barcode: string;
@@ -63,7 +64,7 @@ export function BarcodeScanner({
       streamRef.current = stream;
       setCameraMessage("");
       setCameraOpen(true);
-      const detector = new window.BarcodeDetector({ formats: ["code_128", "ean_13", "ean_8", "upc_a", "upc_e"] });
+      const detector = new window.BarcodeDetector({ formats: ["code_128", "code_39", "ean_13", "ean_8", "upc_a", "upc_e", "itf"] });
       const scanFrame = async () => {
         const video = videoRef.current;
         if (!video || !streamRef.current) return;
@@ -71,7 +72,7 @@ export function BarcodeScanner({
           const detected = await detector.detect(video).catch(() => []);
           const value = detected[0]?.rawValue?.trim();
           if (value) {
-            onChange(value);
+            onChange(normalizeBarcodeInput(value));
             streamRef.current.getTracks().forEach((track) => track.stop());
             streamRef.current = null;
             setCameraOpen(false);

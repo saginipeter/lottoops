@@ -17,8 +17,16 @@ export interface ParsedBarcode {
  * Pack Number   = 0029470
  * First Ticket  = 000
  */
+export function normalizeBarcodeInput(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 11 ? digits : trimmed;
+}
+
 export function parseBarcode(barcode: string): ParsedBarcode {
-  const cleaned = barcode.replace(/\D/g, "");
+  const cleaned = normalizeBarcodeInput(barcode).replace(/\D/g, "");
 
   if (cleaned.length < 11) {
     return {

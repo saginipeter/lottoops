@@ -2,18 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { canManageBackstock } from "@/lib/permissions";
-
-function resolveSellableTicket(pack: {
-  currentTicketNumber: number | null;
-  firstTicket: number | null;
-  ticketQuantity: number | null;
-}) {
-  const candidates = [pack.currentTicketNumber, pack.firstTicket, pack.ticketQuantity]
-    .map((value) => Number(value ?? 0))
-    .filter((value) => Number.isFinite(value) && value > 0);
-
-  return candidates.length > 0 ? candidates[0] : null;
-}
+import { getActivationStartingTicket } from "@/lib/ticket-quantity";
 
 export async function POST(req: NextRequest) {
   try {
@@ -94,7 +83,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const sellableTicket = resolveSellableTicket(pack);
+    const sellableTicket = getActivationStartingTicket({
+      currentTicketNumber: pack.currentTicketNumber,
+      firstTicket: pack.firstTicket,
+      ticketQuantity: pack.ticketQuantity,
+      firstOrLastTicket,
+    });
     if (sellableTicket === null) {
       return NextResponse.json(
         {
