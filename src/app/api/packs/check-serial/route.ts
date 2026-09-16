@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { recordShiftParticipant } from "@/lib/shift-participants";
+import { authorizeRegisteredDevice } from "@/lib/device-registry";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { canSelfResolveSequenceLock } from "@/lib/control-validation";
 import { createInventoryNotification } from "@/lib/inventory-notifications";
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { serialNumber, liveScan, terminalId: rawTerminalId } = await req.json();
+  const { serialNumber, liveScan, terminalId: rawTerminalId, deviceKey } = await req.json();
   if (!serialNumber || typeof serialNumber !== "string") {
     return NextResponse.json(
       { error: "serialNumber is required" },
@@ -66,6 +67,10 @@ export async function POST(req: NextRequest) {
       typeof rawTerminalId === "string" && rawTerminalId.trim()
         ? rawTerminalId.trim().toUpperCase()
         : "T1";
+    const deviceAuthorization = await authorizeRegisteredDevice(session.storeId, terminalId, deviceKey);
+    if (!deviceAuthorization.authorized) {
+      return NextResponse.json({ error: deviceAuthorization.reason }, { status: 403 });
+    }
     const normalizedSerial = serialNumber.replace(/\D/g, "");
 
     try {

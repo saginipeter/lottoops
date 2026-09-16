@@ -14,6 +14,7 @@ interface Device {
   scannerSettings: string | null;
   active: boolean;
   lastSeenAt?: string | null;
+  isPaired?: boolean;
 }
 
 export function DeviceRegistryPanel() {
@@ -27,6 +28,7 @@ export function DeviceRegistryPanel() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState(0);
+  const [pairing, setPairing] = useState<{ code: string; terminalId: string; pairingExpiresAt: string } | null>(null);
 
   async function load() {
     try {
@@ -81,6 +83,14 @@ export function DeviceRegistryPanel() {
     if (response.ok) await load(); else setError("Unable to check in device.");
   }
 
+  async function generatePairingCode(device: Device) {
+    setError("");
+    const response = await fetch("/api/devices/pairing-code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: device.id }) });
+    const data = await response.json();
+    if (!response.ok) setError(data.error || "Unable to generate pairing code.");
+    else setPairing(data.pairing);
+  }
+
   return (
     <Panel className="p-5">
       <div className="flex items-start gap-3"><Cpu size={20} className="mt-0.5 text-accent" /><div><h3 className="text-base font-semibold text-text">Terminal &amp; Scanner Configuration</h3><p className="mt-1 text-sm text-text-secondary">Register each workstation and its barcode scanner for this store.</p></div></div>
@@ -93,7 +103,8 @@ export function DeviceRegistryPanel() {
         <div className="flex justify-end sm:col-span-2"><Button type="submit" disabled={saving}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{saving ? "Saving..." : "Register Device"}</Button></div>
       </form>
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-      <div className="mt-5 space-y-2">{loading ? <p className="text-sm text-text-secondary">Loading registered devices...</p> : devices.length === 0 ? <p className="text-sm text-text-secondary">No devices registered yet.</p> : devices.map((device) => { const lastSeen = device.lastSeenAt ? new Date(device.lastSeenAt) : null; const online = lastSeen && now - lastSeen.getTime() < 5 * 60 * 1000; return <div key={device.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3"><div><p className="font-medium text-text">{device.terminalId} · {device.deviceType}</p><p className="text-xs text-text-secondary">{device.scannerModel || "Scanner model not set"}{device.scannerSerial ? ` · ${device.scannerSerial}` : ""}</p><p className={`mt-1 text-xs font-medium ${online ? "text-emerald-700" : "text-text-tertiary"}`}>{online ? "Online" : lastSeen ? `Last seen ${lastSeen.toLocaleString()}` : "Never checked in"}</p></div><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => { void checkIn(device); }}>Check In</Button><Button size="sm" variant="outline" onClick={() => { void toggle(device); }}><Power size={14} />{device.active ? "Deactivate" : "Activate"}</Button></div></div>; })}</div>
+      {pairing && <div className="mt-4 border border-accent/30 bg-accent-soft p-4"><p className="text-xs font-semibold uppercase tracking-wide text-accent">Pair terminal {pairing.terminalId} within 10 minutes</p><p className="mt-1 font-mono text-3xl font-bold tracking-[0.25em] text-text">{pairing.code}</p><p className="mt-1 text-xs text-text-secondary">Give this code to the employee on the device that will operate this terminal.</p></div>}
+      <div className="mt-5 space-y-2">{loading ? <p className="text-sm text-text-secondary">Loading registered devices...</p> : devices.length === 0 ? <p className="text-sm text-text-secondary">No devices registered yet.</p> : devices.map((device) => { const lastSeen = device.lastSeenAt ? new Date(device.lastSeenAt) : null; const online = lastSeen && now - lastSeen.getTime() < 5 * 60 * 1000; return <div key={device.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3"><div><p className="font-medium text-text">{device.terminalId} · {device.deviceType}</p><p className="text-xs text-text-secondary">{device.scannerModel || "Scanner model not set"}{device.scannerSerial ? ` · ${device.scannerSerial}` : ""}</p><p className={`mt-1 text-xs font-medium ${online ? "text-emerald-700" : "text-text-tertiary"}`}>{online ? "Online" : lastSeen ? `Last seen ${lastSeen.toLocaleString()}` : "Never checked in"} · {device.isPaired ? "Paired" : "Not paired"}</p></div><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => { void generatePairingCode(device); }}>Pair Device</Button><Button size="sm" variant="outline" onClick={() => { void checkIn(device); }}>Check In</Button><Button size="sm" variant="outline" onClick={() => { void toggle(device); }}><Power size={14} />{device.active ? "Deactivate" : "Activate"}</Button></div></div>; })}</div>
     </Panel>
   );
 }
