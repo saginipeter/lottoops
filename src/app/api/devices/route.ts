@@ -16,7 +16,13 @@ export async function GET() {
              scanner_model AS "scannerModel", scanner_serial AS "scannerSerial",
              scanner_settings AS "scannerSettings", active,
              created_at AS "createdAt", updated_at AS "updatedAt", last_seen_at AS "lastSeenAt",
-             paired_at AS "pairedAt", (device_key_hash IS NOT NULL) AS "isPaired"
+             paired_at AS "pairedAt", (device_key_hash IS NOT NULL) AS "isPaired",
+             CASE
+               WHEN active = FALSE THEN 'INACTIVE'
+               WHEN last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL '15 minutes' THEN 'OFFLINE'
+               WHEN last_seen_at < NOW() - INTERVAL '5 minutes' THEN 'STALE'
+               ELSE 'ONLINE'
+             END AS "healthStatus"
       FROM store_devices WHERE store_id = $1 ORDER BY terminal_id ASC
     `, session.storeId);
     return NextResponse.json({ devices });

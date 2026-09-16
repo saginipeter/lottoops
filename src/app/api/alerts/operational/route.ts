@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { isManagerOrAbove } from "@/lib/permissions";
+import { ensureDeviceRegistrySchema } from "@/lib/device-registry";
 
 interface LowTicketPack { id: string; serialNumber: string; currentTicketNumber: number | null; slot: { slotNumber: string } | null; game: { name: string } }
 interface OpenShift { id: string; openedAt: Date; openedBy: { name: string }; inventoryAudit: { id: string; status: string; lines: Array<{ beginningPhysicalTicket: number | null; endingPhysicalTicket: number | null }> } | null }
@@ -30,6 +31,23 @@ export async function GET() {
         orderBy: { createdAt: "asc" },
       }),
     ]);
+    let deviceRows: Array<{ id: string; terminalId: string; lastSeenAt: Date | null; healthStatus: string; active: boolean; isPaired: boolean }> = [];
+    try {
+      await ensureDeviceRegistrySchema();
+      deviceRows = await prisma.$queryRawUnsafe(`
+        SELECT id, terminal_id AS "terminalId", last_seen_at AS "lastSeenAt", active,
+          (device_key_hash IS NOT NULL) AS "isPaired",
+          CASE
+            WHEN active = FALSE THEN 'INACTIVE'
+            WHEN last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL '15 minutes' THEN 'OFFLINE'
+            WHEN last_seen_at < NOW() - INTERVAL '5 minutes' THEN 'STALE'
+            ELSE 'ONLINE'
+          END AS "healthStatus"
+        FROM store_devices WHERE store_id = $1 ORDER BY terminal_id ASC
+      `, session.storeId) as typeof deviceRows;
+    } catch {
+      // Device registry is optional for legacy stores.
+    }
     const packs = packsResult as LowTicketPack[];
     const shifts = shiftsResult as OpenShift[];
     const shipments = shipmentsResult as StaleShipment[];
@@ -50,6 +68,15 @@ export async function GET() {
       }),
       ...shipments.map((shipment) => ({ id: `SHIPMENT_${shipment.id}`, type: "STALE_RECEIVING", severity: "MEDIUM", title: "Receiving draft is overdue", detail: `Invoice ${shipment.invoiceNumber} has been in progress for more than 24 hours (${shipment.expectedPacks} expected pack(s)).`, createdAt: shipment.createdAt.toISOString(), entityId: shipment.id })),
       ...notifications.map((notification) => ({ id: notification.id, type: "INVENTORY_AUDIT_VARIANCE", severity: notification.severity, title: notification.title, detail: notification.detail, createdAt: notification.createdAt.toISOString(), entityId: notification.entityId })),
+      ...deviceRows.filter((device) => device.healthStatus === "OFFLINE" || device.healthStatus === "STALE" || !device.isPaired).map((device) => ({
+        id: `DEVICE_${device.id}`,
+        type: "DEVICE_HEALTH",
+        severity: device.healthStatus === "OFFLINE" ? "HIGH" : "MEDIUM",
+        title: device.healthStatus === "OFFLINE" ? "Terminal is offline" : !device.isPaired ? "Terminal is not paired" : "Terminal heartbeat is stale",
+        detail: !device.isPaired ? `${device.terminalId} has no paired operating device.` : device.lastSeenAt ? `${device.terminalId} last checked in at ${device.lastSeenAt.toISOString()}.` : `${device.terminalId} has never checked in.`,
+        createdAt: (device.lastSeenAt ?? new Date()).toISOString(),
+        entityId: device.id,
+      })),
     ];
     return NextResponse.json({ alerts });
   } catch (error) {
