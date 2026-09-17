@@ -357,7 +357,7 @@ export async function POST(req: NextRequest) {
           );
           await tx.shiftLine.update({
             where: { id: line.id },
-            data: { endingTicket, ticketsSold, salesAmount, profitAmount, stateCost },
+            data: { endingTicket, ticketsSold, salesAmount },
           });
 
           if (soldOut) {

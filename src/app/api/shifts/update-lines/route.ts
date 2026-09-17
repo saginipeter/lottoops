@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { validateEndingTicket } from "@/lib/core-validation";
 import { isReadOnly } from "@/lib/permissions";
-import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 
 interface ShiftLineRecord {
   id: string;
@@ -98,7 +97,6 @@ export async function POST(req: NextRequest) {
         const endingTicket = currentTicket;
         const sold = Math.max(beginning - endingTicket, 0);
         const sales = sold * Number(lineRecord.pack.ticketPrice ?? lineRecord.pack.game.price ?? 0);
-        const { profitAmount, stateCost } = calculateTicketSaleSplit(sales);
 
         return prisma.shiftLine.update({
           where: {
@@ -108,8 +106,6 @@ export async function POST(req: NextRequest) {
             endingTicket,
             ticketsSold: sold,
             salesAmount: sales,
-            profitAmount,
-            stateCost,
           },
         });
       })

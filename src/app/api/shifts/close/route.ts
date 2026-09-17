@@ -4,7 +4,6 @@ import { getApiSession } from "@/lib/api-session";
 import { validateEndingTicket } from "@/lib/core-validation";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { isReadOnly } from "@/lib/permissions";
-import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -106,7 +105,6 @@ export async function POST(req: NextRequest) {
       const ending = currentTicket;
       const ticketsSold = Math.max(beginning - ending, 0);
       const sales = ticketsSold * Number(line.pack.ticketPrice ?? line.pack.game.price ?? 0);
-      const { profitAmount, stateCost } = calculateTicketSaleSplit(sales);
 
       totalTickets += ticketsSold;
       totalSales += sales;
@@ -118,8 +116,6 @@ export async function POST(req: NextRequest) {
             endingTicket: ending,
             ticketsSold,
             salesAmount: sales,
-            profitAmount,
-            stateCost,
           },
         })
       );

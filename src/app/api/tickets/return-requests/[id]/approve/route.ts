@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { isManagerOrAbove } from "@/lib/permissions";
-import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 
 interface RequestRow {
   id: string;
@@ -126,7 +125,6 @@ export async function POST(
     }
 
     const salesAmount = ticketsSold * Number(pack.game.price);
-    const { profitAmount, stateCost } = calculateTicketSaleSplit(salesAmount);
 
     await prisma.$transaction([
       prisma.pack.update({
@@ -160,8 +158,6 @@ export async function POST(
           endingTicket: restoredCurrent,
           ticketsSold,
           salesAmount,
-          profitAmount,
-          stateCost,
         },
       }),
       prisma.displaySlot.update({

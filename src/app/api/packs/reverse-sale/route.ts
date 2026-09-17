@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { isOwner } from "@/lib/permissions";
-import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -158,7 +157,6 @@ export async function POST(req: NextRequest) {
     }
 
     const salesAmount = ticketsSold * Number(pack.game.price);
-    const { profitAmount, stateCost } = calculateTicketSaleSplit(salesAmount);
 
     await prisma.$transaction([
       prisma.pack.update({
@@ -192,8 +190,6 @@ export async function POST(req: NextRequest) {
           endingTicket: restoredCurrent,
           ticketsSold,
           salesAmount,
-          profitAmount,
-          stateCost,
         },
       }),
       prisma.displaySlot.update({
