@@ -15,6 +15,7 @@ import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { prisma } from "@/lib/prisma";
+import { EmployeeDeviceSetup } from "@/components/pwa/employee-device-setup";
 
 type TaskState = "complete" | "ready" | "locked";
 
@@ -158,6 +159,8 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
               <Link key={terminal} href={`/employee?terminal=${terminal}`} className={`flex min-h-11 items-center justify-center border text-sm font-semibold ${terminalId === terminal ? "border-accent bg-accent text-white" : "border-border bg-surface text-text-secondary"}`}>{terminal}</Link>
             ))}
           </nav>
+
+          <EmployeeDeviceSetup terminalId={terminalId} />
 
           {nextTask && (
             <Link href={nextTask.href} className="group mt-4 flex min-h-24 items-center gap-4 bg-accent p-4 text-white active:scale-[0.99]">

@@ -41,6 +41,7 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
     if (disabled) return;
     setMessage("");
     const scanner = new Html5Qrcode(READER_ID, {
+      verbose: false,
       formatsToSupport: [
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.CODE_39,

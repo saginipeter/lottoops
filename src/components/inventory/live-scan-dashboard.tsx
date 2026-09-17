@@ -252,7 +252,7 @@ export function LiveScanDashboard({
         const response = await fetch("/api/packs/check-serial", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ serialNumber: item.serialNumber, liveScan: true, terminalId }),
+          body: JSON.stringify({ serialNumber: item.serialNumber, liveScan: true, terminalId, deviceKey: window.localStorage.getItem("lottoops:device-key") }),
         });
         if (!response.ok) break;
         removeOfflineScan(window.localStorage, terminalId, item.id);
@@ -347,7 +347,7 @@ export function LiveScanDashboard({
       const res = await fetch("/api/packs/check-serial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId }),
+        body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, deviceKey: window.localStorage.getItem("lottoops:device-key") }),
       });
 
       const data = await res.json();
