@@ -6,6 +6,7 @@ import { logInventoryActivity } from "@/lib/activity-log";
 import { canSelfResolveSequenceLock } from "@/lib/control-validation";
 import { createInventoryNotification } from "@/lib/inventory-notifications";
 import { isReadOnly } from "@/lib/permissions";
+import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 import { Prisma } from "@prisma/client";
 
 function resolveSellableTicket(pack: {
@@ -316,6 +317,7 @@ export async function POST(req: NextRequest) {
         const ticketsSold = Math.max(beginning - endingTicket, 0);
         const salesAmount =
           ticketsSold * Number(existingPack.ticketPrice ?? existingPack.game.price ?? 0);
+        const { profitAmount, stateCost } = calculateTicketSaleSplit(salesAmount);
         const soldOut = endingTicket === 0;
         const scanEventId = `lse_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
@@ -350,7 +352,7 @@ export async function POST(req: NextRequest) {
           );
           await tx.shiftLine.update({
             where: { id: line.id },
-            data: { endingTicket, ticketsSold, salesAmount },
+            data: { endingTicket, ticketsSold, salesAmount, profitAmount, stateCost },
           });
 
           if (soldOut) {
@@ -393,6 +395,8 @@ export async function POST(req: NextRequest) {
           ticketPrice: existingPack.ticketPrice,
           ticketsSold,
           salesAmount,
+          profitAmount,
+          stateCost,
           slot: existingPack.slot
             ? { slotNumber: existingPack.slot.slotNumber }
             : null,

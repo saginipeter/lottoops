@@ -8,6 +8,7 @@ interface ShiftStats {
   ticketsSold: number;
   revenueTotal: number;
   packsSold: number;
+  profitTotal?: number;
 }
 
 interface Sale {
@@ -40,11 +41,18 @@ export function SalesTracker({ sales, shiftStats }: SalesTrackerProps) {
         <h3 className="text-lg font-bold mb-4">Sales Summary</h3>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-4">
           <div className="rounded-lg bg-green-50 border border-green-200 p-4">
             <p className="text-xs font-medium text-green-600 mb-1">Total Revenue</p>
             <p className="text-2xl font-bold text-green-900">
               ${shiftStats.revenueTotal.toFixed(2)}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+            <p className="text-xs font-medium text-emerald-600 mb-1">Store Profit (5%)</p>
+            <p className="text-2xl font-bold text-emerald-900">
+              ${(shiftStats.profitTotal ?? shiftStats.revenueTotal * 0.05).toFixed(2)}
             </p>
           </div>
 

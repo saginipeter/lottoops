@@ -24,6 +24,7 @@ import {
   removeOfflineScan,
   type OfflineScan,
 } from "@/lib/offline-scan-queue";
+import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 
 interface ShiftData {
   id: string;
@@ -139,6 +140,7 @@ export function LiveScanDashboard({
     ticketsSold: 0,
     revenueTotal: 0,
     packsSold: 0,
+    profitTotal: 0,
   });
   const [autoRefreshActive, setAutoRefreshActive] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
@@ -193,6 +195,7 @@ export function LiveScanDashboard({
         ticketsSold: ticketCount,
         revenueTotal: total,
         packsSold: packCount,
+        profitTotal: calculateTicketSaleSplit(total).profitAmount,
       };
       const timer = window.setTimeout(() => {
         setShiftStats(nextStats);
@@ -209,7 +212,7 @@ export function LiveScanDashboard({
       return () => window.clearTimeout(timer);
     } else {
       const timer = window.setTimeout(() => {
-        setShiftStats({ ticketsSold: 0, revenueTotal: 0, packsSold: 0 });
+        setShiftStats({ ticketsSold: 0, revenueTotal: 0, packsSold: 0, profitTotal: 0 });
         setSales([]);
       }, 0);
       return () => window.clearTimeout(timer);

@@ -145,21 +145,23 @@ export async function POST(req: NextRequest) {
       });
 
       const normalizedExpectedPacks = Number(expectedPacks);
-      if (
-        existingPackCount > 0 ||
-        existingShipment.expectedPacks !== normalizedExpectedPacks
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              `Invoice ${normalizedInvoiceNumber} already has an in-progress shipment with ${existingPackCount} scanned pack(s). ` +
-              "Use a new invoice number, or finish/cancel the existing shipment before starting a new one.",
-          },
-          { status: 409 }
-        );
-      }
+      // Resume the same in-progress shipment instead of blocking the user — this
+      // is the normal path when a receiving session is interrupted (e.g. logout,
+      // refresh) before all packs are scanned.
+      const resumedShipment =
+        existingShipment.expectedPacks === normalizedExpectedPacks
+          ? existingShipment
+          : await prisma.shipment.update({
+              where: { id: existingShipment.id },
+              data: { expectedPacks: normalizedExpectedPacks },
+            });
 
-      return NextResponse.json({ success: true, reused: true, ...existingShipment });
+      return NextResponse.json({
+        success: true,
+        reused: true,
+        existingPackCount,
+        ...resumedShipment,
+      });
     }
 
     let shipment;

@@ -343,6 +343,8 @@ model ShiftLine {
   endingTicket    Int?
   ticketsSold     Int?
   salesAmount     Decimal? @db.Decimal(10, 2)
+  profitAmount    Decimal? @db.Decimal(10, 2) // store profit: salesAmount * 5%
+  stateCost       Decimal? @db.Decimal(10, 2) // amount owed to state: salesAmount * 95%
   pack            Pack     @relation(fields: [packId], references: [id])
   shift           Shift    @relation(fields: [shiftId], references: [id])
 

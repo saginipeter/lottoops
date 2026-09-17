@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { LivePageRefresh } from "@/components/layout/live-page-refresh";
+import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 
 export default async function SalesPage() {
   const session = await getSession();
@@ -108,6 +109,9 @@ export default async function SalesPage() {
     return sum + shiftSales;
   }, 0);
 
+  const currentProfit = calculateTicketSaleSplit(currentSales).profitAmount;
+  const weekProfit = calculateTicketSaleSplit(weekSales).profitAmount;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <LivePageRefresh intervalMs={3000} />
@@ -136,6 +140,11 @@ export default async function SalesPage() {
               hint={`${currentTickets} tickets sold`}
             />
             <StatCard
+              label="Store Profit (5%)"
+              value={formatCurrency(currentProfit)}
+              hint="Current shift store profit"
+            />
+            <StatCard
               label="Active Packs"
               value={String(activePacks)}
               hint="Packs available on display"
@@ -143,7 +152,7 @@ export default async function SalesPage() {
             <StatCard
               label="Last 7 Shift Sales"
               value={formatCurrency(weekSales)}
-              hint={`${recentClosedShifts.length} closed shifts`}
+              hint={`${recentClosedShifts.length} closed shifts \u00b7 profit ${formatCurrency(weekProfit)}`}
             />
           </div>
 
@@ -175,7 +184,8 @@ export default async function SalesPage() {
                         <th className="py-2 pr-4">Game</th>
                         <th className="py-2 pr-4">Pack</th>
                         <th className="py-2 pr-4 text-right">Tickets</th>
-                        <th className="py-2 text-right">Sales</th>
+                        <th className="py-2 pr-4 text-right">Sales</th>
+                        <th className="py-2 text-right">Profit (5%)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -191,6 +201,7 @@ export default async function SalesPage() {
                         const sales = Number(
                           line.salesAmount ?? sold * Number(line.pack.game.price)
                         );
+                        const profit = Number(line.profitAmount ?? calculateTicketSaleSplit(sales).profitAmount);
                         return (
                           <tr key={line.id} className="border-b border-border">
                             <td className="py-2 pr-4 text-text">{line.slotNumber}</td>
@@ -201,8 +212,11 @@ export default async function SalesPage() {
                             <td className="py-2 pr-4 text-right font-medium text-text">
                               {sold}
                             </td>
-                            <td className="py-2 text-right font-medium text-text">
+                            <td className="py-2 pr-4 text-right font-medium text-text">
                               {formatCurrency(sales)}
+                            </td>
+                            <td className="py-2 text-right font-medium text-emerald-700">
+                              {formatCurrency(profit)}
                             </td>
                           </tr>
                         );
