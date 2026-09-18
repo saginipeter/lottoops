@@ -25,16 +25,17 @@ export function getActivationStartingTicket({
   ticketQuantity: number | null;
   firstOrLastTicket?: "FIRST" | "LAST";
 }): number | null {
+  const quantity = Number(ticketQuantity ?? 0);
   const orderedCandidates =
     firstOrLastTicket === "LAST"
       ? [ticketQuantity, firstTicket, currentTicketNumber]
       : [currentTicketNumber, firstTicket, ticketQuantity];
 
-  const firstValid = orderedCandidates
+  const validCandidates = orderedCandidates
     .map((value) => Number(value ?? 0))
-    .find((value) => Number.isFinite(value) && value > 0);
+    .filter((value) => Number.isFinite(value) && value > 0 && (quantity <= 0 || value <= quantity));
 
-  return firstValid ?? null;
+  return validCandidates[0] ?? (quantity > 0 ? quantity : null);
 }
 
 export function getDisplayedCurrentTicket({

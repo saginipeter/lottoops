@@ -73,6 +73,28 @@ test("prefers the real current ticket over zero defaults and stale fallbacks", (
   );
 });
 
+test("activation never picks a stale ticket above the pack quantity", () => {
+  assert.equal(
+    getActivationStartingTicket({
+      currentTicketNumber: 150,
+      firstTicket: 1,
+      ticketQuantity: 50,
+      firstOrLastTicket: "FIRST",
+    }),
+    1
+  );
+
+  assert.equal(
+    getActivationStartingTicket({
+      currentTicketNumber: 150,
+      firstTicket: 1,
+      ticketQuantity: 50,
+      firstOrLastTicket: "LAST",
+    }),
+    50
+  );
+});
+
 test("parses a ticket label with hyphens and trailer digits from the phone camera", () => {
   const parsed = parseBarcode("2769-0024564-001 (050)");
   assert.deepEqual(parsed, {
