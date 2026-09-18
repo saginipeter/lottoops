@@ -102,6 +102,16 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
   const [overrideApproved, setOverrideApproved] = useState(false);
 
   useEffect(() => {
+    const normalizedScannedCount = packs.length;
+    if (Number(shipment.scannedPacks ?? 0) !== normalizedScannedCount) {
+      setShipment((prev) => ({
+        ...prev,
+        scannedPacks: normalizedScannedCount,
+      }));
+    }
+  }, [packs.length, shipment.scannedPacks]);
+
+  useEffect(() => {
     try {
       window.localStorage.setItem(
         RECEIVE_DRAFT_KEY,

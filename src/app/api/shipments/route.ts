@@ -145,16 +145,17 @@ export async function POST(req: NextRequest) {
       });
 
       const normalizedExpectedPacks = Number(expectedPacks);
-      // Resume the same in-progress shipment instead of blocking the user — this
-      // is the normal path when a receiving session is interrupted (e.g. logout,
-      // refresh) before all packs are scanned.
-      const resumedShipment =
-        existingShipment.expectedPacks === normalizedExpectedPacks
-          ? existingShipment
-          : await prisma.shipment.update({
-              where: { id: existingShipment.id },
-              data: { expectedPacks: normalizedExpectedPacks },
-            });
+      const resumedShipment = await prisma.shipment.update({
+        where: { id: existingShipment.id },
+        data: {
+          invoiceNumber: normalizedInvoiceNumber,
+          invoicePhoto: normalizedInvoicePhoto || existingShipment.invoicePhoto,
+          shipmentConfirmationNumber: normalizedConfirmationNumber || existingShipment.shipmentConfirmationNumber,
+          confirmationReceiptPhoto: normalizedConfirmationPhoto || existingShipment.confirmationReceiptPhoto,
+          shipmentDate: parsedShipmentDate ?? existingShipment.shipmentDate,
+          expectedPacks: normalizedExpectedPacks,
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -327,7 +328,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { shipmentId, invoiceNumber, shipmentConfirmationNumber } = await req.json();
+    const { shipmentId, invoiceNumber, invoicePhoto, shipmentConfirmationNumber, confirmationReceiptPhoto, expectedPacks, shipmentDate } = await req.json();
 
     if (!shipmentId || typeof shipmentId !== "string") {
       return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
@@ -366,13 +367,26 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    let parsedShipmentDate: Date | null = null;
+    if (typeof shipmentDate === "string" && shipmentDate.trim()) {
+      const nextDate = new Date(shipmentDate);
+      if (Number.isNaN(nextDate.getTime())) {
+        return NextResponse.json({ error: "Shipment date is invalid." }, { status: 400 });
+      }
+      parsedShipmentDate = nextDate;
+    }
+
     const updated = await prisma.shipment.update({
       where: { id: shipment.id },
       data: {
         invoiceNumber: normalizedInvoiceNumber,
+        ...(invoicePhoto !== undefined ? { invoicePhoto: String(invoicePhoto ?? "").trim() || null } : {}),
         ...(shipmentConfirmationNumber !== undefined
           ? { shipmentConfirmationNumber: String(shipmentConfirmationNumber ?? "").trim() || null }
           : {}),
+        ...(confirmationReceiptPhoto !== undefined ? { confirmationReceiptPhoto: String(confirmationReceiptPhoto ?? "").trim() || null } : {}),
+        ...(expectedPacks !== undefined ? { expectedPacks: Number(expectedPacks) } : {}),
+        ...(shipmentDate !== undefined ? { shipmentDate: parsedShipmentDate } : {}),
       },
     });
 

@@ -66,6 +66,11 @@ export function InvoiceUpload({
     }
   }
 
+  function openFilePicker() {
+    if (uploading) return;
+    fileInputRef.current?.click();
+  }
+
   return (
     <div className="block">
       <input
@@ -92,7 +97,18 @@ export function InvoiceUpload({
         }}
       />
 
-      <div className={`flex ${compact ? "h-32" : "h-48"} flex-col items-center justify-center rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 transition hover:bg-purple-100`}>
+      <div
+        className={`flex ${compact ? "h-32" : "h-48"} flex-col items-center justify-center rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 transition hover:bg-purple-100 cursor-pointer`}
+        onClick={openFilePicker}
+        onKeyDown={(event) => {
+          if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
+            event.preventDefault();
+            openFilePicker();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+      >
         {value ? (
           <div className="relative h-full w-full">
             <Image

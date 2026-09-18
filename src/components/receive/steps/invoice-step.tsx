@@ -18,10 +18,15 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
     if (!shipment.expectedRetailValue || shipment.expectedRetailValue <= 0) return alert("Expected invoice total value must be greater than zero.");
     try {
       const hasExistingShipment = Boolean(shipment.id);
-      const response = await fetch("/api/shipments", { method: hasExistingShipment ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(hasExistingShipment ? { shipmentId: shipment.id } : {}), invoiceNumber: shipment.invoiceNumber, invoicePhoto: shipment.invoicePhoto, shipmentConfirmationNumber: shipment.shipmentConfirmationNumber, confirmationReceiptPhoto: shipment.confirmationReceiptPhoto, shipmentDate: shipment.shipmentDate, expectedPacks: shipment.expectedPacks }) });
+      const response = await fetch("/api/shipments", { method: hasExistingShipment ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(hasExistingShipment ? { shipmentId: shipment.id } : {}), invoiceNumber: shipment.invoiceNumber, invoicePhoto: shipment.invoicePhoto, shipmentConfirmationNumber: shipment.shipmentConfirmationNumber, confirmationReceiptPhoto: shipment.confirmationReceiptPhoto, shipmentDate: shipment.shipmentDate, expectedPacks: shipment.expectedPacks, expectedRetailValue: shipment.expectedRetailValue ?? 0 }) });
       const data = await response.json();
       if (!response.ok) return alert(data.error || "Unable to create shipment.");
-      setShipment((prev) => ({ ...prev, id: data.id, scannedPacks: data.scannedPacks ?? prev.scannedPacks, status: data.status ?? prev.status }));
+      setShipment((prev) => ({
+        ...prev,
+        id: data.id ?? prev.id,
+        scannedPacks: Number(data.existingPackCount ?? data.scannedPacks ?? prev.scannedPacks ?? 0),
+        status: data.status ?? prev.status,
+      }));
       nextStep();
     } catch (error) { console.error(error); alert("Unable to create shipment."); }
   }

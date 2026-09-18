@@ -132,6 +132,12 @@ export function ScanStep({
   }
 
   async function handleAddPack() {
+    if (!shipment.id) {
+      alert("Save the shipment details before scanning packs.");
+      previousStep();
+      return;
+    }
+
     if (atExpectedLimit) {
       alert(`This shipment already reached expected packs (${expectedPacks}).`);
       return;
@@ -343,7 +349,18 @@ export function ScanStep({
             <Button variant="outline" className="w-full" onClick={onCancel}>
               Cancel
             </Button>
-            <Button className="w-full" onClick={nextStep} disabled={packs.length === 0}>
+            <Button
+              className="w-full"
+              onClick={() => {
+                if (!shipment.id) {
+                  alert("Save the shipment details before reviewing it.");
+                  previousStep();
+                  return;
+                }
+                nextStep();
+              }}
+              disabled={packs.length === 0}
+            >
               Next: Review Shipment →
             </Button>
           </div>
