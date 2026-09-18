@@ -281,7 +281,14 @@ export async function POST(req: NextRequest) {
         const beginning = Number(line.beginningTicket ?? 0);
         const currentTicket = existingPack.currentTicketNumber ?? beginning;
 
-        // Enforce one-scan-per-ticket and strict sequence from current ticket.
+        if (currentTicket <= 0) {
+          return NextResponse.json(
+            { error: "Pack is already sold out." },
+            { status: 400 }
+          );
+        }
+
+        // Enforce one-scan-per-ticket and strict sequence from the currently displayed ticket.
         if (scannedTicketNumber !== null && scannedTicketNumber !== currentTicket) {
             await prisma.pack.update({
               where: { id: existingPack.id },

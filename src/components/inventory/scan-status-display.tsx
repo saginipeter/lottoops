@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronUp, ChevronDown, Zap } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { getDisplayedCurrentTicket } from "@/lib/ticket-quantity";
 
 interface PackData {
   id: string;
@@ -43,10 +44,15 @@ export function ScanStatusDisplay({
 
   const currentPack = activePacks[currentPackIndex];
   const beginningForCurrentPack =
-    currentShift?.lines?.find((line) => line.packId === currentPack?.id)
-      ?.beginningTicket ??
+    currentShift?.lines?.find((line) => line.packId === currentPack?.id)?.beginningTicket ??
     Number(currentPack?.ticketQuantity ?? currentPack?.currentTicketNumber ?? 0);
-  const remainingTickets = Number(currentPack?.currentTicketNumber ?? 0);
+  const remainingTickets = currentPack
+    ? getDisplayedCurrentTicket({
+        currentTicketNumber: currentPack.currentTicketNumber ?? null,
+        firstTicket: currentPack.currentTicketNumber ?? null,
+        ticketQuantity: currentPack.ticketQuantity ?? null,
+      })
+    : 0;
   const soldTickets = Math.max(beginningForCurrentPack - remainingTickets, 0);
 
   async function handleMarkCompleted() {

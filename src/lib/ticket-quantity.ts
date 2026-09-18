@@ -36,3 +36,19 @@ export function getActivationStartingTicket({
 
   return firstValid ?? null;
 }
+
+export function getDisplayedCurrentTicket({
+  currentTicketNumber,
+  firstTicket,
+  ticketQuantity,
+}: {
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+}): number {
+  const displayTicket = [currentTicketNumber, firstTicket, ticketQuantity]
+    .map((value) => Number(value ?? 0))
+    .find((value) => Number.isFinite(value) && value >= 0);
+
+  return Number.isFinite(displayTicket) ? displayTicket : 0;
+}

@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import AssignPackDialog from "./assign-pack-dialog";
 import { RemoveActivePackModal } from "@/components/inventory/remove-active-pack-modal";
+import { getDisplayedCurrentTicket } from "@/lib/ticket-quantity";
 
 interface SlotPack {
   id: string;
@@ -57,9 +58,13 @@ export default function DisplaySlotCard({
   const firstTicket = slot.pack.firstTicket ?? 0;
   const totalTickets = ticketQuantity > 0 ? ticketQuantity : firstTicket;
   const beginningTicket = firstTicket > 0 ? firstTicket : totalTickets;
-  const currentTicketNumber = slot.pack.currentTicketNumber ?? beginningTicket;
+  const currentTicketNumber = getDisplayedCurrentTicket({
+    currentTicketNumber: slot.pack.currentTicketNumber ?? null,
+    firstTicket: firstTicket > 0 ? firstTicket : null,
+    ticketQuantity: ticketQuantity > 0 ? ticketQuantity : null,
+  });
   const soldCount = Math.max(beginningTicket - currentTicketNumber, 0);
-  const remaining = Math.max(totalTickets - soldCount, 0);
+  const remaining = Math.max(currentTicketNumber, 0);
   const percent = totalTickets > 0 ? (remaining / totalTickets) * 100 : 0;
 
   return (
