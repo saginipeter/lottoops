@@ -62,6 +62,7 @@ export default function DisplaySlotCard({
     firstTicket: firstTicket > 0 ? firstTicket : null,
     ticketQuantity: ticketQuantity > 0 ? ticketQuantity : null,
   });
+  const nextTicket = Math.max(currentTicketNumber - 1, 0);
   const remaining = Math.max(currentTicketNumber, 0);
   const percent = totalTickets > 0 ? (remaining / totalTickets) * 100 : 0;
 
@@ -80,13 +81,23 @@ export default function DisplaySlotCard({
         <p className="text-xs text-text-secondary">Pack {slot.pack.packNumber ?? "N/A"}</p>
       </div>
 
-      <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
-          Current Scratch Card
-        </p>
-        <p className="text-3xl font-bold tracking-tight text-text">
-          {currentTicketNumber}
-        </p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-md border border-border bg-muted/30 p-3">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
+            Current ticket
+          </p>
+          <p className="text-3xl font-bold tracking-tight text-text">
+            {currentTicketNumber}
+          </p>
+        </div>
+        <div className="rounded-md border border-border bg-muted/30 p-3">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
+            Next ticket
+          </p>
+          <p className="text-3xl font-bold tracking-tight text-text">
+            {nextTicket}
+          </p>
+        </div>
       </div>
 
       <div className="mt-4">

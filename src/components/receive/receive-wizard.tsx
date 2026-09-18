@@ -58,7 +58,7 @@ function createDefaultShipment(): ShipmentState {
     shipmentDate: new Date().toISOString().split("T")[0],
     receivedBy: "",
     expectedPacks: 0,
-    expectedRetailValue: 0,
+    expectedRetailValue: undefined,
     scannedPacks: 0,
     status: "IN_PROGRESS",
   };

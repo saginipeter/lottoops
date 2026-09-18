@@ -63,7 +63,6 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, kioskToken }:
 
   const summary = useMemo(() => ({
     totalRemaining: slots.reduce((sum, slot) => sum + slot.remaining, 0),
-    totalSold: slots.reduce((sum, slot) => sum + slot.sold, 0),
   }), [slots]);
 
   const statusLabel = stale ? "Updates delayed" : refreshing ? "Updating" : "Live display";
@@ -90,10 +89,9 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, kioskToken }:
         </div>
       </header>
 
-      <div className="mb-3 grid grid-cols-3 gap-2 sm:mb-5 sm:gap-3">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:mb-5 sm:gap-3">
         <Summary label="Games on display" value={slots.length} />
         <Summary label="Tickets remaining" value={summary.totalRemaining} />
-        <Summary label="Tickets sold" value={summary.totalSold} />
       </div>
 
       {stale && <div className="mb-3 flex items-center gap-2 border border-amber-400/50 bg-amber-300/10 px-3 py-2 text-xs text-amber-100 sm:mb-4"><CircleAlert size={15} /><span><strong>Updates delayed.</strong> Showing the last verified board.</span></div>}
@@ -124,8 +122,9 @@ function DisplayCard({ slot, kioskToken, broken, onBroken }: { slot: TvDisplaySl
       <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-black/65 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white"><span>Slot {slot.slotNumber}</span><span>${slot.ticketPrice.toFixed(0)}</span></div>
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2 pb-2 pt-7"><h3 className="truncate text-sm font-black leading-tight text-white sm:text-base">{slot.gameName}</h3><p className="text-[9px] font-semibold uppercase tracking-wider text-white/65">Game {slot.gameNumber}</p></div>
     </div>
-    <div className="grid grid-cols-[1.2fr_0.8fr] border-t border-white/15">
-      <div className="bg-fuchsia-400/15 px-2 py-2 sm:px-3"><p className="text-[8px] font-bold uppercase tracking-wider text-fuchsia-100/65">Next ticket</p><p className="text-xl font-black tabular-nums text-white sm:text-2xl">{slot.nextTicket}</p></div>
+    <div className="grid grid-cols-3 border-t border-white/15">
+      <div className="bg-fuchsia-400/15 px-2 py-2 sm:px-3"><p className="text-[8px] font-bold uppercase tracking-wider text-fuchsia-100/65">Current</p><p className="text-xl font-black tabular-nums text-white sm:text-2xl">{slot.currentTicket}</p></div>
+      <div className="bg-white/10 px-2 py-2 sm:px-3"><p className="text-[8px] font-bold uppercase tracking-wider text-white/60">Next</p><p className="text-xl font-black tabular-nums text-white sm:text-2xl">{slot.nextTicket}</p></div>
       <div className="bg-white/5 px-2 py-2 text-right sm:px-3"><p className="text-[8px] font-bold uppercase tracking-wider text-white/45">Remaining</p><p className="text-xl font-black tabular-nums text-emerald-300 sm:text-2xl">{slot.remaining}</p></div>
     </div>
     <div className="h-1 bg-white/10"><div className="h-1 bg-fuchsia-300" style={{ width: `${Math.min(progress, 100)}%` }} /></div>

@@ -93,17 +93,17 @@ export function BarcodeScanner({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
+    if (e.key !== "Enter") return;
+
+    const cleaned = normalizeBarcodeInput(barcode ?? "");
+    if (!cleaned) {
       e.preventDefault();
-
-      const cleaned = barcode.replace(/\s/g, "");
-
-      if (cleaned.length >= 11) {
-        onChange(cleaned);
-      }
-
-      inputRef.current?.select();
+      return;
     }
+
+    e.preventDefault();
+    onChange(cleaned);
+    inputRef.current?.blur();
   }
 
   return (
