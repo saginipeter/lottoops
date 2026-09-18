@@ -57,7 +57,6 @@ export default function DisplaySlotCard({
   const ticketQuantity = slot.pack.ticketQuantity ?? 0;
   const firstTicket = slot.pack.firstTicket ?? 0;
   const totalTickets = ticketQuantity > 0 ? ticketQuantity : firstTicket;
-  const beginningTicket = firstTicket > 0 ? firstTicket : totalTickets;
   const currentTicketNumber = getDisplayedCurrentTicket({
     currentTicketNumber: slot.pack.currentTicketNumber ?? null,
     firstTicket: firstTicket > 0 ? firstTicket : null,
