@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
 import { getApiSession } from "@/lib/api-session";
 
 export async function POST(req: NextRequest) {
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
         data: {
           status: "ACTIVE",
           activatedAt: new Date(),
-          currentTicketNumber: pack.firstTicket ?? 0,
+          currentTicketNumber: remainingTicketsFromStartingTicket(pack.firstTicket ?? 1, pack.ticketQuantity ?? 0),
         },
       }),
       prisma.displaySlot.update({

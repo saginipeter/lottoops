@@ -10,6 +10,7 @@ import { isReadOnly } from "@/lib/permissions";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 import { getValidTicketState } from "@/lib/ticket-quantity";
 import { Prisma } from "@prisma/client";
+import { expectedPhysicalTicket } from "@/lib/core-validation";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -297,6 +298,12 @@ export async function POST(req: NextRequest) {
           ? normalizedTicketState.currentTicketNumber
           : beginning;
 
+        const expectedPhysical = expectedPhysicalTicket(
+          Number(existingPack.firstTicket ?? beginning),
+          Number(existingPack.ticketQuantity ?? existingPack.game.ticketsPerPack ?? beginning),
+          Number(currentTicket),
+        );
+
         if (currentTicket <= 0) {
           return NextResponse.json(
             { error: "Pack is already sold out." },
@@ -304,13 +311,14 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Enforce one-scan-per-ticket and strict sequence from the currently displayed ticket.
-        if (scannedTicketNumber !== null && scannedTicketNumber !== currentTicket) {
+        // Enforce one-scan-per-ticket and strict physical sequence. currentTicketNumber
+        // is a descending remaining count; it is not the barcode ticket suffix.
+        if (scannedTicketNumber !== null && expectedPhysical !== null && scannedTicketNumber !== expectedPhysical) {
             await prisma.pack.update({
               where: { id: existingPack.id },
               data: {
                 sequenceLocked: true,
-                sequenceLockExpectedTicket: currentTicket,
+                sequenceLockExpectedTicket: expectedPhysical,
                 sequenceLockScannedTicket: scannedTicketNumber,
                 sequenceLockBarcode: normalizedSerial,
                 sequenceLockedAt: new Date(),
@@ -322,13 +330,13 @@ export async function POST(req: NextRequest) {
               type: "EXPECTED_TICKET_MISMATCH",
               entityId: existingPack.id,
               title: "Expected ticket mismatch",
-              detail: `Pack ${existingPack.serialNumber} expected ticket ${currentTicket}, but ticket ${scannedTicketNumber} was scanned.`,
+              detail: `Pack ${existingPack.serialNumber} expected ticket ${expectedPhysical}, but ticket ${scannedTicketNumber} was scanned.`,
               severity: "HIGH",
             });
             return NextResponse.json(
               {
                 code: "SEQUENCE_LOCKED",
-                error: `Out-of-sequence scan. Expected ticket ${currentTicket}, but scanned ticket ${scannedTicketNumber}. Pack locked pending manager review.`,
+              error: `Out-of-sequence scan. Expected ticket ${expectedPhysical}, but scanned ticket ${scannedTicketNumber}. Pack locked pending manager review.`,
               },
               { status: 409 }
             );

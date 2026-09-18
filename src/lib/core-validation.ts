@@ -8,6 +8,21 @@ export function validateEndingTicket(beginningTicket: number, endingTicket: numb
   return null;
 }
 
+/** Converts a physical starting ticket into the descending remaining counter used by packs. */
+export function remainingTicketsFromStartingTicket(startingTicket: number, ticketsPerPack: number): number {
+  if (!Number.isInteger(startingTicket) || !Number.isInteger(ticketsPerPack) || startingTicket < 1 || ticketsPerPack < startingTicket) return 0;
+  return ticketsPerPack - startingTicket + 1;
+}
+
+/** Returns the physical barcode ticket expected next from the remaining counter. */
+export function expectedPhysicalTicket(firstTicket: number, ticketsPerPack: number, remainingTickets: number): number | null {
+  if (!Number.isInteger(firstTicket) || !Number.isInteger(ticketsPerPack) || !Number.isInteger(remainingTickets)) return null;
+  if (firstTicket < 1 || ticketsPerPack < 1 || remainingTickets < 0 || remainingTickets > ticketsPerPack) return null;
+  const initialRemaining = ticketsPerPack - firstTicket + 1;
+  if (remainingTickets > initialRemaining) return null;
+  return firstTicket + (initialRemaining - remainingTickets);
+}
+
 export function findUnassignedActivePacks(
   packs: Array<{ serialNumber: string; slot: unknown | null }>
 ): string[] {

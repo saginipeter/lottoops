@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
 import { getApiSession } from "@/lib/api-session";
 
 interface ActivateRequestBody {
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
         where: { id: pack.id },
         data: {
           status: "ACTIVE",
-          currentTicketNumber: startingTicketNumber,
+          currentTicketNumber: remainingTicketsFromStartingTicket(startingTicketNumber, pack.ticketQuantity ?? pack.game.ticketsPerPack),
           activatedAt: new Date(),
         },
       }),
