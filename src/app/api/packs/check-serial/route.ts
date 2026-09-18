@@ -121,22 +121,18 @@ export async function POST(req: NextRequest) {
       if (normalizedSerial.length >= 11) {
         const parsedGameNumber = normalizedSerial.substring(0, 4);
         const parsedPackNumber = normalizedSerial.substring(4, 11);
-        const matchingPackRows = await prisma.$queryRawUnsafe(
-          `SELECT id FROM packs
-           WHERE "storeId" = $1 AND status = 'ACTIVE'
-             AND regexp_replace(COALESCE("gameNumber", ''), '[^0-9]', '', 'g') = $2
-             AND regexp_replace(COALESCE("packNumber", ''), '[^0-9]', '', 'g') = $3
-           ORDER BY "activatedAt" DESC NULLS LAST LIMIT 1`,
-          session.storeId,
-          parsedGameNumber,
-          parsedPackNumber,
-        ) as Array<{ id: string }>;
-        if (matchingPackRows[0]) {
-          existingPack = await prisma.pack.findUnique({
-            where: { id: matchingPackRows[0].id },
-            include: { game: true, slot: true },
-          });
-        }
+        const candidatePacks = await prisma.pack.findMany({
+          where: {
+            storeId: session.storeId,
+            status: "ACTIVE",
+            gameNumber: { in: [parsedGameNumber, parsedGameNumber.replace(/^0+/, "")] },
+          },
+          include: { game: true, slot: true },
+          orderBy: { activatedAt: "desc" },
+        });
+        existingPack = candidatePacks.find((pack: typeof candidatePacks[number]) =>
+          String(pack.packNumber ?? "").replace(/\D/g, "") === parsedPackNumber
+        ) ?? null;
       }
     }
 
