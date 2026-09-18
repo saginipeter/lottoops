@@ -15,11 +15,19 @@ function resolveSellableTicket(pack: {
   firstTicket: number | null;
   ticketQuantity: number | null;
 }) {
-  const candidates = [pack.currentTicketNumber, pack.firstTicket, pack.ticketQuantity]
-    .map((value) => Number(value ?? 0))
-    .filter((value) => Number.isFinite(value) && value > 0);
+  const quantity = Number(pack.ticketQuantity ?? 0);
+  const candidates = [
+    Number(pack.currentTicketNumber ?? 0),
+    Number(pack.firstTicket ?? 0),
+    quantity,
+  ].filter((value) => Number.isFinite(value) && value > 0);
 
-  return candidates.length > 0 ? candidates[0] : null;
+  if (quantity > 0) {
+    const inRange = candidates.find((value) => value <= quantity);
+    if (inRange) return inRange;
+  }
+
+  return candidates[0] ?? null;
 }
 
 function resolveScannedTicketNumber(normalizedSerial: string) {
