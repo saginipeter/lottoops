@@ -63,7 +63,6 @@ export default function DisplaySlotCard({
     firstTicket: firstTicket > 0 ? firstTicket : null,
     ticketQuantity: ticketQuantity > 0 ? ticketQuantity : null,
   });
-  const soldCount = Math.max(beginningTicket - currentTicketNumber, 0);
   const remaining = Math.max(currentTicketNumber, 0);
   const percent = totalTickets > 0 ? (remaining / totalTickets) * 100 : 0;
 
