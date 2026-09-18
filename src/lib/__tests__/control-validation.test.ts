@@ -62,6 +62,15 @@ test("prefers the real current ticket over zero defaults and stale fallbacks", (
     }),
     1
   );
+
+  assert.equal(
+    getDisplayedCurrentTicket({
+      currentTicketNumber: 150,
+      firstTicket: 1,
+      ticketQuantity: 50,
+    }),
+    1
+  );
 });
 
 test("parses a ticket label with hyphens and trailer digits from the phone camera", () => {
