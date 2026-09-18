@@ -46,13 +46,9 @@ export function getDisplayedCurrentTicket({
   firstTicket: number | null;
   ticketQuantity: number | null;
 }): number {
-  const candidates = [currentTicketNumber, firstTicket, ticketQuantity].map((value) =>
-    Number(value ?? 0)
-  );
-
-  const displayTicket = candidates.find(
-    (value) => Number.isFinite(value) && value >= 0
-  );
+  const displayTicket = [currentTicketNumber, firstTicket, ticketQuantity]
+    .map((value) => Number(value ?? 0))
+    .find((value) => Number.isFinite(value) && value > 0);
 
   return typeof displayTicket === "number" ? displayTicket : 0;
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { canAuthorizeCorrection, canSelfResolveSequenceLock } from "@/lib/control-validation";
 import { parseBarcode } from "@/lib/barcode";
-import { getActivationStartingTicket, getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
+import { getActivationStartingTicket, getDisplayedCurrentTicket, getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 test("only the exact expected ticket can self-resolve a sequence lock", () => {
   assert.equal(canSelfResolveSequenceLock(true, 42, 42), true);
@@ -39,6 +39,26 @@ test("selling from the last ticket starts at the pack quantity instead of 1", ()
       firstTicket: 1,
       ticketQuantity: 150,
       firstOrLastTicket: "FIRST",
+    }),
+    1
+  );
+});
+
+test("prefers the real current ticket over zero defaults and stale fallbacks", () => {
+  assert.equal(
+    getDisplayedCurrentTicket({
+      currentTicketNumber: 150,
+      firstTicket: 1,
+      ticketQuantity: 150,
+    }),
+    150
+  );
+
+  assert.equal(
+    getDisplayedCurrentTicket({
+      currentTicketNumber: 0,
+      firstTicket: 1,
+      ticketQuantity: 150,
     }),
     1
   );
