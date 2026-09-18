@@ -73,3 +73,35 @@ export function getDisplayedCurrentTicket({
 
   return 0;
 }
+
+export function getValidTicketState({
+  currentTicketNumber,
+  firstTicket,
+  ticketQuantity,
+}: {
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+}): { currentTicketNumber: number; firstTicket: number; ticketQuantity: number } {
+  const quantity = Number(ticketQuantity ?? 0);
+  const first = Number(firstTicket ?? 0);
+  const current = Number(currentTicketNumber ?? 0);
+
+  const resolvedQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+  const resolvedFirstTicket = Number.isFinite(first) && first > 0 ? first : 0;
+  const resolvedCurrentTicket =
+    Number.isFinite(current) && current > 0
+      ? current
+      : resolvedFirstTicket;
+
+  const safeCurrent =
+    resolvedQuantity > 0 && resolvedCurrentTicket > resolvedQuantity
+      ? resolvedQuantity
+      : resolvedCurrentTicket;
+
+  return {
+    currentTicketNumber: safeCurrent,
+    firstTicket: resolvedFirstTicket,
+    ticketQuantity: resolvedQuantity,
+  };
+}
