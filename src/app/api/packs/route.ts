@@ -97,8 +97,23 @@ export async function POST(req: NextRequest) {
     // the default supplied by the receiving UI.
     const normalizedTicketQuantity = requestedTicketQuantity;
 
-    // Prevent duplicate scans
-    const existing = await prisma.pack.findUnique({
+    // Prevent duplicate scans within the current shipment draft.
+    const existingForShipment = await prisma.pack.findFirst({
+      where: {
+        storeId: session.storeId,
+        shipmentId,
+        serialNumber: barcode,
+      },
+    });
+
+    if (existingForShipment) {
+      return NextResponse.json(
+        { error: "This pack is already in the current shipment." },
+        { status: 409 }
+      );
+    }
+
+    const existingAcrossStore = await prisma.pack.findUnique({
       where: {
         storeId_serialNumber: {
           storeId: session.storeId,
@@ -107,9 +122,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (existing) {
+    if (existingAcrossStore && existingAcrossStore.shipmentId !== shipmentId) {
       return NextResponse.json(
-        { error: "This pack has already been scanned." },
+        {
+          error: "This pack already exists on another shipment or was previously scanned for this store.",
+        },
         { status: 409 }
       );
     }

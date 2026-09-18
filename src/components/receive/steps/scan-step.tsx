@@ -146,6 +146,11 @@ export function ScanStep({
     const cleanedBarcode = barcode.replace(/\D/g, "");
     const normalizedBarcode = cleanedBarcode.slice(0, 11);
 
+    if (packs.some((pack) => pack.serialNumber === normalizedBarcode)) {
+      alert("This pack is already in the current shipment draft.");
+      return;
+    }
+
     if (!gameNumber || !packNumber) return;
     if (normalizedBarcode.length < 11) {
       alert("Barcode must contain at least 11 digits for receiving.");
