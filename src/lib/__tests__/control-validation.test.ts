@@ -103,3 +103,11 @@ test("parses a ticket label with hyphens and trailer digits from the phone camer
     firstTicket: "001",
   });
 });
+
+test("parses the compact active-stock barcode 27690025564001", () => {
+  assert.deepEqual(parseBarcode("27690025564001"), {
+    gameNumber: "2769",
+    packNumber: "0025564",
+    firstTicket: "001",
+  });
+});

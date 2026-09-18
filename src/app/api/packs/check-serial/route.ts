@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
 
     // Check if pack already exists by exact serial first
     let existingPack = await prisma.pack.findFirst({
-      where: { storeId: session.storeId, serialNumber },
+      where: { storeId: session.storeId, serialNumber: { in: [serialNumber, normalizedSerial] } },
       include: {
         game: true,
         slot: true,
@@ -121,22 +121,22 @@ export async function POST(req: NextRequest) {
       if (normalizedSerial.length >= 11) {
         const parsedGameNumber = normalizedSerial.substring(0, 4);
         const parsedPackNumber = normalizedSerial.substring(4, 11);
-        existingPack = await prisma.pack.findFirst({
-          where: {
-            storeId: session.storeId,
-            status: "ACTIVE",
-            gameNumber: parsedGameNumber,
-            packNumber: parsedPackNumber,
-            slot: { isNot: null },
-          },
-          include: {
-            game: true,
-            slot: true,
-          },
-          orderBy: {
-            activatedAt: "desc",
-          },
-        });
+        const matchingPackRows = await prisma.$queryRawUnsafe(
+          `SELECT id FROM packs
+           WHERE "storeId" = $1 AND status = 'ACTIVE'
+             AND regexp_replace(COALESCE("gameNumber", ''), '[^0-9]', '', 'g') = $2
+             AND regexp_replace(COALESCE("packNumber", ''), '[^0-9]', '', 'g') = $3
+           ORDER BY "activatedAt" DESC NULLS LAST LIMIT 1`,
+          session.storeId,
+          parsedGameNumber,
+          parsedPackNumber,
+        ) as Array<{ id: string }>;
+        if (matchingPackRows[0]) {
+          existingPack = await prisma.pack.findUnique({
+            where: { id: matchingPackRows[0].id },
+            include: { game: true, slot: true },
+          });
+        }
       }
     }
 
