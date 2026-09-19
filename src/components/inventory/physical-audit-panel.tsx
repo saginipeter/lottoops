@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
@@ -17,6 +18,7 @@ interface AuditState {
 }
 
 export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string; audit?: AuditState }) {
+  const router = useRouter();
   const [phase, setPhase] = useState<"beginning" | "ending">("beginning");
   const [barcode, setBarcode] = useState("");
   const [ticketNumber, setTicketNumber] = useState("");
@@ -37,7 +39,11 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
     const response = await fetch("/api/inventory-audits/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id, serialNumber: barcode.trim(), ticketNumber: Number(ticketNumber), phase }) });
     const data = await response.json();
     setMessage(response.ok ? "Audit scan recorded." : data.error ?? "Unable to record audit scan.");
-    if (response.ok) { setBarcode(""); setTicketNumber(""); }
+    if (response.ok) {
+      setBarcode("");
+      setTicketNumber("");
+      router.refresh();
+    }
     inputRef.current?.focus();
   }
 

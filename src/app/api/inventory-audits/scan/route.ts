@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { recordShiftParticipant } from "@/lib/shift-participants";
+import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 
 interface AuditLine {
   id: string;
@@ -30,12 +31,44 @@ export async function POST(request: NextRequest) {
     const normalized = String(serialNumber).trim();
     const pack = await prisma.pack.findFirst({
       where: { storeId: session.storeId, serialNumber: normalized },
-      select: { id: true, ticketQuantity: true, game: { select: { ticketsPerPack: true } } },
+      select: {
+        id: true,
+        currentTicketNumber: true,
+        firstTicket: true,
+        ticketQuantity: true,
+        game: { select: { ticketsPerPack: true } },
+      },
     });
     if (!pack) return NextResponse.json({ error: "Pack is not part of this store's audit." }, { status: 404 });
 
-    const line = (audit.lines as AuditLine[]).find((item) => item.packId === pack.id);
-    if (!line) return NextResponse.json({ error: "Pack is not part of this shift audit." }, { status: 409 });
+    let line = (audit.lines as AuditLine[]).find((item) => item.packId === pack.id);
+    if (!line) {
+      if (phase !== "beginning") {
+        return NextResponse.json(
+          { error: "Record this pack in the beginning audit before its ending audit." },
+          { status: 409 }
+        );
+      }
+      const shiftLine = await prisma.shiftLine.findUnique({
+        where: { shiftId_packId: { shiftId: audit.shiftId, packId: pack.id } },
+        select: { slotNumber: true },
+      });
+      if (!shiftLine) {
+        return NextResponse.json({ error: "Pack is not part of this shift audit." }, { status: 409 });
+      }
+      line = await prisma.inventoryAuditLine.create({
+        data: {
+          auditId: audit.id,
+          packId: pack.id,
+          slotNumber: shiftLine.slotNumber,
+          expectedTicket: getAuditPhysicalTicket({
+            currentTicketNumber: pack.currentTicketNumber,
+            firstTicket: pack.firstTicket,
+            ticketQuantity: pack.ticketQuantity ?? pack.game.ticketsPerPack,
+          }),
+        },
+      });
+    }
 
     const physicalTicket = Number(ticketNumber);
     if (!Number.isInteger(physicalTicket) || physicalTicket < 0) {
