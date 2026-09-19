@@ -12,6 +12,7 @@ interface PackData {
   gameNumber: string;
   status: string;
   currentTicketNumber?: number;
+  firstTicket?: number;
   ticketQuantity?: number;
   ticketPrice?: number;
   slot?: { slotNumber: string };
@@ -49,7 +50,7 @@ export function ScanStatusDisplay({
   const remainingTickets = currentPack
     ? getDisplayedCurrentTicket({
         currentTicketNumber: currentPack.currentTicketNumber ?? null,
-        firstTicket: currentPack.currentTicketNumber ?? null,
+        firstTicket: currentPack.firstTicket ?? null,
         ticketQuantity: currentPack.ticketQuantity ?? null,
       })
     : 0;
@@ -57,7 +58,7 @@ export function ScanStatusDisplay({
   const displayedLeft = (pack: PackData) =>
     getDisplayedCurrentTicket({
       currentTicketNumber: pack.currentTicketNumber ?? null,
-      firstTicket: pack.currentTicketNumber ?? null,
+      firstTicket: pack.firstTicket ?? null,
       ticketQuantity: pack.ticketQuantity ?? null,
     });
 

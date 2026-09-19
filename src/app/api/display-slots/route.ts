@@ -3,17 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { canManageDisplay } from "@/lib/permissions";
 import { ensureDisplaySlots } from "@/lib/services/display-slots";
+import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
   firstTicket: number | null;
   ticketQuantity: number | null;
 }) {
-  const candidates = [pack.currentTicketNumber, pack.firstTicket, pack.ticketQuantity]
-    .map((value) => Number(value ?? 0))
-    .filter((value) => Number.isFinite(value) && value > 0);
-
-  return candidates.length > 0 ? candidates[0] : null;
+  const currentTicket = getSafeCurrentTicket(pack);
+  return currentTicket > 0 ? currentTicket : null;
 }
 
 // GET all display slots

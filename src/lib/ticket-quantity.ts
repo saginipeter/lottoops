@@ -54,17 +54,17 @@ export function getSafeCurrentTicket({
   const finiteCurrent = Number.isFinite(current) && current > 0 ? current : 0;
   const finiteFirst = Number.isFinite(first) && first > 0 ? first : 0;
   const finiteQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+  const initialRemaining =
+    finiteFirst > 0 && finiteQuantity >= finiteFirst
+      ? finiteQuantity - finiteFirst + 1
+      : finiteQuantity;
 
-  if (finiteCurrent > 0 && finiteQuantity > 0 && finiteCurrent <= finiteQuantity) {
+  if (finiteCurrent > 0 && initialRemaining > 0 && finiteCurrent <= initialRemaining) {
     return finiteCurrent;
   }
 
-  if (finiteFirst > 0 && finiteQuantity > 0 && finiteFirst <= finiteQuantity) {
-    return finiteFirst;
-  }
-
-  if (finiteCurrent > 0 && finiteQuantity > 0) {
-    return finiteQuantity;
+  if (initialRemaining > 0) {
+    return initialRemaining;
   }
 
   if (finiteCurrent > 0) {
@@ -73,10 +73,6 @@ export function getSafeCurrentTicket({
 
   if (finiteFirst > 0) {
     return finiteFirst;
-  }
-
-  if (finiteQuantity > 0) {
-    return finiteQuantity;
   }
 
   return 0;

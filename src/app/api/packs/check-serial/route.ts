@@ -17,19 +17,8 @@ function resolveSellableTicket(pack: {
   firstTicket: number | null;
   ticketQuantity: number | null;
 }) {
-  const quantity = Number(pack.ticketQuantity ?? 0);
-  const candidates = [
-    Number(pack.currentTicketNumber ?? 0),
-    Number(pack.firstTicket ?? 0),
-    quantity,
-  ].filter((value) => Number.isFinite(value) && value > 0);
-
-  if (quantity > 0) {
-    const inRange = candidates.find((value) => value <= quantity);
-    if (inRange) return inRange;
-  }
-
-  return candidates[0] ?? null;
+  const currentTicket = getSafeCurrentTicket(pack);
+  return currentTicket > 0 ? currentTicket : null;
 }
 
 function resolveScannedTicketNumber(normalizedSerial: string) {
@@ -366,13 +355,13 @@ export async function POST(req: NextRequest) {
             UPDATE packs
             SET "currentTicketNumber" = $1, status = $2
             WHERE id = $3
-              AND "currentTicketNumber" = $4
+              AND "currentTicketNumber" IS NOT DISTINCT FROM $4
               AND status = 'ACTIVE'
             `,
             endingTicket,
             soldOut ? "SOLD_OUT" : "ACTIVE",
             existingPack.id,
-            currentTicket
+            existingPack.currentTicketNumber
           );
           if (updatedRows !== 1) {
             throw new Error("CONCURRENT_TICKET_SCAN");

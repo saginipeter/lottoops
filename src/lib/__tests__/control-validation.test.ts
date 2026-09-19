@@ -65,7 +65,7 @@ test("prefers the real current ticket over zero defaults and stale fallbacks", (
       firstTicket: 1,
       ticketQuantity: 150,
     }),
-    1
+    150
   );
 
   assert.equal(
@@ -74,7 +74,7 @@ test("prefers the real current ticket over zero defaults and stale fallbacks", (
       firstTicket: 1,
       ticketQuantity: 50,
     }),
-    1
+    50
   );
 });
 
@@ -107,7 +107,7 @@ test("stale current tickets are ignored in favor of the real first ticket", () =
       firstTicket: 1,
       ticketQuantity: 50,
     }),
-    1
+    50
   );
 
   assert.equal(
@@ -116,7 +116,18 @@ test("stale current tickets are ignored in favor of the real first ticket", () =
       firstTicket: 1,
       ticketQuantity: 50,
     }),
-    1
+    50
+  );
+});
+
+test("converts a non-one physical starting ticket to remaining inventory", () => {
+  assert.equal(
+    getSafeCurrentTicket({
+      currentTicketNumber: 150,
+      firstTicket: 25,
+      ticketQuantity: 50,
+    }),
+    26
   );
 });
 

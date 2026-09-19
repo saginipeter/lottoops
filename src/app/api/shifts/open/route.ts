@@ -5,6 +5,7 @@ import { findUnassignedActivePacks } from "@/lib/core-validation";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { recordShiftParticipant } from "@/lib/shift-participants";
 import { isReadOnly } from "@/lib/permissions";
+import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
 
 interface ActivePack {
   id: string;
@@ -20,11 +21,8 @@ function resolveSellableTicket(pack: {
   firstTicket: number | null;
   ticketQuantity: number | null;
 }) {
-  const candidates = [pack.currentTicketNumber, pack.firstTicket, pack.ticketQuantity]
-    .map((value) => Number(value ?? 0))
-    .filter((value) => Number.isFinite(value) && value > 0);
-
-  return candidates.length > 0 ? candidates[0] : null;
+  const currentTicket = getSafeCurrentTicket(pack);
+  return currentTicket > 0 ? currentTicket : null;
 }
 
 async function ensureShiftTerminalSchema() {
@@ -170,7 +168,7 @@ export async function POST(req: NextRequest) {
       for (const pack of typedActivePacks) {
         const beginningTicket = resolveSellableTicket(pack);
         if (beginningTicket === null) continue;
-        if (pack.currentTicketNumber && Number(pack.currentTicketNumber) > 0) continue;
+        if (Number(pack.currentTicketNumber ?? 0) === beginningTicket) continue;
 
         repairOps.push(
           prisma.pack.update({
