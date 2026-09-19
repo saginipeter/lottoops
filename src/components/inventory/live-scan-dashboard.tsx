@@ -25,7 +25,6 @@ import {
   type OfflineScan,
 } from "@/lib/offline-scan-queue";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
-import { getDisplayedCurrentTicket } from "@/lib/ticket-quantity";
 
 interface ShiftData {
   id: string;
