@@ -183,9 +183,14 @@ export async function POST(req: NextRequest) {
             shift_id TEXT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
             pack_id TEXT NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
             ticket_barcode TEXT NOT NULL,
+            scanned_by_id TEXT REFERENCES users(id) ON DELETE SET NULL,
             scanned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE(store_id, shift_id, ticket_barcode)
           )
+        `);
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE live_scan_events
+          ADD COLUMN IF NOT EXISTS scanned_by_id TEXT REFERENCES users(id) ON DELETE SET NULL
         `);
 
         await ensureShiftTerminalSchema();
@@ -371,14 +376,15 @@ export async function POST(req: NextRequest) {
 
           await tx.$executeRawUnsafe(
             `
-            INSERT INTO live_scan_events (id, store_id, shift_id, pack_id, ticket_barcode)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO live_scan_events (id, store_id, shift_id, pack_id, ticket_barcode, scanned_by_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
             `,
             scanEventId,
             session.storeId,
             openShift.id,
             existingPack.id,
-            normalizedSerial
+            normalizedSerial,
+            session.userId
           );
           await tx.shiftLine.update({
             where: { id: line.id },

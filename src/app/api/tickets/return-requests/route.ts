@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { isManagerOrAbove } from "@/lib/permissions";
+import { createInventoryNotification } from "@/lib/inventory-notifications";
+import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
+import { canEmployeeSelfReturn } from "@/lib/ticket-return";
+import { Prisma } from "@prisma/client";
+
+interface LatestScanRow {
+  id: string;
+  ticketBarcode: string;
+  scannedAt: Date;
+  scannedById: string | null;
+}
 
 let schemaReady = false;
 
@@ -60,10 +71,21 @@ export async function POST(req: NextRequest) {
     if (!shiftId) {
       return NextResponse.json({ error: "shiftId is required." }, { status: 400 });
     }
+    if (reason.length < 6) {
+      return NextResponse.json({ error: "A return reason of at least 6 characters is required." }, { status: 400 });
+    }
 
     const pack = await prisma.pack.findFirst({
       where: { id: packId, storeId: session.storeId },
-      select: { id: true, serialNumber: true },
+      select: {
+        id: true,
+        serialNumber: true,
+        status: true,
+        currentTicketNumber: true,
+        firstTicket: true,
+        ticketQuantity: true,
+        game: { select: { price: true } },
+      },
     });
     if (!pack) {
       return NextResponse.json({ error: "Pack not found." }, { status: 404 });
@@ -71,13 +93,155 @@ export async function POST(req: NextRequest) {
 
     const shift = await prisma.shift.findFirst({
       where: { id: shiftId, storeId: session.storeId },
-      select: { id: true },
+      include: { lines: { where: { packId }, take: 1 } },
     });
     if (!shift) {
       return NextResponse.json({ error: "Shift not found." }, { status: 404 });
     }
 
     await ensureSchema();
+
+    const latestScans = (await prisma.$queryRawUnsafe(
+      `
+      SELECT
+        id,
+        ticket_barcode AS "ticketBarcode",
+        scanned_at AS "scannedAt",
+        scanned_by_id AS "scannedById"
+      FROM live_scan_events
+      WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3
+      ORDER BY scanned_at DESC
+      LIMIT 1
+      `,
+      session.storeId,
+      shiftId,
+      packId
+    )) as LatestScanRow[];
+    const selfReturnCounts = (await prisma.$queryRawUnsafe(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM ticket_return_requests
+      WHERE store_id = $1
+        AND shift_id = $2
+        AND requested_by_id = $3
+        AND status = 'APPROVED_SELF'
+      `,
+      session.storeId,
+      shiftId,
+      session.userId
+    )) as Array<{ count: number }>;
+
+    const latestScan = latestScans[0] ?? null;
+    const line = shift.lines[0] ?? null;
+    const beginning = line
+      ? getSafeCurrentTicket({
+          currentTicketNumber: Number(line.beginningTicket ?? 0),
+          firstTicket: pack.firstTicket,
+          ticketQuantity: pack.ticketQuantity,
+        })
+      : 0;
+    const current = Number(pack.currentTicketNumber ?? beginning);
+    const slot = line
+      ? await prisma.displaySlot.findFirst({
+          where: { storeId: session.storeId, slotNumber: line.slotNumber },
+          select: { id: true, packId: true },
+        })
+      : null;
+    const canRestoreToSlot = Boolean(slot && (!slot.packId || slot.packId === pack.id));
+    const selfReturnAllowed =
+      shift.status === "OPEN" &&
+      line !== null &&
+      beginning > 0 &&
+      current >= 0 &&
+      current < beginning &&
+      (pack.status === "ACTIVE" || pack.status === "SOLD_OUT") &&
+      canRestoreToSlot &&
+      canEmployeeSelfReturn({
+        role: session.role,
+        requestedBarcode: ticketBarcode,
+        latestBarcode: latestScan?.ticketBarcode ?? null,
+        latestScannedAt: latestScan?.scannedAt ?? null,
+        latestScannedById: latestScan?.scannedById ?? null,
+        userId: session.userId,
+        priorSelfReturns: Number(selfReturnCounts[0]?.count ?? 0),
+      });
+
+    const id = `trr_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    if (selfReturnAllowed && line && slot && latestScan) {
+      const restoredCurrent = Math.min(current + 1, beginning);
+      const ticketsSold = Math.max(beginning - restoredCurrent, 0);
+      const salesAmount = ticketsSold * Number(pack.game.price);
+
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const updateResult = await tx.pack.updateMany({
+          where: {
+            id: pack.id,
+            status: { in: ["ACTIVE", "SOLD_OUT"] },
+            currentTicketNumber: pack.currentTicketNumber,
+          },
+          data: { status: "ACTIVE", currentTicketNumber: restoredCurrent, completedAt: null },
+        });
+        if (updateResult.count !== 1) throw new Error("RETURN_CONFLICT");
+
+        const deletedEvents = await tx.$executeRawUnsafe(
+          `DELETE FROM live_scan_events WHERE id = $1 AND store_id = $2 AND shift_id = $3 AND pack_id = $4`,
+          latestScan.id,
+          session.storeId,
+          shiftId,
+          packId
+        );
+        if (deletedEvents !== 1) throw new Error("RETURN_CONFLICT");
+
+        await tx.shiftLine.update({
+          where: { id: line.id },
+          data: { beginningTicket: beginning, endingTicket: restoredCurrent, ticketsSold, salesAmount },
+        });
+        await tx.displaySlot.update({ where: { id: slot.id }, data: { packId: pack.id } });
+        await tx.$executeRawUnsafe(
+          `
+          INSERT INTO ticket_return_requests
+            (id, store_id, shift_id, pack_id, ticket_barcode, status, reason,
+             requested_by_id, requested_by_name, resolved_at, resolved_by_id, resolved_by_name)
+          VALUES ($1, $2, $3, $4, $5, 'APPROVED_SELF', $6, $7, $8, NOW(), $7, $8)
+          `,
+          id,
+          session.storeId,
+          shiftId,
+          packId,
+          ticketBarcode,
+          reason,
+          session.userId,
+          session.name
+        );
+        await tx.scanLogEntry.create({
+          data: {
+            storeId: session.storeId,
+            action: "RETURNED",
+            packId: pack.id,
+            performedById: session.userId,
+            detail: `Employee self-returned latest ticket ${ticketBarcode} for pack ${pack.serialNumber}. Restored to slot ${line.slotNumber}. Reason: ${reason}`,
+          },
+        });
+      });
+
+      await createInventoryNotification({
+        storeId: session.storeId,
+        type: "EMPLOYEE_TICKET_SELF_RETURN",
+        entityId: id,
+        title: "Employee returned a declined ticket",
+        detail: `${session.name} returned ticket ${ticketBarcode} from pack ${pack.serialNumber} to slot ${line.slotNumber}.`,
+        severity: "MEDIUM",
+      }).catch((error) => console.error("[ticket self-return notification]", error));
+
+      return NextResponse.json({
+        success: true,
+        mode: "self-approved",
+        id,
+        currentTicketNumber: restoredCurrent,
+        ticketsSold,
+        salesAmount,
+      });
+    }
 
     // Prevent duplicate pending requests for the same pack.
     const existing = (await prisma.$queryRawUnsafe(
@@ -96,7 +260,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const id = `trr_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     await prisma.$executeRawUnsafe(
       `
       INSERT INTO ticket_return_requests

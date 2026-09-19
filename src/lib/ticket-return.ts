@@ -6,6 +6,8 @@ export function canEmployeeSelfReturn({
   requestedBarcode,
   latestBarcode,
   latestScannedAt,
+  latestScannedById,
+  userId,
   priorSelfReturns,
   now = new Date(),
 }: {
@@ -13,11 +15,14 @@ export function canEmployeeSelfReturn({
   requestedBarcode: string;
   latestBarcode: string | null;
   latestScannedAt: Date | null;
+  latestScannedById: string | null;
+  userId: string;
   priorSelfReturns: number;
   now?: Date;
 }): boolean {
   if (role !== "EMPLOYEE") return false;
   if (!requestedBarcode || requestedBarcode !== latestBarcode) return false;
+  if (!latestScannedById || latestScannedById !== userId) return false;
   if (!latestScannedAt || priorSelfReturns >= EMPLOYEE_SELF_RETURN_LIMIT) return false;
 
   const ageMs = now.getTime() - latestScannedAt.getTime();

@@ -13,6 +13,8 @@ function eligibility(overrides: Partial<Parameters<typeof canEmployeeSelfReturn>
     requestedBarcode: "24240001234007",
     latestBarcode: "24240001234007",
     latestScannedAt: new Date(now.getTime() - 30_000),
+    latestScannedById: "employee-1",
+    userId: "employee-1",
     priorSelfReturns: 0,
     now,
     ...overrides,
@@ -25,6 +27,10 @@ test("employee can self-return the latest ticket within two minutes", () => {
 
 test("employee cannot self-return an older or different ticket", () => {
   assert.equal(eligibility({ requestedBarcode: "24240001234006" }), false);
+});
+
+test("employee cannot self-return a ticket scanned by another employee", () => {
+  assert.equal(eligibility({ latestScannedById: "employee-2" }), false);
 });
 
 test("employee cannot self-return after the two-minute window", () => {
