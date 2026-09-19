@@ -108,7 +108,12 @@ export function getValidTicketState({
   const current = Number(currentTicketNumber ?? 0);
 
   const resolvedQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
-  const resolvedFirstTicket = Number.isFinite(first) && first > 0 ? first : 0;
+  const resolvedFirstTicket =
+    Number.isFinite(first) && first > 0 && (resolvedQuantity <= 0 || first <= resolvedQuantity)
+      ? first
+      : resolvedQuantity > 0
+        ? 1
+        : 0;
   const resolvedCurrentTicket =
     Number.isFinite(current) && current > 0
       ? current

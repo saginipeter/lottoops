@@ -7,6 +7,7 @@ import {
   getDisplayedCurrentTicket,
   getSafeCurrentTicket,
   getSuggestedTicketQuantity,
+  getValidTicketState,
 } from "@/lib/ticket-quantity";
 
 test("only the exact expected ticket can self-resolve a sequence lock", () => {
@@ -128,6 +129,21 @@ test("converts a non-one physical starting ticket to remaining inventory", () =>
       ticketQuantity: 50,
     }),
     26
+  );
+});
+
+test("normalizes a stale physical first ticket before sequence validation", () => {
+  assert.deepEqual(
+    getValidTicketState({
+      currentTicketNumber: 44,
+      firstTicket: 150,
+      ticketQuantity: 50,
+    }),
+    {
+      currentTicketNumber: 44,
+      firstTicket: 1,
+      ticketQuantity: 50,
+    }
   );
 });
 

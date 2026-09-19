@@ -296,7 +296,7 @@ export async function POST(req: NextRequest) {
             : beginning;
 
         const expectedPhysical = expectedPhysicalTicket(
-          Number(existingPack.firstTicket ?? beginning),
+          normalizedTicketState.firstTicket || 1,
           Number(existingPack.ticketQuantity ?? existingPack.game.ticketsPerPack ?? beginning),
           Number(currentTicket),
         );
@@ -422,7 +422,7 @@ export async function POST(req: NextRequest) {
         const nextTicketNumber = soldOut
           ? null
           : expectedPhysicalTicket(
-              Number(existingPack.firstTicket ?? beginning),
+              normalizedTicketState.firstTicket || 1,
               Number(existingPack.ticketQuantity ?? existingPack.game.ticketsPerPack ?? beginning),
               endingTicket,
             );
