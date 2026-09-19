@@ -51,12 +51,10 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
     FROM shifts
     WHERE "storeId" = $1
       AND status = 'OPEN'
-      AND COALESCE("terminalId", 'T1') = $2
     ORDER BY "openedAt" DESC
     LIMIT 1
     `,
-    session.storeId,
-    terminalId
+    session.storeId
   )) as { id: string }[];
 
   // Fetch current shift for the store
