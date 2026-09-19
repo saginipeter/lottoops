@@ -23,6 +23,16 @@ export function expectedPhysicalTicket(firstTicket: number, ticketsPerPack: numb
   return firstTicket + (initialRemaining - remainingTickets);
 }
 
+/** Converts a pack's remaining counter to the physical ticket visible next. */
+export function physicalTicketFromRemaining(
+  firstTicket: number,
+  ticketsPerPack: number,
+  remainingTickets: number
+): number | null {
+  if (remainingTickets === 0) return 0;
+  return expectedPhysicalTicket(firstTicket, ticketsPerPack, remainingTickets);
+}
+
 export function findUnassignedActivePacks(
   packs: Array<{ serialNumber: string; slot: unknown | null }>
 ): string[] {
