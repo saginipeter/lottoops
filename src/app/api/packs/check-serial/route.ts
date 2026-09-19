@@ -41,7 +41,6 @@ async function ensureShiftTerminalSchema() {
 }
 
 export async function POST(req: NextRequest) {
-  let failureStage = "request";
   const session = await getApiSession();
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -354,7 +353,6 @@ export async function POST(req: NextRequest) {
         const soldOut = endingTicket === 0;
         const scanEventId = `lse_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
-        failureStage = "update-pack-counter";
         await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           const updateResult = await tx.pack.updateMany({
             where: {
@@ -371,7 +369,6 @@ export async function POST(req: NextRequest) {
             throw new Error("CONCURRENT_TICKET_SCAN");
           }
 
-          failureStage = "insert-scan-event";
           await tx.$executeRawUnsafe(
             `
             INSERT INTO live_scan_events (id, store_id, shift_id, pack_id, ticket_barcode)
@@ -383,14 +380,12 @@ export async function POST(req: NextRequest) {
             existingPack.id,
             normalizedSerial
           );
-          failureStage = "update-shift-line";
           await tx.shiftLine.update({
             where: { id: line.id },
             data: { beginningTicket: beginning, endingTicket, ticketsSold, salesAmount },
           });
 
           if (soldOut) {
-            failureStage = "complete-sold-out-pack";
             await tx.displaySlot.updateMany({
               where: { packId: existingPack.id },
               data: { packId: null },
@@ -407,7 +402,6 @@ export async function POST(req: NextRequest) {
           }
         });
 
-        failureStage = "log-inventory-activity";
         await logInventoryActivity({
           storeId: session.storeId,
           action: "LIVE_TICKET_SCAN",
@@ -538,7 +532,7 @@ export async function POST(req: NextRequest) {
       );
     }
     return NextResponse.json(
-      { error: "Failed to check serial number", code: "LIVE_SCAN_FAILED", stage: failureStage },
+      { error: "Failed to check serial number" },
       { status: 500 }
     );
   }
