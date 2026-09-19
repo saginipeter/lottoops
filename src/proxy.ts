@@ -3,6 +3,7 @@ import { verifySession, SESSION_COOKIE } from "@/lib/session";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = ["/login", "/setup", "/tv-display"];
+const PUBLIC_PWA_ASSETS = ["/manifest.webmanifest", "/sw.js"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -10,6 +11,7 @@ export async function proxy(req: NextRequest) {
   // Always allow public routes and Next.js internals
   if (
     PUBLIC_ROUTES.includes(pathname) ||
+    PUBLIC_PWA_ASSETS.includes(pathname) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth/login") ||
     pathname.startsWith("/api/setup") ||
@@ -91,6 +93,6 @@ export const config = {
   // (e.g. /brand/lottoops-logo.png must load on the login page itself,
   // before the visitor has a session).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|brand/|.*\\.(?:png|jpg|jpeg|svg|webp|gif|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|brand/|.*\\.(?:png|jpg|jpeg|svg|webp|gif|ico)$).*)",
   ],
 };
