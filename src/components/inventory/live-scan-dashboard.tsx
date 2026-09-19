@@ -96,6 +96,7 @@ interface TicketHistoryResult {
 
 interface LiveScanResult {
   id: string;
+  ticketBarcode?: string;
   gameNumber?: string;
   packStatus?: string;
   currentTicketNumber?: number | null;
@@ -574,6 +575,7 @@ export function LiveScanDashboard({
         body: JSON.stringify({
           packId: lastScan.id,
           shiftId: currentShift.id,
+          ticketBarcode: lastScan.ticketBarcode,
           reason: "Customer rejected the ticket at time of sale.",
         }),
       });
@@ -585,7 +587,14 @@ export function LiveScanDashboard({
       }
 
       setReturnRequestStatus("success");
-      setReturnRequestMessage("Return request submitted. Waiting for manager approval.");
+      if (data?.mode === "self-approved") {
+        setReturnRequestMessage("Ticket returned to the display and removed from this shift's sales.");
+        setLastScan(null);
+        setLastRefreshTime(new Date());
+        router.refresh();
+      } else {
+        setReturnRequestMessage("Return request submitted. Waiting for manager approval.");
+      }
     } catch (error) {
       console.error(error);
       setReturnRequestStatus("error");

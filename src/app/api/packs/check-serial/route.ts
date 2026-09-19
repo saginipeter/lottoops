@@ -424,6 +424,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           status: "found",
           id: existingPack.id,
+          ticketBarcode: normalizedSerial,
           serialNumber: existingPack.serialNumber,
           gameNumber: existingPack.game.gameNumber,
           gameName: existingPack.game.name,
