@@ -274,7 +274,11 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        const beginning = Number(line.beginningTicket ?? 0);
+        const beginning = getSafeCurrentTicket({
+          currentTicketNumber: Number(line.beginningTicket ?? 0),
+          firstTicket: existingPack.firstTicket ?? null,
+          ticketQuantity: existingPack.ticketQuantity ?? null,
+        });
         const normalizedTicketState = getValidTicketState({
           currentTicketNumber: existingPack.currentTicketNumber ?? null,
           firstTicket: existingPack.firstTicket ?? null,
@@ -382,7 +386,7 @@ export async function POST(req: NextRequest) {
           failureStage = "update-shift-line";
           await tx.shiftLine.update({
             where: { id: line.id },
-            data: { endingTicket, ticketsSold, salesAmount },
+            data: { beginningTicket: beginning, endingTicket, ticketsSold, salesAmount },
           });
 
           if (soldOut) {
@@ -415,6 +419,14 @@ export async function POST(req: NextRequest) {
           terminalId,
         });
 
+        const nextTicketNumber = soldOut
+          ? null
+          : expectedPhysicalTicket(
+              Number(existingPack.firstTicket ?? beginning),
+              Number(existingPack.ticketQuantity ?? existingPack.game.ticketsPerPack ?? beginning),
+              endingTicket,
+            );
+
         return NextResponse.json({
           status: "found",
           id: existingPack.id,
@@ -423,6 +435,7 @@ export async function POST(req: NextRequest) {
           gameName: existingPack.game.name,
           packStatus: soldOut ? "SOLD_OUT" : "ACTIVE",
           currentTicketNumber: endingTicket,
+          nextTicketNumber,
           ticketQuantity: existingPack.ticketQuantity,
           ticketPrice: existingPack.ticketPrice,
           ticketsSold,

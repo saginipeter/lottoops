@@ -99,6 +99,7 @@ interface LiveScanResult {
   gameNumber?: string;
   packStatus?: string;
   currentTicketNumber?: number | null;
+  nextTicketNumber?: number | null;
   serialNumber?: string;
   slot?: { slotNumber?: string } | null;
 }
@@ -718,7 +719,7 @@ export function LiveScanDashboard({
               <div className="mx-auto w-full max-w-2xl rounded-md border border-emerald-300 bg-emerald-50 p-3 text-left">
                 <p className="text-sm font-medium text-green-900">Ticket accepted · Game {lastScan.gameNumber}</p>
                 <p className="mt-1 text-xl font-bold text-green-950">
-                  Next ticket: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.currentTicketNumber ?? "-"}
+                  Next ticket: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.nextTicketNumber ?? "-"}
                 </p>
                 <p className="text-xs text-green-800">Scanned from Display {lastScan.slot?.slotNumber ?? "-"} · Pack {lastScan.serialNumber}</p>
                 <Button
@@ -941,7 +942,7 @@ export function LiveScanDashboard({
                     Ticket accepted · Game {lastScan.gameNumber}
                   </p>
                   <p className="mt-1 text-xl font-bold text-green-950 sm:text-2xl">
-                    EXPECTED NEXT TICKET: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.currentTicketNumber ?? "—"}
+                    EXPECTED NEXT TICKET: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.nextTicketNumber ?? "—"}
                   </p>
                   <p className="text-xs text-green-800">
                     Scanned from Display {lastScan.slot?.slotNumber ?? "—"} · Pack {lastScan.serialNumber}
