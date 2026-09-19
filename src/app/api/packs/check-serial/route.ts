@@ -8,7 +8,7 @@ import { canSelfResolveSequenceLock } from "@/lib/control-validation";
 import { createInventoryNotification } from "@/lib/inventory-notifications";
 import { isReadOnly } from "@/lib/permissions";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
-import { getValidTicketState } from "@/lib/ticket-quantity";
+import { getSafeCurrentTicket, getValidTicketState } from "@/lib/ticket-quantity";
 import { Prisma } from "@prisma/client";
 
 function resolveSellableTicket(pack: {
@@ -293,9 +293,16 @@ export async function POST(req: NextRequest) {
           firstTicket: existingPack.firstTicket ?? null,
           ticketQuantity: existingPack.ticketQuantity ?? null,
         });
-        const currentTicket = normalizedTicketState.currentTicketNumber > 0
-          ? normalizedTicketState.currentTicketNumber
-          : beginning;
+        const clampedCurrentTicket = getSafeCurrentTicket({
+          currentTicketNumber: existingPack.currentTicketNumber ?? null,
+          firstTicket: existingPack.firstTicket ?? null,
+          ticketQuantity: existingPack.ticketQuantity ?? null,
+        });
+        const currentTicket = clampedCurrentTicket > 0
+          ? clampedCurrentTicket
+          : normalizedTicketState.currentTicketNumber > 0
+            ? normalizedTicketState.currentTicketNumber
+            : beginning;
 
         if (currentTicket <= 0) {
           return NextResponse.json(

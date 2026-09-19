@@ -38,7 +38,7 @@ export function getActivationStartingTicket({
   return validCandidates[0] ?? (quantity > 0 ? quantity : null);
 }
 
-export function getDisplayedCurrentTicket({
+export function getSafeCurrentTicket({
   currentTicketNumber,
   firstTicket,
   ticketQuantity,
@@ -51,27 +51,51 @@ export function getDisplayedCurrentTicket({
   const first = Number(firstTicket ?? 0);
   const quantity = Number(ticketQuantity ?? 0);
 
-  if (Number.isFinite(current) && current > 0 && quantity > 0 && current <= quantity) {
-    return current;
+  const finiteCurrent = Number.isFinite(current) && current > 0 ? current : 0;
+  const finiteFirst = Number.isFinite(first) && first > 0 ? first : 0;
+  const finiteQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+
+  if (finiteCurrent > 0 && finiteQuantity > 0 && finiteCurrent <= finiteQuantity) {
+    return finiteCurrent;
   }
 
-  if (Number.isFinite(first) && first > 0 && quantity > 0 && first <= quantity) {
-    return first;
+  if (finiteFirst > 0 && finiteQuantity > 0 && finiteFirst <= finiteQuantity) {
+    return finiteFirst;
   }
 
-  if (Number.isFinite(quantity) && quantity > 0) {
-    return quantity;
+  if (finiteCurrent > 0 && finiteQuantity > 0) {
+    return finiteQuantity;
   }
 
-  if (Number.isFinite(first) && first > 0) {
-    return first;
+  if (finiteCurrent > 0) {
+    return finiteCurrent;
   }
 
-  if (Number.isFinite(current) && current > 0) {
-    return current;
+  if (finiteFirst > 0) {
+    return finiteFirst;
+  }
+
+  if (finiteQuantity > 0) {
+    return finiteQuantity;
   }
 
   return 0;
+}
+
+export function getDisplayedCurrentTicket({
+  currentTicketNumber,
+  firstTicket,
+  ticketQuantity,
+}: {
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+}): number {
+  return getSafeCurrentTicket({
+    currentTicketNumber,
+    firstTicket,
+    ticketQuantity,
+  });
 }
 
 export function getValidTicketState({

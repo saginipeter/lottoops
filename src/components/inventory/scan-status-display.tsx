@@ -54,6 +54,12 @@ export function ScanStatusDisplay({
       })
     : 0;
   const soldTickets = Math.max(beginningForCurrentPack - remainingTickets, 0);
+  const displayedLeft = (pack: PackData) =>
+    getDisplayedCurrentTicket({
+      currentTicketNumber: pack.currentTicketNumber ?? null,
+      firstTicket: pack.currentTicketNumber ?? null,
+      ticketQuantity: pack.ticketQuantity ?? null,
+    });
 
   async function handleMarkCompleted() {
     if (!currentPack) return;
@@ -218,7 +224,7 @@ export function ScanStatusDisplay({
                     <p className="font-bold">#{pack.serialNumber}</p>
                   </div>
                   <span className="text-xs font-bold text-gray-600">
-                    {pack.currentTicketNumber ?? 0} left
+                    {displayedLeft(pack)} left
                   </span>
                 </div>
               </button>
