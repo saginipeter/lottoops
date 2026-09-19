@@ -85,9 +85,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const expectedPhysicalTicket = getAuditPhysicalTicket({
+      currentTicketNumber: pack.currentTicketNumber,
+      firstTicket: pack.firstTicket,
+      ticketQuantity: pack.ticketQuantity ?? pack.game.ticketsPerPack,
+    });
+
     const data = phase === "beginning"
-      ? { beginningPhysicalTicket: physicalTicket }
-      : { endingPhysicalTicket: physicalTicket, variance: physicalTicket - Number(line.expectedTicket) };
+      ? { beginningPhysicalTicket: physicalTicket, expectedTicket: expectedPhysicalTicket }
+      : {
+          endingPhysicalTicket: physicalTicket,
+          endingExpectedTicket: expectedPhysicalTicket,
+          variance: physicalTicket - expectedPhysicalTicket,
+        };
     const updated = await prisma.inventoryAuditLine.update({ where: { id: line.id }, data });
     await recordShiftParticipant(audit.shiftId, session.userId);
     await logInventoryActivity({ storeId: session.storeId, action: phase === "beginning" ? "BEGINNING_AUDIT_SCAN" : "ENDING_AUDIT_SCAN", entityType: "PACK", entityId: pack.id, detail: `${phase} physical ticket recorded as ${physicalTicket} for audit ${auditId}.`, performedById: session.userId, performedByName: session.name });

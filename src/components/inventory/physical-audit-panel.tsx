@@ -23,6 +23,7 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
   const [barcode, setBarcode] = useState("");
   const [ticketNumber, setTicketNumber] = useState("");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
   const inputRef = useRef<HTMLInputElement>(null);
   const lines = useMemo(() => audit?.lines ?? [], [audit]);
   const scanned = useMemo(() => lines.filter((line) => phase === "beginning" ? line.beginningPhysicalTicket !== null : line.endingPhysicalTicket !== null).length, [lines, phase]);
@@ -30,7 +31,7 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
 
   async function beginAudit() {
     const response = await fetch("/api/inventory-audits/begin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shiftId }) });
-    if (!response.ok) { setMessage((await response.json()).error ?? "Unable to begin audit."); return; }
+    if (!response.ok) { setMessageType("error"); setMessage((await response.json()).error ?? "Unable to begin audit."); return; }
     window.location.reload();
   }
 
@@ -38,6 +39,7 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
     if (!barcode.trim() || !audit) return;
     const response = await fetch("/api/inventory-audits/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id, serialNumber: barcode.trim(), ticketNumber: Number(ticketNumber), phase }) });
     const data = await response.json();
+    setMessageType(response.ok ? "success" : "error");
     setMessage(response.ok ? "Audit scan recorded." : data.error ?? "Unable to record audit scan.");
     if (response.ok) {
       setBarcode("");
@@ -51,7 +53,7 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
     if (!audit) return;
     const response = await fetch("/api/inventory-audits/end", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id }) });
     const data = await response.json();
-    if (!response.ok) { setMessage(data.error ?? "Unable to complete audit."); return; }
+    if (!response.ok) { setMessageType("error"); setMessage(data.error ?? "Unable to complete audit."); return; }
     window.location.reload();
   }
 
@@ -67,7 +69,7 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
         <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned !== lines.length} onClick={completeAudit}>Complete Ending Audit</Button>
       </>}
       {audit?.status === "COMPLETED" && <p className="mt-3 text-sm font-semibold text-emerald-700">Audit completed. Manager review is required for any variance.</p>}
-      {message && <p role="status" className="mt-2 text-sm text-red-700">{message}</p>}
+      {message && <p role="status" className={`mt-2 text-sm ${messageType === "success" ? "text-emerald-700" : "text-red-700"}`}>{message}</p>}
     </Panel>
   );
 }
