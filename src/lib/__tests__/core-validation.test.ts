@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findUnassignedActivePacks, validateEndingTicket } from "@/lib/core-validation";
+import { expectedPhysicalTicket, findUnassignedActivePacks, remainingTicketsFromStartingTicket, validateEndingTicket } from "@/lib/core-validation";
 
 test("accepts ending ticket zero through beginning ticket", () => {
   assert.equal(validateEndingTicket(100, 0), null);
@@ -26,4 +26,15 @@ test("finds active packs without display assignments", () => {
     ]),
     ["PACK-002", "PACK-003"]
   );
+});
+
+test("maps a 50-ticket pack starting at ticket 1 to 50 remaining tickets", () => {
+  assert.equal(remainingTicketsFromStartingTicket(1, 50), 50);
+  assert.equal(expectedPhysicalTicket(1, 50, 50), 1);
+  assert.equal(expectedPhysicalTicket(1, 50, 49), 2);
+});
+
+test("maps a pack starting at a later physical ticket without locking the first scan", () => {
+  assert.equal(remainingTicketsFromStartingTicket(20, 50), 31);
+  assert.equal(expectedPhysicalTicket(20, 50, 31), 20);
 });

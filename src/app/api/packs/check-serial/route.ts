@@ -10,6 +10,7 @@ import { isReadOnly } from "@/lib/permissions";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 import { getSafeCurrentTicket, getValidTicketState } from "@/lib/ticket-quantity";
 import { Prisma } from "@prisma/client";
+import { expectedPhysicalTicket } from "@/lib/core-validation";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
 
     // Check if pack already exists by exact serial first
     let existingPack = await prisma.pack.findFirst({
-      where: { storeId: session.storeId, serialNumber },
+      where: { storeId: session.storeId, serialNumber: { in: [serialNumber, normalizedSerial] } },
       include: {
         game: true,
         slot: true,
@@ -120,22 +121,18 @@ export async function POST(req: NextRequest) {
       if (normalizedSerial.length >= 11) {
         const parsedGameNumber = normalizedSerial.substring(0, 4);
         const parsedPackNumber = normalizedSerial.substring(4, 11);
-        existingPack = await prisma.pack.findFirst({
+        const candidatePacks = await prisma.pack.findMany({
           where: {
             storeId: session.storeId,
             status: "ACTIVE",
-            gameNumber: parsedGameNumber,
-            packNumber: parsedPackNumber,
-            slot: { isNot: null },
+            gameNumber: { in: [parsedGameNumber, parsedGameNumber.replace(/^0+/, "")] },
           },
-          include: {
-            game: true,
-            slot: true,
-          },
-          orderBy: {
-            activatedAt: "desc",
-          },
+          include: { game: true, slot: true },
+          orderBy: { activatedAt: "desc" },
         });
+        existingPack = candidatePacks.find((pack: typeof candidatePacks[number]) =>
+          String(pack.packNumber ?? "").replace(/\D/g, "") === parsedPackNumber
+        ) ?? null;
       }
     }
 
@@ -304,6 +301,12 @@ export async function POST(req: NextRequest) {
             ? normalizedTicketState.currentTicketNumber
             : beginning;
 
+        const expectedPhysical = expectedPhysicalTicket(
+          Number(existingPack.firstTicket ?? beginning),
+          Number(existingPack.ticketQuantity ?? existingPack.game.ticketsPerPack ?? beginning),
+          Number(currentTicket),
+        );
+
         if (currentTicket <= 0) {
           return NextResponse.json(
             { error: "Pack is already sold out." },
@@ -311,13 +314,14 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Enforce one-scan-per-ticket and strict sequence from the currently displayed ticket.
-        if (scannedTicketNumber !== null && scannedTicketNumber !== currentTicket) {
+        // Enforce one-scan-per-ticket and strict physical sequence. currentTicketNumber
+        // is a descending remaining count; it is not the barcode ticket suffix.
+        if (scannedTicketNumber !== null && expectedPhysical !== null && scannedTicketNumber !== expectedPhysical) {
             await prisma.pack.update({
               where: { id: existingPack.id },
               data: {
                 sequenceLocked: true,
-                sequenceLockExpectedTicket: currentTicket,
+                sequenceLockExpectedTicket: expectedPhysical,
                 sequenceLockScannedTicket: scannedTicketNumber,
                 sequenceLockBarcode: normalizedSerial,
                 sequenceLockedAt: new Date(),
@@ -329,13 +333,13 @@ export async function POST(req: NextRequest) {
               type: "EXPECTED_TICKET_MISMATCH",
               entityId: existingPack.id,
               title: "Expected ticket mismatch",
-              detail: `Pack ${existingPack.serialNumber} expected ticket ${currentTicket}, but ticket ${scannedTicketNumber} was scanned.`,
+              detail: `Pack ${existingPack.serialNumber} expected ticket ${expectedPhysical}, but ticket ${scannedTicketNumber} was scanned.`,
               severity: "HIGH",
             });
             return NextResponse.json(
               {
                 code: "SEQUENCE_LOCKED",
-                error: `Out-of-sequence scan. Expected ticket ${currentTicket}, but scanned ticket ${scannedTicketNumber}. Pack locked pending manager review.`,
+              error: `Out-of-sequence scan. Expected ticket ${expectedPhysical}, but scanned ticket ${scannedTicketNumber}. Pack locked pending manager review.`,
               },
               { status: 409 }
             );

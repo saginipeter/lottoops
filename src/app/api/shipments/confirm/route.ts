@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { canReceiveShipments } from "@/lib/permissions";
+import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -170,7 +171,7 @@ export async function POST(req: NextRequest) {
             data: {
               status: "ACTIVE",
               activatedAt: new Date(),
-              currentTicketNumber: pack.firstTicket ?? pack.ticketQuantity ?? 0,
+              currentTicketNumber: remainingTicketsFromStartingTicket(pack.firstTicket ?? 1, pack.ticketQuantity ?? 0),
               slot: {
                 connect: { id: targetDisplay.id },
               },
