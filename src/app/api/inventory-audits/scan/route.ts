@@ -69,6 +69,9 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+    if (!line) {
+      return NextResponse.json({ error: "Unable to create an audit line for this pack." }, { status: 500 });
+    }
 
     const physicalTicket = Number(ticketNumber);
     if (!Number.isInteger(physicalTicket) || physicalTicket < 0) {

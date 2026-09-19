@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, KeyRound, RefreshCw, Smartphone } from "lucide-react";
+import type { LottoOpsInstallPromptEvent } from "@/components/pwa/service-worker-registration";
 
 function getDeviceKey() {
   const key = window.localStorage.getItem("lottoops:device-key");
@@ -20,16 +21,43 @@ export function EmployeeDeviceSetup({ terminalId }: { terminalId: string }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setInstalled(window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
-    const handler = (event: Event) => { event.preventDefault(); setInstallEvent(event as BeforeInstallPromptEvent); };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    const detectInstalled = () => {
+      setInstalled(
+        window.matchMedia("(display-mode: standalone)").matches ||
+          Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+      );
+    };
+    const loadInstallPrompt = () => setInstallEvent(window.__lottoOpsInstallPrompt ?? null);
+
+    detectInstalled();
+    loadInstallPrompt();
+    window.addEventListener("lottoops-install-prompt-ready", loadInstallPrompt);
+    window.addEventListener("lottoops-app-installed", detectInstalled);
+    return () => {
+      window.removeEventListener("lottoops-install-prompt-ready", loadInstallPrompt);
+      window.removeEventListener("lottoops-app-installed", detectInstalled);
+    };
   }, []);
 
   async function install() {
-    if (!installEvent) { setMessage("On iPhone use Share → Add to Home Screen. On Android use the browser menu → Install app."); return; }
+    if (installed) {
+      setMessage("LottoOps is already installed on this device.");
+      return;
+    }
+    if (!installEvent) {
+      setMessage("Install from your browser menu. On iPhone, choose Share, then Add to Home Screen.");
+      return;
+    }
     await installEvent.prompt();
+    const choice = await installEvent.userChoice;
+    window.__lottoOpsInstallPrompt = undefined;
     setInstallEvent(null);
+    if (choice.outcome === "accepted") {
+      setInstalled(true);
+      setMessage("LottoOps was installed successfully.");
+    } else {
+      setMessage("Installation was canceled. Select Install app to try again when the browser offers it.");
+    }
   }
 
   async function pair() {
@@ -51,4 +79,4 @@ export function EmployeeDeviceSetup({ terminalId }: { terminalId: string }) {
   </section>;
 }
 
-type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void> };
+type BeforeInstallPromptEvent = LottoOpsInstallPromptEvent;
