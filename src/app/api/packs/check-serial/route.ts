@@ -352,20 +352,18 @@ export async function POST(req: NextRequest) {
 
         failureStage = "update-pack-counter";
         await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-          const updatedRows = await tx.$executeRawUnsafe(
-            `
-            UPDATE packs
-            SET "currentTicketNumber" = $1, status = $2
-            WHERE id = $3
-              AND "currentTicketNumber" IS NOT DISTINCT FROM $4
-              AND status = 'ACTIVE'
-            `,
-            endingTicket,
-            soldOut ? "SOLD_OUT" : "ACTIVE",
-            existingPack.id,
-            existingPack.currentTicketNumber
-          );
-          if (updatedRows !== 1) {
+          const updateResult = await tx.pack.updateMany({
+            where: {
+              id: existingPack.id,
+              status: "ACTIVE",
+              currentTicketNumber: existingPack.currentTicketNumber,
+            },
+            data: {
+              currentTicketNumber: endingTicket,
+              status: soldOut ? "SOLD_OUT" : "ACTIVE",
+            },
+          });
+          if (updateResult.count !== 1) {
             throw new Error("CONCURRENT_TICKET_SCAN");
           }
 
