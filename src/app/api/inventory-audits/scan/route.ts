@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const normalized = String(serialNumber).trim();
     const pack = await prisma.pack.findFirst({
       where: { storeId: session.storeId, serialNumber: normalized },
-      select: { id: true },
+      select: { id: true, ticketQuantity: true, game: { select: { ticketsPerPack: true } } },
     });
     if (!pack) return NextResponse.json({ error: "Pack is not part of this store's audit." }, { status: 404 });
 
@@ -40,6 +40,13 @@ export async function POST(request: NextRequest) {
     const physicalTicket = Number(ticketNumber);
     if (!Number.isInteger(physicalTicket) || physicalTicket < 0) {
       return NextResponse.json({ error: "Enter the physical ticket number shown on the pack." }, { status: 400 });
+    }
+    const ticketQuantity = Number(pack.ticketQuantity ?? pack.game.ticketsPerPack ?? 0);
+    if (ticketQuantity > 0 && physicalTicket > ticketQuantity) {
+      return NextResponse.json(
+        { error: `Physical ticket must be between 0 and ${ticketQuantity}.` },
+        { status: 400 }
+      );
     }
 
     const data = phase === "beginning"

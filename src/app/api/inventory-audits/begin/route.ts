@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 
 export async function POST(request: NextRequest) {
   const session = await getApiSession();
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
   try {
     const shift = await prisma.shift.findFirst({
       where: { id: shiftId, storeId: session.storeId, status: "OPEN" },
-      include: { lines: { include: { pack: { select: { currentTicketNumber: true, firstTicket: true } } } } },
+      include: { lines: { include: { pack: { select: { currentTicketNumber: true, firstTicket: true, ticketQuantity: true } } } } },
     });
     if (!shift) return NextResponse.json({ error: "Open shift not found." }, { status: 404 });
 
@@ -29,11 +30,15 @@ export async function POST(request: NextRequest) {
             packId: string;
             slotNumber: string;
             beginningTicket: number;
-            pack: { currentTicketNumber: number | null; firstTicket: number | null };
+            pack: { currentTicketNumber: number | null; firstTicket: number | null; ticketQuantity: number | null };
           }) => ({
             packId: line.packId,
             slotNumber: line.slotNumber,
-            expectedTicket: Number(line.pack.currentTicketNumber ?? line.pack.firstTicket ?? line.beginningTicket),
+            expectedTicket: getAuditPhysicalTicket({
+              currentTicketNumber: line.pack.currentTicketNumber ?? line.beginningTicket,
+              firstTicket: line.pack.firstTicket,
+              ticketQuantity: line.pack.ticketQuantity,
+            }),
           })),
         },
       },

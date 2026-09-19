@@ -4,6 +4,7 @@ import { canAuthorizeCorrection, canSelfResolveSequenceLock } from "@/lib/contro
 import { parseBarcode } from "@/lib/barcode";
 import {
   getActivationStartingTicket,
+  getAuditPhysicalTicket,
   getDisplayedCurrentTicket,
   getSafeCurrentTicket,
   getSuggestedTicketQuantity,
@@ -145,6 +146,12 @@ test("normalizes a stale physical first ticket before sequence validation", () =
       ticketQuantity: 50,
     }
   );
+});
+
+test("converts remaining inventory to the physical ticket used by audits", () => {
+  assert.equal(getAuditPhysicalTicket({ currentTicketNumber: 42, firstTicket: 1, ticketQuantity: 50 }), 9);
+  assert.equal(getAuditPhysicalTicket({ currentTicketNumber: 44, firstTicket: 150, ticketQuantity: 50 }), 7);
+  assert.equal(getAuditPhysicalTicket({ currentTicketNumber: 0, firstTicket: 1, ticketQuantity: 50 }), 0);
 });
 
 test("parses a ticket label with hyphens and trailer digits from the phone camera", () => {

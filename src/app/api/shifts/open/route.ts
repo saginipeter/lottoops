@@ -6,6 +6,7 @@ import { logInventoryActivity } from "@/lib/activity-log";
 import { recordShiftParticipant } from "@/lib/shift-participants";
 import { isReadOnly } from "@/lib/permissions";
 import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
+import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 
 interface ActivePack {
   id: string;
@@ -205,7 +206,11 @@ export async function POST(req: NextRequest) {
             create: typedActivePacks.map((pack) => ({
             packId: pack.id,
             slotNumber: pack.slot!.slotNumber,
-            expectedTicket: resolveSellableTicket(pack)!,
+            expectedTicket: getAuditPhysicalTicket({
+              currentTicketNumber: resolveSellableTicket(pack),
+              firstTicket: pack.firstTicket,
+              ticketQuantity: pack.ticketQuantity,
+            }),
           })),
         },
       },

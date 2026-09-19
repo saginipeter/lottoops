@@ -50,9 +50,8 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
   if (prisma) {
     try {
       const openShiftRows = await prisma.$queryRawUnsafe(
-        `SELECT id FROM shifts WHERE "storeId" = $1 AND status = 'OPEN' AND COALESCE("terminalId", 'T1') = $2 ORDER BY "openedAt" DESC LIMIT 1`,
+        `SELECT id FROM shifts WHERE "storeId" = $1 AND status = 'OPEN' ORDER BY "openedAt" DESC LIMIT 1`,
         session.storeId,
-        terminalId,
       ) as Array<{ id: string }>;
       openShift = openShiftRows[0] ?? null;
     } catch {
