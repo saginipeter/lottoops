@@ -358,6 +358,8 @@ export function LiveScanDashboard({
       if (res.ok) {
         setScanError("");
         setLastScan(data);
+        setReturnRequestStatus("idle");
+        setReturnRequestMessage("");
         setLastRefreshTime(new Date());
         setScannerConnected(true);
         setScannerActivityAt(Date.now());
@@ -589,7 +591,6 @@ export function LiveScanDashboard({
       setReturnRequestStatus("success");
       if (data?.mode === "self-approved") {
         setReturnRequestMessage("Ticket returned to the display and removed from this shift's sales.");
-        setLastScan(null);
         setLastRefreshTime(new Date());
         router.refresh();
       } else {
@@ -736,7 +737,7 @@ export function LiveScanDashboard({
                   size="sm"
                   className="mt-2"
                   onClick={handleReturnTicketRequest}
-                  disabled={returnRequestLoading}
+                  disabled={returnRequestLoading || returnRequestStatus === "success"}
                 >
                   {returnRequestLoading ? "Submitting..." : "Customer Rejected - Return Ticket"}
                 </Button>
