@@ -18,6 +18,7 @@ export function BarcodeScanner({
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const operationRef = useRef(false);
+  const cancelStartRef = useRef(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraMessage, setCameraMessage] = useState("");
@@ -31,25 +32,25 @@ export function BarcodeScanner({
   }, []);
 
   const stopCamera = useCallback(async () => {
-    if (operationRef.current) return;
-    operationRef.current = true;
+    cancelStartRef.current = true;
     const scanner = scannerRef.current;
     scannerRef.current = null;
+    setCameraOpen(false);
+    setCameraStarting(false);
     try {
       if (scanner) {
         await scanner.stop().catch(() => undefined);
-        scanner.clear();
+        try { scanner.clear(); } catch { /* Scanner may still be releasing the camera. */ }
       }
     } finally {
       operationRef.current = false;
-      setCameraOpen(false);
-      setCameraStarting(false);
     }
   }, []);
 
   async function startCamera() {
     if (operationRef.current || scannerRef.current) return;
     operationRef.current = true;
+    cancelStartRef.current = false;
     setCameraMessage("");
     setCameraStarting(true);
     setCameraOpen(true);
@@ -78,14 +79,22 @@ export function BarcodeScanner({
         },
         () => undefined
       );
+      operationRef.current = false;
+      if (cancelStartRef.current) {
+        await scanner.stop().catch(() => undefined);
+        try { scanner.clear(); } catch { /* Scanner may already be clear. */ }
+        return;
+      }
       setCameraStarting(false);
     } catch {
       scannerRef.current = null;
-      scanner.clear();
-      setCameraOpen(false);
-      setCameraStarting(false);
-      setCameraMessage("Camera unavailable. Enter the barcode manually below.");
-      inputRef.current?.focus();
+      try { scanner.clear(); } catch { /* Scanner may not have initialized. */ }
+      if (!cancelStartRef.current) {
+        setCameraOpen(false);
+        setCameraStarting(false);
+        setCameraMessage("Camera unavailable. Enter the barcode manually below.");
+        inputRef.current?.focus();
+      }
     } finally {
       operationRef.current = false;
     }
@@ -97,7 +106,7 @@ export function BarcodeScanner({
   }
 
   async function switchToManualEntry() {
-    if (cameraOpen) await stopCamera();
+    if (cameraOpen || cameraStarting) await stopCamera();
     inputRef.current?.focus();
   }
 

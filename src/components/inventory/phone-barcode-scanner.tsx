@@ -15,6 +15,7 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
   const readerId = `lottoops-phone-barcode-reader-${useId().replace(/:/g, "")}`;
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const operationRef = useRef(false);
+  const cancelStartRef = useRef(false);
   const mountedRef = useRef(true);
   const [active, setActive] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -35,27 +36,27 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
   }, []);
 
   const stopCamera = useCallback(async () => {
-    if (operationRef.current) return;
-    operationRef.current = true;
+    cancelStartRef.current = true;
     const scanner = scannerRef.current;
     scannerRef.current = null;
+    if (mountedRef.current) {
+      setActive(false);
+      setStarting(false);
+    }
     try {
       if (scanner) {
         await scanner.stop().catch(() => undefined);
-        scanner.clear();
+        try { scanner.clear(); } catch { /* Scanner may still be releasing the camera. */ }
       }
     } finally {
       operationRef.current = false;
-      if (mountedRef.current) {
-        setActive(false);
-        setStarting(false);
-      }
     }
   }, []);
 
   async function startCamera() {
     if (disabled || operationRef.current || scannerRef.current) return;
     operationRef.current = true;
+    cancelStartRef.current = false;
     setMessage("");
     setManualMode(false);
     setStarting(true);
@@ -88,11 +89,17 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
         },
         () => undefined
       );
+      operationRef.current = false;
+      if (cancelStartRef.current) {
+        await scanner.stop().catch(() => undefined);
+        try { scanner.clear(); } catch { /* Scanner may already be clear. */ }
+        return;
+      }
       if (mountedRef.current) setStarting(false);
     } catch {
       scannerRef.current = null;
-      scanner.clear();
-      if (mountedRef.current) {
+      try { scanner.clear(); } catch { /* Scanner may not have initialized. */ }
+      if (mountedRef.current && !cancelStartRef.current) {
         setActive(false);
         setStarting(false);
         setManualMode(true);
@@ -104,7 +111,7 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
   }
 
   async function openManualEntry() {
-    if (active) await stopCamera();
+    if (active || starting) await stopCamera();
     setManualMode(true);
     setMessage("");
   }
