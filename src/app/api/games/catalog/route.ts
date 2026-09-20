@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 /**
  * GET /api/games/catalog
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const body = await req.json().catch(() => ({}));
-  const { externalKey, ticketsPerPack = 150 } = body;
+  const { externalKey } = body;
 
   if (!externalKey) return NextResponse.json({ error: "externalKey is required." }, { status: 400 });
 
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest) {
         gameNumber: entry.game_number,
         name: entry.name,
         price: entry.ticket_price,
-        ticketsPerPack: Number(ticketsPerPack) || 150,
+        ticketsPerPack: getSuggestedTicketQuantity(Number(entry.ticket_price)),
         active: true,
       },
     });

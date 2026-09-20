@@ -5,6 +5,7 @@ import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
+import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 type UserRole = "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE" | "AUDITOR";
 
@@ -163,6 +164,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
         ...prev,
         name: prev.name.trim() ? prev.name : reference.gameName,
         price: prev.price.trim() ? prev.price : String(reference.ticketPrice),
+        ticketsPerPack: String(getSuggestedTicketQuantity(reference.ticketPrice)),
       }));
       notify("Lottery Scratch_off Management System reference found. Review and save.");
     } catch { notify("Texas lookup failed.", "err"); }
@@ -235,7 +237,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
       const res = await fetch("/api/games/catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ externalKey: item.externalKey, ticketsPerPack: 150 }),
+        body: JSON.stringify({ externalKey: item.externalKey }),
       });
       const data = await res.json();
       if (!res.ok) { notify(data.error || "Failed to add game.", "err"); return; }

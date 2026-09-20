@@ -94,11 +94,11 @@ export function ScanStep({
       if (res.ok && data.found) {
         setDetectedGame(data as DetectedGame);
         setManualOverrideEnabled(false);
-        const suggestedQuantity = getSuggestedTicketQuantity(Number(data.price));
+        setQuantityOverrideEnabled(false);
         setScanDraft((prev) => ({
           ...prev,
           ticketPrice: data.price,
-          ticketQuantity: suggestedQuantity,
+          ticketQuantity: data.ticketsPerPack,
         }));
       } else {
         setDetectionError("Game not found in catalog — please select price & quantity manually.");

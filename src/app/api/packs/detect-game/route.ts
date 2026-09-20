@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 /**
  * GET /api/packs/detect-game?gameNumber=XXXX
@@ -28,13 +29,21 @@ export async function GET(req: NextRequest) {
     });
 
     if (storeGame) {
+      const price = Number(storeGame.price);
+      const ticketsPerPack = getSuggestedTicketQuantity(price);
+      if (storeGame.ticketsPerPack !== ticketsPerPack) {
+        await prisma.game.update({
+          where: { id: storeGame.id },
+          data: { ticketsPerPack },
+        });
+      }
       return NextResponse.json({
         found: true,
         source: "store",
         gameNumber: storeGame.gameNumber,
         name: storeGame.name,
-        price: Number(storeGame.price),
-        ticketsPerPack: storeGame.ticketsPerPack,
+        price,
+        ticketsPerPack,
       });
     }
 
@@ -52,8 +61,7 @@ export async function GET(req: NextRequest) {
 
       if (rows.length > 0 && rows[0].ticket_price) {
         const row = rows[0];
-        // Derive tickets per pack from standard Texas Lottery table
-        const ticketsPerPack = deriveTicketsPerPack(row.ticket_price ?? 0);
+        const ticketsPerPack = getSuggestedTicketQuantity(row.ticket_price ?? 0);
         return NextResponse.json({
           found: true,
           source: "catalog",
@@ -75,22 +83,3 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * Standard Texas Lottery tickets-per-pack by ticket price.
- * Source: Texas Lottery retailer guidelines.
- */
-function deriveTicketsPerPack(price: number): number {
-  const map: Record<number, number> = {
-    1:   300,
-    2:   150,
-    3:   100,
-    5:    75,
-    10:   50,
-    20:   30,
-    25:   30,
-    30:   25,
-    50:   20,
-    100:  15,
-  };
-  return map[price] ?? 50;
-}

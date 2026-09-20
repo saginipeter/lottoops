@@ -29,6 +29,10 @@ test("$1 tickets suggest a 50-ticket pack quantity", () => {
   assert.equal(getSuggestedTicketQuantity(1), 50);
 });
 
+test("$10 games use 50 tickets per pack across catalog and receiving", () => {
+  assert.equal(getSuggestedTicketQuantity(10), 50);
+});
+
 test("selling from the last ticket starts at the pack quantity instead of 1", () => {
   assert.equal(
     getActivationStartingTicket({
