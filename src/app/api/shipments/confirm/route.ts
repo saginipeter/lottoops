@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
       destination,
       expectedRetailValue,
       overrideApproved,
+      firstOrLastTicket,
+      activationNumber,
+      activationReceiptPhoto,
     } = await req.json();
 
     if (!shipmentId) {
@@ -171,7 +174,12 @@ export async function POST(req: NextRequest) {
             data: {
               status: "ACTIVE",
               activatedAt: new Date(),
-              currentTicketNumber: remainingTicketsFromStartingTicket(pack.firstTicket ?? 1, pack.ticketQuantity ?? 0),
+              currentTicketNumber: firstOrLastTicket === "LAST"
+                ? Number(pack.ticketQuantity ?? 0)
+                : remainingTicketsFromStartingTicket(pack.firstTicket ?? 1, pack.ticketQuantity ?? 0),
+              firstOrLastTicket: firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
+              activationNumber: activationNumber || undefined,
+              activationReceipt: activationReceiptPhoto || undefined,
               slot: {
                 connect: { id: targetDisplay.id },
               },

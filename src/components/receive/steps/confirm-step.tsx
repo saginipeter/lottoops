@@ -11,6 +11,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { InvoiceUpload } from "@/components/receive/invoice-upload";
 
 import type {
   ShipmentState,
@@ -36,6 +38,11 @@ export function ConfirmStep({
 }: ConfirmStepProps) {
   const [notes, setNotes] = useState("");
   const [destination, setDestination] = useState<"backstock" | "active">("backstock");
+  const [firstOrLastTicket, setFirstOrLastTicket] = useState<"FIRST" | "LAST">("FIRST");
+  const [activationNumber, setActivationNumber] = useState("");
+  const [activationReceiptPhoto, setActivationReceiptPhoto] = useState("");
+  const [activationPromptOpen, setActivationPromptOpen] = useState(false);
+  const [activationConfigured, setActivationConfigured] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
@@ -73,6 +80,9 @@ export function ConfirmStep({
           notes,
           expectedRetailValue,
           overrideApproved,
+          firstOrLastTicket: destination === "active" ? firstOrLastTicket : undefined,
+          activationNumber: destination === "active" ? activationNumber || undefined : undefined,
+          activationReceiptPhoto: destination === "active" ? activationReceiptPhoto || undefined : undefined,
         }),
       });
 
@@ -227,7 +237,7 @@ export function ConfirmStep({
                 name="destination"
                 value="active"
                 checked={destination === "active"}
-                onChange={() => setDestination("active")}
+                onChange={() => { setDestination("active"); setActivationPromptOpen(true); }}
                 className="mt-1"
               />
               <div>
@@ -249,11 +259,36 @@ export function ConfirmStep({
             <div className="flex-1 text-sm font-semibold text-green-700">{invoiceMatches ? <span className="inline-flex items-center gap-2"><CheckCircle2 size={18} />Ready to confirm</span> : "Invoice totals must match before confirmation"}</div>
             <Button variant="secondary" onClick={previousStep}>← Back</Button>
             <Button variant="outline" onClick={onCancel}>Cancel</Button>
-            <Button disabled={loading || !invoiceMatches} onClick={handleConfirm}>{loading ? "Confirming..." : "Confirm receipt"}</Button>
+            <Button disabled={loading || !invoiceMatches || (destination === "active" && !activationConfigured)} onClick={handleConfirm}>{loading ? "Confirming..." : "Confirm receipt"}</Button>
           </div>
         </Panel>
 
       </div>
+
+      <Dialog open={activationPromptOpen} onOpenChange={setActivationPromptOpen}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-hidden">
+          <DialogHeader><DialogTitle>Activate packs on display</DialogTitle></DialogHeader>
+          <div className="min-h-0 space-y-5 overflow-y-auto pr-1">
+            <p className="text-sm text-gray-600">These packs will be activated immediately and assigned to the next available displays. Confirm the ticket sell order before receiving them.</p>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Ticket Sell Order</label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className={`flex min-h-12 items-center gap-3 border p-3 ${firstOrLastTicket === "FIRST" ? "border-purple-500 bg-purple-50" : "border-gray-200"}`}>
+                  <input type="radio" name="receive-first-or-last" checked={firstOrLastTicket === "FIRST"} onChange={() => setFirstOrLastTicket("FIRST")} className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Sell from First Ticket</span>
+                </label>
+                <label className={`flex min-h-12 items-center gap-3 border p-3 ${firstOrLastTicket === "LAST" ? "border-purple-500 bg-purple-50" : "border-gray-200"}`}>
+                  <input type="radio" name="receive-first-or-last" checked={firstOrLastTicket === "LAST"} onChange={() => setFirstOrLastTicket("LAST")} className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Sell from Last Ticket</span>
+                </label>
+              </div>
+            </div>
+            <div><label className="mb-2 block text-sm font-medium">Activation Number</label><input value={activationNumber} onChange={(event) => setActivationNumber(event.target.value)} placeholder="Optional activation number" className="min-h-11 w-full border border-gray-300 px-3" /></div>
+            <div><label className="mb-2 block text-sm font-medium">Activation Receipt Photo</label><InvoiceUpload value={activationReceiptPhoto} title="Upload Activation Receipt Photo" previewAlt="Activation receipt photo" errorMessage="Failed to upload activation receipt photo." onChange={setActivationReceiptPhoto} /></div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4"><Button variant="secondary" onClick={() => { setActivationPromptOpen(false); setDestination("backstock"); }}>Cancel</Button><Button onClick={() => { setActivationConfigured(true); setActivationPromptOpen(false); }}>Continue to confirmation</Button></div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
@@ -282,6 +317,7 @@ function SummaryCard({
       <div className="mt-2 text-lg font-bold">
         {value}
       </div>
+
 
     </div>
   );
