@@ -2,7 +2,7 @@ import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 import { getPlanAccess } from "@/lib/plan-access";
-import { calculateTicketProgress } from "@/lib/tv-display";
+import { calculateTicketProgress, getDisplayedTicketNumber, getNextDisplayedTicket } from "@/lib/tv-display";
 import { verifyTvKioskToken } from "@/lib/tv-kiosk";
 
 interface TvDisplayKioskPageProps {
@@ -78,6 +78,7 @@ export default async function TvDisplayKioskPage({
       const firstTicket = pack.firstTicket ?? 0;
       const currentTicket = pack.currentTicketNumber ?? firstTicket;
       const { sold, remaining } = calculateTicketProgress(firstTicket, currentTicket, quantity);
+      const displayedTicket = getDisplayedTicketNumber(firstTicket, currentTicket, quantity);
 
       return [{
         id: slot.id,
@@ -87,8 +88,8 @@ export default async function TvDisplayKioskPage({
         gameImage: pack.packImage ?? null,
         ticketPrice: Number(pack.game.price),
         firstTicket,
-        currentTicket,
-        nextTicket: Math.max(currentTicket - 1, 0),
+        currentTicket: displayedTicket,
+        nextTicket: getNextDisplayedTicket(firstTicket, currentTicket, quantity),
         remaining,
         sold,
         quantity,

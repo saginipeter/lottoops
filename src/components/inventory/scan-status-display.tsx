@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronUp, ChevronDown, Zap } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
-import { getDisplayedCurrentTicket } from "@/lib/ticket-quantity";
+import { getRemainingTicketCount } from "@/lib/tv-display";
 
 interface PackData {
   id: string;
@@ -48,19 +48,11 @@ export function ScanStatusDisplay({
     currentShift?.lines?.find((line) => line.packId === currentPack?.id)?.beginningTicket ??
     Number(currentPack?.ticketQuantity ?? currentPack?.currentTicketNumber ?? 0);
   const remainingTickets = currentPack
-    ? getDisplayedCurrentTicket({
-        currentTicketNumber: currentPack.currentTicketNumber ?? null,
-        firstTicket: currentPack.firstTicket ?? null,
-        ticketQuantity: currentPack.ticketQuantity ?? null,
-      })
+    ? getRemainingTicketCount(currentPack.currentTicketNumber ?? null, currentPack.ticketQuantity ?? null)
     : 0;
   const soldTickets = Math.max(beginningForCurrentPack - remainingTickets, 0);
   const displayedLeft = (pack: PackData) =>
-    getDisplayedCurrentTicket({
-      currentTicketNumber: pack.currentTicketNumber ?? null,
-      firstTicket: pack.firstTicket ?? null,
-      ticketQuantity: pack.ticketQuantity ?? null,
-    });
+    getRemainingTicketCount(pack.currentTicketNumber ?? null, pack.ticketQuantity ?? null);
 
   async function handleMarkCompleted() {
     if (!currentPack) return;

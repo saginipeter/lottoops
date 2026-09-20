@@ -1,9 +1,45 @@
 export function calculateTicketProgress(
-  firstTicket: number,
-  currentTicket: number,
+  _firstTicket: number,
+  remainingTicketCount: number,
   quantity: number
 ) {
-  const sold = Math.max(firstTicket - currentTicket, 0);
-  const remaining = Math.max(quantity - sold, 0);
+  const safeQuantity = Math.max(Number(quantity) || 0, 0);
+  const remaining = Math.min(Math.max(Number(remainingTicketCount) || 0, 0), safeQuantity);
+  const sold = Math.max(safeQuantity - remaining, 0);
   return { sold, remaining };
+}
+
+/** Returns the physical ticket currently expected from the remaining counter. */
+export function getDisplayedTicketNumber(
+  firstTicket: number,
+  remainingTicketCount: number,
+  quantity: number
+): number {
+  const first = Math.max(Number(firstTicket) || 1, 1);
+  const safeQuantity = Math.max(Number(quantity) || 0, 0);
+  const remaining = Math.min(Math.max(Number(remainingTicketCount) || 0, 0), safeQuantity);
+  const initialRemaining = Math.max(safeQuantity - first + 1, 0);
+  return initialRemaining > 0 ? first + Math.max(initialRemaining - remaining, 0) : 0;
+}
+
+export function getNextDisplayedTicket(
+  firstTicket: number,
+  remainingTicketCount: number,
+  quantity: number
+): number {
+  const current = getDisplayedTicketNumber(firstTicket, remainingTicketCount, quantity);
+  const first = Math.max(Number(firstTicket) || 1, 1);
+  const safeQuantity = Math.max(Number(quantity) || 0, 0);
+  const last = first + Math.max(safeQuantity - first, 0);
+  return current > 0 && current < last ? current + 1 : 0;
+}
+
+export function getRemainingTicketCount(currentTicketNumber: number | null, quantity: number | null): number {
+  const safeQuantity = Math.max(Number(quantity) || 0, 0);
+  return Math.min(Math.max(Number(currentTicketNumber) || 0, 0), safeQuantity);
+}
+
+export function getSoldTicketCount(currentTicketNumber: number | null, quantity: number | null): number {
+  const remaining = getRemainingTicketCount(currentTicketNumber, quantity);
+  return Math.max(Number(quantity) || 0, 0) - remaining;
 }
