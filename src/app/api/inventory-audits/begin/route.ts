@@ -16,7 +16,12 @@ export async function POST(request: NextRequest) {
   try {
     const shift = await prisma.shift.findFirst({
       where: { id: shiftId, storeId: session.storeId, status: "OPEN" },
-      include: { lines: { include: { pack: { select: { currentTicketNumber: true, firstTicket: true, ticketQuantity: true } } } } },
+      include: {
+        lines: {
+          where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
+          include: { pack: { select: { currentTicketNumber: true, firstTicket: true, ticketQuantity: true } } },
+        },
+      },
     });
     if (!shift) return NextResponse.json({ error: "Open shift not found." }, { status: 404 });
 

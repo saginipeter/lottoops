@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -24,8 +24,10 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
   const [ticketNumber, setTicketNumber] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
+  const [localLines, setLocalLines] = useState<AuditLine[]>(audit?.lines ?? []);
   const inputRef = useRef<HTMLInputElement>(null);
-  const lines = useMemo(() => audit?.lines ?? [], [audit]);
+  useEffect(() => setLocalLines(audit?.lines ?? []), [audit]);
+  const lines = useMemo(() => localLines, [localLines]);
   const scanned = useMemo(() => lines.filter((line) => phase === "beginning" ? line.beginningPhysicalTicket !== null : line.endingPhysicalTicket !== null).length, [lines, phase]);
   const beginningComplete = lines.every((line) => line.beginningPhysicalTicket !== null);
 
@@ -42,6 +44,11 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
     setMessageType(response.ok ? "success" : "error");
     setMessage(response.ok ? "Audit scan recorded." : data.error ?? "Unable to record audit scan.");
     if (response.ok) {
+      setLocalLines((current) => {
+        const index = current.findIndex((line) => line.id === data.id);
+        if (index === -1) return [...current, data];
+        return current.map((line) => line.id === data.id ? data : line);
+      });
       setBarcode("");
       setTicketNumber("");
       router.refresh();
@@ -64,7 +71,7 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
         {!audit && <Button onClick={beginAudit}>Begin Audit</Button>}
       </div>
       {audit && audit.status === "OPEN" && <>
-        <div className="mt-3 flex items-center gap-2"><Button size="sm" variant={phase === "beginning" ? "secondary" : "ghost"} onClick={() => setPhase("beginning")}>Beginning</Button><Button size="sm" variant={phase === "ending" ? "secondary" : "ghost"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Ending</Button><span className="text-sm text-text-secondary">{scanned} / {lines.length} scanned</span></div>
+        <div className="mt-3 flex items-center gap-2"><Button size="sm" variant={phase === "beginning" ? "secondary" : "ghost"} onClick={() => setPhase("beginning")}>Beginning</Button><Button size="sm" variant={phase === "ending" ? "secondary" : "ghost"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Ending</Button><span className={`text-sm font-medium ${lines.length > 0 && scanned === lines.length ? "text-emerald-700" : "text-text-secondary"}`}>{scanned}/{lines.length} Scanned{lines.length > 0 && scanned === lines.length ? " (Complete)" : ""}</span></div>
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_180px_auto]"><input ref={inputRef} autoFocus value={barcode} onChange={(event) => setBarcode(event.target.value)} placeholder="Scan display pack barcode" className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono" /><input inputMode="numeric" value={ticketNumber} onChange={(event) => setTicketNumber(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); scan(); } }} placeholder="Physical ticket #" className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono" /><Button onClick={scan} disabled={!barcode.trim() || !ticketNumber.trim()}>Record Scan</Button></div>
         <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned !== lines.length} onClick={completeAudit}>Complete Ending Audit</Button>
       </>}

@@ -30,7 +30,12 @@ export async function POST(request: NextRequest) {
 
     const normalized = String(serialNumber).trim();
     const pack = await prisma.pack.findFirst({
-      where: { storeId: session.storeId, serialNumber: normalized },
+      where: {
+        storeId: session.storeId,
+        serialNumber: normalized,
+        status: "ACTIVE",
+        slot: { isNot: null },
+      },
       select: {
         id: true,
         currentTicketNumber: true,
@@ -39,7 +44,7 @@ export async function POST(request: NextRequest) {
         game: { select: { ticketsPerPack: true } },
       },
     });
-    if (!pack) return NextResponse.json({ error: "Pack is not part of this store's audit." }, { status: 404 });
+    if (!pack) return NextResponse.json({ error: "Only active packs assigned to a display can be audited." }, { status: 404 });
 
     let line = (audit.lines as AuditLine[]).find((item) => item.packId === pack.id);
     if (!line) {

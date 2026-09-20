@@ -98,7 +98,11 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
     try {
       inventoryAudit = await prisma.inventoryAudit.findUnique({
         where: { shiftId: openShift.id },
-        include: { lines: true, begunBy: { select: { name: true } }, endedBy: { select: { name: true } } },
+        include: {
+          lines: { where: { pack: { status: "ACTIVE", slot: { isNot: null } } } },
+          begunBy: { select: { name: true } },
+          endedBy: { select: { name: true } },
+        },
       });
     } catch (error) {
       console.warn("Inventory audit tables are unavailable; loading shift without audit state.", error);

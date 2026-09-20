@@ -27,7 +27,11 @@ export async function POST(request: NextRequest) {
   try {
     const audit = await prisma.inventoryAudit.findFirst({
       where: { id: auditId, storeId: session.storeId, status: "OPEN", shift: { status: "OPEN" } },
-      include: { lines: true },
+      include: {
+        lines: {
+          where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
+        },
+      },
     });
     if (!audit) return NextResponse.json({ error: "Open audit not found." }, { status: 404 });
 

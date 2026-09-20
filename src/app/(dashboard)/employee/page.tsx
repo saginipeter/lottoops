@@ -68,7 +68,10 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
           where: { shiftId: openShift.id },
           select: {
             status: true,
-            lines: { select: { beginningPhysicalTicket: true, endingPhysicalTicket: true } },
+            lines: {
+              where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
+              select: { beginningPhysicalTicket: true, endingPhysicalTicket: true },
+            },
           },
         });
       } catch {
