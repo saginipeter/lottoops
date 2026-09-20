@@ -132,23 +132,23 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
   const nextTask = tasks.find((task) => task.state === "ready");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#eef2f7]">
       <Header title="Employee workspace" subtitle="Guided shift tasks and fast scanning" />
-      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-        <div className="mx-auto w-full max-w-3xl">
-          <div className="border border-border bg-surface p-5 shadow-[0_12px_36px_rgba(23,35,63,0.08)] sm:p-6">
+      <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
+        <div className="mx-auto w-full max-w-4xl pb-3">
+          <div className="overflow-hidden border border-[#cbd5e1] bg-[#17233f] text-white shadow-[0_16px_32px_rgba(23,35,63,0.16)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">LottoOps employee</p>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-text">Welcome, {session.name.split(" ")[0]}</h1>
-                <p className="mt-1 text-sm text-text-secondary">{session.storeName ?? "Your store"} · Terminal {terminalId}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b8c7ff]">LottoOps terminal</p>
+                <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Welcome, {session.name.split(" ")[0]}</h1>
+                <p className="mt-1 text-sm text-white/65">{session.storeName ?? "Your store"} <span className="px-1 text-white/30">·</span> Terminal {terminalId}</p>
               </div>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-success/25 bg-success-soft text-success-soft-text"><ShieldCheck size={20} /></div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-emerald-300/30 bg-emerald-300/10 text-emerald-200"><ShieldCheck size={21} /></div>
             </div>
-            <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-4 border-t border-border pt-4">
+            <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-4 border-t border-white/15 pt-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Shift progress</p>
-                <p className="mt-1 text-sm font-semibold text-text">{completedTasks} of {tasks.length} workflow tasks completed</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Shift progress</p>
+                <p className="mt-1 text-sm font-semibold">{completedTasks} of {tasks.length} workflow tasks completed</p>
               </div>
               <span className={`px-3 py-1.5 text-xs font-semibold ${shiftOpen ? "bg-success-soft text-success-soft-text" : "bg-warning-soft text-warning-soft-text"}`}>
                 {shiftOpen ? "Shift open" : "No open shift"}
@@ -158,24 +158,24 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
 
           <nav className="mt-3 grid grid-cols-4 gap-2" aria-label="Select terminal">
             {(["T1", "T2", "T3", "T4"] as const).map((terminal) => (
-              <Link key={terminal} href={`/employee?terminal=${terminal}`} className={`flex min-h-11 items-center justify-center border text-sm font-semibold ${terminalId === terminal ? "border-accent bg-accent text-white" : "border-border bg-surface text-text-secondary"}`}>{terminal}</Link>
+              <Link key={terminal} href={`/employee?terminal=${terminal}`} className={`flex min-h-12 items-center justify-center border text-sm font-bold tracking-wide transition-colors ${terminalId === terminal ? "border-[#17233f] bg-[#17233f] text-white shadow-[0_3px_0_#0d1528]" : "border-[#cbd5e1] bg-white text-[#475569] hover:border-[#17233f]"}`}>{terminal}</Link>
             ))}
           </nav>
 
           <EmployeeDeviceSetup terminalId={terminalId} />
 
           {nextTask && (
-            <Link href={nextTask.href} className="group mt-4 flex min-h-24 items-center gap-4 bg-accent p-4 text-white active:scale-[0.99]">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-white/25"><ListChecks size={21} /></div>
+            <Link href={nextTask.href} className="group mt-3 flex min-h-28 items-center gap-4 bg-[#314a8a] p-4 text-white shadow-[0_8px_0_#17233f] active:translate-y-0.5 active:shadow-[0_4px_0_#17233f]">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-white/25 bg-white/10"><ListChecks size={21} /></div>
               <div className="min-w-0 flex-1"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Next task</p><p className="mt-1 text-lg font-semibold">{nextTask.label}</p><p className="mt-0.5 text-xs text-white/75">{nextTask.description}</p></div>
               <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
             </Link>
           )}
 
-          <section className="mt-4 border border-border bg-surface" aria-labelledby="shift-checklist-title">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <div><p className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">Today</p><h2 id="shift-checklist-title" className="text-base font-semibold text-text">Shift checklist</h2></div>
-              <ClipboardCheck size={19} className="text-accent" />
+          <section className="mt-5 border border-[#cbd5e1] bg-white shadow-[0_8px_20px_rgba(23,35,63,0.05)]" aria-labelledby="shift-checklist-title">
+            <div className="flex items-center justify-between border-b border-[#e2e8f0] px-4 py-3">
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748b]">Today</p><h2 id="shift-checklist-title" className="text-base font-bold text-[#17233f]">Shift checklist</h2></div>
+              <ClipboardCheck size={19} className="text-[#314a8a]" />
             </div>
             <div className="divide-y divide-border">
               {tasks.map((task) => <TaskRow key={task.label} task={task} />)}
@@ -183,11 +183,11 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
           </section>
 
           <section className="mt-4 grid gap-3 sm:grid-cols-2" aria-label="Employee tools">
-            <Link href={`/inventory/live-scan?terminal=${terminalId}`} className="group min-h-32 bg-chrome p-4 text-white active:scale-[0.99]">
+            <Link href={`/inventory/live-scan?terminal=${terminalId}`} className="group min-h-36 bg-[#17233f] p-4 text-white shadow-[0_6px_0_#0d1528] active:translate-y-0.5">
               <div className="flex items-start justify-between"><Radio size={21} /><ArrowRight size={18} className="transition-transform group-hover:translate-x-1" /></div>
               <h2 className="mt-5 text-base font-semibold">Open live scanner</h2><p className="mt-1 text-xs text-white/70">Camera, barcode reader, manual entry, and offline queue.</p>
             </Link>
-            <Link href={`/inventory/live-scan?terminal=${terminalId}#report-ticket`} className="group min-h-32 border border-warning/40 bg-warning-soft p-4 text-warning-soft-text active:scale-[0.99]">
+            <Link href={`/inventory/live-scan?terminal=${terminalId}#report-ticket`} className="group min-h-36 border border-[#f1c46b] bg-[#fff7df] p-4 text-[#6d4b00] active:translate-y-0.5">
               <div className="flex items-start justify-between"><AlertTriangle size={21} /><ArrowRight size={18} className="transition-transform group-hover:translate-x-1" /></div>
               <h2 className="mt-5 text-base font-semibold">Manager handoff</h2><p className="mt-1 text-xs opacity-75">Report damaged, disputed, or blocked tickets for review.</p>
             </Link>

@@ -619,21 +619,21 @@ export function LiveScanDashboard({
   if (isEmployee) {
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-3 py-1 sm:gap-4 sm:py-2">
-        <Panel className="w-full max-w-4xl border-2 p-3 sm:p-4">
+        <Panel className="w-full max-w-4xl border border-[#cbd5e1] bg-white p-3 shadow-[0_8px_20px_rgba(23,35,63,0.05)] sm:p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Scanner status</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748b]">Scanner status</p>
               <div className="mt-1 flex items-center gap-2">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
                     scannerConnected ? "bg-emerald-500" : "bg-amber-500"
                   }`}
                 />
-                <p className="text-base font-semibold text-text">
+                <p className="text-base font-bold text-[#17233f]">
                   {scannerConnected ? "Scanner connected" : "Ready for scan"}
                 </p>
               </div>
-              <p className="mt-1 text-xs text-text-secondary">
+              <p className="mt-1 text-xs leading-5 text-[#64748b]">
                 Use the camera or scan directly into the field. The field refocuses after every result.
               </p>
               <p className={`mt-2 text-xs font-semibold ${isOnline ? "text-success-soft-text" : "text-danger-soft-text"}`} role="status">
@@ -650,7 +650,7 @@ export function LiveScanDashboard({
               <Button
                 onClick={handleOpenShift}
                 disabled={shiftActionLoading || Boolean(currentShift)}
-                className="min-h-[46px]"
+                className="min-h-[52px] text-sm font-bold"
               >
                 <Power size={14} />
                 {shiftActionLoading && !currentShift ? "Opening..." : "Open Shift"}
@@ -659,7 +659,7 @@ export function LiveScanDashboard({
                 variant="outline"
                 onClick={handleCloseShift}
                 disabled={shiftActionLoading || !currentShift}
-                className="min-h-[46px]"
+                className="min-h-[52px] text-sm font-bold"
               >
                 <Power size={14} />
                 {shiftActionLoading && currentShift ? "Closing..." : "Close Shift"}
@@ -673,12 +673,12 @@ export function LiveScanDashboard({
           )}
         </Panel>
 
-        <Panel className={`w-full max-w-3xl border-2 p-3 sm:p-8 ${scanError ? "border-red-500 bg-red-50" : ""}`}>
+        <Panel className={`w-full max-w-3xl border border-[#cbd5e1] bg-white p-3 shadow-[0_10px_24px_rgba(23,35,63,0.06)] sm:p-8 ${scanError ? "border-red-500 bg-red-50" : ""}`}>
           <div className="space-y-5 text-center">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-tertiary">Live scanner</p>
-              <h2 className="mt-2 text-2xl font-semibold text-text sm:text-3xl">Scan Ticket</h2>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#64748b]">Live scanner</p>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#17233f] sm:text-3xl">Scan Ticket</h2>
+              <p className="mt-1 text-sm text-[#64748b]">
                 {currentShift
                   ? `Shift open on ${terminalId}. Scanner is ready.`
                   : `Open shift on ${terminalId} to begin scanning.`}
@@ -708,7 +708,7 @@ export function LiveScanDashboard({
                   }
                 }}
                 placeholder="Scan barcode to sell"
-                className={`w-full rounded-xl border-2 px-3 py-4 text-center font-mono text-2xl tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:px-5 sm:py-5 sm:text-3xl ${
+                className={`w-full border-2 border-[#94a3b8] px-3 py-4 text-center font-mono text-2xl tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-[#314a8a]/30 sm:px-5 sm:py-5 sm:text-3xl ${
                   scanError ? "border-red-600 bg-white" : "border-border"
                 }`}
                 autoFocus
@@ -716,7 +716,7 @@ export function LiveScanDashboard({
               <Button
                 onClick={() => { void handleScan(); }}
                 disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift}
-                className="min-h-[54px] text-base font-semibold"
+                className="min-h-[58px] bg-[#314a8a] text-base font-bold shadow-[0_4px_0_#17233f] active:translate-y-0.5"
               >
                 {refreshing ? "Scanning..." : "Submit Scan"}
               </Button>
@@ -726,7 +726,7 @@ export function LiveScanDashboard({
             </div>
 
             {lastScan && (
-              <div className="mx-auto w-full max-w-2xl rounded-md border border-emerald-300 bg-emerald-50 p-3 text-left">
+              <div className="mx-auto w-full max-w-2xl border border-emerald-300 bg-emerald-50 p-3 text-left">
                 <p className="text-sm font-medium text-green-900">Ticket accepted · Game {lastScan.gameNumber}</p>
                 <p className="mt-1 text-xl font-bold text-green-950">
                   Next ticket: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.nextTicketNumber ?? "-"}
@@ -755,16 +755,16 @@ export function LiveScanDashboard({
           </div>
         </Panel>
 
-        <Panel className="w-full max-w-3xl border p-3 sm:hidden">
+        <Panel className="w-full max-w-3xl border border-[#cbd5e1] bg-white p-3 shadow-[0_8px_20px_rgba(23,35,63,0.05)] sm:hidden">
           <PhoneBarcodeScanner
             onScan={(value) => { void handleScan(value); }}
             disabled={refreshing || Boolean(scanError) || !currentShift}
           />
         </Panel>
 
-        <Panel id="report-ticket" className="w-full max-w-3xl scroll-mt-4 border p-4 sm:p-5">
-          <h3 className="text-base font-semibold text-text">Report Ticket</h3>
-          <p className="mt-1 text-xs text-text-secondary">
+        <Panel id="report-ticket" className="w-full max-w-3xl scroll-mt-4 border border-[#cbd5e1] bg-white p-4 shadow-[0_8px_20px_rgba(23,35,63,0.05)] sm:p-5">
+          <h3 className="text-base font-bold text-[#17233f]">Report Ticket</h3>
+          <p className="mt-1 text-xs leading-5 text-[#64748b]">
             Report invalid, damaged, or disputed tickets for manager follow-up.
           </p>
 
@@ -774,13 +774,13 @@ export function LiveScanDashboard({
               value={reportTicket}
               onChange={(event) => setReportTicket(event.target.value)}
               placeholder="Ticket number or barcode"
-              className="w-full rounded-md border border-border px-3 py-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="w-full min-h-12 border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#314a8a] focus:ring-2 focus:ring-[#314a8a]/20"
             />
             <textarea
               value={reportReason}
               onChange={(event) => setReportReason(event.target.value)}
               placeholder="Reason for report"
-              className="min-h-[90px] w-full rounded-md border border-border px-3 py-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="min-h-[90px] w-full min-h-12 border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#314a8a] focus:ring-2 focus:ring-[#314a8a]/20"
             />
             <Button
               onClick={handleReportTicket}
@@ -814,7 +814,7 @@ export function LiveScanDashboard({
       <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
           <RefreshCw size={14} className="text-text-secondary" />
-          <span className="text-xs text-text-secondary">
+          <span className="text-xs leading-5 text-[#64748b]">
             Auto-refresh: {autoRefreshActive ? "ON (10s)" : "OFF"}
           </span>
           {lastRefreshTime && (
@@ -961,7 +961,7 @@ export function LiveScanDashboard({
                 <div className="rounded-md border border-emerald-300 bg-white px-4 py-2 text-right">
                   <p className="text-[11px] font-semibold uppercase text-text-tertiary">Live lottery sales</p>
                   <p className="text-lg font-bold text-text">${shiftStats.revenueTotal.toFixed(2)}</p>
-                  <p className="text-xs text-text-secondary">{shiftStats.ticketsSold} tickets scanned</p>
+                  <p className="text-xs leading-5 text-[#64748b]">{shiftStats.ticketsSold} tickets scanned</p>
                 </div>
               </div>
               {isOwner && (
@@ -1041,18 +1041,18 @@ export function LiveScanDashboard({
                     </time>
                   </div>
                 ))}
-                {historyResult.history?.length === 0 && <p className="text-sm text-text-secondary">No recorded activity yet.</p>}
+                {historyResult.history?.length === 0 && <p className="text-sm text-[#64748b]">No recorded activity yet.</p>}
               </div>
             </div>
             <div className="rounded-md border border-border bg-surface-soft p-3">
               <p className="text-xs font-semibold uppercase text-text-tertiary">Last known location / status</p>
               <p className="mt-1 text-lg font-bold text-text">{historyResult.pack.status.replaceAll("_", " ")}</p>
-              <p className="mt-1 flex items-center gap-1 text-sm text-text-secondary">
+              <p className="mt-1 flex items-center gap-1 text-sm text-[#64748b]">
                 <MapPin size={14} /> {historyResult.pack.slotNumber ? `Display ${historyResult.pack.slotNumber}` : "No display assigned"}
               </p>
               <p className="mt-2 text-xs text-text-tertiary">Pack {historyResult.pack.serialNumber} · Game {historyResult.pack.gameNumber}</p>
               {historyResult.lastActivity && (
-                <p className="mt-2 border-t border-border pt-2 text-xs text-text-secondary">Last: {historyResult.lastActivity.action.replaceAll("_", " ")}</p>
+                <p className="mt-2 border-t border-border pt-2 text-xs leading-5 text-[#64748b]">Last: {historyResult.lastActivity.action.replaceAll("_", " ")}</p>
               )}
             </div>
           </div>
