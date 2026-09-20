@@ -96,7 +96,7 @@ export function BarcodeScanner({
     else await startCamera();
   }
 
-  async function useManualEntry() {
+  async function switchToManualEntry() {
     if (cameraOpen) await stopCamera();
     inputRef.current?.focus();
   }
@@ -185,7 +185,7 @@ export function BarcodeScanner({
       </div>
       <div className={cameraOpen ? "relative mt-3 min-h-[220px] overflow-hidden rounded-lg bg-black" : "hidden"}>
         <div id={readerId} className="min-h-[220px]" />
-        <button type="button" onClick={() => { void useManualEntry(); }} className="absolute bottom-3 left-1/2 z-10 inline-flex min-h-10 -translate-x-1/2 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-text shadow">
+        <button type="button" onClick={() => { void switchToManualEntry(); }} className="absolute bottom-3 left-1/2 z-10 inline-flex min-h-10 -translate-x-1/2 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-text shadow">
           <Keyboard size={15} />Enter Code Manually
         </button>
       </div>
