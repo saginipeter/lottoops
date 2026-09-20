@@ -17,8 +17,10 @@ test("does not produce negative sold or remaining values", () => {
 
 test("keeps sell-from-last packs synchronized at one remaining ticket", () => {
   assert.deepEqual(calculateTicketProgress(50, 1, 50), { sold: 49, remaining: 1 });
-  assert.equal(getDisplayedTicketNumber(50, 1, 50), 50);
-  assert.equal(getNextDisplayedTicket(50, 1, 50), 0);
+  assert.equal(getDisplayedTicketNumber(1, 50, 50, "LAST"), 50);
+  assert.equal(getNextDisplayedTicket(1, 50, 50, "LAST"), 49);
+  assert.equal(getDisplayedTicketNumber(1, 1, 50, "LAST"), 1);
+  assert.equal(getNextDisplayedTicket(1, 1, 50, "LAST"), 0);
 });
 
 test("derives the next physical ticket from a normal pack", () => {

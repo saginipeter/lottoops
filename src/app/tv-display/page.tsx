@@ -67,6 +67,7 @@ export default async function TvDisplayKioskPage({
       ticketQuantity: number | null;
       firstTicket: number | null;
       currentTicketNumber: number | null;
+      firstOrLastTicket: string | null;
       packImage: string | null;
       game: { name: string; gameNumber: string; price: unknown };
     } | null;
@@ -78,7 +79,7 @@ export default async function TvDisplayKioskPage({
       const firstTicket = pack.firstTicket ?? 0;
       const currentTicket = pack.currentTicketNumber ?? firstTicket;
       const { sold, remaining } = calculateTicketProgress(firstTicket, currentTicket, quantity);
-      const displayedTicket = getDisplayedTicketNumber(firstTicket, currentTicket, quantity);
+      const displayedTicket = getDisplayedTicketNumber(firstTicket, currentTicket, quantity, pack.firstOrLastTicket);
 
       return [{
         id: slot.id,
@@ -89,7 +90,7 @@ export default async function TvDisplayKioskPage({
         ticketPrice: Number(pack.game.price),
         firstTicket,
         currentTicket: displayedTicket,
-        nextTicket: getNextDisplayedTicket(firstTicket, currentTicket, quantity),
+        nextTicket: getNextDisplayedTicket(firstTicket, currentTicket, quantity, pack.firstOrLastTicket),
         remaining,
         sold,
         quantity,

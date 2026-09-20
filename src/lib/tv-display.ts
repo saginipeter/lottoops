@@ -9,15 +9,16 @@ export function calculateTicketProgress(
   return { sold, remaining };
 }
 
-/** Returns the physical ticket currently expected from the remaining counter. */
 export function getDisplayedTicketNumber(
   firstTicket: number,
   remainingTicketCount: number,
-  quantity: number
+  quantity: number,
+  direction?: string | null,
 ): number {
   const first = Math.max(Number(firstTicket) || 1, 1);
   const safeQuantity = Math.max(Number(quantity) || 0, 0);
   const remaining = Math.min(Math.max(Number(remainingTicketCount) || 0, 0), safeQuantity);
+  if (direction === "LAST") return remaining;
   const initialRemaining = Math.max(safeQuantity - first + 1, 0);
   return initialRemaining > 0 ? first + Math.max(initialRemaining - remaining, 0) : 0;
 }
@@ -25,9 +26,11 @@ export function getDisplayedTicketNumber(
 export function getNextDisplayedTicket(
   firstTicket: number,
   remainingTicketCount: number,
-  quantity: number
+  quantity: number,
+  direction?: string | null,
 ): number {
-  const current = getDisplayedTicketNumber(firstTicket, remainingTicketCount, quantity);
+  const current = getDisplayedTicketNumber(firstTicket, remainingTicketCount, quantity, direction);
+  if (direction === "LAST") return current > 1 ? current - 1 : 0;
   const first = Math.max(Number(firstTicket) || 1, 1);
   const safeQuantity = Math.max(Number(quantity) || 0, 0);
   const last = first + Math.max(safeQuantity - first, 0);

@@ -10,7 +10,7 @@ import { isReadOnly } from "@/lib/permissions";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 import { getSafeCurrentTicket, getValidTicketState } from "@/lib/ticket-quantity";
 import { Prisma } from "@prisma/client";
-import { expectedPhysicalTicket } from "@/lib/core-validation";
+import { expectedPhysicalTicketByDirection } from "@/lib/core-validation";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -299,10 +299,11 @@ export async function POST(req: NextRequest) {
             ? normalizedTicketState.currentTicketNumber
             : beginning;
 
-        const expectedPhysical = expectedPhysicalTicket(
+        const expectedPhysical = expectedPhysicalTicketByDirection(
           normalizedTicketState.firstTicket || 1,
           Number(existingPack.ticketQuantity ?? existingPack.game.ticketsPerPack ?? beginning),
           Number(currentTicket),
+          existingPack.firstOrLastTicket,
         );
 
         if (currentTicket <= 0) {
@@ -421,10 +422,11 @@ export async function POST(req: NextRequest) {
 
         const nextTicketNumber = soldOut
           ? null
-          : expectedPhysicalTicket(
+          : expectedPhysicalTicketByDirection(
               normalizedTicketState.firstTicket || 1,
               Number(existingPack.ticketQuantity ?? existingPack.game.ticketsPerPack ?? beginning),
               endingTicket,
+              existingPack.firstOrLastTicket,
             );
 
         return NextResponse.json({

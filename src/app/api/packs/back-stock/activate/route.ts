@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
       data: {
         status: "ACTIVE",
         activatedAt: new Date(),
-        currentTicketNumber: remainingTicketsFromStartingTicket(sellableTicket, pack.ticketQuantity ?? 0),
+        currentTicketNumber: firstOrLastTicket === "LAST"
+          ? Number(pack.ticketQuantity ?? 0)
+          : remainingTicketsFromStartingTicket(sellableTicket, pack.ticketQuantity ?? 0),
         activationNumber: activationNumber || undefined,
         activationReceiptPhoto: activationReceiptPhoto || undefined,
         lotNumber: lotNumber || undefined,
