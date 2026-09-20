@@ -36,6 +36,15 @@ export async function POST(request: NextRequest) {
     if (!audit) return NextResponse.json({ error: "Open audit not found." }, { status: 404 });
 
     const auditLines = audit.lines as AuditLine[];
+    const activeDisplayPackCount = await prisma.pack.count({
+      where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
+    });
+    if (auditLines.length !== activeDisplayPackCount) {
+      return NextResponse.json(
+        { error: `${activeDisplayPackCount - auditLines.length} active display pack audit scan(s) are still required.` },
+        { status: 409 }
+      );
+    }
     const incomplete = auditLines.filter((line) => line.beginningPhysicalTicket === null || line.endingPhysicalTicket === null);
     if (incomplete.length > 0) {
       return NextResponse.json({ error: `${incomplete.length} display pack audit scan(s) are still required.` }, { status: 409 });

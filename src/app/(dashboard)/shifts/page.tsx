@@ -160,7 +160,11 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
     : null;
   const participants = openShift ? await getShiftParticipants(openShift.id) : [];
 
-  const activePackCount = openShift?.lines?.length ?? 0;
+  const activePackCount = openShift
+    ? await prisma.pack.count({
+        where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
+      })
+    : 0;
   const eventCount = timelineEvents.length;
 
   return (
@@ -229,6 +233,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
           participants={JSON.parse(JSON.stringify(participants))}
           shiftEvents={eventData}
           terminalId={terminalId}
+          activeDisplayPackCount={activePackCount}
         />
       </div>
 

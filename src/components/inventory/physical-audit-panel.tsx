@@ -17,7 +17,7 @@ interface AuditState {
   lines: AuditLine[];
 }
 
-export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string; audit?: AuditState }) {
+export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCount }: { shiftId: string; audit?: AuditState; activeDisplayPackCount: number }) {
   const router = useRouter();
   const [phase, setPhase] = useState<"beginning" | "ending">("beginning");
   const [barcode, setBarcode] = useState("");
@@ -29,7 +29,7 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
   useEffect(() => setLocalLines(audit?.lines ?? []), [audit]);
   const lines = useMemo(() => localLines, [localLines]);
   const scanned = useMemo(() => lines.filter((line) => phase === "beginning" ? line.beginningPhysicalTicket !== null : line.endingPhysicalTicket !== null).length, [lines, phase]);
-  const beginningComplete = lines.every((line) => line.beginningPhysicalTicket !== null);
+  const beginningComplete = activeDisplayPackCount > 0 && lines.filter((line) => line.beginningPhysicalTicket !== null).length === activeDisplayPackCount;
 
   async function beginAudit() {
     const response = await fetch("/api/inventory-audits/begin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shiftId }) });
@@ -71,9 +71,9 @@ export default function PhysicalAuditPanel({ shiftId, audit }: { shiftId: string
         {!audit && <Button onClick={beginAudit}>Begin Audit</Button>}
       </div>
       {audit && audit.status === "OPEN" && <>
-        <div className="mt-3 flex items-center gap-2"><Button size="sm" variant={phase === "beginning" ? "secondary" : "ghost"} onClick={() => setPhase("beginning")}>Beginning</Button><Button size="sm" variant={phase === "ending" ? "secondary" : "ghost"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Ending</Button><span className={`text-sm font-medium ${lines.length > 0 && scanned === lines.length ? "text-emerald-700" : "text-text-secondary"}`}>{scanned}/{lines.length} Scanned{lines.length > 0 && scanned === lines.length ? " (Complete)" : ""}</span></div>
+        <div className="mt-3 flex items-center gap-2"><Button size="sm" variant={phase === "beginning" ? "secondary" : "ghost"} onClick={() => setPhase("beginning")}>Beginning</Button><Button size="sm" variant={phase === "ending" ? "secondary" : "ghost"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Ending</Button><span className={`text-sm font-medium ${activeDisplayPackCount > 0 && scanned === activeDisplayPackCount ? "text-emerald-700" : "text-text-secondary"}`}>{scanned}/{activeDisplayPackCount} Scanned{activeDisplayPackCount > 0 && scanned === activeDisplayPackCount ? " (Complete)" : ""}</span></div>
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_180px_auto]"><input ref={inputRef} autoFocus value={barcode} onChange={(event) => setBarcode(event.target.value)} placeholder="Scan display pack barcode" className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono" /><input inputMode="numeric" value={ticketNumber} onChange={(event) => setTicketNumber(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); scan(); } }} placeholder="Physical ticket #" className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono" /><Button onClick={scan} disabled={!barcode.trim() || !ticketNumber.trim()}>Record Scan</Button></div>
-        <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned !== lines.length} onClick={completeAudit}>Complete Ending Audit</Button>
+        <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned !== activeDisplayPackCount} onClick={completeAudit}>Complete Ending Audit</Button>
       </>}
       {audit?.status === "COMPLETED" && <p className="mt-3 text-sm font-semibold text-emerald-700">Audit completed. Manager review is required for any variance.</p>}
       {message && <p role="status" className={`mt-2 text-sm ${messageType === "success" ? "text-emerald-700" : "text-red-700"}`}>{message}</p>}

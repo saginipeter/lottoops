@@ -15,6 +15,7 @@ interface ShiftDashboardProps {
   recentClosedShift?: any | null;
   participants?: Array<{ userId: string; name: string; email: string; firstSeenAt: string; lastSeenAt: string }>;
   terminalId: string;
+  activeDisplayPackCount: number;
   shiftEvents: Array<{
     id: string;
     action: string;
@@ -33,6 +34,7 @@ export default function ShiftDashboard({
   recentClosedShift,
   participants = [],
   terminalId,
+  activeDisplayPackCount,
   shiftEvents,
 }: ShiftDashboardProps) {
   const [loading, setLoading] = useState(false);
@@ -227,7 +229,7 @@ export default function ShiftDashboard({
       <ShiftPackTable shift={shift} />
 
       <div id="physical-audit">
-        <PhysicalAuditPanel shiftId={shift.id} audit={shift.inventoryAudit} />
+        <PhysicalAuditPanel shiftId={shift.id} audit={shift.inventoryAudit} activeDisplayPackCount={activeDisplayPackCount} />
       </div>
 
       <Panel className="p-6">
