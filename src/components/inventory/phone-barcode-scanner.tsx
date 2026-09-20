@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, CameraOff } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Camera, CameraOff, Keyboard } from "lucide-react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { normalizeBarcodeInput } from "@/lib/barcode";
@@ -11,36 +11,58 @@ interface PhoneBarcodeScannerProps {
   disabled?: boolean;
 }
 
-const READER_ID = "lottoops-phone-barcode-reader";
-
 export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeScannerProps) {
+  const readerId = `lottoops-phone-barcode-reader-${useId().replace(/:/g, "")}`;
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const operationRef = useRef(false);
+  const mountedRef = useRef(true);
   const [active, setActive] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualValue, setManualValue] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       const scanner = scannerRef.current;
+      scannerRef.current = null;
       if (scanner) {
-        void scanner.stop().catch(() => undefined);
-        scanner.clear();
+        void scanner.stop().catch(() => undefined).finally(() => scanner.clear());
       }
     };
   }, []);
 
-  async function stopCamera() {
+  const stopCamera = useCallback(async () => {
+    if (operationRef.current) return;
+    operationRef.current = true;
     const scanner = scannerRef.current;
     scannerRef.current = null;
-    setActive(false);
-    if (!scanner) return;
-    await scanner.stop().catch(() => undefined);
-    scanner.clear();
-  }
+    try {
+      if (scanner) {
+        await scanner.stop().catch(() => undefined);
+        scanner.clear();
+      }
+    } finally {
+      operationRef.current = false;
+      if (mountedRef.current) {
+        setActive(false);
+        setStarting(false);
+      }
+    }
+  }, []);
 
   async function startCamera() {
-    if (disabled) return;
+    if (disabled || operationRef.current || scannerRef.current) return;
+    operationRef.current = true;
     setMessage("");
-    const scanner = new Html5Qrcode(READER_ID, {
+    setManualMode(false);
+    setStarting(true);
+    setActive(true);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const scanner = new Html5Qrcode(readerId, {
       verbose: false,
       formatsToSupport: [
         Html5QrcodeSupportedFormats.CODE_128,
@@ -54,25 +76,45 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
       useBarCodeDetectorIfSupported: true,
     });
     scannerRef.current = scanner;
-    setActive(true);
 
     try {
       await scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 280, height: 120 }, aspectRatio: 1.777778 },
         async (decodedText) => {
+          if (scannerRef.current !== scanner) return;
           await stopCamera();
           onScan(normalizeBarcodeInput(decodedText));
         },
         () => undefined
       );
-      setActive(true);
+      if (mountedRef.current) setStarting(false);
     } catch {
       scannerRef.current = null;
-      setActive(false);
       scanner.clear();
-      setMessage("Camera unavailable. Allow camera access or use the barcode field.");
+      if (mountedRef.current) {
+        setActive(false);
+        setStarting(false);
+        setManualMode(true);
+        setMessage("Camera unavailable. Enter the barcode manually below.");
+      }
+    } finally {
+      operationRef.current = false;
     }
+  }
+
+  async function openManualEntry() {
+    if (active) await stopCamera();
+    setManualMode(true);
+    setMessage("");
+  }
+
+  function submitManualEntry() {
+    const normalized = normalizeBarcodeInput(manualValue);
+    if (!normalized) return;
+    onScan(normalized);
+    setManualValue("");
+    setManualMode(false);
   }
 
   return (
@@ -86,15 +128,15 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
           type="button"
           variant={active ? "outline" : "secondary"}
           onClick={() => { void (active ? stopCamera() : startCamera()); }}
-          disabled={disabled}
+          disabled={disabled || starting}
           className="min-h-[44px] sm:min-h-0"
         >
           {active ? <CameraOff size={15} /> : <Camera size={15} />}
-          {active ? "Stop Camera" : "Scan with Camera"}
+          {starting ? "Starting Camera..." : active ? "Stop Camera" : "Scan with Camera"}
         </Button>
       </div>
-      <div className={active ? "relative mt-3 overflow-hidden rounded-md bg-black" : "hidden"}>
-        <div id={READER_ID} className="min-h-[180px]" />
+      <div className={active ? "relative mt-3 min-h-[220px] overflow-hidden rounded-md bg-black" : "hidden"}>
+        <div id={readerId} className="min-h-[220px]" />
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="relative h-28 w-[90%] max-w-[320px] border border-white/50">
             <span className="absolute -left-0.5 -top-0.5 h-6 w-6 border-l-4 border-t-4 border-emerald-400" />
@@ -107,7 +149,25 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
         <p className="absolute bottom-2 left-0 right-0 text-center text-xs font-semibold text-white drop-shadow">
           Scanning barcode...
         </p>
+        <Button type="button" variant="secondary" size="sm" className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2" onClick={() => { void openManualEntry(); }}>
+          <Keyboard size={14} />Enter Code Manually
+        </Button>
       </div>
+      {!active && <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => { void openManualEntry(); }} disabled={disabled}>
+        <Keyboard size={14} />Enter Code Manually
+      </Button>}
+      {manualMode && <div className="mt-3 flex gap-2">
+        <input
+          autoFocus
+          inputMode="numeric"
+          value={manualValue}
+          onChange={(event) => setManualValue(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitManualEntry(); } }}
+          placeholder="Enter barcode number"
+          className="min-h-11 min-w-0 flex-1 rounded-md border-2 border-border bg-white px-3 font-mono text-base outline-none focus:border-accent"
+        />
+        <Button type="button" onClick={submitManualEntry} disabled={!manualValue.trim()}>Submit</Button>
+      </div>}
       {message && <p className="mt-2 text-xs font-medium text-amber-700">{message}</p>}
     </div>
   );

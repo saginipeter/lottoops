@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ScanLine, Keyboard } from "lucide-react";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { normalizeBarcodeInput } from "@/lib/barcode";
 
 interface BarcodeScannerProps {
@@ -9,83 +10,95 @@ interface BarcodeScannerProps {
   onChange: (value: string) => void;
 }
 
-interface BarcodeDetectorLike {
-  detect(source: HTMLVideoElement): Promise<Array<{ rawValue?: string }>>;
-}
-
-interface BarcodeDetectorConstructorLike {
-  new (options?: { formats?: string[] }): BarcodeDetectorLike;
-}
-
-declare global {
-  interface Window {
-    BarcodeDetector?: BarcodeDetectorConstructorLike;
-  }
-}
-
 export function BarcodeScanner({
   barcode,
   onChange,
 }: BarcodeScannerProps) {
+  const readerId = `lottoops-receive-barcode-reader-${useId().replace(/:/g, "")}`;
   const inputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const operationRef = useRef(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraMessage, setCameraMessage] = useState("");
 
-  useEffect(() => () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-  }, []);
   useEffect(() => {
-    if (cameraOpen && videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-    }
-  }, [cameraOpen]);
+    return () => {
+      const scanner = scannerRef.current;
+      scannerRef.current = null;
+      if (scanner) void scanner.stop().catch(() => undefined).finally(() => scanner.clear());
+    };
+  }, []);
 
-  async function toggleCamera() {
-    if (cameraOpen) {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+  const stopCamera = useCallback(async () => {
+    if (operationRef.current) return;
+    operationRef.current = true;
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    try {
+      if (scanner) {
+        await scanner.stop().catch(() => undefined);
+        scanner.clear();
+      }
+    } finally {
+      operationRef.current = false;
       setCameraOpen(false);
-      return;
+      setCameraStarting(false);
     }
+  }, []);
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraMessage("Camera access is not available in this browser.");
-      return;
-    }
-    if (!window.BarcodeDetector) {
-      setCameraMessage("Camera barcode scanning is not supported on this phone. Use manual entry or a USB scanner.");
-      return;
-    }
+  async function startCamera() {
+    if (operationRef.current || scannerRef.current) return;
+    operationRef.current = true;
+    setCameraMessage("");
+    setCameraStarting(true);
+    setCameraOpen(true);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const scanner = new Html5Qrcode(readerId, {
+      verbose: false,
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.ITF,
+      ],
+      useBarCodeDetectorIfSupported: true,
+    });
+    scannerRef.current = scanner;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-      streamRef.current = stream;
-      setCameraMessage("");
-      setCameraOpen(true);
-      const detector = new window.BarcodeDetector({ formats: ["code_128", "code_39", "ean_13", "ean_8", "upc_a", "upc_e", "itf"] });
-      const scanFrame = async () => {
-        const video = videoRef.current;
-        if (!video || !streamRef.current) return;
-        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-          const detected = await detector.detect(video).catch(() => []);
-          const value = detected[0]?.rawValue?.trim();
-          if (value) {
-            onChange(normalizeBarcodeInput(value));
-            streamRef.current.getTracks().forEach((track) => track.stop());
-            streamRef.current = null;
-            setCameraOpen(false);
-            inputRef.current?.focus();
-            return;
-          }
-        }
-        window.setTimeout(() => { void scanFrame(); }, 250);
-      };
-      window.setTimeout(() => { void scanFrame(); }, 250);
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 280, height: 120 }, aspectRatio: 1.777778 },
+        async (decodedText) => {
+          if (scannerRef.current !== scanner) return;
+          await stopCamera();
+          onChange(normalizeBarcodeInput(decodedText));
+          inputRef.current?.focus();
+        },
+        () => undefined
+      );
+      setCameraStarting(false);
     } catch {
-      setCameraMessage("Camera permission was denied or unavailable.");
+      scannerRef.current = null;
+      scanner.clear();
+      setCameraOpen(false);
+      setCameraStarting(false);
+      setCameraMessage("Camera unavailable. Enter the barcode manually below.");
+      inputRef.current?.focus();
+    } finally {
+      operationRef.current = false;
     }
+  }
+
+  async function toggleCamera() {
+    if (cameraOpen) await stopCamera();
+    else await startCamera();
+  }
+
+  async function useManualEntry() {
+    if (cameraOpen) await stopCamera();
+    inputRef.current?.focus();
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -166,13 +179,16 @@ export function BarcodeScanner({
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => { void toggleCamera(); }} className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-surface-soft">
-          {cameraOpen ? "Close Camera" : "Use Phone Camera"}
+          {cameraStarting ? "Starting Camera..." : cameraOpen ? "Close Camera" : "Use Phone Camera"}
         </button>
         {cameraMessage && <span className="text-xs text-amber-700">{cameraMessage}</span>}
       </div>
-      {cameraOpen && (
-        <video ref={videoRef} autoPlay playsInline muted className="mt-3 h-52 w-full rounded-lg bg-black object-cover" />
-      )}
+      <div className={cameraOpen ? "relative mt-3 min-h-[220px] overflow-hidden rounded-lg bg-black" : "hidden"}>
+        <div id={readerId} className="min-h-[220px]" />
+        <button type="button" onClick={() => { void useManualEntry(); }} className="absolute bottom-3 left-1/2 z-10 inline-flex min-h-10 -translate-x-1/2 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-text shadow">
+          <Keyboard size={15} />Enter Code Manually
+        </button>
+      </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
 
