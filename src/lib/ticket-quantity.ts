@@ -1,7 +1,7 @@
 import { physicalTicketFromRemaining } from "@/lib/core-validation";
 
 export const TICKET_QUANTITY_PRESETS: Record<number, number> = {
-  1: 50,
+  1: 150,
   2: 125,
   3: 125,
   5: 75,

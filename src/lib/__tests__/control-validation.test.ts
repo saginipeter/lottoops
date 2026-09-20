@@ -25,8 +25,8 @@ test("only managers and owners can authorize corrections", () => {
   assert.equal(canAuthorizeCorrection("EMPLOYEE"), false);
 });
 
-test("$1 tickets suggest a 50-ticket pack quantity", () => {
-  assert.equal(getSuggestedTicketQuantity(1), 50);
+test("$1 tickets suggest a 150-ticket pack quantity", () => {
+  assert.equal(getSuggestedTicketQuantity(1), 150);
 });
 
 test("$10 games use 50 tickets per pack across catalog and receiving", () => {
