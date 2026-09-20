@@ -1,7 +1,7 @@
 "use client";
 
-import { Camera, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { Camera, CameraOff, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
@@ -23,14 +23,37 @@ export function InvoiceUpload({
   onChange,
 }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [localPreview, setLocalPreview] = useState("");
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraActive]);
+
+  useEffect(() => () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    if (localPreview.startsWith("blob:")) URL.revokeObjectURL(localPreview);
+  }, [localPreview]);
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraActive(false);
+  }
 
   async function handleFile(file: File) {
     if (file.size > 10 * 1024 * 1024) {
       alert("This image is larger than 10 MB. Please retake it or choose a smaller image.");
       return;
     }
+    if (localPreview.startsWith("blob:")) URL.revokeObjectURL(localPreview);
+    setLocalPreview(URL.createObjectURL(file));
     setUploading(true);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 30_000);
@@ -52,6 +75,7 @@ export function InvoiceUpload({
 
       if (typeof data.url !== "string") throw new Error("Upload completed without a file URL.");
       onChange(data.url);
+      setLocalPreview(data.url);
     } catch (error) {
       console.error(error);
       const message = error instanceof DOMException && error.name === "AbortError"
@@ -70,6 +94,42 @@ export function InvoiceUpload({
     if (uploading) return;
     fileInputRef.current?.click();
   }
+
+  async function openLiveCamera() {
+    if (uploading) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      cameraInputRef.current?.click();
+      return;
+    }
+    try {
+      stopCamera();
+      streamRef.current = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      setCameraActive(true);
+    } catch {
+      cameraInputRef.current?.click();
+    }
+  }
+
+  async function captureLivePhoto() {
+    const video = videoRef.current;
+    if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    if (!blob) {
+      alert("Unable to capture the camera image. Please try again.");
+      return;
+    }
+    stopCamera();
+    await handleFile(new File([blob], `lottoops-photo-${Date.now()}.jpg`, { type: "image/jpeg" }));
+  }
+
+  const preview = localPreview || value;
 
   return (
     <div className="block">
@@ -109,10 +169,15 @@ export function InvoiceUpload({
         role="button"
         tabIndex={0}
       >
-        {value ? (
+        {cameraActive ? (
+          <div className="relative h-full w-full overflow-hidden rounded-xl bg-black">
+            <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+            <div className="absolute inset-x-0 bottom-0 bg-black/65 py-2 text-center text-sm text-white">Camera ready</div>
+          </div>
+        ) : preview ? (
           <div className="relative h-full w-full">
             <Image
-              src={value}
+              src={preview}
               alt={previewAlt}
               width={640}
               height={360}
@@ -147,10 +212,12 @@ export function InvoiceUpload({
           type="button"
           variant="outline"
           disabled={uploading}
-          onClick={() => cameraInputRef.current?.click()}
+          onClick={() => { void (cameraActive ? captureLivePhoto() : openLiveCamera()); }}
         >
-          Take Live Photo
+          <Camera size={15} />
+          {cameraActive ? "Capture Photo" : "Take Live Photo"}
         </Button>
+        {cameraActive && <Button type="button" variant="outline" onClick={stopCamera}><CameraOff size={15} />Cancel Camera</Button>}
         <Button
           type="button"
           variant="secondary"
@@ -159,12 +226,16 @@ export function InvoiceUpload({
         >
           Upload Existing Photo
         </Button>
-        {value && (
+        {preview && !cameraActive && (
           <Button
             type="button"
             variant="outline"
             disabled={uploading}
-            onClick={() => onChange("")}
+            onClick={() => {
+              if (localPreview.startsWith("blob:")) URL.revokeObjectURL(localPreview);
+              setLocalPreview("");
+              onChange("");
+            }}
             className="border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
           >
             <Trash2 size={15} />
