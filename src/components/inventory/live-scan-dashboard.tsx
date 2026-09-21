@@ -31,6 +31,7 @@ interface ShiftData {
   status: string;
   openedAt: string;
   openedBy: { name: string };
+  beginningAuditComplete?: boolean;
   lines: Array<{
     id: string;
     packId: string;
@@ -330,6 +331,11 @@ export function LiveScanDashboard({
 
     if (!currentShift) {
       setScanError("Open a shift before scanning.");
+      return;
+    }
+
+    if (!currentShift.beginningAuditComplete) {
+      setScanError("Complete the beginning physical audit before selling tickets.");
       return;
     }
 
@@ -680,7 +686,9 @@ export function LiveScanDashboard({
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#17233f] sm:text-3xl">Scan Ticket</h2>
               <p className="mt-1 text-sm text-[#64748b]">
                 {currentShift
-                  ? `Shift open on ${terminalId}. Scanner is ready.`
+                  ? currentShift.beginningAuditComplete
+                    ? `Shift open on ${terminalId}. Scanner is ready.`
+                    : `Complete the beginning physical audit before scanning sales.`
                   : `Open shift on ${terminalId} to begin scanning.`}
               </p>
             </div>
@@ -715,12 +723,14 @@ export function LiveScanDashboard({
               />
               <Button
                 onClick={() => { void handleScan(); }}
-                disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift}
+                disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift || !currentShift.beginningAuditComplete}
                 className="min-h-[58px] bg-[#314a8a] text-base font-bold shadow-[0_4px_0_#17233f] active:translate-y-0.5"
               >
                 {refreshing ? "Scanning..." : "Submit Scan"}
               </Button>
-              {!currentShift && (
+              {currentShift && !currentShift.beginningAuditComplete ? (
+                <p className="text-xs text-amber-700">Scanning is disabled until the beginning physical audit is complete.</p>
+              ) : !currentShift && (
                 <p className="text-xs text-amber-700">Scanning is disabled until the shift is opened.</p>
               )}
             </div>
@@ -758,7 +768,7 @@ export function LiveScanDashboard({
         <Panel className="w-full max-w-3xl border border-[#cbd5e1] bg-white p-3 shadow-[0_8px_20px_rgba(23,35,63,0.05)] sm:hidden">
           <PhoneBarcodeScanner
             onScan={(value) => { void handleScan(value); }}
-            disabled={refreshing || Boolean(scanError) || !currentShift}
+            disabled={refreshing || Boolean(scanError) || !currentShift || !currentShift.beginningAuditComplete}
           />
         </Panel>
 
@@ -983,7 +993,7 @@ export function LiveScanDashboard({
       <Panel className="p-3 sm:hidden">
         <PhoneBarcodeScanner
           onScan={(value) => { void handleScan(value); }}
-          disabled={refreshing || Boolean(scanError) || !currentShift}
+          disabled={refreshing || Boolean(scanError) || !currentShift || !currentShift.beginningAuditComplete}
         />
       </Panel>
 

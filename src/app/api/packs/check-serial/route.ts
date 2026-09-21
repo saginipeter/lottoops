@@ -216,6 +216,32 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+
+        const beginningAudit = await prisma.inventoryAudit.findUnique({
+          where: { shiftId: openShift.id },
+          select: {
+            lines: {
+              select: { beginningPhysicalTicket: true },
+            },
+          },
+        });
+        const beginningAuditComplete = Boolean(
+          beginningAudit &&
+            beginningAudit.lines.every(
+              (line: { beginningPhysicalTicket: number | null }) =>
+                line.beginningPhysicalTicket !== null
+            )
+        );
+        if (!beginningAuditComplete) {
+          return NextResponse.json(
+            {
+              code: "BEGINNING_AUDIT_REQUIRED",
+              error: "Complete the beginning physical audit before selling tickets.",
+            },
+            { status: 409 }
+          );
+        }
+
         await recordShiftParticipant(openShift.id, session.userId);
 
         // Block duplicate ticket scans in the same open shift.

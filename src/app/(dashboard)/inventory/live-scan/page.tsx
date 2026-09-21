@@ -76,6 +76,9 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
               id: "desc",
             },
           },
+          inventoryAudit: {
+            include: { lines: true },
+          },
         },
       })
     : null;
@@ -105,6 +108,17 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
         : value
     )
   ) : null;
+
+  if (shiftData) {
+    shiftData.beginningAuditComplete = Boolean(
+      shiftData.inventoryAudit &&
+        shiftData.inventoryAudit.lines.every(
+          (line: { beginningPhysicalTicket: number | null }) =>
+            line.beginningPhysicalTicket !== null
+        )
+    );
+    delete shiftData.inventoryAudit;
+  }
 
   const packsData = JSON.parse(
     JSON.stringify(activePacks, (_, value) =>
