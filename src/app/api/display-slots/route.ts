@@ -4,6 +4,7 @@ import { getApiSession } from "@/lib/api-session";
 import { canManageDisplay } from "@/lib/permissions";
 import { ensureDisplaySlots } from "@/lib/services/display-slots";
 import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
+import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -168,6 +169,13 @@ export async function POST(req: Request) {
     ];
 
     if (pack.status === "BACK_STOCK") {
+      const direction = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
+      const ticketQuantity = Number(pack.ticketQuantity ?? 0);
+      const firstTicket = Number(pack.firstTicket ?? 1);
+      const startingRemaining =
+        direction === "LAST"
+          ? ticketQuantity
+          : remainingTicketsFromStartingTicket(firstTicket, ticketQuantity);
       txOps.unshift(
         prisma.pack.update({
           where: {
@@ -176,7 +184,8 @@ export async function POST(req: Request) {
           data: {
             status: "ACTIVE",
             activatedAt: new Date(),
-            currentTicketNumber: sellableTicket,
+            currentTicketNumber: startingRemaining || sellableTicket,
+            firstOrLastTicket: direction,
           },
         })
       );

@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
       ticketQuantity: pack.ticketQuantity,
       firstOrLastTicket,
     });
+    const direction = firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
     if (sellableTicket === null) {
       return NextResponse.json(
         {
@@ -106,13 +107,13 @@ export async function POST(req: NextRequest) {
       data: {
         status: "ACTIVE",
         activatedAt: new Date(),
-        currentTicketNumber: firstOrLastTicket === "LAST"
+        currentTicketNumber: direction === "LAST"
           ? Number(pack.ticketQuantity ?? 0)
           : remainingTicketsFromStartingTicket(sellableTicket, pack.ticketQuantity ?? 0),
         activationNumber: activationNumber || undefined,
         activationReceiptPhoto: activationReceiptPhoto || undefined,
         lotNumber: lotNumber || undefined,
-        firstOrLastTicket: firstOrLastTicket || undefined,
+        firstOrLastTicket: direction,
       },
     });
 

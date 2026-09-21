@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
           status: "ACTIVE",
           activatedAt: new Date(),
           currentTicketNumber: remainingTicketsFromStartingTicket(pack.firstTicket ?? 1, pack.ticketQuantity ?? 0),
+          firstOrLastTicket: "FIRST",
         },
       }),
       prisma.displaySlot.update({
