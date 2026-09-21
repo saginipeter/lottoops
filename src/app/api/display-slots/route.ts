@@ -80,7 +80,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { slotId, packId } = await req.json();
+    const { slotId, packId, firstOrLastTicket } = await req.json();
 
     if (!slotId || !packId) {
       return NextResponse.json(
@@ -169,7 +169,7 @@ export async function POST(req: Request) {
     ];
 
     if (pack.status === "BACK_STOCK") {
-      const direction = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
+      const direction = firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
       const ticketQuantity = Number(pack.ticketQuantity ?? 0);
       const firstTicket = Number(pack.firstTicket ?? 1);
       const startingRemaining =
