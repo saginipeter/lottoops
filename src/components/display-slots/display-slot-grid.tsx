@@ -18,6 +18,7 @@ interface DisplaySlotGridProps {
       firstTicket?: number | null;
       currentTicketNumber?: number | null;
       ticketQuantity?: number | null;
+      firstOrLastTicket?: string | null;
       game: {
         name: string;
       };
