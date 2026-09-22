@@ -51,7 +51,11 @@ export function ConfirmStep({
     0
   );
   const expectedInventoryCost = Math.round(scannedRetailValue * 0.95 * 100) / 100;
-  const invoiceMatches = scannedRetailValue > 0 && expectedInventoryCost > 0;
+  const enteredInventoryCost = Number(shipment.expectedRetailValue ?? 0);
+  const invoiceMatches =
+    scannedRetailValue > 0 &&
+    expectedInventoryCost > 0 &&
+    Math.round(enteredInventoryCost * 100) === Math.round(expectedInventoryCost * 100);
 
   async function handleConfirm() {
     if (packs.length !== Number(shipment.expectedPacks ?? 0) && !overrideApproved) {
@@ -76,7 +80,7 @@ export function ConfirmStep({
           shipmentId: shipment.id,
           destination,
           notes,
-          expectedRetailValue: expectedInventoryCost,
+          expectedRetailValue: enteredInventoryCost,
           overrideApproved,
           firstOrLastTicket: destination === "active" ? firstOrLastTicket : undefined,
           activationNumber: destination === "active" ? activationNumber || undefined : undefined,
@@ -254,7 +258,7 @@ export function ConfirmStep({
           <h3 className="mb-3 text-lg font-semibold">Manager notes and confirmation</h3>
           <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes about this shipment..." className="w-full border border-gray-300 p-3 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200" />
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4">
-            <div className="flex-1 text-sm font-semibold text-green-700">{invoiceMatches ? <span className="inline-flex items-center gap-2"><CheckCircle2 size={18} />Expected inventory cost: ${expectedInventoryCost.toFixed(2)} (95%)</span> : "Scan at least one pack before confirmation"}</div>
+            <div className={`flex-1 text-sm font-semibold ${invoiceMatches ? "text-green-700" : "text-amber-700"}`}>{invoiceMatches ? <span className="inline-flex items-center gap-2"><CheckCircle2 size={18} />Inventory cost confirmed: ${enteredInventoryCost.toFixed(2)} (95%)</span> : scannedRetailValue > 0 ? `Entered cost $${enteredInventoryCost.toFixed(2)} must equal the calculated 95% cost of $${expectedInventoryCost.toFixed(2)}` : "Scan at least one pack before confirmation"}</div>
             <Button variant="secondary" onClick={previousStep}>← Back</Button>
             <Button variant="outline" onClick={onCancel}>Cancel</Button>
             <Button disabled={loading || !invoiceMatches || (destination === "active" && !activationConfigured)} onClick={handleConfirm}>{loading ? "Confirming..." : "Confirm receipt"}</Button>
