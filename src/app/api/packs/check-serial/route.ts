@@ -11,6 +11,7 @@ import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 import { getSafeCurrentTicket, getValidTicketState } from "@/lib/ticket-quantity";
 import { Prisma } from "@prisma/client";
 import { expectedPhysicalTicketByDirection } from "@/lib/core-validation";
+import { isValidPackBarcode } from "@/lib/barcode";
 
 function resolveSellableTicket(pack: {
   currentTicketNumber: number | null;
@@ -72,6 +73,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: deviceAuthorization.reason }, { status: 403 });
     }
     const normalizedSerial = serialNumber.replace(/\D/g, "");
+    if (!isValidPackBarcode(normalizedSerial)) {
+      return NextResponse.json(
+        {
+          error:
+            "Scan the complete 14-digit ticket barcode: 11 pack digits plus 3 ticket digits.",
+        },
+        { status: 400 }
+      );
+    }
 
     try {
       const registeredRows = await prisma.$queryRawUnsafe(
