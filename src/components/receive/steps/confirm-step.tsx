@@ -45,15 +45,13 @@ export function ConfirmStep({
   const [activationConfigured, setActivationConfigured] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
   const scannedRetailValue = packs.reduce(
     (sum, pack) =>
       sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
     0
   );
-  const invoiceMatches =
-    expectedRetailValue > 0 &&
-    Math.round(expectedRetailValue * 100) === Math.round(scannedRetailValue * 100);
+  const expectedInventoryCost = Math.round(scannedRetailValue * 0.95 * 100) / 100;
+  const invoiceMatches = scannedRetailValue > 0 && expectedInventoryCost > 0;
 
   async function handleConfirm() {
     if (packs.length !== Number(shipment.expectedPacks ?? 0) && !overrideApproved) {
@@ -78,7 +76,7 @@ export function ConfirmStep({
           shipmentId: shipment.id,
           destination,
           notes,
-          expectedRetailValue,
+          expectedRetailValue: expectedInventoryCost,
           overrideApproved,
           firstOrLastTicket: destination === "active" ? firstOrLastTicket : undefined,
           activationNumber: destination === "active" ? activationNumber || undefined : undefined,
@@ -256,7 +254,7 @@ export function ConfirmStep({
           <h3 className="mb-3 text-lg font-semibold">Manager notes and confirmation</h3>
           <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes about this shipment..." className="w-full border border-gray-300 p-3 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200" />
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4">
-            <div className="flex-1 text-sm font-semibold text-green-700">{invoiceMatches ? <span className="inline-flex items-center gap-2"><CheckCircle2 size={18} />Ready to confirm</span> : "Invoice totals must match before confirmation"}</div>
+            <div className="flex-1 text-sm font-semibold text-green-700">{invoiceMatches ? <span className="inline-flex items-center gap-2"><CheckCircle2 size={18} />Expected inventory cost: ${expectedInventoryCost.toFixed(2)} (95%)</span> : "Scan at least one pack before confirmation"}</div>
             <Button variant="secondary" onClick={previousStep}>← Back</Button>
             <Button variant="outline" onClick={onCancel}>Cancel</Button>
             <Button disabled={loading || !invoiceMatches || (destination === "active" && !activationConfigured)} onClick={handleConfirm}>{loading ? "Confirming..." : "Confirm receipt"}</Button>

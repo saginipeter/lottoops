@@ -191,7 +191,9 @@ export async function POST(req: NextRequest) {
         firstOrLastTicket,
 
         status: "RECEIVING",
-        cost: 0,
+        // Expected inventory cost is the amount paid up front: 95% of face
+        // value. The remaining 5% is the store's margin.
+        cost: normalizedTicketPrice * normalizedTicketQuantity * 0.95,
         retailValue: normalizedTicketPrice * normalizedTicketQuantity,
       },
     });

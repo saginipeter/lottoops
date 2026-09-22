@@ -8,14 +8,14 @@ export interface ParsedBarcode {
  * Parses a lottery pack barcode.
  *
  * Expected format:
- * Receiving: Game(4) + Pack(7) [+ optional Ticket(3)]
+ * Receiving/live scan: Game(4) + Pack(7) + Ticket(3)
  *
  * Example:
  * 2739002947000
  *
  * Game Number   = 2739
  * Pack Number   = 0029470
- * First Ticket  = 000
+ * Ticket suffix = 000 (sample ticket; not the pack's starting ticket)
  */
 export function normalizeBarcodeInput(value: string): string {
   const trimmed = value.trim();
@@ -25,10 +25,14 @@ export function normalizeBarcodeInput(value: string): string {
   return digits.length >= 11 ? digits : trimmed;
 }
 
+export function isValidPackBarcode(value: string): boolean {
+  return normalizeBarcodeInput(value).replace(/\D/g, "").length === 14;
+}
+
 export function parseBarcode(barcode: string): ParsedBarcode {
   const cleaned = normalizeBarcodeInput(barcode).replace(/\D/g, "");
 
-  if (cleaned.length < 11) {
+  if (cleaned.length !== 14) {
     return {
       gameNumber: "",
       packNumber: "",
@@ -39,6 +43,9 @@ export function parseBarcode(barcode: string): ParsedBarcode {
   return {
     gameNumber: cleaned.substring(0, 4),
     packNumber: cleaned.substring(4, 11),
-    firstTicket: cleaned.length >= 14 ? cleaned.substring(11, 14) : "000",
+    // A receiving scan may contain ticket 001, 021, 150, etc. That suffix
+    // identifies the pack but must not initialize inventory as if that were
+    // the pack's first ticket. New packs begin at ticket 1 by default.
+    firstTicket: "1",
   };
 }

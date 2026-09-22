@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
-import { parseBarcode } from "@/lib/barcode";
+import { isValidPackBarcode, parseBarcode } from "@/lib/barcode";
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -144,6 +144,11 @@ export function ScanStep({
     }
 
     const cleanedBarcode = barcode.replace(/\D/g, "");
+    if (!isValidPackBarcode(cleanedBarcode)) {
+      alert("Scan the complete 14-digit ticket barcode: 11 pack digits plus 3 ticket digits (for example, 24240089877001).");
+      return;
+    }
+
     const normalizedBarcode = cleanedBarcode.slice(0, 11);
 
     if (packs.some((pack) => pack.serialNumber === normalizedBarcode)) {
@@ -152,10 +157,6 @@ export function ScanStep({
     }
 
     if (!gameNumber || !packNumber) return;
-    if (normalizedBarcode.length < 11) {
-      alert("Barcode must contain at least 11 digits for receiving.");
-      return;
-    }
     if (!/^\d{7}$/.test(packNumber)) { alert("Pack number must be exactly 7 digits."); return; }
 
     try {

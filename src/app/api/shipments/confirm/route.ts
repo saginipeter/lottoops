@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const parsedExpectedRetailValue = Number(expectedRetailValue);
+    const parsedExpectedInventoryCost = Number(expectedRetailValue);
     const scannedRetailValue = shipmentPacks.reduce(
       (
         sum: number,
@@ -123,21 +123,23 @@ export async function POST(req: NextRequest) {
       0
     );
 
-    if (!Number.isFinite(parsedExpectedRetailValue) || parsedExpectedRetailValue <= 0) {
+    const expectedInventoryCost = Math.round(scannedRetailValue * 0.95 * 100) / 100;
+
+    if (!Number.isFinite(parsedExpectedInventoryCost) || parsedExpectedInventoryCost <= 0) {
       return NextResponse.json(
-        { error: "Expected invoice total value is required for confirmation." },
+        { error: "Expected inventory cost could not be calculated." },
         { status: 400 }
       );
     }
 
     if (
-      Math.round(parsedExpectedRetailValue * 100) !==
-      Math.round(scannedRetailValue * 100) &&
+      Math.round(parsedExpectedInventoryCost * 100) !==
+      Math.round(expectedInventoryCost * 100) &&
       !hasRecordedOverride
     ) {
       return NextResponse.json(
         {
-          error: `Invoice value ($${parsedExpectedRetailValue.toFixed(2)}) does not match scanned value ($${scannedRetailValue.toFixed(2)}).`,
+          error: `Expected inventory cost ($${parsedExpectedInventoryCost.toFixed(2)}) does not match the calculated 95% cost ($${expectedInventoryCost.toFixed(2)}).`,
         },
         { status: 400 }
       );

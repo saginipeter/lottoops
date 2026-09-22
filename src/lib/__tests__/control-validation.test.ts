@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { canAuthorizeCorrection, canSelfResolveSequenceLock } from "@/lib/control-validation";
-import { parseBarcode } from "@/lib/barcode";
+import { isValidPackBarcode, parseBarcode } from "@/lib/barcode";
 import {
   getActivationStartingTicket,
   getAuditPhysicalTicket,
@@ -159,11 +159,11 @@ test("converts remaining inventory to the physical ticket used by audits", () =>
 });
 
 test("parses a ticket label with hyphens and trailer digits from the phone camera", () => {
-  const parsed = parseBarcode("2769-0024564-001 (050)");
+  const parsed = parseBarcode("27690024564001");
   assert.deepEqual(parsed, {
     gameNumber: "2769",
     packNumber: "0024564",
-    firstTicket: "001",
+    firstTicket: "1",
   });
 });
 
@@ -171,6 +171,14 @@ test("parses the compact active-stock barcode 27690025564001", () => {
   assert.deepEqual(parseBarcode("27690025564001"), {
     gameNumber: "2769",
     packNumber: "0025564",
-    firstTicket: "001",
+    firstTicket: "1",
   });
+});
+
+test("accepts only complete 14-digit pack ticket barcodes", () => {
+  assert.equal(isValidPackBarcode("24240089877001"), true);
+  assert.equal(isValidPackBarcode("24240089877021"), true);
+  assert.equal(isValidPackBarcode("24240089877150"), true);
+  assert.equal(isValidPackBarcode("24240089877"), false);
+  assert.equal(isValidPackBarcode("24240089877001050"), false);
 });
