@@ -28,3 +28,8 @@ test("derives the next physical ticket from a normal pack", () => {
   assert.equal(getNextDisplayedTicket(1, 50, 50), 2);
   assert.equal(getDisplayedTicketNumber(1, 49, 50), 2);
 });
+
+test("starts a first-ticket pack at the first physical ticket", () => {
+  assert.equal(getDisplayedTicketNumber(1, 150, 150, "FIRST"), 1);
+  assert.equal(getNextDisplayedTicket(1, 150, 150, "FIRST"), 2);
+});

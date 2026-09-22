@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -91,8 +92,11 @@ export async function POST(req: NextRequest) {
         data: {
           status: "ACTIVE",
           activatedAt: new Date(),
-          currentTicketNumber:
-            nextPack.firstTicket ?? 0,
+          currentTicketNumber: remainingTicketsFromStartingTicket(
+            nextPack.firstTicket ?? 1,
+            nextPack.ticketQuantity ?? nextPack.game.ticketsPerPack
+          ),
+          firstOrLastTicket: "FIRST",
         },
       }),
 
