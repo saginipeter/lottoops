@@ -47,6 +47,10 @@ export function ReviewStep({
       sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0),
     0
   );
+  const calculatedInventoryCost = Math.round(scannedRetailValue * 0.95 * 100) / 100;
+  const inventoryCostMatches =
+    expectedRetailValue > 0 &&
+    Math.round(expectedRetailValue * 100) === Math.round(calculatedInventoryCost * 100);
 
   async function requestOverride() {
     if (!shipment.id) return;
@@ -152,12 +156,12 @@ export function ReviewStep({
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Info
-                label="Expected Invoice Value"
+                label="Expected Inventory Cost"
                 value={`$${expectedRetailValue.toFixed(2)}`}
               />
               <Info
-                label="Scanned Invoice Value"
-                value={`$${scannedRetailValue.toFixed(2)}`}
+                label="Calculated Cost (95%)"
+                value={`$${calculatedInventoryCost.toFixed(2)}`}
               />
             </div>
 
@@ -182,7 +186,7 @@ export function ReviewStep({
             }
           />
 
-          {(remaining !== 0 || expectedRetailValue <= 0 || Math.round(expectedRetailValue * 100) !== Math.round(scannedRetailValue * 100)) && (
+          {(remaining !== 0 || !inventoryCostMatches) && (
             <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
               <p className="text-sm font-semibold text-amber-900">Manager or Owner action required</p>
               <p className="mt-1 text-sm text-amber-800">A manager may approve this shipment discrepancy after reviewing the invoice and scanned packs.</p>
@@ -204,18 +208,12 @@ export function ReviewStep({
           />
 
           <ValidationItem
-            success={
-              expectedRetailValue > 0 &&
-              Math.round(expectedRetailValue * 100) ===
-                Math.round(scannedRetailValue * 100)
-            }
-            title="Invoice Value Match"
+            success={inventoryCostMatches}
+            title="Inventory Cost Match"
             description={
-              expectedRetailValue > 0 &&
-              Math.round(expectedRetailValue * 100) ===
-                Math.round(scannedRetailValue * 100)
-                ? "Total value matches the invoice."
-                : `Invoice value: $${expectedRetailValue.toFixed(2)}. Scanned value: $${scannedRetailValue.toFixed(2)}.`
+              inventoryCostMatches
+                ? "Entered inventory cost matches 95% of the scanned face value."
+                : `Entered cost: $${expectedRetailValue.toFixed(2)}. Required 95% cost: $${calculatedInventoryCost.toFixed(2)}.`
             }
           />
 
@@ -258,9 +256,7 @@ export function ReviewStep({
             disabled={
               (!overrideApproved && remaining > 0) ||
               duplicatePacks.length > 0 ||
-              (!overrideApproved && (expectedRetailValue <= 0 ||
-              Math.round(expectedRetailValue * 100) !==
-                Math.round(scannedRetailValue * 100)))
+              (!overrideApproved && !inventoryCostMatches)
             }
             onClick={nextStep}
           >
