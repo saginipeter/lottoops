@@ -68,17 +68,20 @@ export function BarcodeScanner({
     scannerRef.current = scanner;
 
     try {
-      await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 280, height: 120 }, aspectRatio: 1.777778 },
-        async (decodedText) => {
-          if (scannerRef.current !== scanner) return;
-          await stopCamera();
-          onChange(normalizeBarcodeInput(decodedText));
-          inputRef.current?.focus();
-        },
-        () => undefined
-      );
+      const scanConfig = { fps: 15, qrbox: { width: 240, height: 82 }, aspectRatio: 1.777778 };
+      const onDecode = async (decodedText: string) => {
+        if (scannerRef.current !== scanner) return;
+        await stopCamera();
+        onChange(normalizeBarcodeInput(decodedText));
+        inputRef.current?.focus();
+      };
+      try {
+        await scanner.start({ facingMode: { ideal: "environment" } }, scanConfig, onDecode, () => undefined);
+      } catch {
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras[0]) throw new Error("No camera found");
+        await scanner.start(cameras[0].id, scanConfig, onDecode, () => undefined);
+      }
       operationRef.current = false;
       if (cancelStartRef.current) {
         await scanner.stop().catch(() => undefined);

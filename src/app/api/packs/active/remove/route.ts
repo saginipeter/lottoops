@@ -142,6 +142,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // A pack removed from the displays is no longer part of the open shift's
+    // physical-audit scope. Remove its pending audit line so a cleared display
+    // cannot remain visible as an unscanned item at shift close.
+    if (activeRemovalReason !== "REASSIGNED") {
+      await prisma.inventoryAuditLine.deleteMany({
+        where: {
+          packId,
+          audit: { status: "OPEN", shift: { status: "OPEN" } },
+        },
+      });
+    }
+
     await logInventoryActivity({
       storeId: session.storeId,
       action: activeRemovalReason === "REASSIGNED" ? "REASSIGN_DISPLAY" : "REMOVE_FROM_DISPLAY",

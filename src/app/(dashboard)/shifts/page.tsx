@@ -99,7 +99,10 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       inventoryAudit = await prisma.inventoryAudit.findUnique({
         where: { shiftId: openShift.id },
         include: {
-          lines: { where: { pack: { status: "ACTIVE", slot: { isNot: null } } } },
+          lines: {
+            where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
+            include: { pack: { select: { serialNumber: true, game: { select: { name: true } } } } },
+          },
           begunBy: { select: { name: true } },
           endedBy: { select: { name: true } },
         },

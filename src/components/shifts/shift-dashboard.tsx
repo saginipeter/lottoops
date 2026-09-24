@@ -162,7 +162,11 @@ export default function ShiftDashboard({
         sum +
         sold * Number(line.pack?.ticketPrice ?? line.pack?.game?.price ?? 0)
       );
-    }, 0) ?? 0;
+      }, 0) ?? 0;
+
+  function printShiftPaperwork() {
+    window.print();
+  }
 
   return (
     <div className="space-y-6">
@@ -206,7 +210,12 @@ export default function ShiftDashboard({
               Displays
             </Link>
           </div>
-        </div>
+          </div>
+          <div className="mt-4 flex justify-end print:hidden">
+            <Button type="button" variant="outline" onClick={printShiftPaperwork}>
+              Print sales & audit records
+            </Button>
+          </div>
 
         <div className="mt-6 grid grid-cols-3 gap-4">
           <Stat
@@ -263,6 +272,28 @@ export default function ShiftDashboard({
           </div>
         )}
       </Panel>
+
+      <section className="shift-paperwork hidden print:block">
+        <style jsx global>{`@media print { body * { visibility: hidden; } .shift-paperwork, .shift-paperwork * { visibility: visible; } .shift-paperwork { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; color: #111827; } .shift-paperwork h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; } .shift-paperwork h2 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; } .shift-paperwork table { width: 100%; border-collapse: collapse; font-size: 11px; } .shift-paperwork th, .shift-paperwork td { border: 1px solid #9ca3af; padding: 5px; text-align: left; } }`}</style>
+        <h1>End-of-Shift Management Records</h1>
+        <p>Terminal {terminalId} · Opened {formatTimestamp(shift.openedAt)}</p>
+        <h2>Sales Record</h2>
+        <table>
+          <thead><tr><th>Pack</th><th>Game</th><th>Tickets sold</th><th>Sales</th></tr></thead>
+          <tbody>{(shift.lines ?? []).map((line: any) => {
+            const beginning = Number(line.beginningTicket ?? 0);
+            const current = line.pack?.currentTicketNumber == null ? beginning : Number(line.pack.currentTicketNumber);
+            const sold = Math.max(beginning - Math.min(Math.max(current, 0), beginning), 0);
+            return <tr key={line.id}><td>{line.pack?.serialNumber ?? line.packId}</td><td>{line.pack?.game?.name ?? "—"}</td><td>{sold}</td><td>{formatCurrency(sold * Number(line.pack?.ticketPrice ?? line.pack?.game?.price ?? 0))}</td></tr>;
+          })}</tbody>
+          <tfoot><tr><th colSpan={2}>Totals</th><th>{totalTickets}</th><th>{formatCurrency(totalSales)}</th></tr></tfoot>
+        </table>
+        <h2>Physical Audit Record</h2>
+        <table>
+          <thead><tr><th>Pack</th><th>Beginning ticket</th><th>Ending ticket</th><th>Variance</th></tr></thead>
+          <tbody>{(shift.inventoryAudit?.lines ?? []).map((line: any) => <tr key={line.id}><td>{line.pack?.serialNumber ?? line.packId}</td><td>{line.beginningPhysicalTicket ?? "—"}</td><td>{line.endingPhysicalTicket ?? "—"}</td><td>{line.variance ?? "—"}</td></tr>)}</tbody>
+        </table>
+      </section>
     </div>
   );
 }

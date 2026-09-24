@@ -433,6 +433,12 @@ export async function POST(req: NextRequest) {
               where: { packId: existingPack.id },
               data: { packId: null },
             });
+            await tx.inventoryAuditLine.deleteMany({
+              where: {
+                packId: existingPack.id,
+                audit: { status: "OPEN", shift: { status: "OPEN" } },
+              },
+            });
             await tx.scanLogEntry.create({
               data: {
                 storeId: session.storeId,
