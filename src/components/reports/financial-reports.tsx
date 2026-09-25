@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, ChevronRight } from "lucide-react";
+import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, ChevronRight, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 
@@ -18,6 +18,7 @@ interface ShiftRow {
   marginPct: number;
   ticketsSold: number;
   gameBreakdown: GameRow[];
+  audit: Array<{ pack: string; beginning: number | null; ending: number | null; variance: number | null }>;
 }
 interface DailyRow { date: string; grossSales: number; ticketsSold: number; shifts: number; }
 interface Summary {
@@ -79,6 +80,7 @@ export function FinancialReports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedShift, setExpandedShift] = useState<string | null>(null);
+  const [printShift, setPrintShift] = useState<ShiftRow | null>(null);
   const [activeTab, setActiveTab] = useState<"shifts" | "daily" | "games">("shifts");
 
   const loadReport = useCallback(async () => {
@@ -126,6 +128,11 @@ export function FinancialReports() {
       })();
     setFrom(f);
     setTo(t);
+  }
+
+  function printClosedShift(shift: ShiftRow) {
+    setPrintShift(shift);
+    window.setTimeout(() => window.print(), 50);
   }
 
   return (
@@ -231,7 +238,8 @@ export function FinancialReports() {
                         <th className="py-2 pr-4 text-right">Gross</th>
                         <th className="py-2 pr-4 text-right">COGS</th>
                         <th className="py-2 pr-4 text-right">Net</th>
-                        <th className="py-2 text-right">Margin</th>
+                        <th className="py-2 pr-3 text-right">Margin</th>
+                        <th className="py-2 text-right">Print</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -255,11 +263,12 @@ export function FinancialReports() {
                             <td className={`py-2.5 pr-4 text-right tabular-nums font-semibold ${shift.netMargin >= 0 ? "text-green-600" : "text-red-500"}`}>
                               {fmt(shift.netMargin)}
                             </td>
-                            <td className="py-2.5 text-right"><MarginBar pct={shift.marginPct} /></td>
+                            <td className="py-2.5 pr-3 text-right"><MarginBar pct={shift.marginPct} /></td>
+                            <td className="py-2.5 text-right"><Button type="button" size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); printClosedShift(shift); }}><Printer size={13} /> Print</Button></td>
                           </tr>
                           {expandedShift === shift.id && shift.gameBreakdown.length > 0 && (
                             <tr key={`${shift.id}-expand`} className="bg-surface-soft">
-                              <td colSpan={9} className="px-4 pb-3 pt-1">
+                              <td colSpan={10} className="px-4 pb-3 pt-1">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-2">Game Breakdown</p>
                                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                                   {shift.gameBreakdown.map((g) => (
@@ -403,6 +412,18 @@ export function FinancialReports() {
         <div className="flex items-center justify-center py-16 text-text-tertiary">
           <RefreshCw size={20} className="animate-spin mr-2" /> Loading report...
         </div>
+      )}
+
+      {printShift && (
+        <section className="shift-report-print hidden print:block">
+          <style jsx global>{`@media print { body * { visibility: hidden; } .shift-report-print, .shift-report-print * { visibility: visible; } .shift-report-print { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; color: #111827; } .shift-report-print h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; } .shift-report-print h2 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; } .shift-report-print table { width: 100%; border-collapse: collapse; font-size: 11px; } .shift-report-print th, .shift-report-print td { border: 1px solid #9ca3af; padding: 5px; text-align: left; } }`}</style>
+          <h1>End-of-Shift Management Records</h1>
+          <p>Closed {printShift.closedAt ? fmtDate(printShift.closedAt) : "—"} · Completed by {printShift.closedBy}</p>
+          <h2>Sales Summary</h2>
+          <table><thead><tr><th>Game</th><th>Tickets sold</th><th>Sales</th><th>Cost</th></tr></thead><tbody>{printShift.gameBreakdown.map((game) => <tr key={game.name}><td>{game.name}</td><td>{game.tickets}</td><td>{fmt(game.sales)}</td><td>{fmt(game.cost)}</td></tr>)}</tbody><tfoot><tr><th>Totals</th><th>{printShift.ticketsSold}</th><th>{fmt(printShift.grossSales)}</th><th>{fmt(printShift.cogs)}</th></tr></tfoot></table>
+          <h2>Physical Audit</h2>
+          <table><thead><tr><th>Pack</th><th>Beginning ticket</th><th>Ending ticket</th><th>Variance</th></tr></thead><tbody>{printShift.audit.map((line) => <tr key={line.pack}><td>{line.pack}</td><td>{line.beginning ?? "—"}</td><td>{line.ending ?? "—"}</td><td>{line.variance ?? "—"}</td></tr>)}</tbody></table>
+        </section>
       )}
     </div>
   );

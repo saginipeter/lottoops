@@ -29,6 +29,13 @@ export async function GET(req: NextRequest) {
     include: {
       openedBy: { select: { name: true } },
       closedBy: { select: { name: true } },
+      inventoryAudit: {
+        include: {
+          lines: {
+            include: { pack: { select: { serialNumber: true } } },
+          },
+        },
+      },
       lines: {
         include: {
           pack: {
@@ -88,6 +95,12 @@ export async function GET(req: NextRequest) {
       marginPct: Math.round(marginPct * 10) / 10,
       ticketsSold,
       gameBreakdown: Object.values(gameBreakdown).sort((a, b) => b.sales - a.sales),
+      audit: shift.inventoryAudit?.lines.map((line: any) => ({
+        pack: line.pack?.serialNumber ?? line.packId,
+        beginning: line.beginningPhysicalTicket,
+        ending: line.endingPhysicalTicket,
+        variance: line.variance,
+      })) ?? [],
     };
   });
 

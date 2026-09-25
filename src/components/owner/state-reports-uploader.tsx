@@ -143,10 +143,10 @@ export function StateReportsUploader() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => downloadTemplate(report)} disabled={uploading !== null}><Download size={13} /> Template</Button>
                     {canUpload ? (
-                      <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:opacity-90">
+                      <label className="flex min-h-24 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-accent/50 bg-accent/5 px-3 py-4 text-center text-xs font-semibold text-accent hover:bg-accent/10">
                         {uploading === report.type ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />}
-                        {uploading === report.type ? "Uploading..." : "Snap / Upload Photo or CSV"}
-                        <input type="file" accept=".csv,text/csv,image/*" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
+                        <span>{uploading === report.type ? "Uploading..." : "Take a photo or upload CSV"}<span className="mt-1 block text-[10px] font-normal text-text-tertiary">Upload directly on this page</span></span>
+                        <input type="file" accept=".csv,text/csv,image/*" capture="environment" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
                       </label>
                     ) : <span className="text-xs text-text-tertiary">Manager upload required</span>}
                   </div>
