@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Download, FileUp, Loader2 } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ export function StateReportsUploader() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [canUpload, setCanUpload] = useState(false);
+  const fileInputRefs = useRef<Partial<Record<ReportType, HTMLInputElement | null>>>({});
 
   async function load() {
     try {
@@ -143,11 +144,11 @@ export function StateReportsUploader() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => downloadTemplate(report)} disabled={uploading !== null}><Download size={13} /> Template</Button>
                     {canUpload ? (
-                      <label className="flex min-h-24 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-accent/50 bg-accent/5 px-3 py-4 text-center text-xs font-semibold text-accent hover:bg-accent/10">
+                      <button type="button" className="flex min-h-24 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-accent/50 bg-accent/5 px-3 py-4 text-center text-xs font-semibold text-accent hover:bg-accent/10" onClick={() => fileInputRefs.current[report.type]?.click()}>
                         {uploading === report.type ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />}
                         <span>{uploading === report.type ? "Uploading..." : "Take a photo or upload CSV"}<span className="mt-1 block text-[10px] font-normal text-text-tertiary">Upload directly on this page</span></span>
-                        <input type="file" accept=".csv,text/csv,image/*" capture="environment" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
-                      </label>
+                        <input ref={(element) => { fileInputRefs.current[report.type] = element; }} type="file" accept=".csv,text/csv,image/*" capture="environment" className="sr-only" disabled={uploading !== null} onChange={(event) => { void upload(report.type, event.target.files?.[0]); event.currentTarget.value = ""; }} />
+                      </button>
                     ) : <span className="text-xs text-text-tertiary">Manager upload required</span>}
                   </div>
                   {uploading === report.type && <p role="status" className="mt-2 text-xs text-text-secondary">Uploading {uploadingFileName}. Keep this page open.</p>}
