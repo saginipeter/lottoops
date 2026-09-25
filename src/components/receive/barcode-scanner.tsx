@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ScanLine, Keyboard } from "lucide-react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-import { normalizeBarcodeInput } from "@/lib/barcode";
+import { isValidPackBarcode, normalizeBarcodeInput } from "@/lib/barcode";
 
 interface BarcodeScannerProps {
   barcode: string;
@@ -56,46 +56,88 @@ export function BarcodeScanner({
     setCameraOpen(true);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-    const scanner = new Html5Qrcode(readerId, {
-      verbose: false,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.ITF,
-      ],
-      useBarCodeDetectorIfSupported: true,
-    });
-    scannerRef.current = scanner;
-
     try {
-      const scanConfig = { fps: 15, qrbox: { width: 240, height: 82 }, aspectRatio: 1.777778 };
-      const onDecode = async (decodedText: string) => {
-        if (scannerRef.current !== scanner) return;
-        await stopCamera();
-        onChange(normalizeBarcodeInput(decodedText));
-        inputRef.current?.focus();
+      // Avoid a fixed aspect-ratio constraint on portrait phones.
+      const scanConfig = { fps: 12, qrbox: { width: 260, height: 100 } };
+      const scannerConfig = {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.ITF,
+        ],
       };
-      try {
-        await scanner.start({ facingMode: { ideal: "environment" } }, scanConfig, onDecode, () => undefined);
-      } catch {
-        const cameras = await Html5Qrcode.getCameras();
-        if (!cameras[0]) throw new Error("No camera found");
-        await scanner.start(cameras[0].id, scanConfig, onDecode, () => undefined);
+      const cameraErrors: string[] = [];
+
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera access requires HTTPS and a browser that supports camera access");
       }
+
+      // Request permission directly from the button click before enumerating
+      // cameras. This makes camera labels and device IDs reliable on phones.
+      const permissionStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" } },
+      });
+      permissionStream.getTracks().forEach((track) => track.stop());
+
+      const cameras = await Html5Qrcode.getCameras();
+      const rearCamera = cameras.find((camera) => /back|rear|environment|world/i.test(camera.label));
+      const cameraSources: Array<string | MediaTrackConstraints> = [
+        ...(rearCamera ? [rearCamera.id] : []),
+        ...cameras.filter((camera) => camera.id !== rearCamera?.id).map((camera) => camera.id),
+        { facingMode: { ideal: "environment" } },
+      ];
+
+      let startedScanner: Html5Qrcode | null = null;
+      for (const cameraSource of cameraSources) {
+        const scanner = new Html5Qrcode(readerId, scannerConfig);
+        const onDecode = async (decodedText: string) => {
+          if (scannerRef.current !== scanner) return;
+          const normalized = normalizeBarcodeInput(decodedText);
+          if (!isValidPackBarcode(normalized)) {
+            setCameraMessage("Barcode detected. Center the complete 14-digit pack barcode in the guide.");
+            return;
+          }
+          await stopCamera();
+          onChange(normalized);
+          inputRef.current?.focus();
+        };
+
+        scannerRef.current = scanner;
+        try {
+          await scanner.start(cameraSource, scanConfig, onDecode, () => undefined);
+          startedScanner = scanner;
+          break;
+        } catch (error) {
+          cameraErrors.push(error instanceof Error ? error.message : String(error));
+          scannerRef.current = null;
+          try {
+            if (scanner.isScanning) await scanner.stop();
+          } catch { /* Continue with the next camera source. */ }
+          try { scanner.clear(); } catch { /* Scanner may not have initialized. */ }
+        }
+      }
+
+      if (!startedScanner) throw new Error(cameraErrors[0] ?? "No usable camera found");
       operationRef.current = false;
       if (cancelStartRef.current) {
-        await scanner.stop().catch(() => undefined);
-        try { scanner.clear(); } catch { /* Scanner may already be clear. */ }
+        await stopCamera();
         return;
       }
       setCameraStarting(false);
-    } catch {
+    } catch (error) {
+      const failedScanner = scannerRef.current;
       scannerRef.current = null;
-      try { scanner.clear(); } catch { /* Scanner may not have initialized. */ }
+      try {
+        if (failedScanner?.isScanning) await failedScanner.stop();
+      } catch { /* Camera may already have been released. */ }
+      try { failedScanner?.clear(); } catch { /* Scanner may not have initialized. */ }
       if (!cancelStartRef.current) {
         setCameraOpen(false);
         setCameraStarting(false);
-        setCameraMessage("Camera unavailable. Enter the barcode manually below.");
+        const reason = error instanceof Error ? error.message : "Permission was denied or no camera was found.";
+        setCameraMessage(`Camera unavailable (${reason}). Allow camera access, then try again.`);
         inputRef.current?.focus();
       }
     } finally {
