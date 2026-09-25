@@ -63,66 +63,87 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
     setActive(true);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-    const scanner = new Html5Qrcode(readerId, {
-      verbose: false,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.ITF,
-      ],
-    });
-    scannerRef.current = scanner;
-
     try {
       // Avoid a fixed aspect-ratio constraint on portrait phones. Some mobile
       // browsers reject that constraint before opening the camera.
       const scanConfig = { fps: 12, qrbox: { width: 260, height: 100 } };
-      const onDecode = async (decodedText: string) => {
-        if (scannerRef.current !== scanner) return;
-        const normalized = normalizeBarcodeInput(decodedText);
-        if (!isValidPackBarcode(normalized)) {
-          if (mountedRef.current) setMessage("Barcode detected. Center the complete 14-digit ticket barcode in the guide.");
-          return;
-        }
-        await stopCamera();
-        onScan(normalized);
+      const scannerConfig = {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+        ],
       };
       const cameraErrors: string[] = [];
-      const cameraConfigs: Array<string | MediaTrackConstraints> = [
-        { facingMode: { exact: "environment" } },
+
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera access requires HTTPS and a browser that supports camera access");
+      }
+
+      // Ask for permission directly from the button click first. This avoids
+      // browsers returning camera devices without usable permission state.
+      const permissionStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" } },
+      });
+      permissionStream.getTracks().forEach((track) => track.stop());
+
+      const cameras = await Html5Qrcode.getCameras();
+      const rearCamera = cameras.find((camera) => /back|rear|environment|world/i.test(camera.label));
+      const cameraSources: Array<string | MediaTrackConstraints> = [
+        ...(rearCamera ? [rearCamera.id] : []),
+        ...cameras.filter((camera) => camera.id !== rearCamera?.id).map((camera) => camera.id),
         { facingMode: { ideal: "environment" } },
       ];
 
-      for (const cameraConfig of cameraConfigs) {
+      let startedScanner: Html5Qrcode | null = null;
+      for (const cameraSource of cameraSources) {
+        const scanner = new Html5Qrcode(readerId, scannerConfig);
+        const onDecode = async (decodedText: string) => {
+          if (scannerRef.current !== scanner) return;
+          const normalized = normalizeBarcodeInput(decodedText);
+          if (!isValidPackBarcode(normalized)) {
+            if (mountedRef.current) setMessage("Barcode detected. Center the complete 14-digit ticket barcode in the guide.");
+            return;
+          }
+          await stopCamera();
+          onScan(normalized);
+        };
+
+        scannerRef.current = scanner;
         try {
-          await scanner.start(cameraConfig, scanConfig, onDecode, () => undefined);
+          await scanner.start(cameraSource, scanConfig, onDecode, () => undefined);
+          startedScanner = scanner;
           break;
         } catch (error) {
           cameraErrors.push(error instanceof Error ? error.message : String(error));
+          scannerRef.current = null;
+          try {
+            if (scanner.isScanning) await scanner.stop();
+          } catch { /* Continue with the next camera source. */ }
+          try { scanner.clear(); } catch { /* Scanner may not have initialized. */ }
         }
       }
 
-      if (!scanner.isScanning) {
-        const cameras = await Html5Qrcode.getCameras();
-        const rearCamera = cameras.find((camera) => /back|rear|environment|world/i.test(camera.label));
-        const selectedCamera = rearCamera ?? cameras[0];
-        if (!selectedCamera) throw new Error(cameraErrors[0] ?? "No camera found");
-        await scanner.start(selectedCamera.id, scanConfig, onDecode, () => undefined);
-      }
+      if (!startedScanner) throw new Error(cameraErrors[0] ?? "No usable camera found");
       operationRef.current = false;
       if (cancelStartRef.current) {
-        await scanner.stop().catch(() => undefined);
-        try { scanner.clear(); } catch { /* Scanner may already be clear. */ }
+        await stopCamera();
         return;
       }
       if (mountedRef.current) setStarting(false);
     } catch (error) {
+      const failedScanner = scannerRef.current;
       scannerRef.current = null;
-      try { scanner.clear(); } catch { /* Scanner may not have initialized. */ }
+      try {
+        if (failedScanner?.isScanning) await failedScanner.stop();
+      } catch { /* Camera may already have been released. */ }
+      try { failedScanner?.clear(); } catch { /* Scanner may not have initialized. */ }
       if (mountedRef.current && !cancelStartRef.current) {
         setActive(false);
         setStarting(false);
