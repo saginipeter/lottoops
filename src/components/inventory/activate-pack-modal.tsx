@@ -92,8 +92,8 @@ export function ActivatePackModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden p-4 sm:max-h-[calc(100dvh-2rem)] sm:w-full sm:p-6">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Activate Pack</DialogTitle>
         </DialogHeader>
 
@@ -104,7 +104,7 @@ export function ActivatePackModal({
           </div>
         )}
 
-        <div className="min-h-0 space-y-6 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain pr-1">
           {/* Pack Info */}
           {pack && (
             <Panel className="p-4 bg-gray-50">
@@ -210,7 +210,7 @@ export function ActivatePackModal({
           </div>
         </div>
 
-        <div className="flex gap-3 justify-end pt-6">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-border pt-4 sm:pt-6">
           <DialogClose asChild>
             <Button variant="secondary">Cancel</Button>
           </DialogClose>
