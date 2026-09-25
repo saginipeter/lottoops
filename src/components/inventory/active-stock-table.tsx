@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
 import { RemoveActivePackModal } from "./remove-active-pack-modal";
+import { getDisplayedTicketNumber } from "@/lib/tv-display";
 
 interface Props {
   packs: any[];
@@ -72,6 +73,18 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
     location.reload();
   }
 
+  function displayedCurrentTicket(pack: any) {
+    const quantity = Number(pack.ticketQuantity ?? 0);
+    const remaining = Number(pack.currentTicketNumber ?? quantity);
+    const direction = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
+    return getDisplayedTicketNumber(
+      Number(pack.firstTicket ?? 1),
+      remaining,
+      quantity,
+      direction,
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Modal */}
@@ -126,7 +139,7 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
                 <td className="px-3 py-2">{pack.slot?.slotNumber ?? "-"}</td>
                 <td className="px-3 py-2">{pack.game.name}</td>
                 <td className="px-3 py-2 font-mono text-xs">{pack.packNumber ?? pack.serialNumber ?? "-"}</td>
-                <td className="px-3 py-2">{pack.currentTicketNumber ?? pack.firstTicket}</td>
+                <td className="px-3 py-2">{displayedCurrentTicket(pack)}</td>
                 <td className="px-3 py-2">${Number(pack.ticketPrice ?? pack.game?.price ?? 0).toFixed(2)}</td>
                 <td className="px-3 py-2">{pack.activatedAt ? new Date(pack.activatedAt).toLocaleDateString() : "-"}</td>
                 <td className="px-3 py-2">

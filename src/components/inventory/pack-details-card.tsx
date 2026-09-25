@@ -1,4 +1,5 @@
 import { Panel } from "@/components/ui/panel";
+import { getDisplayedTicketNumber } from "@/lib/tv-display";
 
 export function PackDetailsCard({
   pack,
@@ -44,8 +45,12 @@ export function PackDetailsCard({
         <Info
           label="Current Ticket"
           value={
-            pack.currentTicketNumber ??
-            pack.firstTicket
+            getDisplayedTicketNumber(
+              Number(pack.firstTicket ?? 1),
+              Number(pack.currentTicketNumber ?? pack.ticketQuantity ?? 0),
+              Number(pack.ticketQuantity ?? 0),
+              pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
+            )
           }
         />
 
