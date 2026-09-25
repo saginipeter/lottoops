@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
 
-  const { auditId, serialNumber, ticketNumber, phase } = await request.json().catch(() => ({}));
+  const { auditId, serialNumber, phase } = await request.json().catch(() => ({}));
   if (!auditId || !serialNumber || !["beginning", "ending"].includes(phase)) {
-    return NextResponse.json({ error: "auditId, serialNumber, and phase are required." }, { status: 400 });
+    return NextResponse.json({ error: "auditId, barcode, and phase are required." }, { status: 400 });
   }
 
   try {
@@ -28,7 +28,15 @@ export async function POST(request: NextRequest) {
     });
     if (!audit) return NextResponse.json({ error: "Open audit not found." }, { status: 404 });
 
-    const normalized = String(serialNumber).trim();
+    const barcode = String(serialNumber).trim().replace(/\D/g, "");
+    if (!/^\d{14}$/.test(barcode)) {
+      return NextResponse.json(
+        { error: "Scan the complete 14-digit ticket barcode. The last 3 digits are recorded as the physical ticket." },
+        { status: 400 }
+      );
+    }
+    const normalized = barcode.slice(0, 11);
+    const physicalTicket = Number(barcode.slice(11));
     const pack = await prisma.pack.findFirst({
       where: {
         storeId: session.storeId,
@@ -78,7 +86,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unable to create an audit line for this pack." }, { status: 500 });
     }
 
-    const physicalTicket = Number(ticketNumber);
     if (!Number.isInteger(physicalTicket) || physicalTicket < 0) {
       return NextResponse.json({ error: "Enter the physical ticket number shown on the pack." }, { status: 400 });
     }

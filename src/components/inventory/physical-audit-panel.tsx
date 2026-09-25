@@ -21,7 +21,6 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
   const router = useRouter();
   const [phase, setPhase] = useState<"beginning" | "ending">("beginning");
   const [barcode, setBarcode] = useState("");
-  const [ticketNumber, setTicketNumber] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [localLines, setLocalLines] = useState<AuditLine[]>(audit?.lines ?? []);
@@ -39,7 +38,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
 
   async function scan() {
     if (!barcode.trim() || !audit) return;
-    const response = await fetch("/api/inventory-audits/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id, serialNumber: barcode.trim(), ticketNumber: Number(ticketNumber), phase }) });
+    const response = await fetch("/api/inventory-audits/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id, serialNumber: barcode.trim(), phase }) });
     const data = await response.json();
     setMessageType(response.ok ? "success" : "error");
     setMessage(response.ok ? "Audit scan recorded." : data.error ?? "Unable to record audit scan.");
@@ -50,7 +49,6 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
         return current.map((line) => line.id === data.id ? data : line);
       });
       setBarcode("");
-      setTicketNumber("");
       router.refresh();
     }
     inputRef.current?.focus();
@@ -72,7 +70,8 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
       </div>
       {audit && audit.status === "OPEN" && <>
         <div className="mt-3 flex items-center gap-2"><Button size="sm" variant={phase === "beginning" ? "secondary" : "ghost"} onClick={() => setPhase("beginning")}>Beginning</Button><Button size="sm" variant={phase === "ending" ? "secondary" : "ghost"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Ending</Button><span className={`text-sm font-medium ${activeDisplayPackCount > 0 && scanned === activeDisplayPackCount ? "text-emerald-700" : "text-text-secondary"}`}>{scanned}/{activeDisplayPackCount} Scanned{activeDisplayPackCount > 0 && scanned === activeDisplayPackCount ? " (Complete)" : ""}</span></div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_180px_auto]"><input ref={inputRef} autoFocus value={barcode} onChange={(event) => setBarcode(event.target.value)} placeholder="Scan display pack barcode" className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono" /><input inputMode="numeric" value={ticketNumber} onChange={(event) => setTicketNumber(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); scan(); } }} placeholder="Physical ticket #" className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono" /><Button onClick={scan} disabled={!barcode.trim() || !ticketNumber.trim()}>Record Scan</Button></div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]"><input ref={inputRef} autoFocus value={barcode} inputMode="numeric" onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void scan(); } }} placeholder="Scan the current ticket barcode" className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono text-lg tracking-wider" /><Button onClick={() => { void scan(); }} disabled={!barcode.trim()}>Record Scan</Button></div>
+        <p className="mt-2 text-xs text-text-tertiary">Use one complete 14-digit ticket barcode. The first 11 digits identify the display pack and the last 3 digits are recorded automatically as the physical ticket number.</p>
         <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned !== activeDisplayPackCount} onClick={completeAudit}>Complete Ending Audit</Button>
       </>}
       {audit?.status === "COMPLETED" && <p className="mt-3 text-sm font-semibold text-emerald-700">Audit completed. Manager review is required for any variance.</p>}
