@@ -768,7 +768,7 @@ export function LiveScanDashboard({
         <Panel className="w-full max-w-3xl border border-[#cbd5e1] bg-white p-3 shadow-[0_8px_20px_rgba(23,35,63,0.05)] sm:hidden">
           <PhoneBarcodeScanner
             onScan={(value) => { void handleScan(value); }}
-            disabled={refreshing || Boolean(scanError) || !currentShift || !currentShift.beginningAuditComplete}
+            disabled={refreshing || !currentShift || !currentShift.beginningAuditComplete}
           />
         </Panel>
 
@@ -993,7 +993,7 @@ export function LiveScanDashboard({
       <Panel className="p-3 sm:hidden">
         <PhoneBarcodeScanner
           onScan={(value) => { void handleScan(value); }}
-          disabled={refreshing || Boolean(scanError) || !currentShift || !currentShift.beginningAuditComplete}
+          disabled={refreshing || !currentShift || !currentShift.beginningAuditComplete}
         />
       </Panel>
 

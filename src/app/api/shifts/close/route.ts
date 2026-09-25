@@ -78,7 +78,12 @@ export async function POST(req: NextRequest) {
       where: { shiftId: shift.id },
       select: { id: true, status: true },
     });
-    if (!audit || audit.status !== "COMPLETED") {
+    const activeDisplayPackCount = await prisma.pack.count({
+      where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
+    });
+    // A shift with no active display packs has no physical tickets to audit.
+    // Do not block close on an empty 0/0 audit in this case.
+    if (activeDisplayPackCount > 0 && (!audit || audit.status !== "COMPLETED")) {
       return NextResponse.json(
         { error: "Complete the beginning and ending physical audit before closing this shift." },
         { status: 409 }
