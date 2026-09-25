@@ -818,8 +818,8 @@ export function LiveScanDashboard({
   }
 
   return (
-    <div className="grid min-h-0 grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-[1.4fr_1fr]">
-      <div className="space-y-4">
+    <div className="grid min-h-0 min-w-0 grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)]">
+      <div className="min-w-0 space-y-4">
       {/* Auto-Refresh Control */}
       <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -844,8 +844,8 @@ export function LiveScanDashboard({
 
       {/* Shift Info Header */}
       {currentShift ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <Panel className="p-3">
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+          <Panel className="min-h-[116px] min-w-0 p-4">
             <div className="mb-1.5 flex items-center gap-2">
               <Clock size={16} className="text-text-secondary" />
               <span className="text-[11px] font-medium text-text-tertiary">
@@ -860,7 +860,7 @@ export function LiveScanDashboard({
             </p>
           </Panel>
 
-          <Panel className="p-3">
+          <Panel className="min-h-[116px] min-w-0 p-4">
             <div className="mb-1.5 flex items-center gap-2">
               <TrendingUp size={16} className="text-text-secondary" />
               <span className="text-[11px] font-medium text-text-tertiary">REVENUE</span>
@@ -873,7 +873,7 @@ export function LiveScanDashboard({
             </p>
           </Panel>
 
-          <Panel className="p-3">
+          <Panel className="min-h-[116px] min-w-0 p-4">
             <div className="mb-1.5 flex items-center gap-2">
               <Radio size={16} className="text-text-secondary" />
               <span className="text-[11px] font-medium text-text-tertiary">
@@ -888,7 +888,7 @@ export function LiveScanDashboard({
             </p>
           </Panel>
 
-          <Panel className="p-3">
+          <Panel className="min-h-[116px] min-w-0 p-4">
             <div className="mb-1.5 flex items-center gap-2">
               <span className="text-[11px] font-medium text-text-tertiary">
                 ACTIVE PACKS
