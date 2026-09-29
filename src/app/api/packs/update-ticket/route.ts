@@ -5,6 +5,7 @@ import { logInventoryActivity } from "@/lib/activity-log";
 import { isManagerOrAbove } from "@/lib/permissions";
 import { logCorrection } from "@/lib/correction-log";
 import { canAuthorizeCorrection } from "@/lib/control-validation";
+import { remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -24,15 +25,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { packId, currentTicketNumber, reason } = await req.json();
+    const { packId, physicalTicketNumber, currentTicketNumber, reason } = await req.json();
 
     if (!packId || typeof packId !== "string") {
       return NextResponse.json({ error: "packId is required." }, { status: 400 });
     }
 
-    if (!Number.isInteger(currentTicketNumber) || currentTicketNumber < 0) {
+    const requestedPhysicalTicket = physicalTicketNumber ?? currentTicketNumber;
+    if (!Number.isInteger(requestedPhysicalTicket) || requestedPhysicalTicket < 0) {
       return NextResponse.json(
-        { error: "currentTicketNumber must be a non-negative integer." },
+        { error: "physicalTicketNumber must be a non-negative integer." },
         { status: 400 }
       );
     }
@@ -42,7 +44,15 @@ export async function POST(req: NextRequest) {
 
     const pack = await prisma.pack.findFirst({
       where: { id: packId, storeId: session.storeId },
-      select: { id: true, status: true, firstTicket: true, currentTicketNumber: true },
+      select: {
+        id: true,
+        status: true,
+        firstTicket: true,
+        currentTicketNumber: true,
+        ticketQuantity: true,
+        firstOrLastTicket: true,
+        game: { select: { ticketsPerPack: true } },
+      },
     });
 
     if (!pack) {
@@ -56,16 +66,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (pack.firstTicket !== null && currentTicketNumber > pack.firstTicket) {
+    const ticketQuantity = Number(pack.ticketQuantity ?? pack.game.ticketsPerPack ?? 0);
+    const firstTicket = Number(pack.firstTicket ?? 1);
+    const remainingTicketCount = remainingTicketsFromPhysicalTicket(
+      firstTicket,
+      ticketQuantity,
+      requestedPhysicalTicket,
+      pack.firstOrLastTicket,
+    );
+    if (remainingTicketCount === null) {
       return NextResponse.json(
-        { error: `Current ticket cannot be greater than first ticket (${pack.firstTicket}).` },
+        {
+          error:
+            pack.firstOrLastTicket === "LAST"
+              ? `Physical ticket must be between 1 and ${ticketQuantity}.`
+              : `Physical ticket must be between ${firstTicket} and ${ticketQuantity}.`,
+        },
         { status: 400 }
       );
     }
 
     await prisma.pack.update({
       where: { id: pack.id },
-      data: { currentTicketNumber },
+      data: { currentTicketNumber: remainingTicketCount },
     });
 
     await logCorrection({
@@ -74,7 +97,7 @@ export async function POST(req: NextRequest) {
       entityId: pack.id,
       fieldName: "currentTicketNumber",
       oldValue: pack.currentTicketNumber ?? pack.firstTicket,
-      newValue: currentTicketNumber,
+      newValue: remainingTicketCount,
       reason: reason.trim(),
       correctedById: session.userId,
       correctedByName: session.name,
@@ -85,11 +108,11 @@ export async function POST(req: NextRequest) {
       action: "UPDATE_TICKET_NUMBER",
       entityType: "PACK",
       entityId: pack.id,
-      detail: `Updated current ticket for pack ${packId} from ${pack.currentTicketNumber ?? pack.firstTicket ?? "N/A"} to ${currentTicketNumber}. Reason: ${reason.trim()}`,
+      detail: `Updated physical ticket for pack ${packId} to ${requestedPhysicalTicket}; stored remaining count is ${remainingTicketCount}. Reason: ${reason.trim()}`,
       performedById: session.userId,
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, physicalTicketNumber: requestedPhysicalTicket, remainingTicketCount });
   } catch (error) {
     console.error("[POST /api/packs/update-ticket]", error);
     return NextResponse.json({ error: "Unable to update current ticket." }, { status: 500 });

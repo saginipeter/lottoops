@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
+import { getDisplayedTicketNumber } from "@/lib/tv-display";
 
 interface Props {
   slotId: string;
@@ -21,8 +22,10 @@ interface BackStockPack {
   status: "BACK_STOCK" | "ACTIVE";
   gameNumber?: string | null;
   packNumber?: string | null;
+  firstTicket?: number | null;
   currentTicketNumber?: number | null;
   ticketQuantity?: number | null;
+  firstOrLastTicket?: string | null;
   game: {
     name: string;
   };
@@ -110,7 +113,12 @@ export default function AssignPackDialog({
                 </p>
                 {pack.status === "ACTIVE" && (
                   <p className="text-xs text-gray-500">
-                    Current ticket: {pack.currentTicketNumber ?? 0}
+                    Current physical ticket: {getDisplayedTicketNumber(
+                      Number(pack.firstTicket ?? 1),
+                      Number(pack.currentTicketNumber ?? pack.ticketQuantity ?? 0),
+                      Number(pack.ticketQuantity ?? 0),
+                      pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
+                    )}
                   </p>
                 )}
               </div>

@@ -35,6 +35,25 @@ export function physicalTicketFromRemaining(firstTicket: number, ticketsPerPack:
   return expectedPhysicalTicket(firstTicket, ticketsPerPack, remainingTickets);
 }
 
+export function remainingTicketsFromPhysicalTicket(
+  firstTicket: number,
+  ticketsPerPack: number,
+  physicalTicket: number,
+  direction?: string | null,
+): number | null {
+  if (!Number.isInteger(firstTicket) || !Number.isInteger(ticketsPerPack) || !Number.isInteger(physicalTicket)) return null;
+  if (firstTicket < 1 || ticketsPerPack < firstTicket || physicalTicket < 0) return null;
+  if (physicalTicket === 0) return 0;
+
+  if (direction === "LAST") {
+    return physicalTicket <= ticketsPerPack ? physicalTicket : null;
+  }
+
+  if (physicalTicket < firstTicket || physicalTicket > ticketsPerPack) return null;
+  const initialRemaining = ticketsPerPack - firstTicket + 1;
+  return firstTicket + initialRemaining - physicalTicket;
+}
+
 export function findUnassignedActivePacks(packs: Array<{ serialNumber: string; slot: unknown | null }>): string[] {
   return packs.filter((pack) => !pack.slot).map((pack) => pack.serialNumber);
 }

@@ -5,6 +5,7 @@ import {
   getDisplayedTicketNumber,
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
+import { remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
 
 test("calculates sold tickets from a descending remaining counter", () => {
   assert.deepEqual(calculateTicketProgress(1, 97, 100), { sold: 3, remaining: 97 });
@@ -32,4 +33,12 @@ test("derives the next physical ticket from a normal pack", () => {
 test("starts a first-ticket pack at the first physical ticket", () => {
   assert.equal(getDisplayedTicketNumber(1, 150, 150, "FIRST"), 1);
   assert.equal(getNextDisplayedTicket(1, 150, 150, "FIRST"), 2);
+});
+
+test("converts override physical tickets back to the canonical remaining count", () => {
+  assert.equal(remainingTicketsFromPhysicalTicket(50, 150, 50, "FIRST"), 101);
+  assert.equal(remainingTicketsFromPhysicalTicket(50, 150, 100, "FIRST"), 51);
+  assert.equal(remainingTicketsFromPhysicalTicket(1, 150, 150, "LAST"), 150);
+  assert.equal(remainingTicketsFromPhysicalTicket(1, 150, 100, "LAST"), 100);
+  assert.equal(remainingTicketsFromPhysicalTicket(50, 150, 49, "FIRST"), null);
 });

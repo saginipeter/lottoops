@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { getDisplayedTicketNumber } from "@/lib/tv-display";
 
 interface PackActionsProps {
   pack: any;
@@ -23,8 +24,13 @@ export function PackActions({
       return;
     }
 
-    const current = Number(pack.currentTicketNumber ?? pack.firstTicket ?? 0);
-    const response = window.prompt("Enter current ticket number", String(current));
+    const current = getDisplayedTicketNumber(
+      Number(pack.firstTicket ?? 1),
+      Number(pack.currentTicketNumber ?? pack.ticketQuantity ?? 0),
+      Number(pack.ticketQuantity ?? pack.game?.ticketsPerPack ?? 0),
+      pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
+    );
+    const response = window.prompt("Enter the physical ticket number currently on the display", String(current));
     if (response === null) return;
 
     const value = Number(response);
@@ -33,12 +39,18 @@ export function PackActions({
       return;
     }
 
+    const reason = window.prompt("Enter the reason for this ticket correction (at least 6 characters)");
+    if (reason === null || reason.trim().length < 6) {
+      alert("A correction reason of at least 6 characters is required.");
+      return;
+    }
+
     try {
       setSavingTicket(true);
       const res = await fetch("/api/packs/update-ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId: pack.id, currentTicketNumber: value }),
+        body: JSON.stringify({ packId: pack.id, physicalTicketNumber: value, reason: reason.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -150,7 +162,7 @@ export function PackActions({
   return (
     <Panel className="space-y-4 p-6">
       <Button className="w-full" onClick={handleUpdateCurrentTicket} disabled={savingTicket}>
-        {savingTicket ? "Updating..." : "Update Current Ticket"}
+        {savingTicket ? "Updating..." : "Update Remaining Ticket Count"}
       </Button>
 
       <Button
