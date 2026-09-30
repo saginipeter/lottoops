@@ -765,13 +765,6 @@ export function LiveScanDashboard({
           </div>
         </Panel>
 
-        <Panel className="w-full max-w-3xl border border-[#cbd5e1] bg-white p-3 shadow-[0_8px_20px_rgba(23,35,63,0.05)] sm:hidden">
-          <PhoneBarcodeScanner
-            onScan={(value) => { void handleScan(value); }}
-            disabled={refreshing || !currentShift || !currentShift.beginningAuditComplete}
-          />
-        </Panel>
-
         <Panel id="report-ticket" className="w-full max-w-3xl scroll-mt-4 border border-[#cbd5e1] bg-white p-4 shadow-[0_8px_20px_rgba(23,35,63,0.05)] sm:p-5">
           <h3 className="text-base font-bold text-[#17233f]">Report Ticket</h3>
           <p className="mt-1 text-xs leading-5 text-[#64748b]">
