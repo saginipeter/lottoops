@@ -66,12 +66,25 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
     try {
       // Avoid a fixed aspect-ratio constraint on portrait phones. Some mobile
       // browsers reject that constraint before opening the camera.
-      const scanConfig = { fps: 12, qrbox: { width: 260, height: 100 } };
+      // Lottery tickets use a long 1D barcode. A fixed 260x100 box is too
+      // small on many portrait phones, so size the scan region from the live
+      // viewfinder instead of clipping most of the barcode.
+      const scanConfig = {
+        fps: 10,
+        aspectRatio: 1.777778,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => ({
+          width: Math.min(Math.floor(viewfinderWidth * 0.92), 720),
+          height: Math.min(Math.max(Math.floor(viewfinderHeight * 0.28), 120), 220),
+        }),
+        disableFlip: true,
+      };
       const scannerConfig = {
         verbose: false,
         formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODABAR,
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
           Html5QrcodeSupportedFormats.UPC_A,
@@ -85,8 +98,8 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
         throw new Error("Camera access requires HTTPS and a browser that supports camera access");
       }
 
-      // Ask for permission directly from the button click first. This avoids
-      // browsers returning camera devices without usable permission state.
+      // Ask for permission directly before enumerating cameras. This makes
+      // camera labels and device IDs reliable on mobile browsers.
       const permissionStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: { facingMode: { ideal: "environment" } },
@@ -96,6 +109,7 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
       const cameras = await Html5Qrcode.getCameras();
       const rearCamera = cameras.find((camera) => /back|rear|environment|world/i.test(camera.label));
       const cameraSources: Array<string | MediaTrackConstraints> = [
+        { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         ...(rearCamera ? [rearCamera.id] : []),
         ...cameras.filter((camera) => camera.id !== rearCamera?.id).map((camera) => camera.id),
         { facingMode: { ideal: "environment" } },
@@ -108,7 +122,7 @@ export function PhoneBarcodeScanner({ onScan, disabled = false }: PhoneBarcodeSc
           if (scannerRef.current !== scanner) return;
           const normalized = normalizeBarcodeInput(decodedText);
           if (!isValidPackBarcode(normalized)) {
-            if (mountedRef.current) setMessage("Barcode detected. Center the complete 14-digit ticket barcode in the guide.");
+            if (mountedRef.current) setMessage("Barcode detected, but it is not a complete 14-digit ticket code. Move closer and keep the full barcode inside the guide.");
             return;
           }
           await stopCamera();

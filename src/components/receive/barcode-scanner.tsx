@@ -58,12 +58,29 @@ export function BarcodeScanner({
 
     try {
       // Avoid a fixed aspect-ratio constraint on portrait phones.
-      const scanConfig = { fps: 12, qrbox: { width: 260, height: 100 } };
+      // Use a wide, dynamic region for long 1D lottery barcodes. The former
+      // fixed box clipped the barcode on portrait phones, leaving video live
+      // but producing no decode callbacks.
+      const scanConfig = {
+        fps: 10,
+        aspectRatio: 1.777778,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => ({
+          width: Math.min(Math.floor(viewfinderWidth * 0.92), 720),
+          height: Math.min(Math.max(Math.floor(viewfinderHeight * 0.28), 120), 220),
+        }),
+        disableFlip: true,
+      };
       const scannerConfig = {
         verbose: false,
         formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODABAR,
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
           Html5QrcodeSupportedFormats.ITF,
         ],
       };
@@ -73,8 +90,6 @@ export function BarcodeScanner({
         throw new Error("Camera access requires HTTPS and a browser that supports camera access");
       }
 
-      // Request permission directly from the button click before enumerating
-      // cameras. This makes camera labels and device IDs reliable on phones.
       const permissionStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: { facingMode: { ideal: "environment" } },
@@ -84,6 +99,7 @@ export function BarcodeScanner({
       const cameras = await Html5Qrcode.getCameras();
       const rearCamera = cameras.find((camera) => /back|rear|environment|world/i.test(camera.label));
       const cameraSources: Array<string | MediaTrackConstraints> = [
+        { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         ...(rearCamera ? [rearCamera.id] : []),
         ...cameras.filter((camera) => camera.id !== rearCamera?.id).map((camera) => camera.id),
         { facingMode: { ideal: "environment" } },
@@ -96,7 +112,7 @@ export function BarcodeScanner({
           if (scannerRef.current !== scanner) return;
           const normalized = normalizeBarcodeInput(decodedText);
           if (!isValidPackBarcode(normalized)) {
-            setCameraMessage("Barcode detected. Center the complete 14-digit pack barcode in the guide.");
+            setCameraMessage("Barcode detected, but it is not a complete 14-digit pack code. Move closer and keep the full barcode inside the guide.");
             return;
           }
           await stopCamera();
