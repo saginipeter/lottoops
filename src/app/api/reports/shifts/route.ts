@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 
+const INVENTORY_COST_RATE = 0.95;
+
 // GET /api/reports/shifts?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=50
 // Returns shift-level P&L: gross sales, cost, net margin, tickets sold
 export async function GET(req: NextRequest) {
@@ -63,9 +65,9 @@ export async function GET(req: NextRequest) {
     for (const line of shift.lines) {
       const sold = Number(line.ticketsSold ?? 0);
       const sales = Number(line.salesAmount ?? 0);
-      // Cost per ticket = pack cost / ticketQuantity; use game price as proxy if not set
+      // Reports use the same inventory cost rule as receiving: 95% of face value.
       const ticketPrice = Number(line.pack.game.price);
-      const packCost = sold * ticketPrice * 0.7; // TXLottery retailers keep ~30% margin
+      const packCost = sold * ticketPrice * INVENTORY_COST_RATE;
 
       grossSales += sales;
       cogs += packCost;

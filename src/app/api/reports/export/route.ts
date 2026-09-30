@@ -3,6 +3,8 @@ import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { queryInventoryActivity } from "@/lib/activity-log";
 
+const INVENTORY_COST_RATE = 0.95;
+
 function escapeCSV(val: unknown): string {
   const str = val === null || val === undefined ? "" : String(val);
   if (str.includes(",") || str.includes('"') || str.includes("\n")) {
@@ -101,7 +103,7 @@ export async function GET(req: NextRequest) {
         const sold = Number(line.ticketsSold ?? 0);
         const sales = Number(line.salesAmount ?? 0);
         gross += sales;
-        cogs += sold * Number(line.pack.game.price) * 0.7;
+        cogs += sold * Number(line.pack.game.price) * INVENTORY_COST_RATE;
         tickets += sold;
       }
       const net = gross - cogs;
@@ -135,7 +137,7 @@ export async function GET(req: NextRequest) {
         };
         existing.tickets += Number(line.ticketsSold ?? 0);
         existing.sales += Number(line.salesAmount ?? 0);
-        existing.cost += Number(line.ticketsSold ?? 0) * Number(line.pack.game.price) * 0.7;
+        existing.cost += Number(line.ticketsSold ?? 0) * Number(line.pack.game.price) * INVENTORY_COST_RATE;
         gameMap.set(key, existing);
       }
     }
