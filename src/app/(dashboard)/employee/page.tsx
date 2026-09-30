@@ -99,8 +99,8 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
       action: shiftOpen ? "Open" : "Start",
     },
     {
-      label: "Beginning physical audit",
-      description: "Scan each display pack and record its starting ticket.",
+      label: "Opening physical audit",
+      description: "Scan each display pack and record its starting ticket before sales.",
       href: `/shifts?terminal=${terminalId}#physical-audit`,
       state: beginningAuditComplete ? "complete" : shiftOpen ? "ready" : "locked",
       action: beginningAuditComplete ? "Done" : "Audit",
@@ -113,7 +113,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
       action: "Scan",
     },
     {
-      label: "Ending physical audit",
+      label: "Closing physical audit",
       description: "Verify remaining tickets before closing the shift.",
       href: `/shifts?terminal=${terminalId}#physical-audit`,
       state: auditComplete || endingAuditComplete ? "complete" : beginningAuditComplete ? "ready" : "locked",

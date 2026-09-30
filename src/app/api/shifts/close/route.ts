@@ -76,16 +76,28 @@ export async function POST(req: NextRequest) {
 
     const audit = await prisma.inventoryAudit.findUnique({
       where: { shiftId: shift.id },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        lines: { select: { beginningPhysicalTicket: true, endingPhysicalTicket: true } },
+      },
     });
     const activeDisplayPackCount = await prisma.pack.count({
       where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
     });
     // A shift with no active display packs has no physical tickets to audit.
     // Do not block close on an empty 0/0 audit in this case.
-    if (activeDisplayPackCount > 0 && (!audit || audit.status !== "COMPLETED")) {
+    const openingAuditIncomplete = !audit || audit.lines.some((line: { beginningPhysicalTicket: number | null }) => line.beginningPhysicalTicket === null);
+    const closingAuditIncomplete = Boolean(audit && audit.lines.some((line: { endingPhysicalTicket: number | null }) => line.endingPhysicalTicket === null));
+    if (activeDisplayPackCount > 0 && openingAuditIncomplete) {
       return NextResponse.json(
-        { error: "Complete the beginning and ending physical audit before closing this shift." },
+        { error: "Complete the Opening Audit before starting the Closing Audit." },
+        { status: 409 }
+      );
+    }
+    if (activeDisplayPackCount > 0 && (closingAuditIncomplete || audit?.status !== "COMPLETED")) {
+      return NextResponse.json(
+        { error: "Complete the Closing Audit before closing this shift." },
         { status: 409 }
       );
     }

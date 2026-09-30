@@ -63,8 +63,10 @@ export async function GET() {
       ...shifts.flatMap((shift) => {
         const audit = shift.inventoryAudit;
         if (audit?.status === "COMPLETED") return [];
-        const incomplete = audit?.lines.filter((line) => line.beginningPhysicalTicket === null || line.endingPhysicalTicket === null).length ?? 0;
-        return [{ id: `AUDIT_${shift.id}`, type: "INCOMPLETE_AUDIT", severity: "URGENT", title: "Shift audit incomplete", detail: `${incomplete || "The"} audit scan(s) remain incomplete for the shift opened by ${shift.openedBy.name}.`, createdAt: shift.openedAt.toISOString(), entityId: shift.id }];
+        const openingIncomplete = !audit || audit.lines.some((line) => line.beginningPhysicalTicket === null);
+        const stage = openingIncomplete ? "Opening Audit" : "Closing Audit";
+        const incomplete = audit?.lines.filter((line) => (openingIncomplete ? line.beginningPhysicalTicket : line.endingPhysicalTicket) === null).length ?? 0;
+        return [{ id: `AUDIT_${shift.id}`, type: "INCOMPLETE_AUDIT", severity: "URGENT", title: `${stage} incomplete`, detail: `${incomplete || "The"} ${stage.toLowerCase()} scan(s) remain incomplete for the shift opened by ${shift.openedBy.name}.`, createdAt: shift.openedAt.toISOString(), entityId: shift.id }];
       }),
       ...shipments.map((shipment) => ({ id: `SHIPMENT_${shipment.id}`, type: "STALE_RECEIVING", severity: "MEDIUM", title: "Receiving draft is overdue", detail: `Invoice ${shipment.invoiceNumber} has been in progress for more than 24 hours (${shipment.expectedPacks} expected pack(s)).`, createdAt: shipment.createdAt.toISOString(), entityId: shipment.id })),
       ...notifications.map((notification) => ({ id: notification.id, type: "INVENTORY_AUDIT_VARIANCE", severity: notification.severity, title: notification.title, detail: notification.detail, createdAt: notification.createdAt.toISOString(), entityId: notification.entityId })),

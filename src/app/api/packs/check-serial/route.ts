@@ -246,7 +246,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json(
             {
               code: "BEGINNING_AUDIT_REQUIRED",
-              error: "Complete the beginning physical audit before selling tickets.",
+              error: "Complete the Opening Audit before selling tickets.",
             },
             { status: 409 }
           );
