@@ -229,12 +229,6 @@ export function ScanStep({
                         ${detectedGame.price} ticket · {detectedGame.ticketsPerPack} tickets/pack
                       </p>
                     </div>
-                    <button
-                      className="text-xs text-emerald-500 hover:text-emerald-700 underline mt-0.5"
-                      onClick={() => setManualOverrideEnabled(true)}
-                    >
-                      Override
-                    </button>
                   </div>
                 </div>
               )}
@@ -325,7 +319,21 @@ export function ScanStep({
           <p className="mt-2 text-xs text-gray-500">Suggested for ${ticketPrice}: {getSuggestedTicketQuantity(ticketPrice)} tickets</p>
         </Panel>}
 
-        {/* Add Pack */}
+        {detectedGame && !manualOverrideEnabled && (
+          <Panel className="border-amber-300 bg-amber-50 p-4 lg:col-span-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Need to change the detected game details?</p>
+                <p className="mt-1 text-xs text-amber-800">Choose Override before adding this pack if the price or ticket quantity is different.</p>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setManualOverrideEnabled(true)}>
+                Override Before Adding Pack
+              </Button>
+            </div>
+          </Panel>
+        )}
+
+        {/* Add Pack — appears after the optional override action */}
         <Panel className="p-5 lg:col-span-2">
           <Button className="w-full" onClick={handleAddPack} disabled={!gameNumber || !packNumber || atExpectedLimit}>
             Add Pack to Shipment
