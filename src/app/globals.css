@@ -265,6 +265,19 @@ body {
   }
 }
 
+/* Reports use one shared page, but each report has its own print action. Keep
+   the selected report as the only printable content to prevent blank sheets. */
+@media print {
+  body.report-printing > * { display: none !important; }
+  body.report-printing .reports-page { display: block !important; }
+  body.report-printing .reports-page > * { display: none !important; }
+  body.report-printing .reports-page .reports-content { display: block !important; }
+  body.report-printing .reports-page .reports-content > * { display: none !important; }
+  body.report-printing .reports-page .reports-content > .report-print-target { display: block !important; }
+  body.report-printing .reports-page .report-print-target * { visibility: visible !important; }
+  body.report-printing .reports-page .report-print-target { position: static !important; width: auto !important; min-height: 0 !important; height: auto !important; overflow: visible !important; }
+}
+
 /* Perforated-edge divider — signature element between pack metadata
    and status, used in Back Stock and Receive screens */
 .perf-divider {

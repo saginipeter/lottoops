@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
 import { isValidPackBarcode, parseBarcode } from "@/lib/barcode";
@@ -79,6 +79,8 @@ export function ScanStep({
   const [justAdded, setJustAdded] = useState(false);
   const [quantityOverrideEnabled, setQuantityOverrideEnabled] = useState(false);
   const [manualOverrideEnabled, setManualOverrideEnabled] = useState(false);
+  const [uploadingPackPhoto, setUploadingPackPhoto] = useState(false);
+  const packPhotoInputRef = useRef<HTMLInputElement>(null);
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
 
@@ -122,12 +124,41 @@ export function ScanStep({
     }));
     setJustAdded(false);
 
+    if (isValidPackBarcode(value.replace(/\D/g, "")) && !packImage) {
+      window.setTimeout(() => packPhotoInputRef.current?.click(), 150);
+    }
+
     if (parsed.gameNumber) {
       detectGame(parsed.gameNumber);
     } else {
       setDetectedGame(null);
       setDetectionError(null);
       setManualOverrideEnabled(false);
+    }
+  }
+
+  async function handlePackPhoto(file: File | undefined) {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("This pack photo is larger than 10 MB. Please retake it or choose a smaller image.");
+      return;
+    }
+
+    setUploadingPackPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || typeof data.url !== "string") {
+        throw new Error(typeof data.error === "string" ? data.error : "Pack photo upload failed.");
+      }
+      setScanDraft((prev) => ({ ...prev, packImage: data.url }));
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Pack photo upload failed.");
+    } finally {
+      setUploadingPackPhoto(false);
     }
   }
 
@@ -204,6 +235,18 @@ export function ScanStep({
         <Panel className="p-5">
           <h2 className="mb-5 text-xl font-semibold">Scan Pack</h2>
           <BarcodeScanner barcode={barcode} onChange={handleScan} />
+          <input
+            ref={packPhotoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(event) => {
+              void handlePackPhoto(event.target.files?.[0]);
+              event.currentTarget.value = "";
+            }}
+          />
+          {uploadingPackPhoto && <p className="mt-3 text-sm text-blue-700">Uploading pack photo…</p>}
 
           {/* Auto-detection result */}
           {gameNumber && (

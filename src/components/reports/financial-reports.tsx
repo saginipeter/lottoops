@@ -132,11 +132,14 @@ export function FinancialReports() {
 
   function printClosedShift(shift: ShiftRow) {
     setPrintShift(shift);
+    document.body.classList.add("report-printing");
+    const cleanup = () => document.body.classList.remove("report-printing");
+    window.addEventListener("afterprint", cleanup, { once: true });
     window.setTimeout(() => window.print(), 50);
   }
 
   return (
-    <div className="space-y-5">
+    <div className="report-print-target space-y-5">
       {/* Date Filter */}
       <Panel className="p-4">
         <div className="flex flex-wrap items-end gap-3">

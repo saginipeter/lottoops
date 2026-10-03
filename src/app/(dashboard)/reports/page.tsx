@@ -20,7 +20,7 @@ export default async function ReportsPage() {
   if (!session) redirect("/login");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="reports-page flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Reports"
         subtitle="Financial, activity, and inventory status reports with export and print options"
@@ -32,7 +32,7 @@ export default async function ReportsPage() {
         right={<span className="text-xs text-text-tertiary">Use export controls inside reports</span>}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+      <div className="reports-content min-h-0 flex-1 overflow-y-auto px-5 py-5">
         <div className="space-y-5">
           <FinancialReports />
           <ActivityReport />
