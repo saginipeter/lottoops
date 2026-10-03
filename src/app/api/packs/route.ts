@@ -187,6 +187,20 @@ export async function POST(req: NextRequest) {
         ticketQuantity: normalizedTicketQuantity,
         
         packImage,
+        ...(typeof packImage === "string" && packImage.trim()
+          ? {
+              documents: {
+                create: {
+                  storeId: session.storeId,
+                  uploadedById: session.userId,
+                  type: "PACK_PHOTO",
+                  name: `Pack photo ${barcode}`,
+                  url: packImage.trim(),
+                  reference: barcode,
+                },
+              },
+            }
+          : {}),
         activationNumber,
         firstOrLastTicket,
 

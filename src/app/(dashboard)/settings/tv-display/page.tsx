@@ -100,7 +100,7 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
       {!kioskMode && (
         <Header
           title="TV Display"
-          subtitle={`${activeSlots.length} active slot${activeSlots.length === 1 ? "" : "s"} shown`}
+          subtitle={`${activeSlots.length} active display${activeSlots.length === 1 ? "" : "s"} shown`}
         />
       )}
 
@@ -108,11 +108,11 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
         <PageToolbar
           left={<span className="text-xs text-text-secondary">Refresh interval: {refreshSeconds}s</span>}
           center={<span>Kiosk mode available</span>}
-          right={<span className="text-xs text-text-tertiary">Active slots: {activeSlots.length}</span>}
+          right={<span className="text-xs text-text-tertiary">Active displays: {activeSlots.length}</span>}
         />
       )}
 
-      <div className={kioskMode ? "flex-1 bg-[#050816]" : "min-h-0 flex-1 overflow-y-auto px-5 py-5 bg-bg"}>
+      <div className={kioskMode ? "min-h-0 flex-1 overflow-hidden bg-[#050816]" : "min-h-0 flex-1 overflow-y-auto px-5 py-5 bg-bg"}>
         {!kioskMode && <TvKioskLink />}
         <TvDisplayBoard
           slots={activeSlots}

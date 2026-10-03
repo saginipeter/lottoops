@@ -158,6 +158,17 @@ test("converts remaining inventory to the physical ticket used by audits", () =>
   assert.equal(getAuditPhysicalTicket({ currentTicketNumber: 0, firstTicket: 1, ticketQuantity: 50 }), 0);
 });
 
+test("uses the last physical ticket for Sell from Last audit expectations", () => {
+  assert.equal(
+    getAuditPhysicalTicket({ currentTicketNumber: 50, firstTicket: 1, ticketQuantity: 50, firstOrLastTicket: "LAST" }),
+    50,
+  );
+  assert.equal(
+    getAuditPhysicalTicket({ currentTicketNumber: 1, firstTicket: 1, ticketQuantity: 50, firstOrLastTicket: "LAST" }),
+    1,
+  );
+});
+
 test("parses a ticket label with hyphens and trailer digits from the phone camera", () => {
   const parsed = parseBarcode("27690024564001");
   assert.deepEqual(parsed, {

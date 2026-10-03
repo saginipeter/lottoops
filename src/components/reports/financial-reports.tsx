@@ -415,8 +415,8 @@ export function FinancialReports() {
       )}
 
       {printShift && (
-        <section className="shift-report-print hidden print:block">
-          <style jsx global>{`@media print { body * { visibility: hidden; } .shift-report-print, .shift-report-print * { visibility: visible; } .shift-report-print { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; color: #111827; } .shift-report-print h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; } .shift-report-print h2 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; } .shift-report-print table { width: 100%; border-collapse: collapse; font-size: 11px; } .shift-report-print th, .shift-report-print td { border: 1px solid #9ca3af; padding: 5px; text-align: left; } }`}</style>
+        <section className="shift-report-print hidden print:block" aria-label="Printable shift report">
+          <style jsx global>{`@page { margin: 12mm; } @media print { html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; } body > * { visibility: hidden !important; } .shift-report-print, .shift-report-print * { visibility: visible !important; } .shift-report-print { display: block !important; position: static !important; width: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; color: #111827; break-after: avoid-page; } .shift-report-print h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; } .shift-report-print h2 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; break-after: avoid; } .shift-report-print table { width: 100%; border-collapse: collapse; font-size: 11px; break-inside: avoid; } .shift-report-print th, .shift-report-print td { border: 1px solid #9ca3af; padding: 5px; text-align: left; } .shift-report-print tr { break-inside: avoid; } }`}</style>
           <h1>End-of-Shift Management Records</h1>
           <p>Closed {printShift.closedAt ? fmtDate(printShift.closedAt) : "—"} · Completed by {printShift.closedBy}</p>
           <h2>Sales Summary</h2>

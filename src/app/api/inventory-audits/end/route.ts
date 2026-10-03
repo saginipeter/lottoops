@@ -50,10 +50,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `${incomplete.length} display pack audit scan(s) are still required.` }, { status: 409 });
     }
 
-    const currentLines = (await prisma.shiftLine.findMany({ where: { shiftId: audit.shiftId }, include: { pack: { select: { currentTicketNumber: true, firstTicket: true, ticketQuantity: true } } } })) as Array<{
+    const currentLines = (await prisma.shiftLine.findMany({ where: { shiftId: audit.shiftId }, include: { pack: { select: { currentTicketNumber: true, firstTicket: true, ticketQuantity: true, firstOrLastTicket: true } } } })) as Array<{
       packId: string;
       endingTicket: number | null;
-      pack: { currentTicketNumber: number | null; firstTicket: number | null; ticketQuantity: number | null };
+      pack: { currentTicketNumber: number | null; firstTicket: number | null; ticketQuantity: number | null; firstOrLastTicket: string | null };
     }>;
     const resolvedLines = auditLines.map((line) => {
       const shiftLine = currentLines.find((item) => item.packId === line.packId);
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
             currentTicketNumber: shiftLine.pack.currentTicketNumber ?? shiftLine.endingTicket,
             firstTicket: shiftLine.pack.firstTicket,
             ticketQuantity: shiftLine.pack.ticketQuantity,
+            firstOrLastTicket: shiftLine.pack.firstOrLastTicket,
           })
         : line.expectedTicket;
       return { line, expected, variance: Number(line.endingPhysicalTicket) - expected };

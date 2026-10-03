@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       include: {
         lines: {
           where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
-          include: { pack: { select: { currentTicketNumber: true, firstTicket: true, ticketQuantity: true } } },
+          include: { pack: { select: { currentTicketNumber: true, firstTicket: true, ticketQuantity: true, firstOrLastTicket: true } } },
         },
       },
     });
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
             packId: string;
             slotNumber: string;
             beginningTicket: number;
-            pack: { currentTicketNumber: number | null; firstTicket: number | null; ticketQuantity: number | null };
+            pack: { currentTicketNumber: number | null; firstTicket: number | null; ticketQuantity: number | null; firstOrLastTicket: string | null };
           }) => ({
             packId: line.packId,
             slotNumber: line.slotNumber,
@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
               currentTicketNumber: line.pack.currentTicketNumber ?? line.beginningTicket,
               firstTicket: line.pack.firstTicket,
               ticketQuantity: line.pack.ticketQuantity,
+              firstOrLastTicket: line.pack.firstOrLastTicket,
             }),
           })),
         },

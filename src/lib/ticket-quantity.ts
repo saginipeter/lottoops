@@ -1,4 +1,4 @@
-import { physicalTicketFromRemaining } from "@/lib/core-validation";
+import { expectedPhysicalTicketByDirection } from "@/lib/core-validation";
 
 export const TICKET_QUANTITY_PRESETS: Record<number, number> = {
   1: 150,
@@ -137,10 +137,12 @@ export function getAuditPhysicalTicket({
   currentTicketNumber,
   firstTicket,
   ticketQuantity,
+  firstOrLastTicket,
 }: {
   currentTicketNumber: number | null;
   firstTicket: number | null;
   ticketQuantity: number | null;
+  firstOrLastTicket?: "FIRST" | "LAST" | string | null;
 }): number {
   const rawCurrent = Number(currentTicketNumber ?? 0);
   if (Number.isFinite(rawCurrent) && rawCurrent === 0 && currentTicketNumber !== null) return 0;
@@ -149,9 +151,10 @@ export function getAuditPhysicalTicket({
   const remaining = getSafeCurrentTicket({ currentTicketNumber, firstTicket, ticketQuantity });
   if (state.ticketQuantity <= 0 || remaining <= 0) return 0;
 
-  return physicalTicketFromRemaining(
+  return expectedPhysicalTicketByDirection(
     state.firstTicket || 1,
     state.ticketQuantity,
-    remaining
+    remaining,
+    firstOrLastTicket,
   ) ?? 0;
 }
