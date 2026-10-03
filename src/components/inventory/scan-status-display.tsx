@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronUp, ChevronDown, Zap } from "lucide-react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { getRemainingTicketCount } from "@/lib/tv-display";
@@ -32,16 +32,13 @@ interface ShiftData {
 interface ScanStatusDisplayProps {
   activePacks: PackData[];
   currentShift: ShiftData | null;
-  onDataChange?: () => void;
 }
 
 export function ScanStatusDisplay({
   activePacks,
   currentShift,
-  onDataChange,
 }: ScanStatusDisplayProps) {
   const [currentPackIndex, setCurrentPackIndex] = useState(0);
-  const [completingPack, setCompletingPack] = useState<string | null>(null);
 
   const currentPack = activePacks[currentPackIndex];
   const beginningForCurrentPack =
@@ -53,39 +50,6 @@ export function ScanStatusDisplay({
   const soldTickets = Math.max(beginningForCurrentPack - remainingTickets, 0);
   const displayedLeft = (pack: PackData) =>
     getRemainingTicketCount(pack.currentTicketNumber ?? null, pack.ticketQuantity ?? null);
-
-  async function handleMarkCompleted() {
-    if (!currentPack) return;
-
-    try {
-      setCompletingPack(currentPack.id);
-
-      const res = await fetch("/api/packs/mark-completed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId: currentPack.id }),
-      });
-
-      if (res.ok) {
-        // Move to next pack or refresh
-        if (currentPackIndex < activePacks.length - 1) {
-          setCurrentPackIndex(currentPackIndex + 1);
-        }
-        if (onDataChange) {
-          onDataChange();
-        } else {
-          setTimeout(() => window.location.reload(), 500);
-        }
-      } else {
-        alert("Failed to mark pack completed");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error completing pack");
-    } finally {
-      setCompletingPack(null);
-    }
-  }
 
   const ticketProgress =
     beginningForCurrentPack > 0
@@ -172,17 +136,6 @@ export function ScanStatusDisplay({
               </Button>
             </div>
 
-            {/* Mark Completed Button */}
-            <Button
-              onClick={handleMarkCompleted}
-              disabled={completingPack === currentPack.id}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Zap size={16} className="mr-2" />
-              {completingPack === currentPack.id
-                ? "Marking..."
-                : "Mark as Completed"}
-            </Button>
           </div>
         ) : (
           <div className="rounded-lg bg-gray-50 border border-dashed border-gray-300 p-8 text-center">

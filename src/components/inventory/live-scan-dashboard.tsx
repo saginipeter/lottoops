@@ -1068,10 +1068,6 @@ export function LiveScanDashboard({
         <ScanStatusDisplay
           activePacks={activePacks}
           currentShift={currentShift}
-          onDataChange={() => {
-            setLastRefreshTime(new Date());
-            router.refresh();
-          }}
         />
         <SalesTracker
           sales={sales}
