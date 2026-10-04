@@ -54,7 +54,7 @@ export default async function DashboardLayout({
   return (
     <div className="dashboard-shell flex h-screen min-w-0 flex-col overflow-hidden bg-bg">
       <ConsoleTopBar user={user} />
-      <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+      <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         {session?.impersonatedBy && <ImpersonationBanner adminName={session.impersonatedBy.name} />}
         {children}
       </main>
