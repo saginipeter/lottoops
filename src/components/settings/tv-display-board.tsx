@@ -64,7 +64,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, kioskToken }:
   const statusLabel = stale ? "Updates delayed" : refreshing ? "Updating" : "Live display";
   const statusClass = stale ? "text-amber-300" : refreshing ? "text-slate-300" : "text-emerald-300";
   const shellClass = kioskMode
-    ? "min-h-screen bg-[#080c18] p-3 text-white sm:p-5 lg:p-7"
+    ? "flex h-screen min-h-0 flex-col overflow-hidden bg-[#080c18] p-3 text-white sm:p-5 lg:p-7"
     : "border border-[#31415f] bg-[#080c18] p-4 text-white sm:p-6";
 
   return (
@@ -94,8 +94,8 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, kioskToken }:
       {slots.length === 0 ? (
         <div className="border border-white/20 bg-white/5 p-10 text-center"><RefreshCw size={26} className="mx-auto mb-4 text-fuchsia-200" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5 2xl:grid-cols-7">
-          {slots.map((slot) => <DisplayCard key={slot.id} slot={slot} kioskToken={kioskToken} broken={brokenImages[slot.id]} onBroken={() => setBrokenImages((prev) => ({ ...prev, [slot.id]: true }))} />)}
+        <div className={kioskMode ? "grid min-h-0 flex-1 gap-2 overflow-hidden sm:gap-3" : "grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5 2xl:grid-cols-7"} style={kioskMode ? { gridTemplateColumns: `repeat(${Math.min(Math.max(Math.ceil(Math.sqrt(slots.length * 1.5)), 1), 7)}, minmax(0, 1fr))`, gridAutoRows: "minmax(0, 1fr)" } : undefined}>
+          {slots.map((slot) => <DisplayCard key={slot.id} slot={slot} kioskMode={kioskMode} kioskToken={kioskToken} broken={brokenImages[slot.id]} onBroken={() => setBrokenImages((prev) => ({ ...prev, [slot.id]: true }))} />)}
         </div>
       )}
 
@@ -108,19 +108,19 @@ function Summary({ label, value }: { label: string; value: number }) {
   return <div className="border border-white/15 bg-white/10 px-2 py-2 sm:px-4 sm:py-3"><p className="truncate text-[8px] font-bold uppercase tracking-[0.13em] text-white/50 sm:text-[10px]">{label}</p><p className="mt-1 text-xl font-bold tabular-nums sm:text-2xl">{value}</p></div>;
 }
 
-function DisplayCard({ slot, kioskToken, broken, onBroken }: { slot: TvDisplaySlot; kioskToken?: string; broken?: boolean; onBroken: () => void }) {
+function DisplayCard({ slot, kioskMode, kioskToken, broken, onBroken }: { slot: TvDisplaySlot; kioskMode: boolean; kioskToken?: string; broken?: boolean; onBroken: () => void }) {
   const progress = slot.quantity > 0 ? Math.max((slot.sold / slot.quantity) * 100, 0) : 0;
   const imageSrc = slot.gameImage && kioskToken ? `${slot.gameImage}?token=${encodeURIComponent(kioskToken)}` : slot.gameImage;
-  return <article className="group relative overflow-hidden border border-white/20 bg-[#151d31] shadow-[0_3px_0_rgba(0,0,0,0.35)]">
-    <div className="relative aspect-[1.42] overflow-hidden bg-[#252d42]">
+  return <article className={`group relative flex min-h-0 flex-col overflow-hidden border border-white/20 bg-[#151d31] shadow-[0_3px_0_rgba(0,0,0,0.35)] ${kioskMode ? "text-[0.85em]" : ""}`}>
+    <div className={`relative min-h-0 overflow-hidden bg-[#252d42] ${kioskMode ? "flex-1" : "aspect-[1.42]"}`}>
       {imageSrc && !broken ? <Image src={imageSrc} alt="" fill unoptimized className="object-cover transition-transform duration-300 group-hover:scale-105" onError={onBroken} /> : <div className="flex h-full items-center justify-center bg-gradient-to-br from-fuchsia-900 to-indigo-950 text-4xl font-black text-fuchsia-200">{slot.gameName.slice(0, 1).toUpperCase()}</div>}
       <div className="absolute inset-x-0 top-0 bg-black/65 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white"><span>Display <strong className="text-lg sm:text-2xl">{slot.slotNumber}</strong></span></div>
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2 pb-2 pt-7"><h3 className="truncate text-sm font-black leading-tight text-white sm:text-base">{slot.gameName}</h3><p className="text-[9px] font-semibold uppercase tracking-wider text-white/65">Game {slot.gameNumber}</p></div>
     </div>
-    <div className="grid grid-cols-2 border-t border-white/15">
+    <div className="grid shrink-0 grid-cols-2 border-t border-white/15">
       <div className="bg-fuchsia-400/15 px-2 py-2 sm:px-3"><p className="text-[8px] font-bold uppercase tracking-wider text-fuchsia-100/65">Current</p><p className="text-xl font-black tabular-nums text-white sm:text-2xl">{slot.currentTicket}</p></div>
       <div className="bg-white/10 px-2 py-2 sm:px-3"><p className="text-[8px] font-bold uppercase tracking-wider text-white/60">Next</p><p className="text-xl font-black tabular-nums text-white sm:text-2xl">{slot.nextTicket}</p></div>
     </div>
-    <div className="h-1 bg-white/10"><div className="h-1 bg-fuchsia-300" style={{ width: `${Math.min(progress, 100)}%` }} /></div>
+    {!kioskMode && <div className="h-1 bg-white/10"><div className="h-1 bg-fuchsia-300" style={{ width: `${Math.min(progress, 100)}%` }} /></div>}
   </article>;
 }

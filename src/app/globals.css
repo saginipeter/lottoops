@@ -268,14 +268,24 @@ body {
 /* Reports use one shared page, but each report has its own print action. Keep
    the selected report as the only printable content to prevent blank sheets. */
 @media print {
-  body.report-printing > * { display: none !important; }
-  body.report-printing .reports-page { display: block !important; }
-  body.report-printing .reports-page > * { display: none !important; }
-  body.report-printing .reports-page .reports-content { display: block !important; }
-  body.report-printing .reports-page .reports-content > * { display: none !important; }
-  body.report-printing .reports-page .reports-content > .report-print-target { display: block !important; }
-  body.report-printing .reports-page .report-print-target * { visibility: visible !important; }
-  body.report-printing .reports-page .report-print-target { position: static !important; width: auto !important; min-height: 0 !important; height: auto !important; overflow: visible !important; }
+  body.report-printing * { visibility: hidden !important; }
+  body.report-printing .report-print-target,
+  body.report-printing .report-print-target * { visibility: visible !important; }
+  body.report-printing .report-print-target {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483647 !important;
+    display: block !important;
+    width: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 12mm !important;
+    background: #fff !important;
+    color: #111827 !important;
+  }
 }
 
 /* Perforated-edge divider — signature element between pack metadata
