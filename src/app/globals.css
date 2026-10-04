@@ -286,6 +286,12 @@ body {
     background: #fff !important;
     color: #111827 !important;
   }
+  body.shift-report-printing .report-print-target:not(.shift-report-print) {
+    display: none !important;
+  }
+  body.shift-report-printing .shift-report-print {
+    display: block !important;
+  }
 }
 
 /* Perforated-edge divider — signature element between pack metadata
