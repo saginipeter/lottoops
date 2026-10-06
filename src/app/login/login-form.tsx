@@ -46,13 +46,13 @@ export function LoginForm() {
         return;
       }
 
-      // Employees start in the focused mobile workspace unless they were sent to a specific workflow.
+      // Employees start at the simple POS console unless they were sent to a specific workflow.
       const requestedFrom = searchParams.get("from");
       const isShiftWorkflow = Boolean(
         requestedFrom && /^\/(shifts|inventory\/live-scan)(?:[/?#]|$)/.test(requestedFrom),
       );
       const from = data.user?.role === "EMPLOYEE"
-        ? requestedFrom ?? "/employee"
+        ? requestedFrom ?? "/"
         : isShiftWorkflow
           ? "/"
           : requestedFrom ?? "/";

@@ -19,7 +19,7 @@ interface ConsoleCard {
 export default async function HomePage() {
   const session = await getSession();
   if (session?.role === "OWNER") redirect("/owner");
-  if (session?.role === "EMPLOYEE") redirect("/inventory/live-scan");
+  const isEmployee = session?.role === "EMPLOYEE";
 
   let activeDisplayPacks = 0;
   let backStockPacks = 0;
@@ -38,7 +38,7 @@ export default async function HomePage() {
     activeGames = gamesCount;
   }
 
-  const cards: ConsoleCard[] = [
+  const allCards: ConsoleCard[] = [
     { href: "/pos", title: "Sell Tickets", description: "Open the ticket selling screen", status: openShift ? "Ready for sales" : "Open a shift first", icon: ShoppingCart, tone: "cyan" },
     { href: "/inventory/live-scan", title: "Scan", description: "Scan a ticket or barcode", status: "Live scanner", icon: Radio, tone: "yellow" },
     { href: "/inventory/receive", title: "Receive Stock", description: "Receive new scratch-ticket packs", status: "Invoice · Scan · Review · Confirm", icon: ReceiptText, tone: "green" },
@@ -48,6 +48,9 @@ export default async function HomePage() {
     { href: "/display-slots", title: "Displays", description: "Assign and manage ticket displays", status: `${activeDisplayPacks} active displays`, icon: MonitorSmartphone, tone: "blue" },
     { href: "/settings", title: "Settings", description: "System and store configuration", status: "Security controls", icon: Users, tone: "navy" },
   ];
+  const cards = isEmployee
+    ? allCards.filter((card) => ["Sell Tickets", "Scan", "Shift"].includes(card.title))
+    : allCards;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
