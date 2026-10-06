@@ -13,7 +13,7 @@ interface ConsoleCard {
   description: string;
   status: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
-  tone: "accent" | "blue" | "green" | "amber";
+  tone: "cyan" | "yellow" | "green" | "pink" | "orange" | "red" | "blue" | "navy";
 }
 
 export default async function HomePage() {
@@ -39,20 +39,20 @@ export default async function HomePage() {
   }
 
   const cards: ConsoleCard[] = [
-    { href: "/pos", title: "Sell Tickets", description: "Open the ticket selling screen", status: openShift ? "Ready for sales" : "Open a shift first", icon: ShoppingCart, tone: openShift ? "green" : "amber" },
-    { href: "/inventory/live-scan", title: "Scan", description: "Scan a ticket or barcode", status: "Live scanner", icon: Radio, tone: "accent" },
-    { href: "/inventory/receive", title: "Receive Stock", description: "Receive new scratch-ticket packs", status: "Invoice · Scan · Review · Confirm", icon: ReceiptText, tone: "blue" },
-    { href: "/inventory", title: "Inventory", description: "View active stock and back stock", status: `${backStockPacks} packs in back stock`, icon: Boxes, tone: "green" },
-    { href: "/shifts", title: "Shift", description: "Open, manage, or close the current shift", status: openShift ? "Shift open" : "No shift open", icon: ClipboardCheck, tone: openShift ? "green" : "amber" },
-    { href: "/reports", title: "Reports", description: "View sales, audits, and shift information", status: "Management reports", icon: BarChart3, tone: "amber" },
-    { href: "/display-slots", title: "Displays", description: "Assign and manage ticket displays", status: `${activeDisplayPacks} active displays`, icon: MonitorSmartphone, tone: "accent" },
-    { href: "/settings", title: "Settings", description: "System and store configuration", status: "Security controls", icon: Users, tone: "accent" },
+    { href: "/pos", title: "Sell Tickets", description: "Open the ticket selling screen", status: openShift ? "Ready for sales" : "Open a shift first", icon: ShoppingCart, tone: "cyan" },
+    { href: "/inventory/live-scan", title: "Scan", description: "Scan a ticket or barcode", status: "Live scanner", icon: Radio, tone: "yellow" },
+    { href: "/inventory/receive", title: "Receive Stock", description: "Receive new scratch-ticket packs", status: "Invoice · Scan · Review · Confirm", icon: ReceiptText, tone: "green" },
+    { href: "/inventory", title: "Inventory", description: "View active stock and back stock", status: `${backStockPacks} packs in back stock`, icon: Boxes, tone: "pink" },
+    { href: "/shifts", title: "Shift", description: "Open, manage, or close the current shift", status: openShift ? "Shift open" : "No shift open", icon: ClipboardCheck, tone: "orange" },
+    { href: "/reports", title: "Reports", description: "View sales, audits, and shift information", status: "Management reports", icon: BarChart3, tone: "red" },
+    { href: "/display-slots", title: "Displays", description: "Assign and manage ticket displays", status: `${activeDisplayPacks} active displays`, icon: MonitorSmartphone, tone: "blue" },
+    { href: "/settings", title: "Settings", description: "System and store configuration", status: "Security controls", icon: Users, tone: "navy" },
   ];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <LivePageRefresh intervalMs={3000} />
-      <Header title="Store Operations Console" subtitle="Touch a function to begin" />
+      <Header title="LottoOps Store Console" subtitle="Touch a function to begin" />
       <PageToolbar
         left={<span className="flex items-center gap-2 text-xs text-text-secondary"><Store size={14} className="text-accent" />{session?.storeName ?? "LottoOps Store"}</span>}
         center={<span className="hidden sm:inline">All core operations · Touchscreen mode</span>}
@@ -70,8 +70,8 @@ export default async function HomePage() {
         <section className="mx-auto w-full max-w-[1500px]">
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">POS terminal</p>
-              <h1 className="mt-1 text-xl font-bold tracking-tight text-text sm:text-2xl">What would you like to do?</h1>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">Main menu</p>
+              <h1 className="mt-1 text-xl font-bold tracking-tight text-text sm:text-2xl">Choose a LottoOps function</h1>
             </div>
             <div className="hidden items-center gap-2 text-xs text-text-secondary sm:flex"><ShieldCheck size={15} className="text-success" /> Protected operations</div>
           </div>
@@ -96,14 +96,28 @@ export default async function HomePage() {
 function ConsoleCardLink({ card }: { card: ConsoleCard }) {
   const Icon = card.icon;
   const toneClasses = {
-    accent: "border-accent/30 bg-accent-soft text-accent",
-    blue: "border-blue-200 bg-blue-50 text-blue-700",
-    green: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    cyan: "border-[#087da8] bg-[#079bd0] text-white",
+    yellow: "border-[#d1a500] bg-[#f1c400] text-white",
+    green: "border-[#087c20] bg-[#11a62b] text-white",
+    pink: "border-[#b50067] bg-[#df087f] text-white",
+    orange: "border-[#c75f00] bg-[#ed7b0a] text-white",
+    red: "border-[#b50019] bg-[#e4142b] text-white",
+    blue: "border-[#0d5794] bg-[#126fc0] text-white",
+    navy: "border-[#123b73] bg-[#174f91] text-white",
   }[card.tone];
-  return <a href={card.href} className="group card-surface card-interactive flex min-h-[150px] flex-col justify-between p-4 transition-colors hover:border-accent/60 hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.98] sm:min-h-[170px] sm:p-5">
-    <div className="flex items-start justify-between gap-3"><span className={`flex h-12 w-12 items-center justify-center border sm:h-14 sm:w-14 ${toneClasses}`}><Icon size={25} /></span><ArrowRight size={21} className="mt-1 text-text-tertiary transition-transform group-hover:translate-x-1 group-hover:text-accent" /></div>
-    <div className="mt-4"><h2 className="text-base font-bold text-text sm:text-lg">{card.title}</h2><p className="mt-1 line-clamp-2 text-xs leading-relaxed text-text-secondary sm:text-sm">{card.description}</p><p className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-text-tertiary">{card.status}</p></div>
+  const tileIcon = {
+    cyan: "bg-white/20 text-white",
+    yellow: "bg-white/20 text-white",
+    green: "bg-white/20 text-white",
+    pink: "bg-white/20 text-white",
+    orange: "bg-white/20 text-white",
+    red: "bg-white/20 text-white",
+    blue: "bg-white/20 text-white",
+    navy: "bg-white/20 text-white",
+  }[card.tone];
+  return <a href={card.href} className={`group flex min-h-[148px] flex-col justify-between border p-4 shadow-[0_2px_0_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.98] sm:min-h-[172px] sm:p-5 ${toneClasses}`}>
+    <div className="flex items-start justify-between gap-3"><span className={`flex h-12 w-12 items-center justify-center rounded-sm sm:h-14 sm:w-14 ${tileIcon}`}><Icon size={27} /></span><ArrowRight size={21} className="mt-1 text-white/70 transition-transform group-hover:translate-x-1 group-hover:text-white" /></div>
+    <div className="mt-4"><h2 className="text-base font-bold leading-tight text-white sm:text-lg">{card.title}</h2><p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/80 sm:text-sm">{card.description}</p><p className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-white/75">{card.status}</p></div>
   </a>;
 }
 
