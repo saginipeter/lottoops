@@ -11,6 +11,7 @@ import { getSession } from "@/lib/get-session";
 interface LiveScanPageProps {
   searchParams?: Promise<{
     terminal?: string;
+    mode?: string;
   }>;
 }
 
@@ -38,6 +39,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
     typeof resolvedSearchParams.terminal === "string" && resolvedSearchParams.terminal.trim()
       ? resolvedSearchParams.terminal.trim().toUpperCase()
       : "T1";
+  const compactMode = resolvedSearchParams.mode === "pos";
 
   await prisma.$executeRawUnsafe(`
     ALTER TABLE shifts
@@ -134,9 +136,11 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
-        title={isEmployee ? "Scanner Station" : "Live Scan"}
+        title={compactMode ? "Scan Ticket" : isEmployee ? "Scanner Station" : "Live Scan"}
         subtitle={
-          isEmployee
+          compactMode
+            ? `${session.storeName} · Touchscreen scanner · Terminal ${terminalId}`
+            : isEmployee
             ? `${session.name} · ${session.storeName} · Terminal ${terminalId}`
             : `Real-time ticket scanning and sales tracking · Terminal ${terminalId}`
         }
@@ -154,7 +158,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
             ))}
           </div>
         }
-        center={<span>{isEmployee ? session.storeName : "Enter Scan | Ctrl+F Focus Scan | Esc Clear"}</span>}
+        center={<span>{compactMode ? "Scan a ticket to continue" : isEmployee ? session.storeName : "Enter Scan | Ctrl+F Focus Scan | Esc Clear"}</span>}
         right={
           isEmployee ? (
             <div className="flex items-center gap-2">
@@ -183,6 +187,7 @@ export default async function LiveScanPage({ searchParams }: LiveScanPageProps) 
           terminalId={terminalId}
           isOwner={session.role === "OWNER"}
           isEmployee={isEmployee}
+          compact={compactMode}
         />
       </div>
 

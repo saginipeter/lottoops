@@ -36,6 +36,7 @@ export function LotteryPos({ shiftOpen, beginningAuditComplete, terminalId }: Po
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function LotteryPos({ shiftOpen, beginningAuditComplete, terminalId }: Po
       const data = (await response.json()) as SaleResult;
       if (!response.ok) throw new Error(data.error || "Ticket sale was rejected.");
       setLastSale(data);
+      setShowDetails(true);
       setBarcode("");
       setNotice("Ticket sale recorded in the current shift.");
       window.setTimeout(() => inputRef.current?.focus(), 50);
@@ -77,6 +79,7 @@ export function LotteryPos({ shiftOpen, beginningAuditComplete, terminalId }: Po
 
   function clearSale() {
     setLastSale(null);
+    setShowDetails(false);
     setCashReceived("");
     setNotice("");
     setError("");
@@ -111,6 +114,7 @@ export function LotteryPos({ shiftOpen, beginningAuditComplete, terminalId }: Po
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><InfoTile label="Shift" value={shiftOpen ? "Open" : "Closed"} /><InfoTile label="Opening audit" value={beginningAuditComplete ? "Complete" : "Required"} /><InfoTile label="Terminal" value={terminalId} /><InfoTile label="Workflow" value="Ticket sales" /></div>
       </div>
+      {showDetails && lastSale && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Completed ticket sale"><Panel className="w-full max-w-lg border-2 border-emerald-500 bg-white p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Sale complete</p><h2 className="mt-1 text-2xl font-bold text-text">Ticket recorded</h2></div><Button type="button" variant="ghost" size="icon" onClick={() => setShowDetails(false)} aria-label="Close sale details"><X size={20} /></Button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="col-span-2 border border-border bg-surface-soft p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Game</p><p className="mt-1 text-lg font-bold text-text">{lastSale.gameName ?? "Lottery ticket"}</p></div><div className="border border-border bg-surface-soft p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Amount due</p><p className="mt-1 text-xl font-bold text-text">{formatCurrency(amountDue)}</p></div><div className="border border-border bg-surface-soft p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Next ticket</p><p className="mt-1 text-xl font-bold text-text">{lastSale.nextTicketNumber ?? "Sold out"}</p></div></div><Button type="button" onClick={() => { setShowDetails(false); inputRef.current?.focus(); }} className="mt-5 min-h-14 w-full text-lg font-bold">Done · Sell Next Ticket</Button></Panel></div>}
     </div>
   );
 }

@@ -40,7 +40,7 @@ export default async function HomePage() {
 
   const allCards: ConsoleCard[] = [
     { href: "/pos", title: "Sell Tickets", description: "Open the ticket selling screen", status: openShift ? "Ready for sales" : "Open a shift first", icon: ShoppingCart, tone: "cyan" },
-    { href: "/inventory/live-scan", title: "Scan", description: "Scan a ticket or barcode", status: "Live scanner", icon: Radio, tone: "yellow" },
+    { href: "/inventory/live-scan?mode=pos", title: "Scan", description: "Scan a ticket or barcode", status: "Focused scanner", icon: Radio, tone: "yellow" },
     { href: "/inventory/receive", title: "Receive Stock", description: "Receive new scratch-ticket packs", status: "Invoice · Scan · Review · Confirm", icon: ReceiptText, tone: "green" },
     { href: "/inventory", title: "Inventory", description: "View active stock and back stock", status: `${backStockPacks} packs in back stock`, icon: Boxes, tone: "pink" },
     { href: "/shifts", title: "Shift", description: "Open, manage, or close the current shift", status: openShift ? "Shift open" : "No shift open", icon: ClipboardCheck, tone: "orange" },

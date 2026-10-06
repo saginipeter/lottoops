@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Search,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ interface LiveScanDashboardProps {
   terminalId: string;
   isOwner: boolean;
   isEmployee?: boolean;
+  compact?: boolean;
 }
 
 interface TicketHistoryResult {
@@ -99,6 +101,7 @@ interface LiveScanResult {
   id: string;
   ticketBarcode?: string;
   gameNumber?: string;
+  gameName?: string;
   packStatus?: string;
   currentTicketNumber?: number | null;
   nextTicketNumber?: number | null;
@@ -121,6 +124,7 @@ export function LiveScanDashboard({
   terminalId,
   isOwner,
   isEmployee = false,
+  compact = false,
 }: LiveScanDashboardProps) {
   const router = useRouter();
   const [barcode, setBarcode] = useState("");
@@ -621,6 +625,61 @@ export function LiveScanDashboard({
     : 0;
 
   const hourlyRate = shiftStats.revenueTotal / Math.max(shiftDuration / 60, 1);
+
+  if (compact) {
+    return (
+      <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col justify-center py-3 sm:py-5">
+        <Panel className={`border-2 bg-white p-4 shadow-[0_10px_28px_rgba(23,35,63,0.08)] sm:p-8 ${scanError ? "border-red-500" : "border-[#cbd5e1]"}`}>
+          <div className="text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#64748b]">POS scanner</p>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-[#17233f] sm:text-4xl">Scan Ticket</h2>
+            <p className="mx-auto mt-2 max-w-xl text-sm text-[#64748b]">
+              {currentShift
+                ? currentShift.beginningAuditComplete
+                  ? `Scan the ticket barcode for terminal ${terminalId}.`
+                  : "Complete the Opening Audit before selling tickets."
+                : "Open a shift before scanning tickets."}
+            </p>
+          </div>
+
+          <div className="mx-auto mt-6 flex w-full max-w-2xl flex-col gap-3">
+            <input
+              ref={scanInputRef}
+              value={barcode}
+              onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))}
+              onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleScan(); } }}
+              inputMode="numeric"
+              autoComplete="off"
+              autoFocus
+              disabled={refreshing || !currentShift || !currentShift.beginningAuditComplete}
+              placeholder="Scan or enter 14-digit barcode"
+              className="min-h-16 w-full border-2 border-[#94a3b8] px-4 text-center font-mono text-2xl tracking-wider text-[#17233f] outline-none focus:border-[#314a8a] focus:ring-4 focus:ring-[#314a8a]/15 disabled:bg-[#f1f5f9] sm:min-h-20 sm:text-3xl"
+            />
+            <Button
+              onClick={() => { void handleScan(); }}
+              disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift || !currentShift.beginningAuditComplete}
+              className="min-h-14 bg-[#314a8a] text-lg font-bold shadow-[0_4px_0_#17233f] active:translate-y-0.5"
+            >
+              {refreshing ? "Scanning..." : "Scan Ticket"}
+            </Button>
+            <PhoneBarcodeScanner onScan={(value) => { void handleScan(value); }} disabled={refreshing || !currentShift || !currentShift.beginningAuditComplete} />
+          </div>
+
+          {scanError && <div role="alert" className="mx-auto mt-4 flex w-full max-w-2xl items-center justify-center gap-2 border-2 border-red-600 bg-red-600 px-3 py-3 text-sm font-bold text-white"><AlertTriangle size={18} />{scanError}</div>}
+
+          <div className="mx-auto mt-5 grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="border border-[#cbd5e1] bg-[#f8fafc] p-3 text-center"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Shift</p><p className="mt-1 font-bold text-[#17233f]">{currentShift ? "Open" : "Closed"}</p></div>
+            <div className="border border-[#cbd5e1] bg-[#f8fafc] p-3 text-center"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Opening Audit</p><p className="mt-1 font-bold text-[#17233f]">{currentShift?.beginningAuditComplete ? "Complete" : "Required"}</p></div>
+            <div className="col-span-2 border border-[#cbd5e1] bg-[#f8fafc] p-3 text-center sm:col-span-1"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Terminal</p><p className="mt-1 font-bold text-[#17233f]">{terminalId}</p></div>
+          </div>
+        </Panel>
+
+        {!currentShift && <Button onClick={handleOpenShift} disabled={shiftActionLoading} className="mx-auto mt-4 min-h-14 w-full max-w-2xl text-lg font-bold">{shiftActionLoading ? "Opening Shift..." : "Open Shift"}</Button>}
+
+        {lastScan && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Ticket scan result"><Panel className="w-full max-w-lg border-2 border-emerald-500 bg-white p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Ticket accepted</p><h3 className="mt-1 text-2xl font-bold text-[#17233f]">Sale recorded</h3></div><Button variant="ghost" size="icon" onClick={() => { setLastScan(null); requestAnimationFrame(() => scanInputRef.current?.focus()); }} aria-label="Close ticket result"><X size={20} /></Button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="col-span-2 border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Game</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.gameName ?? lastScan.gameNumber ?? "Lottery ticket"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Ticket</p><p className="mt-1 break-all font-mono text-sm font-bold text-[#17233f]">{lastScan.ticketBarcode ?? lastScan.serialNumber ?? "—"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Next ticket</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.nextTicketNumber ?? "Sold out"}</p></div></div><Button onClick={() => { setLastScan(null); requestAnimationFrame(() => scanInputRef.current?.focus()); }} className="mt-5 min-h-14 w-full text-lg font-bold">Done · Scan Next Ticket</Button></Panel></div>}
+      </div>
+    );
+  }
 
   if (isEmployee) {
     return (
