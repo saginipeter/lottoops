@@ -1,4 +1,4 @@
-import { ArrowRight, BarChart3, Boxes, ClipboardCheck, Gamepad2, MonitorSmartphone, Radio, ReceiptText, Settings, ShieldCheck, Store, TriangleAlert, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Boxes, ClipboardCheck, Gamepad2, MonitorSmartphone, Radio, ReceiptText, ShieldCheck, Store, TriangleAlert, Users, ShoppingCart } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
@@ -39,6 +39,7 @@ export default async function HomePage() {
   }
 
   const cards: ConsoleCard[] = [
+    { href: "/pos", title: "Lottery POS", description: "Sell tickets from one touchscreen terminal", status: openShift ? "Open POS terminal" : "Open a shift first", icon: ShoppingCart, tone: openShift ? "green" : "amber" },
     { href: "/shifts", title: "Shift Control", description: "Open shift, opening audit, closing audit", status: openShift ? "Shift open" : "No shift open", icon: ClipboardCheck, tone: openShift ? "green" : "amber" },
     { href: "/inventory/live-scan", title: "Live Scan", description: "Scan sold tickets and monitor current packs", status: "Ready to scan", icon: Radio, tone: "accent" },
     { href: "/inventory/receive", title: "Receive Shipment", description: "Scan packs, capture photos, confirm inventory", status: "Receive packs", icon: ReceiptText, tone: "blue" },
