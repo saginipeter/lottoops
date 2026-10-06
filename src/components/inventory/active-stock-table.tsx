@@ -73,6 +73,20 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
     location.reload();
   }
 
+  async function correctDirection(pack: any) {
+    const current = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
+    const next = window.prompt(`Enter sell direction for ${pack.packNumber ?? "this pack"}: FIRST or LAST`, current)?.trim().toUpperCase();
+    if (next !== "FIRST" && next !== "LAST") return;
+    if (next === current) return;
+    const reason = window.prompt("Enter the reason for changing the sell direction:")?.trim();
+    if (!reason || reason.length < 6) return;
+    const response = await fetch("/api/packs/update-direction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ packId: pack.id, direction: next, reason }) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) { window.alert(data.error ?? "Unable to update sell direction."); return; }
+    window.alert(`Direction updated to Sell from ${next === "FIRST" ? "First" : "Last"}. Physical ticket ${data.physicalTicketNumber} was preserved.`);
+    location.reload();
+  }
+
   function displayedCurrentTicket(pack: any) {
     const quantity = Number(pack.ticketQuantity ?? 0);
     const remaining = Number(pack.currentTicketNumber ?? quantity);
@@ -149,9 +163,10 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
                         View
                       </Button>
                     </Link>
-                    {canManageDisplay && <Button size="sm" variant="destructive" onClick={() => openRemoveModal(pack)}>
-                      Remove
+                    {canManageDisplay && <Button size="sm" variant="outline" className="border-emerald-600 text-emerald-700 hover:bg-emerald-50" onClick={() => void correctDirection(pack)}>
+                      Sell {pack.firstOrLastTicket === "LAST" ? "Last" : "First"}
                     </Button>}
+                    {canManageDisplay && <Button size="sm" variant="destructive" onClick={() => openRemoveModal(pack)}>Remove</Button>}
                   </div>
                 </td>
               </tr>

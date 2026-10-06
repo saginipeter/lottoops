@@ -394,8 +394,8 @@ export function ScanStep({
           {justAdded && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               {(shipment.expectedPacks ?? 0) > packs.length
-                ? `Pack added. Scan the next pack (${packs.length}/${shipment.expectedPacks ?? 0}).`
-                : "Pack added. Review the shipment details."}
+                ? `Pack added successfully. Scan the next pack (${packs.length}/${shipment.expectedPacks ?? 0}).`
+                : "Pack added successfully. Review the shipment details."}
             </div>
           )}
 

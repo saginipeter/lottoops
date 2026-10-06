@@ -292,6 +292,7 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
               <ReviewStep
                 shipment={shipment}
                 packs={packs}
+                setShipment={setShipment}
                 updatePack={updatePack}
                 onOverrideApproved={() => setOverrideApproved(true)}
                 overrideApproved={overrideApproved}

@@ -57,6 +57,12 @@ export default function DisplaySlotGrid({
         packNumber.includes(term) ||
         slotNumber.includes(term)
       );
+    }).sort((a, b) => {
+      const numberA = Number.parseInt(String(a.slotNumber).replace(/\D/g, ""), 10);
+      const numberB = Number.parseInt(String(b.slotNumber).replace(/\D/g, ""), 10);
+      if (Number.isNaN(numberA)) return 1;
+      if (Number.isNaN(numberB)) return -1;
+      return numberA - numberB;
     });
   }, [slots, search, viewFilter]);
 

@@ -161,6 +161,9 @@ export function ConfirmStep({
           >
             Return to Inventory
           </Button>
+          <Button variant="outline" className="mt-3 sm:ml-3" onClick={() => window.print()}>
+            Print Receiving Record
+          </Button>
 
         </div>
       </Panel>
