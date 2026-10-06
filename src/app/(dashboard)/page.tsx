@@ -1,4 +1,4 @@
-import { ArrowRight, BarChart3, Boxes, ClipboardCheck, Gamepad2, MonitorSmartphone, Radio, ReceiptText, ShieldCheck, Store, TriangleAlert, Users, ShoppingCart } from "lucide-react";
+import { ArrowRight, BarChart3, Boxes, ClipboardCheck, MonitorSmartphone, Radio, ReceiptText, ShieldCheck, Store, TriangleAlert, Users, ShoppingCart } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
@@ -39,15 +39,14 @@ export default async function HomePage() {
   }
 
   const cards: ConsoleCard[] = [
-    { href: "/pos", title: "Lottery POS", description: "Sell tickets from one touchscreen terminal", status: openShift ? "Open POS terminal" : "Open a shift first", icon: ShoppingCart, tone: openShift ? "green" : "amber" },
-    { href: "/shifts", title: "Shift Control", description: "Open shift, opening audit, closing audit", status: openShift ? "Shift open" : "No shift open", icon: ClipboardCheck, tone: openShift ? "green" : "amber" },
-    { href: "/inventory/live-scan", title: "Live Scan", description: "Scan sold tickets and monitor current packs", status: "Ready to scan", icon: Radio, tone: "accent" },
-    { href: "/inventory/receive", title: "Receive Shipment", description: "Scan packs, capture photos, confirm inventory", status: "Receive packs", icon: ReceiptText, tone: "blue" },
-    { href: "/display-slots", title: "Displays", description: "Assign packs and manage store displays", status: `${activeDisplayPacks} active displays`, icon: MonitorSmartphone, tone: "accent" },
-    { href: "/inventory", title: "Active Stock & Back Stock", description: "Activate packs, correct tickets, and manage stock", status: `${backStockPacks} packs in back stock`, icon: Boxes, tone: "green" },
-    { href: "/games", title: "Games Catalog", description: "Manage games, prices, and ticket quantities", status: `${activeGames} active games`, icon: Gamepad2, tone: "blue" },
-    { href: "/reports", title: "Reports", description: "Review sales, audits, activity, and shifts", status: "Management reports", icon: BarChart3, tone: "amber" },
-    { href: "/settings", title: "Staff & Settings", description: "Manage staff access and store controls", status: "Security controls", icon: Users, tone: "accent" },
+    { href: "/pos", title: "Sell Tickets", description: "Open the ticket selling screen", status: openShift ? "Ready for sales" : "Open a shift first", icon: ShoppingCart, tone: openShift ? "green" : "amber" },
+    { href: "/inventory/live-scan", title: "Scan", description: "Scan a ticket or barcode", status: "Live scanner", icon: Radio, tone: "accent" },
+    { href: "/inventory/receive", title: "Receive Stock", description: "Receive new scratch-ticket packs", status: "Invoice · Scan · Review · Confirm", icon: ReceiptText, tone: "blue" },
+    { href: "/inventory", title: "Inventory", description: "View active stock and back stock", status: `${backStockPacks} packs in back stock`, icon: Boxes, tone: "green" },
+    { href: "/shifts", title: "Shift", description: "Open, manage, or close the current shift", status: openShift ? "Shift open" : "No shift open", icon: ClipboardCheck, tone: openShift ? "green" : "amber" },
+    { href: "/reports", title: "Reports", description: "View sales, audits, and shift information", status: "Management reports", icon: BarChart3, tone: "amber" },
+    { href: "/display-slots", title: "Displays", description: "Assign and manage ticket displays", status: `${activeDisplayPacks} active displays`, icon: MonitorSmartphone, tone: "accent" },
+    { href: "/settings", title: "Settings", description: "System and store configuration", status: "Security controls", icon: Users, tone: "accent" },
   ];
 
   return (
@@ -71,7 +70,7 @@ export default async function HomePage() {
         <section className="mx-auto w-full max-w-[1500px]">
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">Main menu</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">POS terminal</p>
               <h1 className="mt-1 text-xl font-bold tracking-tight text-text sm:text-2xl">What would you like to do?</h1>
             </div>
             <div className="hidden items-center gap-2 text-xs text-text-secondary sm:flex"><ShieldCheck size={15} className="text-success" /> Protected operations</div>
