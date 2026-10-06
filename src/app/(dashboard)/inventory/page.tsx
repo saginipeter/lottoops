@@ -69,17 +69,13 @@ const displaySlots = slots.map((slot: { id: string; slotNumber: string; packId: 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
-        title="Back Stock"
-        subtitle={`${backStock.length} packs waiting to be activated`}
+        title="Inventory"
+        subtitle={`${backStock.length} back-stock packs · Tap a card to manage`}
         actions={
-          canReceiveShipments(session) && (
-            <Link href="/inventory/receive">
-              <Button variant="default">
-                <Plus size={14} />
-                Receive Inventory
-              </Button>
-            </Link>
-          )
+          <div className="flex items-center gap-2">
+            <Link href="/inventory/active"><Button variant="secondary">Active Stock</Button></Link>
+            {canReceiveShipments(session) && <Link href="/inventory/receive"><Button variant="default"><Plus size={14} /> Receive Stock</Button></Link>}
+          </div>
         }
       />
       <BackStockList

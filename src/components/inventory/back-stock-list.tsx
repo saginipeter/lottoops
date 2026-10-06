@@ -177,98 +177,21 @@ export function BackStockList({ packs, slots, canManageBackstock }: BackStockLis
         right={<span className="text-xs text-text-tertiary">{filteredPacks.length} visible</span>}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        <table className="min-w-full border-collapse text-sm">
-          <thead className="sticky top-0 z-10 bg-muted/60">
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
-              <th className="px-3 py-2">Game</th>
-              <th className="px-3 py-2">Pack</th>
-              <th className="px-3 py-2">Price</th>
-              <th className="px-3 py-2">Qty</th>
-              <th className="px-3 py-2">Received</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoiceGroups.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-text-secondary">
-                  No packs found.
-                </td>
-              </tr>
-            )}
-
-            {invoiceGroups.map((group) => {
-              const collapsed = collapsedGroups.has(group.key);
-
-              return (
-                <>
-                  <tr key={`group-${group.key}`} className="border-b border-border bg-muted/40">
-                    <td colSpan={7} className="px-3 py-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <button
-                          type="button"
-                          onClick={() => toggleGroup(group.key)}
-                          className="flex items-center gap-2 font-semibold text-text"
-                        >
-                          {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                          Invoice: {group.invoiceNumber}
-                          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-700">
-                            {group.packs.length} pack{group.packs.length === 1 ? "" : "s"}
-                          </span>
-                        </button>
-
-                        {canManageBackstock && group.shipmentId && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openEditInvoiceModal(group)}
-                          >
-                            <SquarePen size={14} />
-                            Correct Invoice
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-
-                  {!collapsed &&
-                    group.packs.map((pack) => (
-                      <tr key={pack.id} className="border-b border-border/70 hover:bg-muted/30">
-                        <td className="px-3 py-2 font-semibold">{pack.game.gameNumber}</td>
-                        <td className="px-3 py-2 font-mono text-xs">{pack.serialNumber}</td>
-                        <td className="px-3 py-2">${Number(pack.ticketPrice ?? pack.game.price).toFixed(2)}</td>
-                        <td className="px-3 py-2">{pack.ticketQuantity ?? pack.game.ticketsPerPack}</td>
-                        <td className="px-3 py-2">{new Date(pack.receivedAt).toLocaleDateString()}</td>
-                        <td className="px-3 py-2">
-                          <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-[11px] font-semibold text-yellow-700">
-                            BACK STOCK
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex justify-end gap-1.5">
-                            {canManageBackstock && (
-                              <>
-                                <Button size="sm" onClick={() => openActivateModal(pack)}>
-                                  <PlayCircle size={14} />
-                                  Activate
-                                </Button>
-                                <Button variant="destructive" size="sm" onClick={() => openRemoveModal(pack)}>
-                                  <Trash2 size={14} />
-                                  Remove
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                </>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
+        {invoiceGroups.length === 0 ? <div className="flex min-h-[220px] items-center justify-center border-2 border-dashed border-border text-center text-text-secondary">No packs found.</div> : <div className="space-y-4">{invoiceGroups.map((group) => {
+          const collapsed = collapsedGroups.has(group.key);
+          return <section key={group.key} className="border border-border bg-surface">
+            <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-soft p-3 sm:p-4">
+              <button type="button" onClick={() => toggleGroup(group.key)} className="flex min-h-11 items-center gap-2 text-left font-bold text-text">
+                {collapsed ? <ChevronRight size={19} /> : <ChevronDown size={19} />}
+                <span>Invoice: {group.invoiceNumber}</span>
+                <span className="bg-purple-100 px-2 py-1 text-[11px] font-bold text-purple-700">{group.packs.length} pack{group.packs.length === 1 ? "" : "s"}</span>
+              </button>
+              {canManageBackstock && group.shipmentId && <Button size="sm" variant="outline" onClick={() => openEditInvoiceModal(group)}><SquarePen size={14} /> Correct Invoice</Button>}
+            </div>
+            {!collapsed && <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">{group.packs.map((pack) => <article key={pack.id} className="border border-border bg-white p-4 shadow-[0_2px_0_rgba(23,35,63,0.08)]"><div className="flex items-start justify-between gap-2"><div><p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Game</p><p className="mt-1 text-xl font-bold text-text">{pack.game.gameNumber}</p></div><span className="bg-yellow-100 px-2 py-1 text-[10px] font-bold text-yellow-700">BACK STOCK</span></div><p className="mt-3 break-all font-mono text-xs text-text-secondary">{pack.serialNumber}</p><div className="mt-4 grid grid-cols-2 gap-2 text-sm"><div className="border border-border bg-surface-soft p-2"><p className="text-[10px] text-text-tertiary">Price</p><p className="font-bold text-text">${Number(pack.ticketPrice ?? pack.game.price).toFixed(2)}</p></div><div className="border border-border bg-surface-soft p-2"><p className="text-[10px] text-text-tertiary">Tickets</p><p className="font-bold text-text">{pack.ticketQuantity ?? pack.game.ticketsPerPack}</p></div></div><p className="mt-3 text-[11px] text-text-tertiary">Received {new Date(pack.receivedAt).toLocaleDateString()}</p>{canManageBackstock && <div className="mt-4 grid grid-cols-2 gap-2"><Button className="min-h-11" onClick={() => openActivateModal(pack)}><PlayCircle size={15} /> Activate</Button><Button variant="destructive" className="min-h-11" onClick={() => openRemoveModal(pack)}><Trash2 size={15} /> Remove</Button></div>}</article>)}</div>}
+          </section>;
+        })}</div>}
       </div>
 
       <StatusBar
