@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Camera, CheckCircle2, ChevronLeft, FileText, PackagePlus, ScanLine, SearchCheck, Trash2 } from "lucide-react";
+import { Camera, CheckCircle2, ChevronLeft, FileText, ScanLine, SearchCheck, Trash2 } from "lucide-react";
 
 const steps = [
   { label: "Shipment", icon: FileText },
