@@ -18,6 +18,8 @@ export function ConsoleTopBar({ user }: ConsoleTopBarProps) {
   const router = useRouter();
   const isConsole = pathname === "/";
 
+  if (isConsole) return null;
+
   function goBack() {
     if (window.history.length > 1) {
       router.back();
