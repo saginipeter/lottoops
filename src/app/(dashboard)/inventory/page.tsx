@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
-import { InventoryPos, type InventoryPack } from "@/components/inventory/inventory-pos";
+import { InventoryPos, type InventoryPack, type InventorySlot } from "@/components/inventory/inventory-pos";
 
 type LivePackRow = {
   id: string;
@@ -15,6 +15,7 @@ type LivePackRow = {
   receivedAt: Date;
   status: "ACTIVE" | "BACK_STOCK";
 };
+type LiveSlotRow = { id: string; slotNumber: string; packId: string | null };
 
 export default async function InventoryPage() {
   const session = await getSession();
@@ -24,6 +25,12 @@ export default async function InventoryPage() {
     where: { storeId: session.storeId, status: { in: ["BACK_STOCK", "ACTIVE"] } },
     include: { game: true, shipment: true, slot: true },
     orderBy: { receivedAt: "desc" },
+  });
+
+  const displaySlots = await prisma.displaySlot.findMany({
+    where: { storeId: session.storeId },
+    select: { id: true, slotNumber: true, packId: true },
+    orderBy: { slotNumber: "asc" },
   });
 
   const inventory: InventoryPack[] = packs.map((pack: LivePackRow) => ({
@@ -41,5 +48,12 @@ export default async function InventoryPage() {
     receivedAt: pack.receivedAt.toISOString(),
   }));
 
-  return <InventoryPos employeeName={session.name} storeName={session.storeName ?? "LottoOps Store"} packs={inventory} />;
+  const packsById = new Map(inventory.map((pack) => [pack.id, pack]));
+  const slots: InventorySlot[] = displaySlots.map((slot: LiveSlotRow) => ({
+    id: slot.id,
+    slotNumber: slot.slotNumber,
+    pack: slot.packId ? packsById.get(slot.packId) ?? null : null,
+  }));
+
+  return <InventoryPos employeeName={session.name} storeName={session.storeName ?? "LottoOps Store"} packs={inventory} slots={slots} />;
 }
