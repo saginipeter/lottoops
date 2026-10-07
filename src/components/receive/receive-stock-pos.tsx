@@ -1,0 +1,57 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Camera, CheckCircle2, ChevronLeft, FileText, PackagePlus, ScanLine, SearchCheck, Trash2 } from "lucide-react";
+
+const steps = [
+  { label: "Shipment", icon: FileText },
+  { label: "Scan packs", icon: ScanLine },
+  { label: "Review", icon: SearchCheck },
+  { label: "Complete", icon: CheckCircle2 },
+];
+
+type Pack = { id: number; barcode: string; game: string; price: number; quantity: number };
+
+export function ReceiveStockPos({ employeeName, storeName }: { employeeName: string; storeName: string }) {
+  const [step, setStep] = useState(1);
+  const [invoice, setInvoice] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [expectedPacks, setExpectedPacks] = useState("3");
+  const [inventoryCost, setInventoryCost] = useState("142.50");
+  const [scanValue, setScanValue] = useState("");
+  const [packs, setPacks] = useState<Pack[]>([]);
+  const [completed, setCompleted] = useState(false);
+  const [photoSynced, setPhotoSynced] = useState(false);
+  const [error, setError] = useState("");
+
+  const calculatedCost = packs.reduce((sum, pack) => sum + pack.price * pack.quantity, 0) * 0.95;
+  const canContinue = step === 1 ? invoice.trim().length > 0 && confirmation.trim().length > 0 : step === 2 ? packs.length > 0 : true;
+
+  function addPack() {
+    const barcode = scanValue.trim() || `24240089877${String(packs.length + 1).padStart(3, "0")}`;
+    if (packs.some((pack) => pack.barcode === barcode)) { setError("This pack has already been added to the shipment."); return; }
+    setPacks((current) => [...current, { id: Date.now(), barcode, game: packs.length % 2 === 0 ? "Cash 2" : "Lucky 5", price: packs.length % 2 === 0 ? 5 : 10, quantity: 50 }]);
+    setScanValue(""); setPhotoSynced(true); setError("");
+  }
+  function next() { if (!canContinue) return; setStep((value) => Math.min(value + 1, 4)); }
+  function back() { setStep((value) => Math.max(value - 1, 1)); }
+
+  return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
+    <header className="border-b border-slate-200 bg-white px-5 py-3 sm:px-8"><div className="mx-auto flex max-w-[1366px] items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#087da8]">{storeName} · POS-01</p><h1 className="mt-1 text-2xl font-black tracking-tight">RECEIVE STOCK</h1></div><div className="hidden text-right text-xs sm:block"><p className="text-slate-500">Employee</p><p className="font-bold">{employeeName}</p></div></div></header>
+    <main className="mx-auto max-w-[1100px] px-5 py-5 sm:px-8 sm:py-7"><div className="mb-6 flex items-center gap-2">{steps.map((item, index) => { const number = index + 1; const Icon = item.icon; return <div key={item.label} className="flex flex-1 items-center gap-2"><div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-black ${number <= step ? "bg-[#087da8] text-white" : "bg-slate-200 text-slate-500"}`}>{number < step ? <CheckCircle2 size={21} /> : <Icon size={19} />}</div><span className={`hidden text-xs font-bold sm:block ${number === step ? "text-[#087da8]" : "text-slate-500"}`}>{item.label}</span>{number < steps.length && <span className={`h-1 flex-1 rounded-full ${number < step ? "bg-[#087da8]" : "bg-slate-200"}`} />}</div>; })}</div>
+      <div className="mb-5"><p className="text-sm font-semibold text-slate-500">Step {step} of 4</p><h2 className="mt-1 text-2xl font-black sm:text-3xl">{step === 1 ? "Enter shipment details" : step === 2 ? "Scan inbound ticket packs" : step === 3 ? "Review shipment" : "Complete receiving"}</h2><p className="mt-1 text-sm text-slate-500">{step === 1 ? "Enter the invoice and confirmation details to begin." : step === 2 ? "Scan each pack barcode. The pack photo will sync automatically." : step === 3 ? "Confirm the packs and inventory cost before completing." : "The shipment is ready to be added to inventory."}</p></div>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        {step === 1 && <div className="grid gap-5 sm:grid-cols-2"><Field label="Tracking / Invoice number" value={invoice} onChange={setInvoice} placeholder="e.g. INV-2026-0042" /><Field label="Confirmation number" value={confirmation} onChange={setConfirmation} placeholder="e.g. CONF-8814" /><Field label="Expected packs" value={expectedPacks} onChange={setExpectedPacks} type="number" /><Field label="Inventory cost paid" value={inventoryCost} onChange={setInventoryCost} type="number" prefix="$" /><div className="sm:col-span-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><p className="font-black">Next: scan every inbound pack</p><p className="mt-1">The receiving workflow will keep your shipment details while you scan.</p></div></div>}
+        {step === 2 && <div><div className="rounded-xl border-2 border-dashed border-[#087da8] bg-blue-50 p-5 text-center"><ScanLine className="mx-auto text-[#087da8]" size={42} /><p className="mt-3 text-lg font-black">Ready to scan pack {packs.length + 1}</p><p className="mt-1 text-sm text-slate-600">Use the camera or enter the complete pack barcode.</p><div className="mx-auto mt-4 flex max-w-xl gap-2"><input value={scanValue} onChange={(event) => setScanValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addPack(); }} placeholder="14-digit pack barcode" className="min-h-14 min-w-0 flex-1 rounded-xl border-2 border-slate-200 bg-white px-4 font-mono text-lg outline-none focus:border-[#087da8]" /><button type="button" onClick={addPack} className="min-h-14 rounded-xl bg-[#087da8] px-5 font-black text-white">Add pack</button></div><button type="button" onClick={addPack} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-[#087da8] px-4 text-sm font-bold text-[#087da8]"><Camera size={17} /> Mock camera scan</button></div>{photoSynced && <div className="mt-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><CheckCircle2 size={19} /><span><strong>Pack added successfully.</strong> Pack photo synced automatically.</span></div>}{error && <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<div className="mt-5 space-y-2">{packs.map((pack) => <div key={pack.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-4"><div><p className="font-bold">{pack.game} · ${pack.price}</p><p className="font-mono text-xs text-slate-500">{pack.barcode}</p></div><button type="button" onClick={() => setPacks((current) => current.filter((item) => item.id !== pack.id))} className="rounded-lg p-2 text-red-600 hover:bg-red-50" aria-label="Remove pack"><Trash2 size={17} /></button></div>)}</div><p className="mt-4 text-sm font-bold text-slate-500">{packs.length} of {expectedPacks || 0} expected packs scanned</p></div>}
+        {step === 3 && <div className="grid gap-5 lg:grid-cols-[1fr_320px]"><div className="space-y-3">{packs.length === 0 ? <p className="rounded-xl bg-amber-50 p-4 text-sm font-bold text-amber-800">No packs have been scanned yet.</p> : packs.map((pack) => <div key={pack.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-4"><div><p className="font-bold">Game {pack.game} · {pack.barcode}</p><p className="text-sm text-slate-500">{pack.quantity} tickets · ${pack.price} denomination</p></div><CheckCircle2 className="text-emerald-600" size={22} /></div>)}</div><div className="rounded-xl bg-slate-50 p-5"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Inventory cost</p><p className="mt-2 text-3xl font-black">${Number(inventoryCost || calculatedCost || 0).toFixed(2)}</p><p className="mt-2 text-xs text-slate-500">Expected 95% calculation: ${calculatedCost.toFixed(2)}</p><label className="mt-4 block text-sm font-bold">Correct cost<input type="number" value={inventoryCost} onChange={(event) => setInventoryCost(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border-2 border-slate-200 px-3 text-lg font-bold" /></label></div></div>}
+        {step === 4 && <div className="mx-auto max-w-xl text-center"><div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 size={44} /></div><h3 className="mt-5 text-2xl font-black">Shipment ready to complete</h3><div className="mt-5 grid grid-cols-2 gap-3 text-left"><Info label="Invoice" value={invoice || "INV-2026-0042"} /><Info label="Confirmation" value={confirmation || "CONF-8814"} /><Info label="Packs" value={String(packs.length || expectedPacks)} /><Info label="Inventory cost" value={`$${Number(inventoryCost || calculatedCost || 0).toFixed(2)}`} /></div><button type="button" onClick={() => setCompleted(true)} className="mt-6 min-h-14 w-full rounded-xl bg-[#087da8] text-lg font-black text-white">Complete receiving</button></div>}
+      </section>
+      <div className="mt-5 flex items-center justify-between"><Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-[#087da8]"><ChevronLeft size={16} /> Back to home</Link><div className="flex gap-3">{step > 1 && <button type="button" onClick={back} className="min-h-12 rounded-xl border-2 border-slate-200 px-5 font-bold">Back</button>}{step < 4 && <button type="button" onClick={next} disabled={!canContinue} className="min-h-12 rounded-xl bg-[#087da8] px-7 font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300">Continue</button>}</div></div>
+    </main>
+    {completed && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-7 text-center shadow-2xl"><CheckCircle2 className="mx-auto text-emerald-600" size={60} /><p className="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Receiving complete</p><h2 className="mt-1 text-3xl font-black">Shipment received</h2><p className="mt-2 text-slate-500">{packs.length || expectedPacks} packs are ready for inventory.</p><div className="mt-5 flex gap-3"><button type="button" onClick={() => window.print()} className="min-h-14 flex-1 rounded-xl border-2 border-slate-200 font-bold">Print information</button><Link href="/" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-[#087da8] font-black text-white">Done</Link></div></div></div>}
+  </div>;
+}
+
+function Field({ label, value, onChange, placeholder, type = "text", prefix }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string; prefix?: string }) { return <label className="block text-sm font-bold">{label}<div className="relative mt-2">{prefix && <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">{prefix}</span>}<input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={`min-h-14 w-full rounded-xl border-2 border-slate-200 bg-white px-4 text-lg outline-none focus:border-[#087da8] ${prefix ? "pl-9" : ""}`} /></div></label>; }
+function Info({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 font-black">{value}</p></div>; }
