@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { ArrowRight, BarChart3, Boxes, ClipboardCheck, PackagePlus, Radio, ShoppingCart, X } from "lucide-react";
+import { ArrowRight, BarChart3, Boxes, ClipboardCheck, PackagePlus, ShoppingCart, X } from "lucide-react";
 
 const actions = [
   { title: "Sell", description: "Start selling tickets", href: "/pos", icon: ShoppingCart, className: "bg-[#087da8]" },
-  { title: "Scan", description: "Scan a ticket", href: "/inventory/live-scan?mode=pos", icon: Radio, className: "bg-[#f1b800]" },
   { title: "Receive", description: "Receive new stock", href: "/inventory/receive", icon: PackagePlus, className: "bg-[#159447]" },
   { title: "Inventory", description: "View available stock", href: "/inventory", icon: Boxes, className: "bg-[#d41478]" },
   { title: "Shift", description: "Manage current shift", href: "/shifts", icon: ClipboardCheck, className: "bg-[#e87512]" },
