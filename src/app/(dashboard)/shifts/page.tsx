@@ -36,6 +36,22 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
     ALTER TABLE shifts
     ADD COLUMN IF NOT EXISTS "terminalId" TEXT
   `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE shifts
+    ADD COLUMN IF NOT EXISTS "openingCash" DECIMAL(12,2) NOT NULL DEFAULT 0
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE shifts
+    ADD COLUMN IF NOT EXISTS "expectedCash" DECIMAL(12,2)
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE shifts
+    ADD COLUMN IF NOT EXISTS "countedCash" DECIMAL(12,2)
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE shifts
+    ADD COLUMN IF NOT EXISTS "cashVariance" DECIMAL(12,2)
+  `);
 
 
   const openShiftRows = (await prisma.$queryRawUnsafe(
