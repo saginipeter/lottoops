@@ -2,6 +2,7 @@ import { Header } from "@/components/layout/header";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
+import { canAccessReports } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { FinancialReports } from "@/components/reports/financial-reports";
 import { InventoryStatusReport } from "@/components/reports/inventory-status-report";
@@ -18,6 +19,7 @@ import { LifecycleAnalyticsReport } from "@/components/reports/lifecycle-analyti
 export default async function ReportsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
+  if (!canAccessReports(session)) redirect("/");
 
   return (
     <div className="reports-page flex min-h-0 flex-1 flex-col overflow-hidden">
