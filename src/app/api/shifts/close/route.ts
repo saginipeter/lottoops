@@ -20,7 +20,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { shiftId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const shiftId = body?.shiftId;
+    const countedCash = Number(body?.countedCash);
 
     if (!shiftId) {
       return NextResponse.json(
@@ -68,11 +70,25 @@ export async function POST(req: NextRequest) {
     }
 
     await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "terminalId" TEXT`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "openingCash" DECIMAL(12,2) NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "expectedCash" DECIMAL(12,2)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "countedCash" DECIMAL(12,2)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashVariance" DECIMAL(12,2)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashReconciledAt" TIMESTAMPTZ`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashReconciledById" TEXT`);
     const terminalRows = await prisma.$queryRawUnsafe(
       `SELECT COALESCE("terminalId", 'T1') AS "terminalId" FROM shifts WHERE id = $1 LIMIT 1`,
       shift.id
     ) as Array<{ terminalId: string }>;
     const terminalId = terminalRows[0]?.terminalId ?? "T1";
+    if (!Number.isFinite(countedCash) || countedCash < 0) {
+      return NextResponse.json({ error: "Count the cash drawer before closing this shift." }, { status: 409 });
+    }
+    const cashRows = await prisma.$queryRawUnsafe(
+      `SELECT COALESCE("openingCash", 0)::numeric AS "openingCash" FROM shifts WHERE id = $1 LIMIT 1`,
+      shift.id
+    ) as Array<{ openingCash: string | number }>;
+    const openingCash = Number(cashRows[0]?.openingCash ?? 0);
 
     const audit = await prisma.inventoryAudit.findUnique({
       where: { shiftId: shift.id },
@@ -163,7 +179,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const expectedCash = openingCash + totalSales;
+    const cashVariance = countedCash - expectedCash;
     txOps.push(
+      prisma.$executeRawUnsafe(
+        `UPDATE shifts SET "expectedCash" = $1, "countedCash" = $2, "cashVariance" = $3, "cashReconciledAt" = NOW(), "cashReconciledById" = $4 WHERE id = $5`,
+        expectedCash,
+        countedCash,
+        cashVariance,
+        session.userId,
+        shift.id
+      ),
       prisma.shift.update({
         where: { id: shift.id },
         data: {
@@ -199,6 +225,10 @@ export async function POST(req: NextRequest) {
       success: true,
       totalTickets,
       totalSales,
+      openingCash,
+      expectedCash,
+      countedCash,
+      cashVariance,
     });
 
   } catch (error) {

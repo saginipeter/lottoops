@@ -61,8 +61,18 @@ export async function POST(req: NextRequest) {
       typeof body?.terminalId === "string" && body.terminalId.trim()
         ? body.terminalId.trim().toUpperCase()
         : "T1";
+    const openingCash = Number(body?.openingCash ?? 0);
+    if (!Number.isFinite(openingCash) || openingCash < 0) {
+      return NextResponse.json({ error: "Starting drawer cash must be a valid non-negative amount." }, { status: 400 });
+    }
 
     await ensureShiftTerminalSchema();
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "openingCash" DECIMAL(12,2) NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "expectedCash" DECIMAL(12,2)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "countedCash" DECIMAL(12,2)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashVariance" DECIMAL(12,2)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashReconciledAt" TIMESTAMPTZ`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashReconciledById" TEXT`);
 
     try {
       const registeredRows = await prisma.$queryRawUnsafe(`SELECT COUNT(*)::int AS count FROM store_devices WHERE store_id = $1`, session.storeId) as Array<{ count: number }>;
@@ -145,10 +155,11 @@ export async function POST(req: NextRequest) {
     await prisma.$executeRawUnsafe(
       `
       UPDATE shifts
-      SET "terminalId" = $1
-      WHERE id = $2
+      SET "terminalId" = $1, "openingCash" = $2
+      WHERE id = $3
       `,
       terminalId,
+      openingCash,
       shift.id
     );
 

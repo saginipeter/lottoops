@@ -163,10 +163,18 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
       })
     : 0;
+  const cashRows = openShift
+    ? await prisma.$queryRawUnsafe(
+        `SELECT COALESCE("openingCash", 0)::numeric AS "openingCash", "expectedCash", "countedCash", "cashVariance" FROM shifts WHERE id = $1 LIMIT 1`,
+        openShift.id
+      ) as Array<{ openingCash: string | number; expectedCash: string | number | null; countedCash: string | number | null; cashVariance: string | number | null }>
+    : [];
+  const cashState = cashRows[0] ?? { openingCash: 0, expectedCash: null, countedCash: null, cashVariance: null };
+  const hydratedShiftData = shiftData ? { ...shiftData, ...cashState } : null;
 
   return (
     <ShiftPos
-      shift={shiftData}
+      shift={hydratedShiftData}
       recentClosedShift={recentClosedShift ? JSON.parse(JSON.stringify(recentClosedShift)) : null}
       terminalId={terminalId}
       activeDisplayPackCount={activePackCount}
