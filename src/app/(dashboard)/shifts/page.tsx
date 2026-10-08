@@ -1,10 +1,5 @@
-import Link from "next/link";
 import { Header } from "@/components/layout/header";
-import { LogoutButton } from "@/components/auth/logout-button";
-import { PageToolbar } from "@/components/ui/page-toolbar";
-import { StatusBar } from "@/components/ui/status-bar";
-import { Button } from "@/components/ui/button";
-import ShiftDashboard from "@/components/shifts/shift-dashboard";
+import { ShiftPos } from "@/components/shifts/shift-pos";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { getShiftParticipants } from "@/lib/shift-participants";
@@ -168,83 +163,17 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
       })
     : 0;
-  const eventCount = timelineEvents.length;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <Header
-        title="Shift Management"
-        subtitle={
-          openShift
-            ? `${session.role === "EMPLOYEE" ? `${session.name} · ${session.storeName} · ` : ""}Terminal ${terminalId}: shift is open — reconcile and close when ready`
-            : `${session.role === "EMPLOYEE" ? `${session.name} · ${session.storeName} · ` : ""}Terminal ${terminalId}: open and close daily shifts`
-        }
-      />
-
-      <PageToolbar
-        left={
-          <div className="flex items-center gap-1">
-            {(["T1", "T2", "T3", "T4"] as const).map((terminal) => (
-              <Link key={terminal} href={`/shifts?terminal=${terminal}`}>
-                <Button size="xs" variant={terminalId === terminal ? "secondary" : "ghost"}>
-                  {terminal}
-                </Button>
-              </Link>
-            ))}
-          </div>
-        }
-        center={<span>Ctrl+S Save | Alt+C Close Shift</span>}
-        right={<span className="text-xs text-text-tertiary">{openShift ? "Shift Open" : "No Active Shift"}</span>}
-      />
-
-      {session.role === "EMPLOYEE" && (
-        <div className="border-b border-border bg-surface px-4 py-3">
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-            <Link
-              href="/"
-              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
-            >
-              <span className="text-base font-semibold text-text">Back</span>
-              <span className="text-xs text-text-tertiary">Dashboard</span>
-            </Link>
-            <Link
-              href="/shifts"
-              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
-            >
-              <span className="text-base font-semibold text-text">Shift Screen</span>
-              <span className="text-xs text-text-tertiary">Open/Close</span>
-            </Link>
-            <Link
-              href={`/inventory/live-scan?terminal=${terminalId}`}
-              className="flex min-h-[68px] items-center justify-between rounded-lg border border-border bg-surface-soft px-4 py-3"
-            >
-              <span className="text-base font-semibold text-text">Live Scan</span>
-              <span className="text-xs text-text-tertiary">Sales Entry</span>
-            </Link>
-            <LogoutButton
-              label="Logout"
-              className="min-h-[68px] justify-between rounded-lg border border-red-300 bg-red-600 px-4 py-3 text-base font-semibold text-white hover:bg-red-700"
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-6">
-        <ShiftDashboard
-          shift={shiftData}
-          recentClosedShift={recentClosedShift ? JSON.parse(JSON.stringify(recentClosedShift)) : null}
-          participants={JSON.parse(JSON.stringify(participants))}
-          shiftEvents={eventData}
-          terminalId={terminalId}
-          activeDisplayPackCount={activePackCount}
-        />
-      </div>
-
-      <StatusBar
-        left={<span>Terminal: {terminalId}</span>}
-        center={<span>Active Packs: {activePackCount} | Timeline Events: {eventCount}</span>}
-        right={<span>{openShift ? "In Progress" : "Ready to Open"}</span>}
-      />
-    </div>
+    <ShiftPos
+      shift={shiftData}
+      recentClosedShift={recentClosedShift ? JSON.parse(JSON.stringify(recentClosedShift)) : null}
+      terminalId={terminalId}
+      activeDisplayPackCount={activePackCount}
+      shiftEvents={eventData}
+      participants={JSON.parse(JSON.stringify(participants))}
+      employeeName={session.name}
+      storeName={session.storeName ?? "LottoOps Store"}
+    />
   );
 }
