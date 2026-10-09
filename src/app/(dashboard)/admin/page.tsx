@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, Boxes, CreditCard, Monitor, Settings, Users } from "lucide-react";
+import { BarChart3, Boxes, CreditCard, Monitor, RefreshCw, Settings, Users } from "lucide-react";
 import { getSession } from "@/lib/get-session";
 import { canAccessReports, canManageDisplay, canManageGames, isManagerOrAbove } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -16,6 +16,7 @@ export default async function AdminHomePage() {
     ...(isManagerOrAbove(session) ? [{ href: "/settings/users", title: "Staff", description: "Users, roles, and permissions", icon: Users, tone: "bg-[#159447]" }] : []),
     ...(isManagerOrAbove(session) && canManageGames(session) ? [{ href: "/games", title: "Games", description: "Manage the store game catalogue", icon: Settings, tone: "bg-[#087da8]" }] : []),
     ...(isManagerOrAbove(session) ? [{ href: "/settings", title: "Settings", description: "Store controls and terminals", icon: Settings, tone: "bg-[#344563]" }] : []),
+    ...(isManagerOrAbove(session) ? [{ href: "/admin/reconciliation", title: "Reconciliation", description: "Resolve offline POS sale conflicts", icon: RefreshCw, tone: "bg-[#087da8]" }] : []),
     ...(session.role === "OWNER" ? [{ href: "/admin/billing", title: "Billing", description: "Plan, subscription, and invoices", icon: CreditCard, tone: "bg-[#087da8]" }] : []),
   ];
 
