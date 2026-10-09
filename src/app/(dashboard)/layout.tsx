@@ -4,6 +4,7 @@ import { ImpersonationBanner } from "@/components/platform/impersonation-banner"
 import { prisma } from "@/lib/prisma";
 import { ConsoleTopBar } from "@/components/layout/console-top-bar";
 import { InactivityGuard } from "@/components/auth/inactivity-guard";
+import { AccessProvider } from "@/components/auth/access-context";
 
 export default async function DashboardLayout({
   children,
@@ -56,10 +57,12 @@ export default async function DashboardLayout({
     <div className="dashboard-shell flex h-screen min-w-0 flex-col overflow-hidden bg-bg">
       <ConsoleTopBar user={user} />
       {session && <InactivityGuard role={session.role} />}
-      <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-        {session?.impersonatedBy && <ImpersonationBanner adminName={session.impersonatedBy.name} />}
-        {children}
-      </main>
+      <AccessProvider user={user}>
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+          {session?.impersonatedBy && <ImpersonationBanner adminName={session.impersonatedBy.name} />}
+          {children}
+        </main>
+      </AccessProvider>
     </div>
   );
 }

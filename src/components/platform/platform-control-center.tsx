@@ -9,6 +9,7 @@ import { FeatureFlagsPanel } from "./feature-flags-panel";
 import { PlatformActivityPanel } from "./platform-activity-panel";
 import { RolePermissionPanel } from "./role-permission-panel";
 import { PlatformUserPanel } from "./platform-user-panel";
+import { PlatformSubscriptionPanel } from "./platform-subscription-panel";
 
 interface Metrics {
   stores: number;
@@ -157,6 +158,7 @@ export function PlatformControlCenter() {
       )}
 
       <StoreAccessPanel />
+      <PlatformSubscriptionPanel />
       <FeatureFlagsPanel />
       <PlatformActivityPanel />
       <RolePermissionPanel />
