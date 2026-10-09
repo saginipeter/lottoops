@@ -9,6 +9,7 @@ type Props = { employeeName: string; storeName: string; role: string; grantedPer
 
 export function PosHomeDashboard({ employeeName, storeName, role, grantedPermissions }: Props) {
   const [shiftOpen, setShiftOpen] = useState(false);
+  const isPlatformAdmin = role === "PLATFORM_ADMIN";
   const isAdmin = role === "OWNER" || role === "MANAGER";
   const canReports = isAdmin || role === "AUDITOR" || grantedPermissions.includes("REPORTS");
   const canReceive = isAdmin || grantedPermissions.includes("RECEIVE_SHIPMENTS");
@@ -16,12 +17,13 @@ export function PosHomeDashboard({ employeeName, storeName, role, grantedPermiss
   const canDisplay = isAdmin || grantedPermissions.includes("MANAGE_DISPLAY");
   const canSettings = isAdmin;
 
-  const posActions: Action[] = [
+  const posActions: Action[] = isPlatformAdmin ? [] : [
     { title: "Sell Tickets", description: "Open the cashier terminal", href: "/pos", icon: ShoppingCart, className: "bg-[#087da8]" },
     { title: "Shift", description: "Clock in, audit, and reconcile", href: "/shifts", icon: ClipboardCheck, className: "bg-[#e87512]" },
     ...(canReceive ? [{ title: "Receive Stock", description: "Receive shipment inventory", href: "/inventory/receive", icon: PackagePlus, className: "bg-[#159447]" }] : []),
   ];
   const adminActions: Action[] = [
+    ...(isPlatformAdmin ? [{ title: "Platform Admin", description: "Organizations, subscriptions, and system health", href: "/platform-admin", icon: Settings, className: "bg-[#344563]" }] : []),
     ...(canReports ? [{ title: "Reports", description: "Sales, audit, and performance", href: "/reports", icon: BarChart3, className: "bg-[#d92735]" }] : []),
     ...(canInventory ? [{ title: "Inventory", description: "Back stock and live inventory", href: "/inventory", icon: Boxes, className: "bg-[#d41478]" }] : []),
     ...(canDisplay ? [{ title: "Displays", description: "Manage active ticket displays", href: "/display-slots", icon: Store, className: "bg-[#6b46c1]" }] : []),
@@ -39,9 +41,9 @@ export function PosHomeDashboard({ employeeName, storeName, role, grantedPermiss
     </header>
 
     <main className="mx-auto w-full max-w-[1366px] px-5 py-5 sm:px-8 sm:py-7">
-      <div className="mb-5 flex items-end justify-between gap-4"><div><p className="text-sm font-semibold text-slate-500">{storeName}</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{isAdmin ? "Management workspace" : "What would you like to do?"}</h2></div><p className="hidden text-sm font-semibold text-emerald-700 sm:block">{isAdmin ? "Oversight access enabled" : "POS ready"}</p></div>
+      <div className="mb-5 flex items-end justify-between gap-4"><div><p className="text-sm font-semibold text-slate-500">{storeName}</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{isPlatformAdmin ? "Platform workspace" : isAdmin ? "Management workspace" : "What would you like to do?"}</h2></div><p className="hidden text-sm font-semibold text-emerald-700 sm:block">{isPlatformAdmin || isAdmin ? "Oversight access enabled" : "POS ready"}</p></div>
       <ActionSection title="POS operations" actions={posActions} />
-      {adminActions.length > 0 && <div className="mt-8"><ActionSection title="Management & oversight" actions={adminActions} /></div>}
+      {adminActions.length > 0 && <div className="mt-8"><ActionSection title={isPlatformAdmin ? "Platform administration" : "Management & oversight"} actions={adminActions} /></div>}
       {role === "AUDITOR" && <div className="mt-5 flex items-center gap-2 border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900"><FileText size={18} /> Read-only audit access. Operational POS actions are hidden.</div>}
       <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Quick shift access"><button type="button" onClick={() => setShiftOpen(true)} className="border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#087da8] focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#087da8]"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Shift control</p><p className="mt-2 text-xl font-black">Open Shift</p><p className="mt-1 text-xs font-bold text-[#087da8]">View live status</p></button><a href="/shifts" className="border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#087da8]"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Reconciliation</p><p className="mt-2 text-xl font-black">Drawer & Audit</p><p className="mt-1 text-xs font-bold text-[#087da8]">Open shift workspace</p></a></section>
     </main>
