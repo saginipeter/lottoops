@@ -70,7 +70,10 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
     replayingRef.current = true; setSyncing(true);
     let remaining = [...pending];
     for (const entry of pending) {
-      if (entry.state === "CONFLICT") break;
+      if (entry.state === "CONFLICT") {
+        try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, barcode: entry.barcode, reason: entry.conflictReason ?? "Server rejected the queued sale. Manager review is required before retrying.", attempts: entry.attempts }) }); } catch { /* Retry publishing the conflict on the next sync cycle. */ }
+        break;
+      }
       const outcome = await sendSale(entry.barcode, true);
       if (outcome === "synced") remaining = remaining.filter((item) => item.id !== entry.id);
       else if (outcome === "conflict") {
