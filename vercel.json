@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/cron/financial-summary?period=daily", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/financial-summary?period=weekly", "schedule": "0 7 * * 1" }
+  ]
+}
