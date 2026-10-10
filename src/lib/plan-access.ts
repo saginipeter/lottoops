@@ -13,14 +13,16 @@ interface PlanAccess {
   enforced: boolean;
   allowed: boolean;
   planKey: string | null;
+  status?: string | null;
+  reason?: "BILLING_DISABLED" | "NO_SUBSCRIPTION" | "INACTIVE_SUBSCRIPTION" | "PLAN_NOT_INCLUDED";
 }
 
 export async function getPlanAccess(
   session: SessionPayload,
   capability: PlanCapability
 ): Promise<PlanAccess> {
-  if (!prisma || session.role === "PLATFORM_ADMIN") {
-    return { enforced: false, allowed: true, planKey: null };
+  if (!prisma || session.role === "PLATFORM_ADMIN" || process.env.BILLING_ENABLED !== "true") {
+    return { enforced: false, allowed: true, planKey: null, reason: "BILLING_DISABLED" };
   }
 
   const store = await prisma.store.findFirst({
@@ -34,7 +36,7 @@ export async function getPlanAccess(
     select: { organizationId: true },
   });
   if (!store?.organizationId) {
-    return { enforced: false, allowed: true, planKey: null };
+    return { enforced: true, allowed: false, planKey: null, reason: "NO_SUBSCRIPTION" };
   }
 
   const subscription = await prisma.subscription.findUnique({
@@ -42,12 +44,12 @@ export async function getPlanAccess(
     include: { plan: { select: { key: true } } },
   });
   if (!subscription) {
-    return { enforced: false, allowed: true, planKey: null };
+    return { enforced: true, allowed: false, planKey: null, status: null, reason: "NO_SUBSCRIPTION" };
   }
 
   const activeStatus = ["TRIALING", "ACTIVE"].includes(subscription.status);
   const allowed = activeStatus && CAPABILITY_PLANS[capability].includes(subscription.plan.key);
-  return { enforced: true, allowed, planKey: subscription.plan.key };
+  return { enforced: true, allowed, planKey: subscription.plan.key, status: subscription.status, reason: !activeStatus ? "INACTIVE_SUBSCRIPTION" : allowed ? undefined : "PLAN_NOT_INCLUDED" };
 }
 
 export async function requirePlanCapability(

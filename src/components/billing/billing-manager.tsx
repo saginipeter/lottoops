@@ -29,6 +29,7 @@ export function BillingManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [portalLoading, setPortalLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -65,6 +66,18 @@ export function BillingManager() {
     }
   }
 
+  async function openPortal() {
+    setPortalLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/billing/portal", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok || typeof data.url !== "string") { setMessage(data.error ?? "Unable to open billing management."); return; }
+      window.location.assign(data.url);
+    } catch { setMessage("Unable to open billing management. Please try again."); }
+    finally { setPortalLoading(false); }
+  }
+
   if (loading) return <div className="flex items-center gap-2 text-sm text-text-secondary"><Loader2 size={16} className="animate-spin" /> Loading billing...</div>;
 
   return (
@@ -78,7 +91,7 @@ export function BillingManager() {
       </Panel>
 
       <section aria-labelledby="plans-heading"><div className="mb-3"><p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Pricing and product access</p><h2 id="plans-heading" className="text-lg font-semibold text-text">Choose what your operation needs</h2></div><div className="grid grid-cols-1 gap-4 md:grid-cols-3">{plans.map((plan) => { const current = subscription?.plan.id === plan.id; return <Panel key={plan.id} className={`flex flex-col p-5 ${current ? "border-2 border-accent" : ""}`}><h3 className="text-lg font-semibold text-text">{plan.name}</h3><p className="mt-3 text-3xl font-bold text-text">${(plan.monthlyPriceCents / 100).toFixed(2)}<span className="text-sm font-normal text-text-secondary"> / month</span></p><p className="mt-2 min-h-10 text-sm text-text-secondary">{plan.description}</p><ul className="mt-4 space-y-2 text-sm text-text-secondary">{plan.features.map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600" />{feature}</li>)}</ul><Button className="mt-5 w-full" variant={current ? "secondary" : "default"} onClick={() => selectPlan(plan.id)} disabled={!billingEnabled || current || saving !== null}>{!billingEnabled ? "Pilot — checkout unavailable" : saving === plan.id ? "Saving..." : current ? "Current Plan" : "Choose Plan"}</Button></Panel>; })}</div></section>
-      <Panel className="p-5"><h3 className="text-base font-semibold text-text">Payment and invoices</h3><p className="mt-1 text-sm text-text-secondary">Stripe securely handles payment methods and invoices. Subscription status is synchronized through signed webhooks.</p></Panel>
+      <Panel className="p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-base font-semibold text-text">Payment and invoices</h3><p className="mt-1 text-sm text-text-secondary">Stripe securely handles payment methods, invoices, cancellations, and payment methods. Subscription status is synchronized through signed webhooks.</p></div>{billingEnabled && subscription && <Button variant="secondary" onClick={() => { void openPortal(); }} disabled={portalLoading}>{portalLoading ? "Opening..." : "Manage billing in Stripe"}</Button>}</div></Panel>
       {message && <p role="status" className="text-sm text-text-secondary">{message}</p>}
     </div>
   );

@@ -20,7 +20,7 @@ export async function GET() {
       prisma.plan.findMany({ where: { active: true }, orderBy: { monthlyPriceCents: "asc" } }),
       prisma.organization.findMany({ include: { subscription: { include: { plan: true } }, stores: { select: { id: true, name: true } }, owner: { select: { name: true, email: true } } }, orderBy: { createdAt: "desc" } }),
     ]);
-    return NextResponse.json({ plans, accounts: organizations });
+    return NextResponse.json({ plans, accounts: organizations, billing: { enabled: process.env.BILLING_ENABLED === "true", stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY), webhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET), configuredPriceKeys: ["CORE", "CONTROL", "COMMAND"].filter((key) => Boolean(process.env[`STRIPE_PRICE_${key}_MONTHLY`])) } });
   } catch (error) {
     console.error("[GET /api/platform/subscriptions]", error);
     return NextResponse.json({ error: "Unable to load subscription management data." }, { status: 500 });
