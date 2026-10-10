@@ -16,7 +16,7 @@ interface ConsoleTopBarProps {
 export function ConsoleTopBar({ user }: ConsoleTopBarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const isConsole = pathname === "/" || pathname === "/pos" || pathname === "/inventory/receive" || pathname === "/inventory" || pathname === "/shifts";
+  const isConsole = pathname === "/" || pathname === "/pos" || pathname === "/inventory/receive" || pathname === "/inventory" || pathname === "/shifts" || pathname === "/employee" || pathname.startsWith("/owner");
 
   if (isConsole) return null;
 

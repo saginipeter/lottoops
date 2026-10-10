@@ -10,7 +10,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { redirect } from "next/navigation";
-import { Header } from "@/components/layout/header";
 import { StatusBar } from "@/components/ui/status-bar";
 import { getSession } from "@/lib/get-session";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -133,7 +132,6 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#eef2f7]">
-      <Header title="Employee workspace" subtitle="Guided shift tasks and fast scanning" />
       <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
         <div className="mx-auto w-full max-w-4xl pb-3">
           <div className="overflow-hidden border border-[#cbd5e1] bg-[#17233f] text-white shadow-[0_16px_32px_rgba(23,35,63,0.16)]">

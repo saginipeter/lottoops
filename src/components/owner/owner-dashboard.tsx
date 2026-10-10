@@ -84,32 +84,32 @@ function AddStoreForm({ onCreated, onCancel }: AddStoreFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>
+        <div className="bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>
       )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className="block text-xs font-medium text-text-secondary mb-1">Store Name *</label>
-          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+          <input className="w-full border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
             placeholder="Sunrise Mart #5" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div>
           <label className="block text-xs font-medium text-text-secondary mb-1">Store Number *</label>
-          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+          <input className="w-full border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
             placeholder="Store 001" value={storeNumber} onChange={(e) => setStoreNumber(e.target.value)} required />
         </div>
         <div>
           <label className="block text-xs font-medium text-text-secondary mb-1">Store Location Address</label>
-          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+          <input className="w-full border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
             placeholder="123 Main St, Houston TX" value={address} onChange={(e) => setAddress(e.target.value)} />
         </div>
         <div>
           <label className="block text-xs font-medium text-text-secondary mb-1">Store Phone Number</label>
-          <input className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+          <input className="w-full border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
             placeholder="(713) 555-0100" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
         <div>
           <label className="block text-xs font-medium text-text-secondary mb-1">Timezone</label>
-          <select className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+          <select className="w-full border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
             value={timezone} onChange={(e) => setTimezone(e.target.value)}>
             <option value="America/Chicago">Central Time (CT)</option>
             <option value="America/New_York">Eastern Time (ET)</option>
@@ -136,10 +136,10 @@ function StoreCard({ store }: { store: StoreKPI }) {
 
   return (
     <a href={`/owner/stores/${store.id}`} className="block">
-    <Panel className="p-4 hover:border-accent/50 transition-colors cursor-pointer group">
+    <Panel className="border border-[#cbd5e1] bg-white p-4 shadow-[0_5px_0_rgba(23,35,63,0.08)] transition-transform hover:-translate-y-0.5 hover:border-[#087da8] cursor-pointer group">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-accent/10 text-accent">
             <Building2 size={18} />
           </div>
           <div>
@@ -149,25 +149,25 @@ function StoreCard({ store }: { store: StoreKPI }) {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-medium text-text-tertiary bg-surface-soft rounded px-1.5 py-0.5">{tz}</span>
+          <span className="text-[10px] font-medium text-text-tertiary bg-surface-soft px-1.5 py-0.5">{tz}</span>
           {store.openShift !== undefined && (
             store.openShift
-              ? <span className="flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 rounded px-1.5 py-0.5"><Clock size={9} /> OPEN</span>
-              : <span className="flex items-center gap-1 text-[10px] text-text-tertiary bg-surface-soft rounded px-1.5 py-0.5">CLOSED</span>
+              ? <span className="flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5"><Clock size={9} /> OPEN</span>
+              : <span className="flex items-center gap-1 text-[10px] text-text-tertiary bg-surface-soft px-1.5 py-0.5">CLOSED</span>
           )}
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3">
-        <div className="rounded-md bg-surface-soft p-2 text-center">
+        <div className="bg-surface-soft p-2 text-center">
           <p className="text-lg font-bold text-text">{store.salesToday !== undefined ? fmt(store.salesToday) : "—"}</p>
           <p className="text-[10px] text-text-tertiary">Today</p>
         </div>
-        <div className="rounded-md bg-surface-soft p-2 text-center">
+        <div className="bg-surface-soft p-2 text-center">
           <p className="text-lg font-bold text-text">{store._count.packs}</p>
           <p className="text-[10px] text-text-tertiary">Packs</p>
         </div>
-        <div className="rounded-md bg-surface-soft p-2 text-center">
+        <div className="bg-surface-soft p-2 text-center">
           <p className="text-lg font-bold text-text">{activeUsers}</p>
           <p className="text-[10px] text-text-tertiary">Staff</p>
         </div>
@@ -273,9 +273,9 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
             { label: "Open Shifts", value: summary.openShifts.toLocaleString(), hint: `Across ${stores.length} stores`, icon: Clock, color: "text-orange-600 bg-orange-50" },
             { label: "Audit Completion", value: `${summary.auditCompletionRate}%`, hint: "Today", icon: CheckCircle2, color: "text-teal-600 bg-teal-50" },
           ].map((kpi) => (
-            <Panel key={kpi.label} className="p-4">
+            <Panel key={kpi.label} className="border border-[#cbd5e1] bg-white p-4 shadow-[0_5px_0_rgba(23,35,63,0.06)]">
               <div className="flex items-center gap-2.5 mb-2">
-                <div className={`rounded-lg p-1.5 ${kpi.color}`}>
+                <div className={`p-1.5 ${kpi.color}`}>
                   <kpi.icon size={14} />
                 </div>
                 <p className="text-xs text-text-secondary">{kpi.label}</p>
@@ -289,7 +289,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
       )}
 
       {view === "overview" && recentOverrides.length > 0 && (
-        <Panel className="p-4">
+        <Panel className="border border-[#cbd5e1] bg-white p-4 shadow-[0_5px_0_rgba(23,35,63,0.06)]">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Recent manager overrides</p>
@@ -310,7 +310,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
 
       {/* Message */}
       {view === "stores" && message && (
-        <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 flex items-start gap-2">
+        <div className="bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 flex items-start gap-2">
           <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
           {message}
         </div>
@@ -318,7 +318,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
 
       {/* Store portfolio */}
       {view === "stores" && <section id="stores" aria-labelledby="store-portfolio">
-      <Panel className="p-5">
+      <Panel className="border border-[#cbd5e1] bg-white p-5 shadow-[0_5px_0_rgba(23,35,63,0.06)]">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Portfolio</p>
@@ -338,7 +338,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
         </div>
 
         {showAdd && (
-          <div className="mb-5 rounded-lg border border-border bg-surface-soft p-4">
+          <div className="mb-5 border border-border bg-surface-soft p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-text">New Store</h4>
               <button onClick={() => setShowAdd(false)} className="text-text-tertiary hover:text-text"><X size={16} /></button>
@@ -375,7 +375,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
       </section>}
 
       {view === "overview" && !loading && stores.length > 0 && (
-        <Panel className="p-5">
+        <Panel className="border border-[#cbd5e1] bg-white p-5 shadow-[0_5px_0_rgba(23,35,63,0.06)]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Portfolio health</p>

@@ -1,13 +1,10 @@
 import Link from "next/link";
-import { ArrowLeft, AlertTriangle, Boxes, Clock } from "lucide-react";
-import { Header } from "@/components/layout/header";
-import { PageToolbar } from "@/components/ui/page-toolbar";
+import { AlertTriangle, Boxes, Clock } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
-import { StatusBar } from "@/components/ui/status-bar";
-import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
+import { OwnerShellHeader } from "@/components/owner/owner-shell-header";
 
 export default async function OwnerStorePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -35,10 +32,9 @@ export default async function OwnerStorePage({ params }: { params: Promise<{ id:
   const openShifts = shifts.filter((shift: any) => shift.status === "OPEN").length;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <Header title={store.name} subtitle="Owner store oversight and performance" />
-      <PageToolbar left={<span className="text-xs text-text-secondary">Owner view · {store.timezone}</span>} center={<span>Today · store detail</span>} right={<Link href="/owner"><Button size="xs" variant="ghost"><ArrowLeft size={14} /> All Stores</Button></Link>} />
-      <div className="min-h-0 flex-1 overflow-y-auto p-5">
+    <div className="flex min-h-full flex-col bg-[#f4f7fb]">
+      <OwnerShellHeader title={store.name} subtitle="Owner store oversight and performance" context={`Store ${store.storeNumber ?? "—"} · ${store.timezone}`} backHref="/owner/stores" backLabel="All stores" />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-7">
         <div className="mx-auto max-w-7xl space-y-5">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
             <Metric label="Sales Today" value={`$${salesToday.toFixed(2)}`} />
@@ -68,7 +64,6 @@ export default async function OwnerStorePage({ params }: { params: Promise<{ id:
           </div>
         </div>
       </div>
-      <StatusBar left={<span>{store.name}</span>} center={<span>Sales today: ${salesToday.toFixed(2)}</span>} right={<span>Owner oversight</span>} />
     </div>
   );
 }
