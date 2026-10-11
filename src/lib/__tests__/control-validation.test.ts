@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { canAuthorizeCorrection, canSelfResolveSequenceLock } from "@/lib/control-validation";
-import { isValidPackBarcode, parseBarcode } from "@/lib/barcode";
 import { isValidPackBarcode, parseBarcode, resolveReceivingPackIdentity } from "@/lib/barcode";
 import {
   getActivationStartingTicket,

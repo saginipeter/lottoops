@@ -197,8 +197,8 @@ export function ScanStep({
         body: JSON.stringify({
           shipmentId: shipment.id,
           barcode: normalizedBarcode,
-          gameNumber,
-          packNumber,
+          gameNumber: normalizedBarcode.slice(0, 4),
+          packNumber: normalizedBarcode.slice(4, 11),
           firstTicket: Number(firstTicket),
           ticketPrice,
           ticketQuantity,

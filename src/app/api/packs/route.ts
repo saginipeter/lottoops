@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { canReceiveShipments } from "@/lib/permissions";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
+import { resolveReceivingPackIdentity } from "@/lib/barcode";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,9 +27,6 @@ export async function POST(req: NextRequest) {
 
     const {
       shipmentId,
-      barcode,
-      gameNumber,
-      packNumber,
       firstTicket,
       ticketPrice,
       ticketQuantity,
@@ -36,6 +34,16 @@ export async function POST(req: NextRequest) {
       activationNumber,
       firstOrLastTicket,
     } = body;
+
+    const resolvedIdentity = resolveReceivingPackIdentity({
+      barcode: body.barcode,
+      gameNumber: body.gameNumber,
+      packNumber: body.packNumber,
+    });
+    if (!resolvedIdentity.identity) {
+      return NextResponse.json({ error: resolvedIdentity.error }, { status: 400 });
+    }
+    const { barcode, gameNumber, packNumber } = resolvedIdentity.identity;
 
     if (!shipmentId || typeof shipmentId !== "string") {
       return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
@@ -66,13 +74,6 @@ export async function POST(req: NextRequest) {
           error: `This shipment already reached its expected pack count (${shipment.expectedPacks}).`,
         },
         { status: 409 }
-      );
-    }
-
-    if (!/^\d{7}$/.test(String(packNumber ?? ""))) {
-      return NextResponse.json(
-        { error: "Pack number must be exactly 7 digits." },
-        { status: 400 }
       );
     }
 
