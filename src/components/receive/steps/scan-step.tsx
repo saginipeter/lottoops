@@ -77,12 +77,14 @@ export function ScanStep({
   const [detectedGame, setDetectedGame] = useState<DetectedGame | null>(null);
   const [detectionError, setDetectionError] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState(false);
+  const [savingPack, setSavingPack] = useState(false);
   const [quantityOverrideEnabled, setQuantityOverrideEnabled] = useState(false);
   const [manualOverrideEnabled, setManualOverrideEnabled] = useState(false);
   const [uploadingPackPhoto, setUploadingPackPhoto] = useState(false);
   const packPhotoInputRef = useRef<HTMLInputElement>(null);
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
+  const validBarcode = isValidPackBarcode(barcode);
 
   // After a barcode is parsed, auto-detect the game
   const detectGame = useCallback(async (gn: string) => {
@@ -163,6 +165,7 @@ export function ScanStep({
   }
 
   async function handleAddPack() {
+    if (savingPack || detecting || uploadingPackPhoto) return;
     if (!shipment.id) {
       alert("Save the shipment details before scanning packs.");
       previousStep();
@@ -191,6 +194,7 @@ export function ScanStep({
     if (!/^\d{7}$/.test(packNumber)) { alert("Pack number must be exactly 7 digits."); return; }
 
     try {
+      setSavingPack(true);
       const response = await fetch("/api/packs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -206,8 +210,9 @@ export function ScanStep({
         }),
       });
 
-      const savedPack = await response.json();
-      if (!response.ok) { alert(savedPack.error); return; }
+      const savedPack = await response.json().catch(() => null);
+      if (!response.ok) { alert(savedPack?.error || `Unable to save pack (HTTP ${response.status}).`); return; }
+      if (!savedPack?.id) { alert("Pack was saved, but the server returned an invalid pack record. Refresh the shipment before retrying."); return; }
 
       addPack(savedPack);
 
@@ -225,6 +230,8 @@ export function ScanStep({
     } catch (err) {
       console.error(err);
       alert("Unable to save pack.");
+    } finally {
+      setSavingPack(false);
     }
   }
 
@@ -378,8 +385,8 @@ export function ScanStep({
 
         {/* Add Pack — appears after the optional override action */}
         <Panel className="p-5 lg:col-span-2">
-          <Button className="w-full" onClick={handleAddPack} disabled={!gameNumber || !packNumber || atExpectedLimit}>
-            Add Pack to Shipment
+          <Button className="w-full" onClick={handleAddPack} disabled={!validBarcode || !gameNumber || !packNumber || detecting || uploadingPackPhoto || savingPack || atExpectedLimit}>
+            {savingPack ? "Adding Pack..." : detecting ? "Detecting Game..." : uploadingPackPhoto ? "Uploading Pack Photo..." : "Add Pack to Shipment"}
           </Button>
           {atExpectedLimit && (
             <p className="mt-3 text-sm font-medium text-amber-700">

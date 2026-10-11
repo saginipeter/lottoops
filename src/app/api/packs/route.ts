@@ -4,6 +4,7 @@ import { getApiSession } from "@/lib/api-session";
 import { canReceiveShipments } from "@/lib/permissions";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 import { resolveReceivingPackIdentity } from "@/lib/barcode";
+import { Prisma } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,6 +91,14 @@ export async function POST(req: NextRequest) {
     if (!Number.isInteger(requestedTicketQuantity) || requestedTicketQuantity <= 0) {
       return NextResponse.json(
         { error: "Ticket quantity must be a whole number greater than zero." },
+        { status: 400 }
+      );
+    }
+
+    const normalizedFirstTicket = Number(firstTicket);
+    if (!Number.isInteger(normalizedFirstTicket) || normalizedFirstTicket < 1 || normalizedFirstTicket > requestedTicketQuantity) {
+      return NextResponse.json(
+        { error: `First ticket must be between 1 and ${requestedTicketQuantity}.` },
         { status: 400 }
       );
     }
@@ -182,7 +191,7 @@ export async function POST(req: NextRequest) {
 
         gameNumber,
         packNumber,
-        firstTicket,
+        firstTicket: normalizedFirstTicket,
 
         ticketPrice: normalizedTicketPrice,
         ticketQuantity: normalizedTicketQuantity,
@@ -227,6 +236,13 @@ return NextResponse.json(savedPack);
     
   } catch (error) {
     console.error(error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json(
+        { error: "This pack was already added. Refresh the shipment pack list before scanning it again." },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json(
       { error: "Failed to save pack." },
