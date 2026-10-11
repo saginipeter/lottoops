@@ -84,6 +84,7 @@ export function ScanStep({
   const packPhotoInputRef = useRef<HTMLInputElement>(null);
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
+  const shipmentReady = Boolean(shipment.id) && expectedPacks > 0;
   const validBarcode = isValidPackBarcode(barcode);
 
   // After a barcode is parsed, auto-detect the game
@@ -116,6 +117,12 @@ export function ScanStep({
   }, [setScanDraft]);
 
   function handleScan(value: string) {
+    if (!shipmentReady) {
+      setDetectionError("Save the shipment details and expected pack count before scanning packs.");
+      previousStep();
+      return;
+    }
+
     const parsed = parseBarcode(value);
     setScanDraft((prev) => ({
       ...prev,
@@ -385,9 +392,15 @@ export function ScanStep({
 
         {/* Add Pack — appears after the optional override action */}
         <Panel className="p-5 lg:col-span-2">
-          <Button className="w-full" onClick={handleAddPack} disabled={!validBarcode || !gameNumber || !packNumber || detecting || uploadingPackPhoto || savingPack || atExpectedLimit}>
+          <Button className="w-full" onClick={handleAddPack} disabled={!shipmentReady || !validBarcode || !gameNumber || !packNumber || detecting || uploadingPackPhoto || savingPack || atExpectedLimit}>
             {savingPack ? "Adding Pack..." : detecting ? "Detecting Game..." : uploadingPackPhoto ? "Uploading Pack Photo..." : "Add Pack to Shipment"}
           </Button>
+          {!shipmentReady && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <span>Save shipment details and set the expected pack count before adding packs.</span>
+              <Button type="button" variant="outline" size="sm" onClick={previousStep}>Go to shipment details</Button>
+            </div>
+          )}
           {atExpectedLimit && (
             <p className="mt-3 text-sm font-medium text-amber-700">
               Expected pack limit reached. Continue to review/confirm.
