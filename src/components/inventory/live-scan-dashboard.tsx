@@ -655,6 +655,9 @@ export function LiveScanDashboard({
               placeholder="Scan or enter 14-digit barcode"
               className="min-h-16 w-full border-2 border-[#94a3b8] px-4 text-center font-mono text-2xl tracking-wider text-[#17233f] outline-none focus:border-[#314a8a] focus:ring-4 focus:ring-[#314a8a]/15 disabled:bg-[#f1f5f9] sm:min-h-20 sm:text-3xl"
             />
+            <Button type="button" variant="outline" onClick={() => { setBarcode(""); setScanError(""); scanInputRef.current?.focus(); }} disabled={!barcode && !scanError} className="min-h-11 border-slate-300 text-slate-600">
+              Clear
+            </Button>
             <Button
               onClick={() => { void handleScan(); }}
               disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift || !currentShift.beginningAuditComplete}
@@ -780,6 +783,9 @@ export function LiveScanDashboard({
                 }`}
                 autoFocus
               />
+              <Button type="button" variant="outline" onClick={() => { setBarcode(""); setScanError(""); scanInputRef.current?.focus(); }} disabled={!barcode && !scanError} className="min-h-11 border-slate-300 text-slate-600">
+                Clear
+              </Button>
               <Button
                 onClick={() => { void handleScan(); }}
                 disabled={refreshing || !barcode.trim() || Boolean(scanError) || !currentShift || !currentShift.beginningAuditComplete}
@@ -998,6 +1004,9 @@ export function LiveScanDashboard({
               className={`flex-1 rounded-md border-2 px-3 py-3 text-lg font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${scanError ? "border-red-600 bg-white" : "border-border"}`}
               autoFocus
             />
+            <Button type="button" variant="outline" onClick={() => { setBarcode(""); setScanError(""); scanInputRef.current?.focus(); }} disabled={!barcode && !scanError} className="min-h-[46px] border-slate-300 text-slate-600 sm:min-h-0">
+              Clear
+            </Button>
             <Button
               onClick={() => { void handleScan(); }}
               disabled={refreshing || !barcode.trim() || Boolean(scanError)}

@@ -137,12 +137,14 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
       setCatalogLoading(true);
       const res = await fetch("/api/games/catalog");
       const data = await res.json();
-      if (res.ok) {
-        setCatalog(data.catalog ?? []);
-        setCatalogTotal(data.total ?? 0);
-        setLastSyncedAt(data.lastSyncedAt ?? null);
+      if (!res.ok) {
+        notify(data.error || "Unable to load the game catalog.", "err");
+        return;
       }
-    } catch { /* catalog table may not exist yet */ }
+      setCatalog(data.catalog ?? []);
+      setCatalogTotal(data.total ?? 0);
+      setLastSyncedAt(data.lastSyncedAt ?? null);
+    } catch { notify("Unable to reach the game catalog API.", "err"); }
     finally { setCatalogLoading(false); }
   }, []);
 

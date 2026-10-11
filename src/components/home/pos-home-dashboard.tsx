@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { ArrowRight, BarChart3, Boxes, ClipboardCheck, FileText, PackagePlus, Settings, ShoppingCart, Store, Users, X } from "lucide-react";
 import { useState } from "react";
+import { BackButton } from "@/components/layout/back-button";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 type Action = { title: string; description: string; href: string; icon: typeof ShoppingCart; className: string };
 type Props = { employeeName: string; storeName: string; role: string; grantedPermissions: string[] };
@@ -16,6 +18,7 @@ export function PosHomeDashboard({ employeeName, storeName, role, grantedPermiss
   const canInventory = isAdmin || role === "SHIFT_LEAD" || grantedPermissions.includes("MANAGE_BACKSTOCK");
   const canDisplay = isAdmin || grantedPermissions.includes("MANAGE_DISPLAY");
   const canSettings = isAdmin;
+  const canGames = isAdmin || grantedPermissions.includes("MANAGE_GAMES");
 
   const posActions: Action[] = isPlatformAdmin ? [] : [
     { title: "Sell Tickets", description: "Open the cashier terminal", href: "/pos", icon: ShoppingCart, className: "bg-[#087da8]" },
@@ -31,6 +34,7 @@ export function PosHomeDashboard({ employeeName, storeName, role, grantedPermiss
       { title: "Staff & Settings", description: "Users, terminals, and controls", href: "/settings", icon: Settings, className: "bg-[#344563]" },
       { title: "Owner Overview", description: "Store and organization oversight", href: "/owner", icon: Users, className: "bg-[#087da8]" },
     ] : []),
+    ...(canGames ? [{ title: "Games", description: "Manage the store game catalogue", href: "/games", icon: Settings, className: "bg-[#159447]" }] : []),
   ];
 
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
@@ -38,6 +42,7 @@ export function PosHomeDashboard({ employeeName, storeName, role, grantedPermiss
       <div className="flex min-w-0 items-center gap-3"><Image src="/brand/lottoops-logo-new.png" alt="LottoOps" width={54} height={54} priority className="h-11 w-11 object-contain" /><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">{isAdmin ? "Management console" : "POS operations"}</p><h1 className="truncate text-xl font-black tracking-tight sm:text-2xl">LottoOps</h1></div></div>
       <div className="hidden items-center gap-6 text-right text-xs sm:flex"><div><p className="text-white/65">User</p><p className="font-bold">{employeeName}</p></div><div><p className="text-white/65">Role</p><p className="font-bold">{role.replaceAll("_", " ")}</p></div><div><p className="text-white/65">Store</p><p className="font-bold">{storeName}</p></div></div>
       <div className="text-right text-xs sm:hidden"><p className="font-bold">{employeeName}</p><p className="text-emerald-200">{role.replaceAll("_", " ")}</p></div>
+      <div className="flex items-center gap-2"><BackButton /><LogoutButton label="Sign out" className="inline-flex min-h-11 w-auto border-2 border-white/30 bg-white/10 px-4 text-sm font-black text-white hover:bg-white/20" /></div>
     </header>
 
     <main className="mx-auto w-full max-w-[1366px] px-5 py-5 sm:px-8 sm:py-7">

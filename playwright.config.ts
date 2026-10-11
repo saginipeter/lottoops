@@ -14,8 +14,12 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    ...devices["Desktop Chrome"],
   },
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "mobile-chromium", use: { ...devices["Pixel 5"] } },
+    { name: "mobile-webkit", use: { ...devices["iPhone 13"] } },
+  ],
   webServer: process.env.BASE_URL ? undefined : {
     command: "npm run dev",
     url: baseURL,

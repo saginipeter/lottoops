@@ -94,9 +94,12 @@ export async function GET(req: NextRequest) {
       total: catalog.length,
       lastSyncedAt: catalog[0]?.lastSyncedAt ?? null,
     });
-  } catch {
-    // game_catalog table may not exist yet if sync was never run
-    return NextResponse.json({ catalog: [], total: 0, lastSyncedAt: null });
+  } catch (error) {
+    console.error("[GET /api/games/catalog]", error);
+    return NextResponse.json(
+      { error: "The game catalog is unavailable. Run the catalog migration or sync it again." },
+      { status: 503 }
+    );
   }
 }
 
