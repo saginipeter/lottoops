@@ -6,7 +6,6 @@ export default async function HomePage() {
 
   return (
     <PosHomeDashboard
-      employeeName={session?.name ?? "Cashier"}
       storeName={session?.storeName ?? "LottoOps Store"}
       role={session?.role ?? "EMPLOYEE"}
       grantedPermissions={session?.grantedPermissions ?? []}

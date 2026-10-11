@@ -1,15 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { ArrowRight, BarChart3, Boxes, ClipboardCheck, FileText, PackagePlus, Settings, ShoppingCart, Store, Users, X } from "lucide-react";
 import { useState } from "react";
-import { BackButton } from "@/components/layout/back-button";
-import { LogoutButton } from "@/components/auth/logout-button";
 
 type Action = { title: string; description: string; href: string; icon: typeof ShoppingCart; className: string };
-type Props = { employeeName: string; storeName: string; role: string; grantedPermissions: string[] };
+type Props = { storeName: string; role: string; grantedPermissions: string[] };
 
-export function PosHomeDashboard({ employeeName, storeName, role, grantedPermissions }: Props) {
+export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props) {
   const [shiftOpen, setShiftOpen] = useState(false);
   const isPlatformAdmin = role === "PLATFORM_ADMIN";
   const isAdmin = role === "OWNER" || role === "MANAGER";
@@ -38,13 +35,6 @@ export function PosHomeDashboard({ employeeName, storeName, role, grantedPermiss
   ];
 
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
-    <header className="mx-auto flex min-h-[72px] w-full max-w-[1366px] items-center justify-between gap-4 bg-[#087da8] px-5 py-3 text-white shadow-sm sm:px-8">
-      <div className="flex min-w-0 items-center gap-3"><Image src="/brand/lottoops-logo-new.png" alt="LottoOps" width={54} height={54} priority className="h-11 w-11 object-contain" /><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">{isAdmin ? "Management console" : "POS operations"}</p><h1 className="truncate text-xl font-black tracking-tight sm:text-2xl">LottoOps</h1></div></div>
-      <div className="hidden items-center gap-6 text-right text-xs sm:flex"><div><p className="text-white/65">User</p><p className="font-bold">{employeeName}</p></div><div><p className="text-white/65">Role</p><p className="font-bold">{role.replaceAll("_", " ")}</p></div><div><p className="text-white/65">Store</p><p className="font-bold">{storeName}</p></div></div>
-      <div className="text-right text-xs sm:hidden"><p className="font-bold">{employeeName}</p><p className="text-emerald-200">{role.replaceAll("_", " ")}</p></div>
-      <div className="flex items-center gap-2"><BackButton /><LogoutButton label="Sign out" className="inline-flex min-h-11 w-auto border-2 border-white/30 bg-white/10 px-4 text-sm font-black text-white hover:bg-white/20" /></div>
-    </header>
-
     <main className="mx-auto w-full max-w-[1366px] px-5 py-5 sm:px-8 sm:py-7">
       <div className="mb-5 flex items-end justify-between gap-4"><div><p className="text-sm font-semibold text-slate-500">{storeName}</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{isPlatformAdmin ? "Platform workspace" : isAdmin ? "Management workspace" : "What would you like to do?"}</h2></div><p className="hidden text-sm font-semibold text-emerald-700 sm:block">{isPlatformAdmin || isAdmin ? "Oversight access enabled" : "POS ready"}</p></div>
       <ActionSection title="POS operations" actions={posActions} />

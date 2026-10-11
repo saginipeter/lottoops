@@ -134,19 +134,19 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#eef2f7]">
       <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
         <div className="mx-auto w-full max-w-4xl pb-3">
-          <div className="overflow-hidden border border-[#cbd5e1] bg-[#17233f] text-white shadow-[0_16px_32px_rgba(23,35,63,0.16)]">
+          <div className="overflow-hidden border border-border bg-surface text-text shadow-[0_8px_20px_rgba(23,35,63,0.08)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b8c7ff]">LottoOps terminal</p>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Welcome, {session.name.split(" ")[0]}</h1>
-                <p className="mt-1 text-sm text-white/65">{session.storeName ?? "Your store"} <span className="px-1 text-white/30">·</span> Terminal {terminalId}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Employee terminal</p>
+                <h1 className="mt-2 text-2xl font-bold tracking-tight">Welcome, {session.name.split(" ")[0]}</h1>
+                <p className="mt-1 text-sm text-text-secondary">{session.storeName ?? "Your store"} <span className="px-1 text-text-tertiary">·</span> Terminal {terminalId}</p>
               </div>
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-emerald-300/30 bg-emerald-300/10 text-emerald-200"><ShieldCheck size={21} /></div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-accent/30 bg-accent-soft text-accent"><ShieldCheck size={21} /></div>
             </div>
-            <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-4 border-t border-white/15 pt-4">
+              <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-4 border-t border-border pt-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Shift progress</p>
-                <p className="mt-1 text-sm font-semibold">{completedTasks} of {tasks.length} workflow tasks completed</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-tertiary">Shift progress</p>
+                <p className="mt-1 text-sm font-semibold text-text">{completedTasks} of {tasks.length} workflow tasks completed</p>
               </div>
               <span className={`px-3 py-1.5 text-xs font-semibold ${shiftOpen ? "bg-success-soft text-success-soft-text" : "bg-warning-soft text-warning-soft-text"}`}>
                 {shiftOpen ? "Shift open" : "No open shift"}
