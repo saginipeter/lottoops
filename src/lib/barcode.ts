@@ -29,6 +29,38 @@ export function isValidPackBarcode(value: string): boolean {
   return normalizeBarcodeInput(value).replace(/\D/g, "").length === 14;
 }
 
+export type ReceivingPackIdentity = {
+  barcode: string;
+  gameNumber: string;
+  packNumber: string;
+};
+
+export function resolveReceivingPackIdentity(input: {
+  barcode: unknown;
+  gameNumber: unknown;
+  packNumber: unknown;
+}): { identity: ReceivingPackIdentity; error?: never } | { identity?: never; error: string } {
+  if (typeof input.barcode !== "string") {
+    return { error: "A scanned pack barcode is required." };
+  }
+
+  const barcode = input.barcode.replace(/\D/g, "");
+  if (!/^\d{11}$/.test(barcode)) {
+    return { error: "Pack barcode must contain exactly 11 game and pack digits." };
+  }
+
+  const gameNumber = barcode.slice(0, 4);
+  const packNumber = barcode.slice(4, 11);
+  if (input.gameNumber !== undefined && String(input.gameNumber).trim() !== gameNumber) {
+    return { error: "Game number does not match the scanned pack barcode." };
+  }
+  if (input.packNumber !== undefined && String(input.packNumber).trim() !== packNumber) {
+    return { error: "Pack number does not match the scanned pack barcode." };
+  }
+
+  return { identity: { barcode, gameNumber, packNumber } };
+}
+
 export function parseBarcode(barcode: string): ParsedBarcode {
   const cleaned = normalizeBarcodeInput(barcode).replace(/\D/g, "");
 

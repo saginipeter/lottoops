@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { canAuthorizeCorrection, canSelfResolveSequenceLock } from "@/lib/control-validation";
 import { isValidPackBarcode, parseBarcode } from "@/lib/barcode";
+import { isValidPackBarcode, parseBarcode, resolveReceivingPackIdentity } from "@/lib/barcode";
 import {
   getActivationStartingTicket,
   getAuditPhysicalTicket,
@@ -16,6 +17,32 @@ test("only the exact expected ticket can self-resolve a sequence lock", () => {
   assert.equal(canSelfResolveSequenceLock(true, 42, 41), false);
   assert.equal(canSelfResolveSequenceLock(false, 42, 42), false);
   assert.equal(canSelfResolveSequenceLock(true, null, 42), false);
+});
+
+test("resolves a pack identity from its 11-digit serial", () => {
+  assert.deepEqual(
+    resolveReceivingPackIdentity({
+      barcode: "24240001234",
+      gameNumber: "2424",
+      packNumber: "0001234",
+    }),
+    { identity: { barcode: "24240001234", gameNumber: "2424", packNumber: "0001234" } }
+  );
+});
+
+test("rejects inconsistent pack identifiers before receiving", () => {
+  assert.match(
+    resolveReceivingPackIdentity({ barcode: "24240001234", gameNumber: "9999", packNumber: "0001234" }).error ?? "",
+    /Game number does not match/
+  );
+  assert.match(
+    resolveReceivingPackIdentity({ barcode: "24240001234", gameNumber: "2424", packNumber: "9999999" }).error ?? "",
+    /Pack number does not match/
+  );
+  assert.match(
+    resolveReceivingPackIdentity({ barcode: "2424000123", gameNumber: "2424", packNumber: "000123" }).error ?? "",
+    /exactly 11/
+  );
 });
 
 test("only managers and owners can authorize corrections", () => {
