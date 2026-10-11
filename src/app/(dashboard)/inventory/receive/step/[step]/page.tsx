@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Header } from "@/components/layout/header";
 import ReceiveWizard, { type WizardStep } from "@/components/receive/receive-wizard";
 
 interface ReceiveStepPageProps {
@@ -16,13 +15,5 @@ export default async function ReceiveStepPage({ params }: ReceiveStepPageProps) 
 
   const step = stepNumber as WizardStep;
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <Header
-        title="Receive Packs"
-        subtitle="Shipment receiving"
-      />
-      <ReceiveWizard initialStep={step} />
-    </div>
-  );
+  return <ReceiveWizard initialStep={step} />;
 }

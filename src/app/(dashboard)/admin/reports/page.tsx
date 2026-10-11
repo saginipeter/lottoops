@@ -1,25 +1,28 @@
-import { Header } from "@/components/layout/header";
-import { PageToolbar } from "@/components/ui/page-toolbar";
-import { StatusBar } from "@/components/ui/status-bar";
+import { redirect } from "next/navigation";
 import { getSession } from "@/lib/get-session";
 import { canAccessReports } from "@/lib/permissions";
-import { redirect } from "next/navigation";
-import { FinancialReports } from "@/components/reports/financial-reports";
-import { InventoryStatusReport } from "@/components/reports/inventory-status-report";
-import { ActivityReport } from "@/components/reports/activity-report";
-import { DiscrepancyReport } from "@/components/reports/discrepancy-report";
-import { CorrectionReport } from "@/components/reports/correction-report";
-import { InventoryAgingReport } from "@/components/reports/inventory-aging-report";
-import { ExceptionTrendsReport } from "@/components/reports/exception-trends-report";
-import { AiDiscrepancyAnalysis } from "@/components/reports/ai-discrepancy-analysis";
-import { WhatsAppSummaryCard } from "@/components/reports/whatsapp-summary-card";
-import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
-import { LifecycleAnalyticsReport } from "@/components/reports/lifecycle-analytics-report";
+import { ReportsWorkspace } from "@/components/reports/reports-workspace";
 
 export default async function AdminReportsPage() {
   const session = await getSession();
   if (!session) redirect("/login?from=/admin/reports");
   if (!canAccessReports(session)) redirect("/pos");
 
-  return <div className="reports-page flex min-h-0 flex-1 flex-col overflow-hidden"><Header title="Reports" subtitle="Financial, activity, and inventory status reports with export and print options" /><PageToolbar left={<span className="text-xs text-text-secondary">Scope: Current Store</span>} center={<span>Financial | Activity | Inventory</span>} right={<span className="text-xs text-text-tertiary">Use export controls inside reports</span>} /><div className="reports-content min-h-0 flex-1 overflow-y-auto px-5 py-5"><div className="space-y-5"><FinancialReports /><ActivityReport /><DiscrepancyReport />{(session.role === "MANAGER" || session.role === "OWNER") && <CorrectionReport />}<InventoryStatusReport /><InventoryAgingReport /><LifecycleAnalyticsReport /><ExceptionTrendsReport />{(session.role === "MANAGER" || session.role === "OWNER") && <AiDiscrepancyAnalysis />}{(session.role === "MANAGER" || session.role === "OWNER") && <WhatsAppSummaryCard />}{session.role === "MANAGER" && <StateReportsUploader />}</div></div><StatusBar left={<span>Reports Ready</span>} center={<span>Refresh data before final export</span>} right={<span>Printed reports are audit artifacts</span>} /></div>;
+  return (
+    <div className="flex min-h-full flex-col bg-[#f4f7fb]">
+      <header className="shrink-0 border-b border-[#0d1528] bg-[#17233f] text-white shadow-[0_5px_0_rgba(13,21,40,0.18)]">
+        <div className="mx-auto flex min-h-[72px] max-w-[1366px] items-center gap-4 px-4 py-3 sm:px-7">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8be2ff]">LottoOps management console</p>
+            <h1 className="truncate text-xl font-black tracking-tight sm:text-2xl">Reports</h1>
+            <p className="truncate text-xs text-white/60">Focused operational, financial, and inventory reporting</p>
+          </div>
+          <div className="hidden text-right sm:block"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">Scope</p><p className="text-sm font-bold">{session.storeName ?? "Current store"}</p></div>
+        </div>
+      </header>
+      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7">
+        <div className="mx-auto max-w-[1366px]"><ReportsWorkspace role={session.role} /></div>
+      </main>
+    </div>
+  );
 }

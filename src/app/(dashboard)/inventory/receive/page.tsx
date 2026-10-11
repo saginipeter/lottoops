@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
 import { getSession } from "@/lib/get-session";
-import { ReceiveStockPos } from "@/components/receive/receive-stock-pos";
+import ReceiveWizard from "@/components/receive/receive-wizard";
 
 export default async function ReceiveInventoryPage() {
   const session = await getSession();
-  return <ReceiveStockPos employeeName={session?.name ?? "Cashier"} storeName={session?.storeName ?? "LottoOps Store"} />;
+  if (!session) redirect("/login?from=/inventory/receive");
+  return <ReceiveWizard initialStep={1} />;
 }
