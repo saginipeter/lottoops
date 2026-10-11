@@ -9,6 +9,10 @@ const protectedPages = [
   ["Phase 6 Billing", "/billing"],
   ["Phase 7 Admin Reports", "/admin/reports"],
   ["Phase 8 Shift Management", "/shifts"],
+  ["Updated Owner dashboard", "/owner"],
+  ["Updated Owner stores", "/owner/stores"],
+  ["Updated Owner store detail", "/owner/stores/test-store"],
+  ["Updated Employee workspace", "/employee"],
 ] as const;
 
 test.describe("LottoOps Phase 1–8 public integration contracts", () => {
