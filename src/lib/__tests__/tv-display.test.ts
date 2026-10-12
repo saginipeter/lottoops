@@ -5,7 +5,7 @@ import {
   getDisplayedTicketNumber,
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
-import { remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
+import { remainingTicketsAfterDirectionChange, remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
 
 test("calculates sold tickets from a descending remaining counter", () => {
   assert.deepEqual(calculateTicketProgress(1, 97, 100), { sold: 3, remaining: 97 });
@@ -41,4 +41,18 @@ test("converts override physical tickets back to the canonical remaining count",
   assert.equal(remainingTicketsFromPhysicalTicket(1, 150, 150, "LAST"), 150);
   assert.equal(remainingTicketsFromPhysicalTicket(1, 150, 100, "LAST"), 100);
   assert.equal(remainingTicketsFromPhysicalTicket(50, 150, 49, "FIRST"), null);
+});
+
+test("switching sell direction preserves remaining inventory and updates the physical ticket", () => {
+  const remainingAtStart = remainingTicketsAfterDirectionChange(50, 1, 50, "LAST");
+  assert.equal(remainingAtStart, 50);
+  assert.equal(getDisplayedTicketNumber(1, remainingAtStart!, 50, "LAST"), 50);
+
+  const remainingAfterSales = remainingTicketsAfterDirectionChange(42, 1, 50, "LAST");
+  assert.equal(remainingAfterSales, 42);
+  assert.equal(getDisplayedTicketNumber(1, remainingAfterSales!, 50, "LAST"), 42);
+
+  const switchedBack = remainingTicketsAfterDirectionChange(42, 1, 50, "FIRST");
+  assert.equal(switchedBack, 42);
+  assert.equal(getDisplayedTicketNumber(1, switchedBack!, 50, "FIRST"), 9);
 });

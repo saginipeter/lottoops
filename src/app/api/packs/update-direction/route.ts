@@ -4,7 +4,7 @@ import { getApiSession } from "@/lib/api-session";
 import { isManagerOrAbove } from "@/lib/permissions";
 import { logCorrection } from "@/lib/correction-log";
 import { getDisplayedTicketNumber } from "@/lib/tv-display";
-import { remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
+import { remainingTicketsAfterDirectionChange } from "@/lib/core-validation";
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -32,9 +32,16 @@ export async function POST(req: NextRequest) {
     const quantity = Number(pack.ticketQuantity ?? pack.game.ticketsPerPack ?? 0);
     const firstTicket = Number(pack.firstTicket ?? 1);
     const oldDirection = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
-    const physicalTicket = requestedPhysical ?? getDisplayedTicketNumber(firstTicket, Number(pack.currentTicketNumber ?? quantity), quantity, oldDirection);
-    const remaining = remainingTicketsFromPhysicalTicket(firstTicket, quantity, physicalTicket, direction);
-    if (remaining === null) return NextResponse.json({ error: `Ticket ${physicalTicket} is outside this pack's valid range.` }, { status: 400 });
+    const previousRemaining = Number(pack.currentTicketNumber ?? quantity);
+    const remaining = remainingTicketsAfterDirectionChange(
+      previousRemaining,
+      firstTicket,
+      quantity,
+      direction,
+      requestedPhysical,
+    );
+    if (remaining === null) return NextResponse.json({ error: "The selected physical ticket is outside this pack's valid range." }, { status: 400 });
+    const physicalTicket = requestedPhysical ?? getDisplayedTicketNumber(firstTicket, remaining, quantity, direction);
 
     await prisma.pack.update({ where: { id: pack.id }, data: { firstOrLastTicket: direction, currentTicketNumber: remaining } });
     await logCorrection({ storeId: session.storeId, entityType: "PACK", entityId: pack.id, fieldName: "firstOrLastTicket", oldValue: oldDirection, newValue: direction, reason, correctedById: session.userId, correctedByName: session.name });

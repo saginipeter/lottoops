@@ -54,6 +54,26 @@ export function remainingTicketsFromPhysicalTicket(
   return firstTicket + initialRemaining - physicalTicket;
 }
 
+/** Preserve the sold/remaining count when switching display direction. */
+export function remainingTicketsAfterDirectionChange(
+  currentRemaining: number,
+  firstTicket: number,
+  ticketsPerPack: number,
+  direction: "FIRST" | "LAST",
+  requestedPhysicalTicket?: number,
+): number | null {
+  if (requestedPhysicalTicket !== undefined) {
+    return remainingTicketsFromPhysicalTicket(
+      firstTicket,
+      ticketsPerPack,
+      requestedPhysicalTicket,
+      direction,
+    );
+  }
+  if (!Number.isInteger(currentRemaining) || !Number.isInteger(ticketsPerPack) || ticketsPerPack < 1) return null;
+  return Math.min(Math.max(currentRemaining, 0), ticketsPerPack);
+}
+
 export function findUnassignedActivePacks(packs: Array<{ serialNumber: string; slot: unknown | null }>): string[] {
   return packs.filter((pack) => !pack.slot).map((pack) => pack.serialNumber);
 }
