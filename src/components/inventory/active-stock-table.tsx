@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageToolbar } from "@/components/ui/page-toolbar";
@@ -16,9 +17,11 @@ interface Props {
 }
 
 export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
+  const [updatingDirectionId, setUpdatingDirectionId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredPacks = useMemo(() => {
@@ -73,18 +76,29 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
     location.reload();
   }
 
-  async function correctDirection(pack: any) {
+  async function updateDirection(pack: any, next: "FIRST" | "LAST") {
     const current = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
-    const next = window.prompt(`Enter sell direction for ${pack.packNumber ?? "this pack"}: FIRST or LAST`, current)?.trim().toUpperCase();
-    if (next !== "FIRST" && next !== "LAST") return;
     if (next === current) return;
     const reason = window.prompt("Enter the reason for changing the sell direction:")?.trim();
     if (!reason || reason.length < 6) return;
-    const response = await fetch("/api/packs/update-direction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ packId: pack.id, direction: next, reason }) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) { window.alert(data.error ?? "Unable to update sell direction."); return; }
-    window.alert(`Direction updated to Sell from ${next === "FIRST" ? "First" : "Last"}. Physical ticket ${data.physicalTicketNumber} was preserved.`);
-    location.reload();
+    try {
+      setUpdatingDirectionId(pack.id);
+      const response = await fetch("/api/packs/update-direction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId: pack.id, direction: next, reason }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        window.alert(data.error ?? "Unable to update sell direction.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      window.alert("Unable to update sell direction. Check your connection and try again.");
+    } finally {
+      setUpdatingDirectionId(null);
+    }
   }
 
   function displayedCurrentTicket(pack: any) {
@@ -163,9 +177,18 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
                         View
                       </Button>
                     </Link>
-                    {canManageDisplay && <Button size="sm" variant="outline" className="border-emerald-600 text-emerald-700 hover:bg-emerald-50" onClick={() => void correctDirection(pack)}>
-                      Sell {pack.firstOrLastTicket === "LAST" ? "Last" : "First"}
-                    </Button>}
+                    {canManageDisplay && <label className="sr-only" htmlFor={`sell-direction-${pack.id}`}>Sell direction for pack {pack.packNumber ?? pack.serialNumber}</label>}
+                    {canManageDisplay && <select
+                      id={`sell-direction-${pack.id}`}
+                      aria-label={`Sell direction for pack ${pack.packNumber ?? pack.serialNumber}`}
+                      value={pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST"}
+                      disabled={updatingDirectionId === pack.id}
+                      onChange={(event) => { void updateDirection(pack, event.target.value as "FIRST" | "LAST"); }}
+                      className="min-h-9 border border-border bg-surface px-2 text-xs font-semibold text-text disabled:opacity-60"
+                    >
+                      <option value="FIRST">Sell from First</option>
+                      <option value="LAST">Sell from Last</option>
+                    </select>}
                     {canManageDisplay && <Button size="sm" variant="destructive" onClick={() => openRemoveModal(pack)}>Remove</Button>}
                   </div>
                 </td>
