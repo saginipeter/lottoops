@@ -6,6 +6,19 @@ import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 import { resolveReceivingPackIdentity } from "@/lib/barcode";
 import { Prisma } from "@prisma/client";
 
+type CreatePackBody = {
+  shipmentId?: string;
+  firstTicket?: number | string;
+  ticketPrice?: number | string;
+  ticketQuantity?: number | string;
+  packImage?: string | null;
+  activationNumber?: string | null;
+  firstOrLastTicket?: string | null;
+  barcode?: unknown;
+  gameNumber?: unknown;
+  packNumber?: unknown;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getApiSession();
@@ -24,10 +37,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body: unknown = await req.json().catch(() => null);
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
+    const rawBody: unknown = await req.json().catch(() => null);
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
       return NextResponse.json({ error: "Request body must be a valid JSON object." }, { status: 400 });
     }
+    const body = rawBody as CreatePackBody;
 
     const {
       shipmentId,
