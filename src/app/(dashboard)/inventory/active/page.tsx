@@ -47,7 +47,7 @@ export default async function ActiveStockPage() {
         title="Active Stock"
         subtitle={`${activePacks.length} active lottery packs`}
         actions={
-          <Link href="/inventory">
+            <Link href="/inventory/back-stock">
             <Button>
               Back Stock
             </Button>

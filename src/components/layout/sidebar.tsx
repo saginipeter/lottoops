@@ -32,7 +32,7 @@ const navSections: NavSection[] = [
   ] },
   { label: "Inventory", items: [
     { href: "/inventory/receive", label: "Receive Shipment", icon: ScanLine, permission: "RECEIVE_SHIPMENTS" },
-    { href: "/inventory", label: "Back Stock", icon: Package },
+    { href: "/inventory/back-stock", label: "Back Stock", icon: Package },
     { href: "/inventory/active", label: "Active Stock", icon: Layers },
     { href: "/display-slots", label: "Displays", icon: Tv },
     { href: "/inventory/returned", label: "Returned Tickets", icon: RotateCcw },

@@ -26,7 +26,10 @@ export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props)
   const adminActions: Action[] = [
     ...(isPlatformAdmin ? [{ title: "Platform Admin", description: "Organizations, subscriptions, and system health", href: "/platform-admin", icon: Settings, className: "bg-[#344563]" }] : []),
     ...(canReports ? [{ title: "Reports", description: "Sales, audit, and performance", href: "/admin/reports", icon: BarChart3, className: "bg-[#d92735]" }] : []),
-    ...(canInventory ? [{ title: "Inventory", description: "Back stock and live inventory", href: "/admin/inventory", icon: Boxes, className: "bg-[#d41478]" }] : []),
+    ...(canInventory ? [
+      { title: "Active Stock", description: "Review and manage active display packs", href: "/inventory/active", icon: Boxes, className: "bg-[#d41478]" },
+      { title: "Back Stock", description: "Search and activate received packs", href: "/inventory/back-stock", icon: PackagePlus, className: "bg-[#8a4772]" },
+    ] : []),
     ...(canDisplay ? [{ title: "Displays", description: "Manage active ticket displays", href: "/display-slots", icon: Store, className: "bg-[#6b46c1]" }] : []),
     ...(canSettings ? [
       { title: "Staff & Settings", description: "Users, terminals, and controls", href: "/settings", icon: Settings, className: "bg-[#344563]" },
