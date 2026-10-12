@@ -8,11 +8,13 @@ import { Maximize2, Minimize2, RefreshCw, Tv, ShieldCheck, CircleAlert } from "l
 
 type TvDisplaySlot = {
   id: string;
+  packId: string;
   slotNumber: string;
   gameName: string;
   gameNumber: string;
   gameImage?: string | null;
   ticketPrice: number;
+  sellDirection: "FIRST" | "LAST";
   firstTicket: number;
   currentTicket: number;
   nextTicket: number;
@@ -112,14 +114,19 @@ function DisplayCard({ slot, kioskMode, kioskToken, broken, onBroken }: { slot: 
   const progress = slot.quantity > 0 ? Math.max((slot.sold / slot.quantity) * 100, 0) : 0;
   const imageSrc = slot.gameImage && kioskToken ? `${slot.gameImage}?token=${encodeURIComponent(kioskToken)}` : slot.gameImage;
   return <article className={`group relative flex min-h-0 flex-col overflow-hidden border border-white/20 bg-[#151d31] shadow-[0_3px_0_rgba(0,0,0,0.35)] ${kioskMode ? "text-[0.85em]" : ""}`}>
-    <div className={`relative min-h-0 overflow-hidden bg-[#252d42] ${kioskMode ? "flex-1" : "aspect-[1.42]"}`}>
-      {imageSrc && !broken ? <Image src={imageSrc} alt="" fill unoptimized className="object-cover transition-transform duration-300 group-hover:scale-105" onError={onBroken} /> : <div className="flex h-full items-center justify-center bg-gradient-to-br from-fuchsia-900 to-indigo-950 text-4xl font-black text-fuchsia-200">{slot.gameName.slice(0, 1).toUpperCase()}</div>}
-      <div className="absolute inset-x-0 top-0 bg-black/65 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white"><span>Display <strong className="text-lg sm:text-2xl">{slot.slotNumber}</strong></span></div>
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2 pb-2 pt-7"><h3 className="truncate text-sm font-black leading-tight text-white sm:text-base">{slot.gameName}</h3><p className="text-[9px] font-semibold uppercase tracking-wider text-white/65">Game {slot.gameNumber}</p></div>
+    <div className={`relative min-h-0 overflow-hidden bg-white ${kioskMode ? "flex-1" : "aspect-[1.15]"}`}>
+      {imageSrc && !broken ? <Image src={imageSrc} alt={`${slot.gameName} ticket pack`} fill unoptimized className="object-contain p-1 transition-transform duration-300 group-hover:scale-[1.02]" onError={onBroken} /> : <div className="flex h-full items-center justify-center bg-[#f1f4f8] text-4xl font-black text-[#53627a]">{slot.gameName.slice(0, 1).toUpperCase()}</div>}
+      <div className="absolute left-1 top-1 bg-black/75 px-1.5 py-1 text-[8px] font-bold uppercase text-white sm:left-2 sm:top-2 sm:text-[10px]">Display {slot.slotNumber}</div>
     </div>
-    <div className="grid shrink-0 grid-cols-2 border-t border-white/15">
-      <div className="bg-fuchsia-400/15 px-2 py-2 sm:px-3"><p className="text-[8px] font-bold uppercase tracking-wider text-fuchsia-100/65">Current</p><p className="text-xl font-black tabular-nums text-white sm:text-2xl">{slot.currentTicket}</p></div>
-      <div className="bg-white/10 px-2 py-2 sm:px-3"><p className="text-[8px] font-bold uppercase tracking-wider text-white/60">Next</p><p className="text-xl font-black tabular-nums text-white sm:text-2xl">{slot.nextTicket}</p></div>
+    <div className="shrink-0 border-t-2 border-[#182236] bg-white text-[#101828]">
+      <div className="flex items-center justify-between gap-2 border-b border-[#d6dce5] px-2 py-1 sm:px-3">
+        <div className="min-w-0"><h3 className="truncate text-[10px] font-black leading-tight sm:text-sm">{slot.gameName}</h3><p className="truncate text-[8px] font-semibold uppercase text-[#667085] sm:text-[9px]">Game {slot.gameNumber} · ${slot.ticketPrice.toFixed(0)}</p></div>
+        <span className={`shrink-0 px-1.5 py-1 text-[7px] font-black uppercase sm:text-[8px] ${slot.sellDirection === "LAST" ? "bg-[#fff0db] text-[#8a4b08]" : "bg-[#e7f4ed] text-[#17633b]"}`}>Sell {slot.sellDirection === "LAST" ? "Last" : "First"}</span>
+      </div>
+      <div className="grid grid-cols-2">
+        <div className="flex items-center justify-between gap-1 border-r border-[#d6dce5] px-2 py-1.5 sm:px-3 sm:py-2"><span className="text-[7px] font-black uppercase tracking-wide text-[#667085] sm:text-[9px]">Current</span><strong className="text-lg font-black leading-none tabular-nums text-[#c62828] sm:text-2xl">{slot.currentTicket}</strong></div>
+        <div className="flex items-center justify-between gap-1 px-2 py-1.5 sm:px-3 sm:py-2"><span className="text-[7px] font-black uppercase tracking-wide text-[#667085] sm:text-[9px]">Next</span><strong className="text-lg font-black leading-none tabular-nums text-[#17233f] sm:text-2xl">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong></div>
+      </div>
     </div>
     {!kioskMode && <div className="h-1 bg-white/10"><div className="h-1 bg-fuchsia-300" style={{ width: `${Math.min(progress, 100)}%` }} /></div>}
   </article>;

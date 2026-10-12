@@ -63,6 +63,7 @@ export default async function TvDisplayKioskPage({
     id: string;
     slotNumber: string;
     pack: {
+      id: string;
       status: string;
       ticketQuantity: number | null;
       firstTicket: number | null;
@@ -83,11 +84,13 @@ export default async function TvDisplayKioskPage({
 
       return [{
         id: slot.id,
+        packId: pack.id,
         slotNumber: slot.slotNumber,
         gameName: pack.game.name,
         gameNumber: pack.game.gameNumber,
         gameImage: pack.packImage ?? null,
         ticketPrice: Number(pack.game.price),
+        sellDirection: pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
         firstTicket,
         currentTicket: displayedTicket,
         nextTicket: getNextDisplayedTicket(firstTicket, currentTicket, quantity, pack.firstOrLastTicket),
