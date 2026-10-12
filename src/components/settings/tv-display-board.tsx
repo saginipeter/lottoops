@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, ShieldCheck, CircleAlert } from "lucide-react";
@@ -73,12 +74,10 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
   );
 }
 function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kioskMode: boolean; artIndex: number }) {
-  const artColumn = artIndex % 6;
-  const artRow = Math.floor(artIndex / 6) % 4;
+  const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
   return <article className={`group relative flex min-h-0 flex-col overflow-hidden border-2 border-[#12283a] bg-white shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "text-[0.85em]" : ""}`}>
     <div className={`relative min-h-0 overflow-hidden bg-[#e6f4f4] ${kioskMode ? "flex-1" : "aspect-[1.15]"}`}>
-      <div aria-label={`${slot.gameName} game artwork`} className="absolute inset-[-8%] animate-[tv-artwork-drift_7s_ease-in-out_infinite_alternate] bg-[#c8eeee] bg-[url('/tv/lottery-board-reference.png')] bg-no-repeat" style={{ backgroundSize: "390% 390%", backgroundPosition: `${artColumn * 20}% ${artRow * 33}%` }} />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#061d2b]/45 via-transparent to-white/10" />
+      <Image src={referenceImage} alt={`${slot.gameName} lottery game artwork`} fill unoptimized className="object-cover" />
       <div className="absolute left-0 top-0 bg-[#102b40] px-1.5 py-1 text-[8px] font-black uppercase text-white sm:text-[10px]">Display {slot.slotNumber}</div>
     </div>
     <div className="shrink-0 border-t-2 border-[#102b40] bg-white text-[#101828]">
