@@ -90,7 +90,7 @@ export default async function TvDisplayKioskPage({
         gameNumber: pack.game.gameNumber,
         gameImage: pack.packImage ?? null,
         ticketPrice: Number(pack.game.price),
-        sellDirection: pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
+        sellDirection: (pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST") as "FIRST" | "LAST",
         firstTicket,
         currentTicket: displayedTicket,
         nextTicket: getNextDisplayedTicket(firstTicket, currentTicket, quantity, pack.firstOrLastTicket),
