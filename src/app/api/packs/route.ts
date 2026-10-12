@@ -214,20 +214,6 @@ export async function POST(req: NextRequest) {
         ticketQuantity: normalizedTicketQuantity,
         
         packImage,
-        ...(typeof packImage === "string" && packImage.trim()
-          ? {
-              documents: {
-                create: {
-                  storeId: session.storeId,
-                  uploadedById: session.userId,
-                  type: "PACK_PHOTO",
-                  name: `Pack photo ${barcode}`,
-                  url: packImage.trim(),
-                  reference: barcode,
-                },
-              },
-            }
-          : {}),
         activationNumber,
         firstOrLastTicket,
 
@@ -252,7 +238,7 @@ return NextResponse.json(savedPack);
 
     
   } catch (error) {
-    console.error(error);
+    console.error("[POST /api/packs] Failed to create pack:", error);
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
@@ -261,10 +247,22 @@ return NextResponse.json(savedPack);
       );
     }
 
-    return NextResponse.json(
-      { error: "Failed to save pack." },
-      { status: 500 }
-    );
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json(
+        { error: "Pack could not be saved because its shipment, game, or receiving user is no longer valid. Refresh the shipment and try again.", code: error.code },
+        { status: 409 }
+      );
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2021" || error.code === "P2022")) {
+      return NextResponse.json(
+        { error: `Pack could not be saved because the database schema is missing a required table or column (${error.code}). Apply the latest migrations.`, code: error.code },
+        { status: 503 }
+      );
+    }
+
+    const details = error instanceof Error ? error.message : String(error);
+    const code = error instanceof Prisma.PrismaClientKnownRequestError ? error.code : "UNKNOWN";
+    return NextResponse.json({ error: `Failed to save pack (${code}).`, details, code }, { status: 500 });
   }
 }
 
