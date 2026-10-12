@@ -89,7 +89,7 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-tertiary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-colors"
+          className="w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-tertiary focus:border-[#0d82a6] focus:outline-none focus:ring-2 focus:ring-[#0d82a6]/20 transition-colors"
         />
       </div>}
 
@@ -109,7 +109,7 @@ export function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full rounded-md border border-border bg-surface px-3 py-2.5 pr-10 text-sm text-text placeholder:text-text-tertiary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-colors"
+            className="w-full rounded-md border border-border bg-surface px-3 py-2.5 pr-10 text-sm text-text placeholder:text-text-tertiary focus:border-[#0d82a6] focus:outline-none focus:ring-2 focus:ring-[#0d82a6]/20 transition-colors"
           />
           <button
             type="button"
@@ -132,7 +132,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading || (mfaRequired ? mfaCode.length !== 6 : !email || !password)}
-        className="mt-1 flex h-10 items-center justify-center gap-2 rounded-md bg-accent text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mt-1 flex h-11 items-center justify-center gap-2 rounded-md bg-[#0d82a6] text-sm font-bold text-white transition-colors hover:bg-[#075f7d] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? (
           <>
