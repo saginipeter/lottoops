@@ -99,7 +99,6 @@ export async function GET(req: NextRequest) {
       marginPct: Math.round(marginPct * 10) / 10,
       ticketsSold,
       gameBreakdown: Object.values(gameBreakdown).sort((a, b) => b.sales - a.sales),
-      audit: shift.inventoryAudit?.lines.map((line: any) => ({
       audit: shift.inventoryAudit?.lines.map((line: any) => {
         const shiftLine = shift.lines.find((item: any) => item.packId === line.packId);
         const systemExpected = line.endingExpectedTicket ?? (shiftLine

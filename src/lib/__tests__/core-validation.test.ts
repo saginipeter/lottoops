@@ -1,7 +1,6 @@
-import { calculatePhysicalAuditVariance, expectedPhysicalTicket, findUnassignedActivePacks, physicalTicketFromRemaining, remainingTicketsFromStartingTicket, validateEndingTicket } from "@/lib/core-validation";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { expectedPhysicalTicket, findUnassignedActivePacks, physicalTicketFromRemaining, remainingTicketsFromStartingTicket, validateEndingTicket } from "@/lib/core-validation";
+import { calculatePhysicalAuditVariance, expectedPhysicalTicket, findUnassignedActivePacks, physicalTicketFromRemaining, remainingTicketsFromStartingTicket, validateEndingTicket } from "@/lib/core-validation";
 
 test("accepts ending ticket zero through beginning ticket", () => {
   assert.equal(validateEndingTicket(100, 0), null);
@@ -13,17 +12,17 @@ test("rejects an ending ticket beyond the beginning ticket", () => {
 });
 
 test("rejects negative and non-integer ticket values", () => {
-
-  test("calculates signed physical audit variance against system expectation", () => {
-    assert.equal(calculatePhysicalAuditVariance(43, 43), 0);
-    assert.equal(calculatePhysicalAuditVariance(9, 8), -1);
-    assert.equal(calculatePhysicalAuditVariance(3, 2), -1);
-    assert.equal(calculatePhysicalAuditVariance(3, 4), 1);
-    assert.equal(calculatePhysicalAuditVariance(-1, 2), null);
-  });
   assert.notEqual(validateEndingTicket(100, -1), null);
   assert.notEqual(validateEndingTicket(100, 1.5), null);
   assert.notEqual(validateEndingTicket(-1, 0), null);
+});
+
+test("calculates signed physical audit variance against system expectation", () => {
+  assert.equal(calculatePhysicalAuditVariance(43, 43), 0);
+  assert.equal(calculatePhysicalAuditVariance(9, 8), -1);
+  assert.equal(calculatePhysicalAuditVariance(3, 2), -1);
+  assert.equal(calculatePhysicalAuditVariance(3, 4), 1);
+  assert.equal(calculatePhysicalAuditVariance(-1, 2), null);
 });
 
 test("finds active packs without display assignments", () => {
