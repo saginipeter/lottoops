@@ -112,6 +112,8 @@ export async function POST(req: Request) {
         error: storageError
           ? "Image storage rejected the upload. Verify the production BLOB_READ_WRITE_TOKEN and Vercel Blob store configuration."
           : "Upload failed while saving the document. Check the production database and migrations.",
+        code: storageError ? "BLOB_STORAGE_ERROR" : "DOCUMENT_UPLOAD_ERROR",
+        details: message || "No additional error details were provided.",
       },
       { status: storageError ? 502 : 500 },
     );

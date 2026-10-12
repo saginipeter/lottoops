@@ -70,7 +70,10 @@ export function InvoiceUpload({
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(typeof data.error === "string" ? data.error : "Upload failed");
+        const errorMessage = typeof data.error === "string" ? data.error : "Upload failed";
+        const errorDetails = typeof data.details === "string" ? data.details : "";
+        const errorCode = typeof data.code === "string" ? ` [${data.code}]` : "";
+        throw new Error(`${errorMessage}${errorCode}${errorDetails ? `\n${errorDetails}` : ""}`);
       }
 
       if (typeof data.url !== "string") throw new Error("Upload completed without a file URL.");

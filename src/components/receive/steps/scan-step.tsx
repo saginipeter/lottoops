@@ -187,7 +187,15 @@ export function ScanStep({
       });
 
       const savedPack = await response.json().catch(() => null);
-      if (!response.ok) { alert(savedPack?.error || `Unable to save pack (HTTP ${response.status}).`); return; }
+      if (!response.ok) {
+        const failure = [
+          savedPack?.error || `Unable to save pack (HTTP ${response.status}).`,
+          typeof savedPack?.code === "string" ? `Code: ${savedPack.code}` : "",
+          typeof savedPack?.details === "string" ? savedPack.details : "",
+        ].filter(Boolean).join("\n");
+        alert(failure);
+        return;
+      }
       if (!savedPack?.id) { alert("Pack was saved, but the server returned an invalid pack record. Refresh the shipment before retrying."); return; }
 
       addPack(savedPack);
