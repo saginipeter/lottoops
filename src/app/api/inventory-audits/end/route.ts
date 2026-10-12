@@ -4,6 +4,7 @@ import { logInventoryActivity } from "@/lib/activity-log";
 import { getApiSession } from "@/lib/api-session";
 import { createInventoryNotification } from "@/lib/inventory-notifications";
 import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
+import { calculatePhysicalAuditVariance } from "@/lib/core-validation";
 
 interface AuditLine {
   id: string;
@@ -65,7 +66,11 @@ export async function POST(request: NextRequest) {
             firstOrLastTicket: shiftLine.pack.firstOrLastTicket,
           })
         : line.expectedTicket;
-      return { line, expected, variance: Number(line.endingPhysicalTicket) - expected };
+      return {
+        line,
+        expected,
+        variance: calculatePhysicalAuditVariance(expected, Number(line.endingPhysicalTicket)) ?? 0,
+      };
     });
     const auditUpdates = resolvedLines.map(({ line, expected, variance }) =>
       prisma.inventoryAuditLine.update({

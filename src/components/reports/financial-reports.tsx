@@ -1,3 +1,4 @@
+  audit: Array<{ pack: string; display?: string; direction?: string; beginning: number | null; expected: number | null; ending: number | null; variance: number | null }>;
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -425,7 +426,9 @@ export function FinancialReports() {
           <h2>Sales Summary</h2>
           <table><thead><tr><th>Game</th><th>Tickets sold</th><th>Sales</th><th>Cost</th></tr></thead><tbody>{printShift.gameBreakdown.map((game) => <tr key={game.name}><td>{game.name}</td><td>{game.tickets}</td><td>{fmt(game.sales)}</td><td>{fmt(game.cost)}</td></tr>)}</tbody><tfoot><tr><th>Totals</th><th>{printShift.ticketsSold}</th><th>{fmt(printShift.grossSales)}</th><th>{fmt(printShift.cogs)}</th></tr></tfoot></table>
           <h2>Physical Audit</h2>
-          <table><thead><tr><th>Pack</th><th>Beginning ticket</th><th>Ending ticket</th><th>Variance</th></tr></thead><tbody>{printShift.audit.map((line) => <tr key={line.pack}><td>{line.pack}</td><td>{line.beginning ?? "—"}</td><td>{line.ending ?? "—"}</td><td>{line.variance ?? "—"}</td></tr>)}</tbody></table>
+          <h2>Physical Audit</h2>
+          <p>Variance = observed closing ticket − system expected. Negative values indicate the physical ticket is behind expected.</p>
+          <table><thead><tr><th>Display / Pack</th><th>Sell order</th><th>Opening observed</th><th>System expected</th><th>Closing observed</th><th>Variance</th></tr></thead><tbody>{printShift.audit.map((line) => <tr key={line.pack}><td>{line.display ?? "—"} / {line.pack}</td><td>{line.direction ?? "—"}</td><td>{line.beginning ?? "—"}</td><td>{line.expected ?? "—"}</td><td>{line.ending ?? "—"}</td><td>{line.variance === null ? "—" : line.variance > 0 ? `+${line.variance}` : line.variance}</td></tr>)}</tbody></table>
         </section>
       )}
     </div>

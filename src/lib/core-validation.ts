@@ -4,6 +4,16 @@ export function validateEndingTicket(beginningTicket: number, endingTicket: numb
   return null;
 }
 
+/** Signed close variance: physical closing ticket minus the system expectation. */
+export function calculatePhysicalAuditVariance(
+  expectedPhysicalTicket: number,
+  observedPhysicalTicket: number,
+): number | null {
+  if (!Number.isInteger(expectedPhysicalTicket) || !Number.isInteger(observedPhysicalTicket)) return null;
+  if (expectedPhysicalTicket < 0 || observedPhysicalTicket < 0) return null;
+  return observedPhysicalTicket - expectedPhysicalTicket;
+}
+
 export function remainingTicketsFromStartingTicket(startingTicket: number, ticketsPerPack: number): number {
   if (!Number.isInteger(startingTicket) || !Number.isInteger(ticketsPerPack) || startingTicket < 1 || ticketsPerPack < startingTicket) return 0;
   return ticketsPerPack - startingTicket + 1;

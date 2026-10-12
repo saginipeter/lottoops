@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
+import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
+import { calculatePhysicalAuditVariance } from "@/lib/core-validation";
 import { prisma } from "@/lib/prisma";
 
 const INVENTORY_COST_RATE = 0.95;
@@ -98,11 +100,29 @@ export async function GET(req: NextRequest) {
       ticketsSold,
       gameBreakdown: Object.values(gameBreakdown).sort((a, b) => b.sales - a.sales),
       audit: shift.inventoryAudit?.lines.map((line: any) => ({
-        pack: line.pack?.serialNumber ?? line.packId,
-        beginning: line.beginningPhysicalTicket,
-        ending: line.endingPhysicalTicket,
-        variance: line.variance,
-      })) ?? [],
+      audit: shift.inventoryAudit?.lines.map((line: any) => {
+        const shiftLine = shift.lines.find((item: any) => item.packId === line.packId);
+        const systemExpected = line.endingExpectedTicket ?? (shiftLine
+          ? getAuditPhysicalTicket({
+              currentTicketNumber: shiftLine.endingTicket ?? shiftLine.pack.currentTicketNumber,
+              firstTicket: shiftLine.pack.firstTicket,
+              ticketQuantity: shiftLine.pack.ticketQuantity ?? shiftLine.pack.game.ticketsPerPack,
+              firstOrLastTicket: shiftLine.pack.firstOrLastTicket,
+            })
+          : line.expectedTicket);
+        const observed = line.endingPhysicalTicket;
+        return {
+          pack: line.pack?.serialNumber ?? line.packId,
+          display: line.slotNumber,
+          direction: shiftLine?.pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
+          beginning: line.beginningPhysicalTicket,
+          expected: systemExpected,
+          ending: observed,
+          variance: observed === null
+            ? null
+            : calculatePhysicalAuditVariance(Number(systemExpected), Number(observed)),
+        };
+      }) ?? [],
     };
   });
 
