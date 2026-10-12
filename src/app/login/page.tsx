@@ -13,35 +13,39 @@ const features = [
 export default function LoginPage() {
   return (
     <main className="min-h-screen bg-[#eef1f6] text-text lg:grid lg:grid-cols-[minmax(460px,0.92fr)_minmax(520px,1.08fr)]">
-      <section className="relative hidden min-h-screen overflow-hidden bg-[#17233f] lg:flex lg:flex-col lg:justify-between lg:px-14 lg:py-12">
-        <div className="pointer-events-none absolute right-[-12rem] top-[-12rem] h-[34rem] w-[34rem] border-[5rem] border-[#0d82a6]/20" />
-        <div className="pointer-events-none absolute bottom-[-14rem] left-[-10rem] h-[30rem] w-[30rem] border-[4rem] border-white/[0.04]" />
-        <div className="relative z-10 flex items-center gap-4">
-          <Image src="/brand/lottoops-logo-new.png" alt="LottoOps" width={180} height={64} className="h-14 w-14 object-contain" priority />
-          <span className="h-7 w-px bg-white/20" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/55">Management Console</span>
+      <section className="relative hidden min-h-screen overflow-hidden bg-[#17233f] lg:flex lg:flex-col lg:px-14 lg:py-10">
+        <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(101,209,239,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(101,209,239,0.07)_1px,transparent_1px)] [background-size:44px_44px]" />
+        <div className="pointer-events-none absolute right-[-11rem] top-[-11rem] h-[34rem] w-[34rem] border-[5rem] border-[#0d82a6]/20" />
+        <div className="pointer-events-none absolute bottom-[-15rem] left-[-9rem] h-[30rem] w-[30rem] border-[4rem] border-white/[0.04]" />
+
+        <div className="relative z-10 flex items-center justify-between border-b border-white/10 pb-7">
+          <div className="flex items-center gap-4">
+            <Image src="/brand/lottoops-logo-new.png" alt="LottoOps" width={180} height={64} className="h-14 w-14 object-contain" priority />
+            <div className="h-8 w-px bg-white/20" />
+            <div><p className="text-sm font-black tracking-wide text-white">LottoOps</p><p className="mt-1 text-[9px] font-bold uppercase tracking-[0.22em] text-white/45">Management Console</p></div>
+          </div>
+          <span className="border border-[#65d1ef]/30 bg-[#0d82a6]/15 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.18em] text-[#65d1ef]">Secure access</span>
         </div>
 
-        <div className="relative z-10 max-w-[470px]">
-          <p className="mb-5 text-[11px] font-bold uppercase tracking-[0.25em] text-[#65d1ef]">Store operations console</p>
-          <h1 className="text-4xl font-black leading-[1.05] tracking-[-0.04em] text-white xl:text-5xl">
-            Control every shift with clarity.
-          </h1>
-          <p className="mt-5 max-w-[410px] text-[15px] leading-7 text-white/55">
-            LottoOps brings receiving, inventory, sales, displays, and reporting into one controlled workspace for lottery retailers.
-          </p>
-          <div className="mt-10 grid gap-3 sm:grid-cols-2">
-            {features.map(({ icon: Icon, label, sub }) => (
-              <div key={label} className="border border-white/10 border-l-2 border-l-[#0d82a6] bg-white/[0.045] p-4">
-                <Icon size={18} className="text-[#65d1ef]" />
-                <p className="mt-5 text-sm font-semibold text-white/90">{label}</p>
+        <div className="relative z-10 flex flex-1 flex-col justify-center py-12">
+          <div className="max-w-[500px]">
+            <div className="mb-6 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.25em] text-[#65d1ef]"><span className="h-px w-8 bg-[#65d1ef]" />Store operations console</div>
+            <h1 className="max-w-[480px] text-5xl font-black leading-[1.02] tracking-[-0.045em] text-white xl:text-6xl">One console.<br /><span className="text-[#65d1ef]">Every shift.</span></h1>
+            <p className="mt-6 max-w-[430px] text-[15px] leading-7 text-white/55">LottoOps brings receiving, inventory, sales, displays, and reporting into one controlled workspace for lottery retailers.</p>
+          </div>
+
+          <div className="mt-12 grid max-w-[520px] grid-cols-2 gap-px border border-white/10 bg-white/10">
+            {features.map(({ icon: Icon, label, sub }, index) => (
+              <div key={label} className="group relative bg-[#17233f] p-5 transition-colors hover:bg-[#203254]">
+                <div className="flex items-center justify-between"><span className="flex h-9 w-9 items-center justify-center border border-[#65d1ef]/25 bg-[#0d82a6]/15 text-[#65d1ef]"><Icon size={17} /></span><span className="font-mono text-[10px] text-white/25">0{index + 1}</span></div>
+                <p className="mt-6 text-sm font-bold text-white/90">{label}</p>
                 <p className="mt-1 text-xs leading-5 text-white/40">{sub}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between border-t border-white/10 pt-5 text-[10px] uppercase tracking-[0.14em] text-white/30">
+        <div className="relative z-10 flex items-center justify-between border-t border-white/10 pt-5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/30">
           <span>Authorized staff access only</span>
           <span>© {new Date().getFullYear()} LottoOps</span>
         </div>
