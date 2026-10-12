@@ -7,8 +7,14 @@ import { Panel } from "@/components/ui/panel";
 
 interface AuditLine {
   id: string;
+  packId?: string;
+  slotNumber?: string;
+  expectedTicket?: number;
+  endingExpectedTicket?: number | null;
+  variance?: number | null;
   beginningPhysicalTicket: number | null;
   endingPhysicalTicket: number | null;
+  pack?: { serialNumber: string; game: { name: string } };
 }
 
 interface AuditState {
@@ -31,6 +37,9 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
   // An empty display has nothing to reconcile. Treat 0/0 as complete so the
   // shift can move directly to closing without requiring a phantom scan.
   const beginningComplete = activeDisplayPackCount === 0 || lines.filter((line) => line.beginningPhysicalTicket !== null).length === activeDisplayPackCount;
+  const varianceLines = lines.filter((line) => line.endingPhysicalTicket !== null && Number(line.variance ?? 0) !== 0);
+  const shortCount = varianceLines.reduce((sum, line) => sum + Math.max(-Number(line.variance ?? 0), 0), 0);
+  const overCount = varianceLines.reduce((sum, line) => sum + Math.max(Number(line.variance ?? 0), 0), 0);
 
   async function beginAudit() {
     const response = await fetch("/api/inventory-audits/begin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shiftId }) });
@@ -77,7 +86,35 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
         <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before sales begin." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
         <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned !== activeDisplayPackCount} onClick={completeAudit}>Complete Closing Audit</Button>
       </>}
-      {audit?.status === "COMPLETED" && <p className="mt-3 text-sm font-semibold text-emerald-700">Audit completed. Manager review is required for any variance.</p>}
+      {audit?.status === "COMPLETED" && <section className="mt-4 border border-border bg-surface-soft p-4" aria-label="Physical audit variance report">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h4 className="text-sm font-bold text-text">Physical audit reconciliation</h4><p className="mt-1 text-xs text-text-secondary">Observed closing ticket compared with the system ticket after recorded sales.</p></div>
+          <span className={`border px-2 py-1 text-xs font-bold ${varianceLines.length ? "border-amber-300 bg-amber-50 text-amber-800" : "border-emerald-300 bg-emerald-50 text-emerald-800"}`}>
+            {varianceLines.length ? `${varianceLines.length} pack variance${varianceLines.length === 1 ? "" : "s"}` : "All packs reconciled"}
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+          <div className="border border-border bg-surface p-2"><span className="text-text-tertiary">Packs checked</span><strong className="ml-2 text-text">{lines.length}</strong></div>
+          <div className="border border-border bg-surface p-2"><span className="text-text-tertiary">Short</span><strong className="ml-2 text-red-700">{shortCount}</strong></div>
+          <div className="border border-border bg-surface p-2"><span className="text-text-tertiary">Over</span><strong className="ml-2 text-amber-700">{overCount}</strong></div>
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-xs">
+            <thead><tr className="border-b border-border text-text-tertiary"><th className="py-2 pr-3">Display / Pack</th><th className="py-2 pr-3">System expected</th><th className="py-2 pr-3">Observed</th><th className="py-2">Difference</th></tr></thead>
+            <tbody>{lines.map((line) => {
+              const expected = Number(line.endingExpectedTicket ?? line.expectedTicket ?? 0);
+              const observed = Number(line.endingPhysicalTicket ?? 0);
+              const variance = observed - expected;
+              return <tr key={line.id} className="border-b border-border/70">
+                <td className="py-2 pr-3"><span className="font-semibold text-text">Display {line.slotNumber ?? "—"}</span><span className="ml-2 text-text-secondary">{line.pack?.game.name ?? "Pack"} #{line.pack?.serialNumber ?? line.packId ?? "—"}</span></td>
+                <td className="py-2 pr-3 tabular-nums">{expected}</td><td className="py-2 pr-3 tabular-nums">{observed}</td>
+                <td className={`py-2 font-bold tabular-nums ${variance < 0 ? "text-red-700" : variance > 0 ? "text-amber-700" : "text-emerald-700"}`}>{variance > 0 ? `+${variance}` : variance}</td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+        {varianceLines.length > 0 && <p className="mt-3 text-xs font-medium text-amber-800">Review each flagged pack before resolving the variance. Variance equals observed physical ticket minus system-expected physical ticket.</p>}
+      </section>}
       {message && <p role="status" className={`mt-2 text-sm ${messageType === "success" ? "text-emerald-700" : "text-red-700"}`}>{message}</p>}
     </Panel>
   );

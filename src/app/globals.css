@@ -233,7 +233,7 @@ body {
 
 .dashboard-shell [class*="overflow-y-auto"],
 .dashboard-shell [class*="overflow-auto"] {
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   scrollbar-color: var(--color-sidebar-line) transparent;
 }
 
@@ -291,6 +291,21 @@ body {
   }
   body.shift-report-printing .shift-report-print {
     display: block !important;
+  }
+  body.receiving-record-printing * { visibility: hidden !important; }
+  body.receiving-record-printing .receiving-print-report,
+  body.receiving-record-printing .receiving-print-report * { visibility: visible !important; }
+  body.receiving-record-printing .receiving-print-report {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483647 !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 12mm !important;
+    background: #fff !important;
+    color: #111827 !important;
   }
 }
 

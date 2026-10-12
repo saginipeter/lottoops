@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BarChart3, Boxes, ClipboardCheck, FileText, PackagePlus, Settings, ShoppingCart, Store, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, BarChart3, Boxes, CheckCircle2, ClipboardCheck, FileText, PackagePlus, Settings, ShoppingCart, Store, Users, X } from "lucide-react";
 import { useState } from "react";
 
 type Action = { title: string; description: string; href: string; icon: typeof ShoppingCart; className: string };
@@ -16,6 +16,7 @@ export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props)
   const canDisplay = isAdmin || grantedPermissions.includes("MANAGE_DISPLAY");
   const canSettings = isAdmin;
   const canGames = isAdmin || grantedPermissions.includes("MANAGE_GAMES");
+  const canDocuments = canReports;
 
   const posActions: Action[] = isPlatformAdmin ? [] : [
     { title: "Sell Tickets", description: "Open the cashier terminal", href: "/pos", icon: ShoppingCart, className: "bg-[#087da8]" },
@@ -32,6 +33,11 @@ export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props)
       { title: "Owner Overview", description: "Store and organization oversight", href: "/owner", icon: Users, className: "bg-[#087da8]" },
     ] : []),
     ...(canGames ? [{ title: "Games", description: "Manage the store game catalogue", href: "/games", icon: Settings, className: "bg-[#159447]" }] : []),
+    ...(canDocuments ? [{ title: "Documents", description: "Find invoices, receipts, and compliance records", href: "/documents", icon: FileText, className: "bg-[#39758a]" }] : []),
+    ...(isAdmin ? [
+      { title: "Alerts", description: "Review operational issues and stock warnings", href: "/alerts", icon: AlertTriangle, className: "bg-[#bd522d]" },
+      { title: "Onboarding", description: "Continue store setup and team readiness", href: "/onboarding", icon: CheckCircle2, className: "bg-[#426b52]" },
+    ] : []),
   ];
 
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
