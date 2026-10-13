@@ -15,10 +15,11 @@ import { WhatsAppSummaryCard } from "@/components/reports/whatsapp-summary-card"
 import { TicketReportsPanel } from "@/components/reports/ticket-reports-panel";
 import { TicketReturnRequestsPanel } from "@/components/reports/ticket-return-requests-panel";
 import { ShipmentOverrideNotifications } from "@/components/reports/shipment-override-notifications";
+import { ReceivingShipmentsReport } from "@/components/reports/receiving-shipments-report";
 import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
 
 type Role = "OWNER" | "MANAGER" | "EMPLOYEE" | "SHIFT_LEAD" | "PLATFORM_ADMIN" | "AUDITOR";
-type ReportKey = "shift-sales" | "activity" | "inventory" | "inventory-aging" | "discrepancies" | "corrections" | "lifecycle" | "exceptions" | "ai-review" | "whatsapp" | "ticket-reports" | "returns" | "shipment-overrides" | "state-uploads";
+type ReportKey = "shift-sales" | "activity" | "inventory" | "inventory-aging" | "discrepancies" | "corrections" | "lifecycle" | "exceptions" | "ai-review" | "whatsapp" | "ticket-reports" | "returns" | "shipment-overrides" | "receiving-shipments" | "state-uploads";
 
 interface ReportOption {
   key: ReportKey;
@@ -45,6 +46,7 @@ const reportOptions: ReportOption[] = [
   { key: "ticket-reports", label: "Employee Ticket Reports", description: "Review tickets reported by employees for manager action.", group: "Management", icon: FileBarChart2, minimumRole: "MANAGER" },
   { key: "returns", label: "Ticket Return Requests", description: "Approve or deny ticket return requests.", group: "Management", icon: RefreshCw, minimumRole: "MANAGER" },
   { key: "shipment-overrides", label: "Shipment Overrides", description: "Review receiving overrides and exception notifications.", group: "Management", icon: Package, minimumRole: "MANAGER" },
+  { key: "receiving-shipments", label: "Receiving Shipments", description: "Search historical shipment records, receiver names, and pack counts.", group: "Inventory", icon: Package, minimumRole: "MANAGER" },
   { key: "state-uploads", label: "State Report Uploads", description: "Upload required state reports and supporting evidence.", group: "Management", icon: Upload, minimumRole: "MANAGER" },
 ];
 
@@ -95,6 +97,7 @@ export function ReportsWorkspace({ role }: { role: Role }) {
       case "ticket-reports": return <TicketReportsPanel title="Employee Ticket Reports" />;
       case "returns": return <TicketReturnRequestsPanel title="Ticket Return Requests" />;
       case "shipment-overrides": return <ShipmentOverrideNotifications />;
+      case "receiving-shipments": return <ReceivingShipmentsReport />;
       case "state-uploads": return <StateReportsUploader />;
     }
   }

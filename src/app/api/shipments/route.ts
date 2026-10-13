@@ -13,20 +13,28 @@ export async function GET(req: NextRequest) {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const status = req.nextUrl.searchParams.get("status")?.trim();
-  const shipments = await prisma.shipment.findMany({
-    where: {
-      storeId: session.storeId,
-      ...(status === "IN_PROGRESS" || status === "RECEIVED" ? { status } : {}),
-    },
-    include: {
-      receivedBy: { select: { name: true } },
-      _count: { select: { packs: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+  const requestedPage = Number(req.nextUrl.searchParams.get("page") ?? 1);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const pageSize = 100;
+  const where = {
+    storeId: session.storeId,
+    ...(status === "IN_PROGRESS" || status === "RECEIVED" ? { status } : {}),
+  };
+  const [shipments, total] = await Promise.all([
+    prisma.shipment.findMany({
+      where,
+      include: {
+        receivedBy: { select: { name: true } },
+        _count: { select: { packs: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: pageSize,
+      skip: (page - 1) * pageSize,
+    }),
+    prisma.shipment.count({ where }),
+  ]);
 
-  return NextResponse.json({ shipments });
+  return NextResponse.json({ shipments, page, pageSize, total, totalPages: Math.ceil(total / pageSize) });
 }
 
 export async function POST(req: NextRequest) {
