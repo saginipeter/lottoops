@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { getPlanAccess } from "@/lib/plan-access";
+import { getResolutionMap } from "@/lib/discrepancy-resolution";
 
 interface OwnerStore {
   id: string;
@@ -48,17 +49,30 @@ export async function GET() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [packs, openShifts, todayLines, rawShiftsToday, lockedExceptions, auditExceptions] = await Promise.all([
+    const [packs, openShifts, todayLines, rawShiftsToday, lockedExceptionRows, auditExceptionRows] = await Promise.all([
       prisma.pack.findMany({ where: { storeId: { in: storeIds } }, select: { storeId: true, status: true, sequenceLocked: true } }),
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, status: "OPEN" }, select: { storeId: true } }),
       prisma.shiftLine.findMany({ where: { shift: { AND: [{ storeId: { in: storeIds } }, { openedAt: { gte: today } }] } }, select: { shift: { select: { storeId: true } }, ticketsSold: true, salesAmount: true } }),
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, openedAt: { gte: today } }, select: { id: true, storeId: true } }),
-      prisma.pack.count({ where: { storeId: { in: storeIds }, sequenceLocked: true } }),
-      prisma.inventoryAuditLine.count({ where: { audit: { storeId: { in: storeIds } }, variance: { not: 0 } } }),
+      prisma.pack.findMany({ where: { storeId: { in: storeIds }, sequenceLocked: true }, select: { id: true, storeId: true } }),
+      prisma.inventoryAuditLine.findMany({ where: { audit: { storeId: { in: storeIds } }, variance: { not: 0 } }, select: { id: true, audit: { select: { storeId: true } } } }),
     ]);
     const shiftsToday = rawShiftsToday as Array<{ id: string; storeId: string }>;
     const ownerPacks = packs as OwnerPack[];
     const ownerLines = todayLines as OwnerLine[];
+    const resolutionsByStore = new Map<string, Set<string>>();
+    await Promise.all(storeIds.map(async (storeId) => {
+      try {
+        const resolutions = await getResolutionMap(storeId);
+        resolutionsByStore.set(storeId, new Set(resolutions.keys()));
+      } catch {
+        resolutionsByStore.set(storeId, new Set());
+      }
+    }));
+    const isOpenLock = (row: { id: string; storeId: string }) => !resolutionsByStore.get(row.storeId)?.has(`SEQUENCE_LOCK:${row.id}`);
+    const isOpenAuditVariance = (row: { id: string; audit: { storeId: string } }) => !resolutionsByStore.get(row.audit.storeId)?.has(`INVENTORY_AUDIT:${row.id}`);
+    const unresolvedLockCount = lockedExceptionRows.filter(isOpenLock).length;
+    const unresolvedAuditCount = auditExceptionRows.filter(isOpenAuditVariance).length;
 
     let completedAudits = 0;
     try {
@@ -95,7 +109,9 @@ export async function GET() {
         backstock: storePacks.filter((pack) => pack.status === "BACK_STOCK").length,
         activePacks: storePacks.filter((pack) => pack.status === "ACTIVE").length,
         lockedPacks: storePacks.filter((pack) => pack.sequenceLocked).length,
-        openExceptions: storePacks.filter((pack) => pack.sequenceLocked).length,
+        openExceptions:
+          lockedExceptionRows.filter((row) => row.storeId === store.id && isOpenLock(row)).length +
+          auditExceptionRows.filter((row) => row.audit.storeId === store.id && isOpenAuditVariance(row)).length,
       };
     });
 
@@ -110,8 +126,8 @@ export async function GET() {
         lockedPacks: storeRows.reduce((sum, store) => sum + store.lockedPacks, 0),
         openShifts: openShifts.length,
         auditCompletionRate: shiftsToday.length ? Math.round((completedAudits / shiftsToday.length) * 100) : 0,
-        openExceptions: lockedExceptions + auditExceptions,
-        highestRiskExceptions: lockedExceptions,
+        openExceptions: unresolvedLockCount + unresolvedAuditCount,
+        highestRiskExceptions: unresolvedLockCount,
       },
       recentOverrides,
       plan: {

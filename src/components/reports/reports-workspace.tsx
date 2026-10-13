@@ -160,7 +160,7 @@ export function ReportsWorkspace({ role }: { role: Role }) {
               {current.key !== "shift-sales" && <button type="button" onClick={printSelectedReport} className="inline-flex min-h-10 items-center gap-2 bg-white px-3 text-xs font-bold text-[#17233f] hover:bg-slate-100"><Printer size={14} />Print Report</button>}
             </div>
           </div>
-          <div className="report-print-target">{renderReport()}</div>
+          <div className="report-workspace-print-target">{renderReport()}</div>
         </div>
       </section>
     </div>
