@@ -11,6 +11,14 @@ import type {
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { ScannedPackTable } from "../scanned-pack-table";
 
@@ -40,6 +48,8 @@ export function ReviewStep({
 }: ReviewStepProps) {
   const [overrideLoading, setOverrideLoading] = useState(false);
   const [overrideError, setOverrideError] = useState("");
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
   const expected = shipment.expectedPacks ?? 0;
   const expectedRetailValue = Number(shipment.expectedRetailValue ?? 0);
   const scanned = packs.length;
@@ -54,15 +64,18 @@ export function ReviewStep({
     expectedRetailValue > 0 &&
     Math.round(expectedRetailValue * 100) === Math.round(calculatedInventoryCost * 100);
 
-  async function requestOverride() {
+  function requestOverride() {
     if (!shipment.id) return;
-    const reason = window.prompt("Enter a detailed reason for this shipment override (at least 10 characters):");
-    if (reason === null) return;
-    if (reason.trim().length < 10) {
+    setOverrideError("");
+    setOverrideDialogOpen(true);
+  }
+
+  async function approveOverride() {
+    const reason = overrideReason.trim();
+    if (reason.length < 10) {
       setOverrideError("Enter a detailed reason of at least 10 characters.");
       return;
     }
-
     try {
       setOverrideLoading(true);
       setOverrideError("");
@@ -76,8 +89,11 @@ export function ReviewStep({
         setOverrideError(data?.error || "Unable to approve shipment override.");
         return;
       }
+      setOverrideDialogOpen(false);
+      setOverrideReason("");
       onOverrideApproved();
-    } catch {
+    } catch (error) {
+      console.error("Unable to approve shipment override:", error);
       setOverrideError("Unable to approve shipment override.");
     } finally {
       setOverrideLoading(false);
@@ -200,7 +216,6 @@ export function ReviewStep({
               <Button type="button" className="mt-3" variant="outline" onClick={requestOverride} disabled={overrideLoading}>
                 {overrideLoading ? "Approving..." : "Approve Shipment Override"}
               </Button>
-              {overrideError && <p className="mt-2 text-sm text-red-700">{overrideError}</p>}
             </div>
           )}
 
@@ -271,6 +286,43 @@ export function ReviewStep({
           </Button>
 
       </div>
+
+      <Dialog open={overrideDialogOpen} onOpenChange={(open) => {
+        if (!overrideLoading) setOverrideDialogOpen(open);
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Approve shipment override</DialogTitle>
+            <DialogDescription>
+              Enter a detailed reason for approving this shipment discrepancy. At least 10 characters are required.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="grid gap-2 text-sm font-medium text-text" htmlFor="shipment-override-reason">
+            Override reason
+            <textarea
+              id="shipment-override-reason"
+              autoFocus
+              rows={4}
+              maxLength={1000}
+              value={overrideReason}
+              onChange={(event) => setOverrideReason(event.target.value)}
+              placeholder="Explain the discrepancy and why it is approved"
+              className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 font-normal outline-none focus:border-accent"
+              disabled={overrideLoading}
+            />
+          </label>
+          <p className="text-xs text-text-tertiary">{overrideReason.trim().length}/10 minimum characters</p>
+          {overrideError && <p role="alert" className="text-sm text-red-700">{overrideError}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOverrideDialogOpen(false)} disabled={overrideLoading}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void approveOverride()} disabled={overrideLoading || overrideReason.trim().length < 10}>
+              {overrideLoading ? "Approving..." : "Approve Override"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
