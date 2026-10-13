@@ -52,10 +52,22 @@ export async function GET() {
     const shifts = shiftsResult as OpenShift[];
     const shipments = shipmentsResult as StaleShipment[];
     let notifications: Array<{ id: string; title: string; detail: string; severity: string; createdAt: Date; entityId: string }> = [];
+    let shipmentOverrides: Array<{ id: string; detail: string; createdAt: Date; entityId: string }> = [];
     try {
       notifications = await prisma.$queryRawUnsafe(`SELECT id, title, detail, severity, created_at AS "createdAt", entity_id AS "entityId" FROM inventory_notifications WHERE store_id = $1 ORDER BY created_at DESC LIMIT 100`, session.storeId) as typeof notifications;
     } catch {
       // Notifications are created lazily when an audit variance is found.
+    }
+    try {
+      shipmentOverrides = await prisma.$queryRawUnsafe(
+        `SELECT id, detail, created_at AS "createdAt", entity_id AS "entityId"
+         FROM inventory_activity_logs
+         WHERE store_id = $1 AND action = 'SHIPMENT_OVERRIDE'
+         ORDER BY created_at DESC LIMIT 50`,
+        session.storeId
+      ) as typeof shipmentOverrides;
+    } catch {
+      // Legacy databases may not have the activity log table initialized.
     }
 
     const alerts = [
@@ -70,6 +82,7 @@ export async function GET() {
       }),
       ...shipments.map((shipment) => ({ id: `SHIPMENT_${shipment.id}`, type: "STALE_RECEIVING", severity: "MEDIUM", title: "Receiving draft is overdue", detail: `Invoice ${shipment.invoiceNumber} has been in progress for more than 24 hours (${shipment.expectedPacks} expected pack(s)).`, createdAt: shipment.createdAt.toISOString(), entityId: shipment.id })),
       ...notifications.map((notification) => ({ id: notification.id, type: "INVENTORY_AUDIT_VARIANCE", severity: notification.severity, title: notification.title, detail: notification.detail, createdAt: notification.createdAt.toISOString(), entityId: notification.entityId })),
+      ...shipmentOverrides.map((entry) => ({ id: `SHIPMENT_OVERRIDE_${entry.id}`, type: "SHIPMENT_OVERRIDE", severity: "MEDIUM", title: "Shipment override approved", detail: entry.detail, createdAt: entry.createdAt.toISOString(), entityId: entry.entityId })),
       ...deviceRows.filter((device) => device.healthStatus === "OFFLINE" || device.healthStatus === "STALE" || !device.isPaired).map((device) => ({
         id: `DEVICE_${device.id}`,
         type: "DEVICE_HEALTH",
