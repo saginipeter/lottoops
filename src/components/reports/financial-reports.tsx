@@ -1,24 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { Fragment, useState, useEffect, useCallback } from "react";
+import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "@/components/reports/report-actions";
+import { createShiftReportDocument, shiftReportTimestamp, type ShiftReportData } from "@/lib/shift-report-document";
+import type { ReportDocument } from "@/lib/report-document";
 
 interface GameRow { name: string; tickets: number; sales: number; cost: number; netMargin: number; marginPct: number; }
-interface ShiftRow {
-  id: string;
-  openedAt: string;
-  closedAt: string | null;
-  openedBy: string;
-  closedBy: string;
-  grossSales: number;
-  cogs: number;
-  netMargin: number;
+interface ShiftRow extends ShiftReportData {
   marginPct: number;
-  ticketsSold: number;
   gameBreakdown: GameRow[];
-  audit: Array<{ pack: string; display?: string; direction?: string; beginning: number | null; expected: number | null; ending: number | null; variance: number | null }>;
 }
 interface DailyRow { date: string; grossSales: number; ticketsSold: number; shifts: number; }
 interface Summary {
@@ -26,6 +19,8 @@ interface Summary {
   avgMarginPct: number; shiftCount: number;
 }
 interface ReportData {
+  fromDate: string;
+  toDate: string;
   summary: Summary;
   shifts: ShiftRow[];
   dailyTotals: DailyRow[];
@@ -36,7 +31,7 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }
 function fmtDate(iso: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+  return shiftReportTimestamp(iso);
 }
 function fmtDay(d: string) {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(new Date(d + "T12:00:00"));
@@ -80,7 +75,6 @@ export function FinancialReports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedShift, setExpandedShift] = useState<string | null>(null);
-  const [printShift, setPrintShift] = useState<ShiftRow | null>(null);
   const [activeTab, setActiveTab] = useState<"shifts" | "daily" | "games">("shifts");
 
   const loadReport = useCallback(async () => {
@@ -130,13 +124,33 @@ export function FinancialReports() {
     setTo(t);
   }
 
-  function printClosedShift(shift: ShiftRow) {
-    setPrintShift(shift);
-    document.body.classList.add("report-printing", "shift-report-printing");
-    const cleanup = () => document.body.classList.remove("report-printing", "shift-report-printing");
-    window.addEventListener("afterprint", cleanup, { once: true });
-    window.setTimeout(() => window.print(), 50);
-  }
+  const summaryDocument: ReportDocument | null = data ? {
+    title: "Shift Financial Summary",
+    metadata: [
+      { label: "From", value: shiftReportTimestamp(data.fromDate) },
+      { label: "Through", value: shiftReportTimestamp(data.toDate) },
+      { label: "Closed shifts included", value: data.summary.shiftCount },
+    ],
+    sections: [
+      {
+        title: "Closed shifts",
+        columns: ["Shift ID", "Opened by", "Opened at", "Closed by", "Closed at", "Tickets sold", "Gross sales", "Estimated cost", "Estimated margin"],
+        rows: data.shifts.map((shift) => [shift.id, shift.openedBy, fmtDate(shift.openedAt),
+          shift.closedBy, shiftReportTimestamp(shift.closedAt), shift.ticketsSold,
+          fmt(shift.grossSales), fmt(shift.cogs), fmt(shift.netMargin)]),
+      },
+      { title: "Daily totals", columns: ["Date (UTC)", "Shifts", "Tickets sold", "Gross sales"],
+        rows: data.dailyTotals.map((day) => [day.date, day.shifts, day.ticketsSold, fmt(day.grossSales)]) },
+      { title: "Game performance", columns: ["Game", "Tickets sold", "Gross sales", "Estimated cost", "Estimated margin"],
+        rows: data.gamePerformance.map((game) => [game.name, game.tickets, fmt(game.sales), fmt(game.cost), fmt(game.netMargin)]) },
+    ],
+    totals: [
+      { label: "Tickets sold", value: data.summary.totalTickets },
+      { label: "Gross sales", value: fmt(data.summary.totalGross) },
+      { label: "Estimated cost (95% of face value)", value: fmt(data.summary.totalCogs) },
+      { label: "Estimated margin", value: fmt(data.summary.totalNet) },
+    ],
+  } : null;
 
   return (
     <div className="space-y-5">
@@ -202,6 +216,7 @@ export function FinancialReports() {
       {/* Summary KPIs */}
       {data && (
         <>
+          {summaryDocument && <div className="flex justify-end"><ReportActions document={summaryDocument} disabled={loading} /></div>}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
             <StatCard label="Gross Sales" value={fmt(data.summary.totalGross)} up={true} sub="Total revenue" />
             <StatCard label="Est. COGS" value={fmt(data.summary.totalCogs)} sub="Cost of tickets" />
@@ -242,12 +257,12 @@ export function FinancialReports() {
                         <th className="py-2 pr-4 text-right">COGS</th>
                         <th className="py-2 pr-4 text-right">Net</th>
                         <th className="py-2 pr-3 text-right">Margin</th>
-                        <th className="py-2 text-right">Print</th>
+                        <th className="py-2 text-right">Report</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.shifts.map((shift) => (
-                        <>
+                        <Fragment key={shift.id}>
                           <tr key={shift.id}
                             className="border-b border-border cursor-pointer hover:bg-surface-soft"
                             onClick={() => setExpandedShift(expandedShift === shift.id ? null : shift.id)}>
@@ -267,7 +282,7 @@ export function FinancialReports() {
                               {fmt(shift.netMargin)}
                             </td>
                             <td className="py-2.5 pr-3 text-right"><MarginBar pct={shift.marginPct} /></td>
-                            <td className="py-2.5 text-right"><Button type="button" size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); printClosedShift(shift); }}><Printer size={13} /> Print</Button></td>
+                            <td className="py-2.5 text-right" onClick={(event) => event.stopPropagation()}><ReportActions document={createShiftReportDocument(shift)} disabled={loading} /></td>
                           </tr>
                           {expandedShift === shift.id && shift.gameBreakdown.length > 0 && (
                             <tr key={`${shift.id}-expand`} className="bg-surface-soft">
@@ -284,7 +299,7 @@ export function FinancialReports() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -417,18 +432,6 @@ export function FinancialReports() {
         </div>
       )}
 
-      {printShift && (
-        <section className="report-print-target shift-report-print hidden print:block" aria-label="Printable shift sales and audit report">
-          <style jsx global>{`@page { margin: 12mm; } @media print { html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; } body > * { visibility: hidden !important; } .shift-report-print, .shift-report-print * { visibility: visible !important; } .shift-report-print { display: block !important; position: static !important; width: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; color: #111827; break-after: avoid-page; } .shift-report-print h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; } .shift-report-print h2 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; break-after: avoid; } .shift-report-print table { width: 100%; border-collapse: collapse; font-size: 11px; break-inside: avoid; } .shift-report-print th, .shift-report-print td { border: 1px solid #9ca3af; padding: 5px; text-align: left; } .shift-report-print tr { break-inside: avoid; } }`}</style>
-          <h1>End-of-Shift Management Records</h1>
-          <p>Closed {printShift.closedAt ? fmtDate(printShift.closedAt) : "—"} · Completed by {printShift.closedBy}</p>
-          <h2>Sales Summary</h2>
-          <table><thead><tr><th>Game</th><th>Tickets sold</th><th>Sales</th><th>Cost</th></tr></thead><tbody>{printShift.gameBreakdown.map((game) => <tr key={game.name}><td>{game.name}</td><td>{game.tickets}</td><td>{fmt(game.sales)}</td><td>{fmt(game.cost)}</td></tr>)}</tbody><tfoot><tr><th>Totals</th><th>{printShift.ticketsSold}</th><th>{fmt(printShift.grossSales)}</th><th>{fmt(printShift.cogs)}</th></tr></tfoot></table>
-          <h2>Physical Audit</h2>
-          <p>Variance = observed closing ticket − system expected. Negative values indicate the physical ticket is behind expected.</p>
-          <table><thead><tr><th>Display / Pack</th><th>Sell order</th><th>Opening observed</th><th>System expected</th><th>Closing observed</th><th>Variance</th></tr></thead><tbody>{printShift.audit.map((line) => <tr key={line.pack}><td>{line.display ?? "—"} / {line.pack}</td><td>{line.direction ?? "—"}</td><td>{line.beginning ?? "—"}</td><td>{line.expected ?? "—"}</td><td>{line.ending ?? "—"}</td><td>{line.variance === null ? "—" : line.variance > 0 ? `+${line.variance}` : line.variance}</td></tr>)}</tbody></table>
-        </section>
-      )}
     </div>
   );
 }

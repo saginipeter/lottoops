@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Clock3, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "@/components/reports/report-actions";
 
 interface OverrideNotification {
   id: string | number;
@@ -16,13 +17,18 @@ interface OverrideNotification {
 export function ShipmentOverrideNotifications() {
   const [notifications, setNotifications] = useState<OverrideNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   async function load() {
     try {
       setLoading(true);
+      setError("");
       const response = await fetch("/api/notifications/overrides", { cache: "no-store" });
       const data = await response.json();
-      if (response.ok) setNotifications(data.notifications ?? []);
+      if (!response.ok) throw new Error(data.error || "Unable to load override notifications.");
+      setNotifications(data.notifications ?? []);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to load override notifications.");
     } finally {
       setLoading(false);
     }
@@ -32,6 +38,17 @@ export function ShipmentOverrideNotifications() {
 
   return (
     <Panel className="p-5">
+      <div className="mb-3">
+        <ReportActions disabled={loading || !!error} document={{
+          title: "Shipment Overrides",
+          sections: [{
+            title: "Override notifications",
+            columns: ["Time", "Store", "Detail", "Approved by"],
+            rows: notifications.map((notification) => [new Date(notification.createdAt).toLocaleString(), notification.storeName, notification.detail, notification.performedByName]),
+          }],
+          totals: [{ label: "Overrides", value: notifications.length }],
+        }} />
+      </div>
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Owner notifications</p>
@@ -41,6 +58,7 @@ export function ShipmentOverrideNotifications() {
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
         </Button>
       </div>
+      {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
       {loading ? (
         <p className="text-sm text-text-secondary">Loading override notifications...</p>
       ) : notifications.length === 0 ? (

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Download, FileUp, Loader2 } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "@/components/reports/report-actions";
 
 type ReportType = "SETTLED_PACK" | "ACTIVATED" | "INVENTORY";
 
@@ -113,6 +114,28 @@ export function StateReportsUploader() {
 
   return (
     <Panel className="p-5">
+      <div className="mb-3">
+        <ReportActions disabled={loading || !!error || uploading !== null || !selectedStoreId} document={{
+          title: "State Lottery Report Uploads",
+          subtitle: "Upload status only — uploaded receipt contents are not included.",
+          metadata: [
+            { label: "Store", value: stores.find((store) => store.id === selectedStoreId)?.name ?? selectedStoreId },
+            { label: "Week of Monday", value: weekStart },
+          ],
+          sections: [{
+            title: "Weekly report status",
+            columns: ["Report", "Status", "File", "Rows", "Uploaded at", "Verification"],
+            rows: REPORTS.map((report) => {
+              const current = selectedReports.find((item) => item.reportType === report.type);
+              return [report.label, current ? (current.imageUrl ? "Photo archived" : "Uploaded") : "Required", current?.fileName ?? null, current?.rowCount ?? null, current ? new Date(current.uploadedAt).toLocaleString() : null, current?.verificationStatus ?? null];
+            }),
+          }],
+          totals: [
+            { label: "Reports uploaded", value: selectedReports.length },
+            { label: "Reports required", value: REPORTS.length },
+          ],
+        }} />
+      </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Weekly controls</p>

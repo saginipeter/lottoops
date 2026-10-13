@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Activity, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "@/components/reports/report-actions";
 
 interface AnalyticsData {
   summary: {
@@ -49,6 +50,36 @@ export function LifecycleAnalyticsReport() {
 
   return (
     <Panel className="p-4 sm:p-5">
+      <div className="mb-3">
+        <ReportActions disabled={loading || !!error || !data} document={{
+          title: "Pack Lifecycle & Exposure",
+          sections: [
+            {
+              title: "Lifecycle summary",
+              columns: ["Metric", "Value"],
+              rows: data ? [
+                ["Average receipt to activation (days)", data.summary.averageReceiptToActivationDays],
+                ["Average activation to completion (days)", data.summary.averageActivationToCompletionDays],
+                ["Backstock exposure", currency(data.summary.backstockExposure)],
+                ["Active exposure", currency(data.summary.activeExposure)],
+                ["Backstock over 30 days", data.summary.backstockOver30Days],
+                ["Active over 30 days", data.summary.activeOver30Days],
+                ["Reassigned packs", data.summary.reassignedPacks],
+              ] : [],
+            },
+            {
+              title: "Game movement",
+              columns: ["Game", "Game number", "Packs", "Tickets moved", "Value"],
+              rows: data?.games.map((game) => [game.game, game.gameNumber, game.packs, game.tickets, currency(game.value)]) ?? [],
+            },
+          ],
+          totals: [
+            { label: "Packs", value: data?.games.reduce((sum, game) => sum + game.packs, 0) ?? 0 },
+            { label: "Tickets moved", value: data?.games.reduce((sum, game) => sum + game.tickets, 0) ?? 0 },
+            { label: "Value moved", value: currency(data?.games.reduce((sum, game) => sum + game.value, 0) ?? 0) },
+          ],
+        }} />
+      </div>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <Activity size={18} className="mt-0.5 text-accent" />

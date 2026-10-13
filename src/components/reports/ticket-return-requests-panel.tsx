@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Clock3, PackageCheck, RefreshCw, XCircle } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "@/components/reports/report-actions";
 
 interface ReturnRequest {
   id: string;
@@ -58,6 +59,7 @@ export function TicketReturnRequestsPanel({
         return;
       }
       setRequests(Array.isArray(data?.requests) ? data.requests : []);
+      setError("");
     } catch {
       setError("Unable to load return requests.");
     } finally {
@@ -98,6 +100,18 @@ export function TicketReturnRequestsPanel({
 
   return (
     <Panel className="p-5">
+      <div className="mb-3">
+        <ReportActions disabled={loading || !!error || actingId !== null} document={{
+          title,
+          subtitle: "Pending ticket return requests",
+          sections: [{
+            title: "Return requests",
+            columns: ["Time", "Store ID", "Shift", "Pack", "Game", "Game number", "Ticket barcode", "Reason", "Requested by"],
+            rows: requests.map((request) => [new Date(request.createdAt).toLocaleString(), request.storeId, request.shiftId, request.serialNumber, request.gameName, request.gameNumber, request.ticketBarcode, request.reason, request.requestedByName]),
+          }],
+          totals: [{ label: "Pending requests", value: requests.length }],
+        }} />
+      </div>
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Alerts</p>

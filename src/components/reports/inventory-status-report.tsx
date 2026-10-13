@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "@/components/reports/report-actions";
+import type { ReportDocument } from "@/lib/report-document";
 
 type PackStatus = "ALL" | "BACK_STOCK" | "ACTIVE" | "RETURNED" | "SOLD_OUT" | "COMPLETED";
 
@@ -59,6 +61,21 @@ export function InventoryStatusReport() {
     () => rows.reduce((sum, row) => sum + Number(row.retailValue ?? 0), 0),
     [rows]
   );
+  const document: ReportDocument = {
+    title: "Inventory Status Report",
+    metadata: [{ label: "Status", value: status.replaceAll("_", " ") }, { label: "Search", value: q || "All packs" }],
+    sections: [{
+      title: "Pack inventory",
+      columns: ["Status", "Game", "Display", "Pack", "Serial", "Tickets", "Retail value", "Reason"],
+      rows: rows.map((row) => [
+        row.status.replaceAll("_", " "), `${row.game.name} #${row.gameNumber ?? "—"}`,
+        row.slot?.slotNumber ?? null, row.packNumber ?? null, row.serialNumber,
+        row.ticketQuantity ?? null, `$${Number(row.retailValue).toFixed(2)}`,
+        row.activeRemovalReason ?? row.removalReason ?? null,
+      ]),
+    }],
+    totals: [{ label: "Filtered packs", value: rows.length }, { label: "Filtered retail value", value: `$${totalRetail.toFixed(2)}` }],
+  };
 
   return (
     <Panel className="p-4">
@@ -88,9 +105,7 @@ export function InventoryStatusReport() {
           <Button variant="outline" onClick={() => window.open("/api/reports/export?type=inventory", "_blank")}>
             Export CSV
           </Button>
-          <Button variant="secondary" onClick={() => window.print()}>
-            Print
-          </Button>
+          <ReportActions document={document} disabled={loading || Boolean(error)} />
         </div>
       </div>
 

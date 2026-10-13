@@ -18,7 +18,7 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
     if (!shipment.expectedRetailValue || shipment.expectedRetailValue <= 0) return alert("Enter the expected inventory cost before continuing.");
     try {
       const hasExistingShipment = Boolean(shipment.id);
-      const response = await fetch("/api/shipments", { method: hasExistingShipment ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(hasExistingShipment ? { shipmentId: shipment.id } : {}), invoiceNumber: shipment.invoiceNumber, invoicePhoto: shipment.invoicePhoto, shipmentConfirmationNumber: shipment.shipmentConfirmationNumber, confirmationReceiptPhoto: shipment.confirmationReceiptPhoto, shipmentDate: shipment.shipmentDate, expectedPacks: shipment.expectedPacks, expectedRetailValue: shipment.expectedRetailValue }) });
+      const response = await fetch("/api/shipments", { method: hasExistingShipment ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(hasExistingShipment ? { shipmentId: shipment.id } : {}), invoiceNumber: shipment.invoiceNumber, invoicePhoto: shipment.invoicePhoto, supplierDetails: shipment.supplierDetails, shipmentConfirmationNumber: shipment.shipmentConfirmationNumber, confirmationReceiptPhoto: shipment.confirmationReceiptPhoto, shipmentDate: shipment.shipmentDate, expectedPacks: shipment.expectedPacks, expectedRetailValue: shipment.expectedRetailValue }) });
       const data = await response.json();
       if (!response.ok) return alert(data.error || "Unable to create shipment.");
       setShipment((prev) => ({
@@ -26,6 +26,7 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
         id: data.id ?? prev.id,
         scannedPacks: Number(data.existingPackCount ?? data.scannedPacks ?? prev.scannedPacks ?? 0),
         status: data.status ?? prev.status,
+        supplierDetails: data.supplierDetails ?? "",
       }));
       nextStep();
     } catch (error) { console.error(error); alert("Unable to create shipment."); }
@@ -35,6 +36,7 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
     <div className="mb-4 flex items-start justify-between gap-3 border-b border-border pb-3"><div><h2 className="text-lg font-semibold text-text">Shipment details</h2><p className="mt-1 text-xs text-text-secondary">Enter the shipment information and attach both required photos.</p></div></div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <Field label="Invoice tracking number" icon={<FileText size={15} />}><input inputMode="numeric" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.invoiceNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, invoiceNumber: e.target.value }))} placeholder="Enter invoice number" /></Field>
+      <Field label="Supplier details (optional)" icon={<FileText size={15} />}><input className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.supplierDetails ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, supplierDetails: e.target.value }))} placeholder="Supplier name and contact details" /></Field>
       <Field label="Shipment date" icon={<Calendar size={15} />}><input type="date" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.shipmentDate ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentDate: e.target.value }))} /></Field>
       <Field label="Confirmation number" icon={<FileText size={15} />} hint="Different from invoice number"><input inputMode="numeric" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.shipmentConfirmationNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentConfirmationNumber: e.target.value }))} placeholder="Enter confirmation number" /></Field>
       <Field label="Expected packs" icon={<Package size={15} />}><input type="number" inputMode="numeric" min="1" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.expectedPacks ?? 0} onChange={(e) => setShipment((prev) => ({ ...prev, expectedPacks: Number(e.target.value) }))} /></Field>

@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
     const {
       invoiceNumber,
       invoicePhoto,
+      supplierDetails,
       shipmentConfirmationNumber,
       confirmationReceiptPhoto,
       expectedPacks,
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
       shipmentConfirmationNumber ?? ""
     ).trim();
     const normalizedInvoicePhoto = String(invoicePhoto ?? "").trim();
+    const normalizedSupplierDetails = String(supplierDetails ?? "").trim() || null;
     const normalizedConfirmationPhoto = String(
       confirmationReceiptPhoto ?? ""
     ).trim();
@@ -158,6 +160,7 @@ export async function POST(req: NextRequest) {
         data: {
           invoiceNumber: normalizedInvoiceNumber,
           invoicePhoto: normalizedInvoicePhoto || existingShipment.invoicePhoto,
+          ...(supplierDetails !== undefined ? { supplierDetails: normalizedSupplierDetails } : {}),
           shipmentConfirmationNumber: normalizedConfirmationNumber || existingShipment.shipmentConfirmationNumber,
           confirmationReceiptPhoto: normalizedConfirmationPhoto || existingShipment.confirmationReceiptPhoto,
           shipmentDate: parsedShipmentDate ?? existingShipment.shipmentDate,
@@ -179,6 +182,7 @@ export async function POST(req: NextRequest) {
         data: {
           invoiceNumber: normalizedInvoiceNumber,
           invoicePhoto: normalizedInvoicePhoto,
+          supplierDetails: normalizedSupplierDetails,
           shipmentConfirmationNumber: normalizedConfirmationNumber,
           confirmationReceiptPhoto: normalizedConfirmationPhoto,
           expectedPacks: Number(expectedPacks),
@@ -336,7 +340,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { shipmentId, invoiceNumber, invoicePhoto, shipmentConfirmationNumber, confirmationReceiptPhoto, expectedPacks, shipmentDate } = await req.json();
+    const { shipmentId, invoiceNumber, invoicePhoto, supplierDetails, shipmentConfirmationNumber, confirmationReceiptPhoto, expectedPacks, shipmentDate } = await req.json();
 
     if (!shipmentId || typeof shipmentId !== "string") {
       return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
@@ -388,6 +392,7 @@ export async function PATCH(req: NextRequest) {
       where: { id: shipment.id },
       data: {
         invoiceNumber: normalizedInvoiceNumber,
+        ...(supplierDetails !== undefined ? { supplierDetails: String(supplierDetails ?? "").trim() || null } : {}),
         ...(invoicePhoto !== undefined ? { invoicePhoto: String(invoicePhoto ?? "").trim() || null } : {}),
         ...(shipmentConfirmationNumber !== undefined
           ? { shipmentConfirmationNumber: String(shipmentConfirmationNumber ?? "").trim() || null }

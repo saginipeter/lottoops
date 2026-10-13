@@ -3,10 +3,36 @@ import { getApiSession } from "@/lib/api-session";
 import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 import { calculatePhysicalAuditVariance } from "@/lib/core-validation";
 import { prisma } from "@/lib/prisma";
+import { canAccessReports } from "@/lib/permissions";
 
 const INVENTORY_COST_RATE = 0.95;
 
-// GET /api/reports/shifts?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=50
+interface StoredShift {
+  id: string;
+  status: string;
+  openedAt: Date;
+  closedAt: Date | null;
+  openedBy: { name: string };
+  closedBy: { name: string } | null;
+  lines: Array<{
+    packId: string; slotNumber: string; beginningTicket: number; endingTicket: number | null;
+    ticketsSold: number | null; salesAmount: number | string | null;
+    pack: {
+      serialNumber: string; ticketPrice: number | string | null; firstTicket: number | null;
+      ticketQuantity: number | null; firstOrLastTicket: "FIRST" | "LAST";
+      game: { id: string; name: string; price: number | string; ticketsPerPack: number };
+    };
+  }>;
+  inventoryAudit: {
+    lines: Array<{
+      packId: string; slotNumber: string; expectedTicket: number; endingExpectedTicket: number | null;
+      beginningPhysicalTicket: number | null; endingPhysicalTicket: number | null;
+      pack: { serialNumber: string };
+    }>;
+  } | null;
+}
+
+// GET /api/reports/shifts?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=50 or ?shiftId=...
 // Returns shift-level P&L: gross sales, cost, net margin, tickets sold
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
@@ -16,19 +42,30 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
-  const limit = Math.min(Number(searchParams.get("limit") ?? "100"), 500);
+  const shiftId = searchParams.get("shiftId")?.trim();
+  if (!shiftId && !canAccessReports(session)) {
+    return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  }
+  const requestedLimit = Number(searchParams.get("limit") ?? "100");
+  if (!Number.isInteger(requestedLimit) || requestedLimit < 1) {
+    return NextResponse.json({ error: "Invalid report limit." }, { status: 400 });
+  }
+  const limit = Math.min(requestedLimit, 500);
 
   // Default: last 30 days
-  const toDate = toParam ? new Date(toParam + "T23:59:59") : new Date();
+  const toDate = toParam ? new Date(toParam + "T23:59:59.999Z") : new Date();
   const fromDate = fromParam
-    ? new Date(fromParam + "T00:00:00")
+    ? new Date(fromParam + "T00:00:00Z")
     : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
+    return NextResponse.json({ error: "Invalid report date range." }, { status: 400 });
+  }
 
   const shifts = await prisma.shift.findMany({
     where: {
       storeId: session.storeId,
       status: "CLOSED",
-      closedAt: { gte: fromDate, lte: toDate },
+      ...(shiftId ? { id: shiftId } : { closedAt: { gte: fromDate, lte: toDate } }),
     },
     include: {
       openedBy: { select: { name: true } },
@@ -45,7 +82,7 @@ export async function GET(req: NextRequest) {
           pack: {
             include: {
               game: {
-                select: { id: true, name: true, gameNumber: true, price: true },
+                select: { id: true, name: true, gameNumber: true, price: true, ticketsPerPack: true },
               },
             },
           },
@@ -54,11 +91,32 @@ export async function GET(req: NextRequest) {
     },
     orderBy: { closedAt: "desc" },
     take: limit,
-  });
+  }) as StoredShift[];
+  if (shiftId && shifts.length === 0) {
+    return NextResponse.json({ error: "Closed shift not found." }, { status: 404 });
+  }
+
+  // Optional runtime columns are read as JSON, so legacy databases need no DDL.
+  const runtimeRows = shifts.length ? await prisma.$queryRawUnsafe(
+    `SELECT id, to_jsonb(s)->>'terminalId' AS "terminalId",
+      to_jsonb(s)->>'openingCash' AS "openingCash",
+      to_jsonb(s)->>'expectedCash' AS "expectedCash",
+      to_jsonb(s)->>'countedCash' AS "countedCash",
+      to_jsonb(s)->>'cashVariance' AS "cashVariance",
+      to_jsonb(s)->>'cashReconciledAt' AS "reconciledAt",
+      (SELECT u.name FROM users u WHERE u.id = to_jsonb(s)->>'cashReconciledById'
+        AND u."storeId" = s."storeId") AS "reconciledBy"
+    FROM shifts s WHERE s."storeId" = $1 AND s.id = ANY($2::text[])`,
+    session.storeId, shifts.map((shift: { id: string }) => shift.id),
+  ) as Array<{
+    id: string; terminalId: string | null; openingCash: string | null; expectedCash: string | null;
+    countedCash: string | null; cashVariance: string | null; reconciledAt: string | null; reconciledBy: string | null;
+  }> : [];
+  const runtimeById = new Map(runtimeRows.map((row) => [row.id, row]));
 
   // Build per-shift summaries
 
-  const shiftSummaries = (shifts as any[]).map((shift) => {
+  const shiftSummaries = shifts.map((shift) => {
     let grossSales = 0;
     let cogs = 0;
     let ticketsSold = 0;
@@ -68,7 +126,7 @@ export async function GET(req: NextRequest) {
       const sold = Number(line.ticketsSold ?? 0);
       const sales = Number(line.salesAmount ?? 0);
       // Reports use the same inventory cost rule as receiving: 95% of face value.
-      const ticketPrice = Number(line.pack.game.price);
+      const ticketPrice = Number(line.pack.ticketPrice ?? line.pack.game.price);
       const packCost = sold * ticketPrice * INVENTORY_COST_RATE;
 
       grossSales += sales;
@@ -86,38 +144,59 @@ export async function GET(req: NextRequest) {
 
     const netMargin = grossSales - cogs;
     const marginPct = grossSales > 0 ? (netMargin / grossSales) * 100 : 0;
+    const runtime = runtimeById.get(shift.id);
+    const optionalNumber = (value: string | null | undefined) => value == null ? null : Number(value);
 
     return {
       id: shift.id,
+      status: shift.status,
+      terminalId: runtime?.terminalId ?? null,
       openedAt: shift.openedAt,
       closedAt: shift.closedAt,
       openedBy: shift.openedBy.name,
-      closedBy: shift.closedBy?.name ?? "—",
+      closedBy: shift.closedBy?.name ?? "Not recorded",
+      cash: {
+        openingCash: optionalNumber(runtime?.openingCash),
+        expectedCash: optionalNumber(runtime?.expectedCash),
+        countedCash: optionalNumber(runtime?.countedCash),
+        cashVariance: optionalNumber(runtime?.cashVariance),
+        reconciledAt: runtime?.reconciledAt ?? null,
+        reconciledBy: runtime?.reconciledBy ?? null,
+      },
+      lines: shift.lines.map((line) => ({
+        pack: line.pack.serialNumber,
+        game: line.pack.game.name,
+        display: line.slotNumber,
+        beginning: line.beginningTicket,
+        ending: line.endingTicket,
+        ticketsSold: line.ticketsSold,
+        sales: line.salesAmount == null ? null : Number(line.salesAmount),
+      })),
       grossSales: Math.round(grossSales * 100) / 100,
       cogs: Math.round(cogs * 100) / 100,
       netMargin: Math.round(netMargin * 100) / 100,
       marginPct: Math.round(marginPct * 10) / 10,
       ticketsSold,
       gameBreakdown: Object.values(gameBreakdown).sort((a, b) => b.sales - a.sales),
-      audit: shift.inventoryAudit?.lines.map((line: any) => {
-        const shiftLine = shift.lines.find((item: any) => item.packId === line.packId);
-        const systemExpected = line.endingExpectedTicket ?? (shiftLine
+      audit: shift.inventoryAudit?.lines.map((line) => {
+        const shiftLine = shift.lines.find((item) => item.packId === line.packId);
+        const systemExpected = line.endingExpectedTicket ?? (shiftLine?.endingTicket != null
           ? getAuditPhysicalTicket({
-              currentTicketNumber: shiftLine.endingTicket ?? shiftLine.pack.currentTicketNumber,
+              currentTicketNumber: shiftLine.endingTicket,
               firstTicket: shiftLine.pack.firstTicket,
               ticketQuantity: shiftLine.pack.ticketQuantity ?? shiftLine.pack.game.ticketsPerPack,
               firstOrLastTicket: shiftLine.pack.firstOrLastTicket,
             })
-          : line.expectedTicket);
+          : null);
         const observed = line.endingPhysicalTicket;
         return {
           pack: line.pack?.serialNumber ?? line.packId,
           display: line.slotNumber,
-          direction: shiftLine?.pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
+          direction: shiftLine ? shiftLine.pack.firstOrLastTicket : undefined,
           beginning: line.beginningPhysicalTicket,
           expected: systemExpected,
           ending: observed,
-          variance: observed === null
+          variance: observed === null || systemExpected == null
             ? null
             : calculatePhysicalAuditVariance(Number(systemExpected), Number(observed)),
         };

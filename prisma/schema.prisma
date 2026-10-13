@@ -138,6 +138,7 @@ model Shipment {
   storeId                    String
   receivedById               String
   invoiceNumber              String
+  supplierDetails            String?
   invoicePhoto               String?
   expectedPacks              Int
   scannedPacks               Int            @default(0)

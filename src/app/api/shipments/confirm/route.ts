@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      await prisma.$transaction([
+      const updates = await prisma.$transaction([
         ...shipmentPacks.map(
           (
             pack: { id: string; firstTicket: number | null; ticketQuantity: number | null },
@@ -195,14 +195,23 @@ export async function POST(req: NextRequest) {
             scannedPacks: scanned,
             status: "RECEIVED",
             confirmedAt: new Date(),
+            receivedById: session.userId,
+          },
+          include: {
+            receivedBy: { select: { name: true } },
+            packs: {
+              where: { storeId: session.storeId },
+              select: {
+                id: true, serialNumber: true, packNumber: true, gameNumber: true,
+                ticketQuantity: true, ticketPrice: true, cost: true, retailValue: true,
+                game: { select: { name: true, gameNumber: true, price: true, ticketsPerPack: true } },
+              },
+              orderBy: { receivedAt: "asc" },
+            },
           },
         }),
       ]);
-      return NextResponse.json({
-        ...shipment,
-        scannedPacks: scanned,
-        status: "RECEIVED",
-      });
+      return NextResponse.json(updates[updates.length - 1]);
     }
 
     const updatedShipment = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -217,6 +226,19 @@ export async function POST(req: NextRequest) {
           scannedPacks: scanned,
           status: "RECEIVED",
           confirmedAt: new Date(),
+          receivedById: session.userId,
+        },
+        include: {
+          receivedBy: { select: { name: true } },
+          packs: {
+            where: { storeId: session.storeId },
+            select: {
+              id: true, serialNumber: true, packNumber: true, gameNumber: true,
+              ticketQuantity: true, ticketPrice: true, cost: true, retailValue: true,
+              game: { select: { name: true, gameNumber: true, price: true, ticketsPerPack: true } },
+            },
+            orderBy: { receivedAt: "asc" },
+          },
         },
       });
     });

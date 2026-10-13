@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { History, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "@/components/reports/report-actions";
 
 interface Correction {
   id: string;
@@ -44,6 +45,18 @@ export function CorrectionReport() {
 
   return (
     <Panel className="p-4 sm:p-5">
+      <div className="mb-3">
+        <ReportActions disabled={loading || !!error} document={{
+          title: "Correction History",
+          subtitle: "Original values, corrected values, reasons, and approvers.",
+          sections: [{
+            title: "Protected corrections",
+            columns: ["Time", "Entity ID", "Entity type", "Field", "Original", "Corrected", "Reason", "By"],
+            rows: corrections.map((correction) => [new Date(correction.createdAt).toLocaleString(), correction.entityId, correction.entityType, correction.fieldName, correction.oldValue, correction.newValue, correction.reason, correction.correctedByName]),
+          }],
+          totals: [{ label: "Corrections", value: corrections.length }],
+        }} />
+      </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <History size={18} className="mt-0.5 text-accent" />

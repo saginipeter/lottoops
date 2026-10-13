@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "@/components/reports/report-actions";
 
 interface DiscrepancyRow {
   id: string;
@@ -62,6 +63,18 @@ export function DiscrepancyReport() {
 
   return (
     <Panel className="p-4">
+      <div className="mb-3">
+        <ReportActions disabled={loading || !!error} document={{
+          title: "Discrepancy Review",
+          metadata: [{ label: "Status filter", value: filter }],
+          sections: [{
+            title: "Discrepancies",
+            columns: ["Status", "Type", "Pack", "Game", "Display", "Expected", "Observed", "Variance", "Time", "Actor", "Reason", "Resolved by"],
+            rows: visibleRows.map((row) => [row.status, row.type, row.pack, row.game, row.display, row.expected, row.observed, row.variance, row.timestamp ? new Date(row.timestamp).toLocaleString() : null, row.actor, row.reason, row.resolvedBy ?? null]),
+          }],
+          totals: [{ label: "Matching discrepancies", value: visibleRows.length }],
+        }} />
+      </div>
       <div className="mb-3 flex flex-wrap items-end gap-2">
         <div>
           <p className="text-xs font-semibold uppercase text-text-tertiary">Discrepancy Review</p>

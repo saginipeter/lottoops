@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
@@ -9,10 +9,50 @@ import { Clock, PlayCircle, ShoppingCart, Tv } from "lucide-react";
 
 import ShiftPackTable from "./shift-pack-table";
 import PhysicalAuditPanel from "@/components/inventory/physical-audit-panel";
+import { ReportActions } from "@/components/reports/report-actions";
+import { createShiftReportDocument, shiftReportTimestamp, type ShiftReportData } from "@/lib/shift-report-document";
+import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
+import { calculatePhysicalAuditVariance } from "@/lib/core-validation";
+import type { ReportDocument } from "@/lib/report-document";
+
+interface DashboardLine {
+  id: string;
+  packId: string;
+  slotNumber: string;
+  beginningTicket: number;
+  endingTicket: number | null;
+  pack: {
+    id: string; packNumber: string; serialNumber: string; currentTicketNumber: number | null; ticketPrice?: number | string | null;
+    firstTicket?: number | null; ticketQuantity?: number | null; firstOrLastTicket?: "FIRST" | "LAST";
+    game: { name: string; price: number; ticketsPerPack?: number };
+  };
+}
+
+interface DashboardShift {
+  id: string;
+  openedAt: string;
+  closedAt?: string | null;
+  openedBy?: { name: string };
+  closedBy?: { name: string } | null;
+  openingCash?: number | string | null;
+  expectedCash?: number | string | null;
+  countedCash?: number | string | null;
+  cashVariance?: number | string | null;
+  lines: DashboardLine[];
+  inventoryAudit?: {
+    id: string;
+    status: string;
+    lines: Array<{
+      id: string; packId: string; slotNumber: string; pack?: { serialNumber: string; game: { name: string } };
+      beginningPhysicalTicket: number | null; endingPhysicalTicket: number | null;
+      endingExpectedTicket?: number | null;
+    }>;
+  };
+}
 
 interface ShiftDashboardProps {
-  shift: any | null;
-  recentClosedShift?: any | null;
+  shift: DashboardShift | null;
+  recentClosedShift?: Omit<DashboardShift, "id"> & { id?: string } | null;
   participants?: Array<{ userId: string; name: string; email: string; firstSeenAt: string; lastSeenAt: string }>;
   terminalId: string;
   activeDisplayPackCount: number;
@@ -26,7 +66,35 @@ interface ShiftDashboardProps {
 }
 
 function formatTimestamp(value: string | Date) {
-  return new Date(value).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+  return shiftReportTimestamp(typeof value === "string" ? value : value.toISOString());
+}
+
+export function ArchivedShiftReportActions({ shiftId }: { shiftId?: string }) {
+  const [report, setReport] = useState<ReportDocument | null>(null);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!shiftId) return;
+    const controller = new AbortController();
+    async function load() {
+      setReport(null);
+      setError("");
+      try {
+        const response = await fetch(`/api/reports/shifts?shiftId=${encodeURIComponent(shiftId!)}`, { signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok || !data.shifts?.[0]) throw new Error(data.error ?? "Closed shift not found.");
+        setReport(createShiftReportDocument(data.shifts[0] as ShiftReportData));
+      } catch (error) {
+        if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Unable to load shift report.");
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [shiftId, attempt]);
+  if (!shiftId) return <p className="text-sm text-text-secondary">Shift report ID: Not recorded.</p>;
+  if (error) return <div role="alert" className="text-sm text-red-700">{error} <Button type="button" variant="outline" onClick={() => setAttempt(attempt + 1)}>Retry report</Button></div>;
+  if (!report) return <p role="status" className="text-sm text-text-secondary">Loading completed shift report…</p>;
+  return <ReportActions document={report} />;
 }
 
 export default function ShiftDashboard({
@@ -95,8 +163,9 @@ export default function ShiftDashboard({
               Started {formatTimestamp(recentClosedShift.openedAt)} by {recentClosedShift.openedBy?.name ?? "Unknown"}
             </p>
             <p className="mt-1 text-sm text-text-secondary">
-              Ended {formatTimestamp(recentClosedShift.closedAt)} by {recentClosedShift.closedBy?.name ?? "Unknown"}
+              Ended {shiftReportTimestamp(recentClosedShift.closedAt)} by {recentClosedShift.closedBy?.name ?? "Not recorded"}
             </p>
+            <div className="mt-3"><ArchivedShiftReportActions shiftId={recentClosedShift.id} /></div>
           </Panel>
         )}
 
@@ -136,7 +205,7 @@ export default function ShiftDashboard({
   const totalLines = shift.lines?.length ?? 0;
 
   const totalTickets =
-    shift.lines?.reduce((sum: number, line: any) => {
+    shift.lines?.reduce((sum: number, line: DashboardLine) => {
       const beginning = line.beginningTicket ?? 0;
       const rawCurrent =
         line.pack?.currentTicketNumber === null || line.pack?.currentTicketNumber === undefined
@@ -148,7 +217,7 @@ export default function ShiftDashboard({
     }, 0) ?? 0;
 
   const totalSales =
-    shift.lines?.reduce((sum: number, line: any) => {
+    shift.lines?.reduce((sum: number, line: DashboardLine) => {
       const beginning = line.beginningTicket ?? 0;
       const rawCurrent =
         line.pack?.currentTicketNumber === null || line.pack?.currentTicketNumber === undefined
@@ -164,9 +233,44 @@ export default function ShiftDashboard({
       );
       }, 0) ?? 0;
 
-  function printShiftPaperwork() {
-    window.print();
-  }
+  const reportLines = (shift.lines ?? []).map((line) => {
+    const beginning = line.beginningTicket;
+    const ending = Math.min(Math.max(Number(line.pack?.currentTicketNumber ?? beginning), 0), beginning);
+    const sold = beginning - ending;
+    return {
+      pack: line.pack?.serialNumber ?? line.packId, game: line.pack?.game?.name ?? "Not recorded",
+      display: line.slotNumber, beginning, ending, ticketsSold: sold,
+      sales: sold * Number(line.pack?.ticketPrice ?? line.pack?.game?.price ?? 0),
+    };
+  });
+  const cost = totalSales * 0.95;
+  const optionalNumber = (value: string | number | null | undefined) => value == null ? null : Number(value);
+  const report = createShiftReportDocument({
+    id: shift.id, terminalId, status: "OPEN", openedAt: shift.openedAt, closedAt: null,
+    openedBy: shift.openedBy?.name ?? "Not recorded", closedBy: "Not recorded",
+    ticketsSold: totalTickets, grossSales: totalSales, cogs: cost, netMargin: totalSales - cost,
+    lines: reportLines,
+    audit: (shift.inventoryAudit?.lines ?? []).map((line) => {
+      const salesLine = shift.lines?.find((item) => item.packId === line.packId);
+      const pack = salesLine?.pack;
+      const expected = line.endingExpectedTicket ?? (pack ? getAuditPhysicalTicket({
+        currentTicketNumber: pack.currentTicketNumber ?? salesLine?.beginningTicket ?? null,
+        firstTicket: pack.firstTicket ?? null, ticketQuantity: pack.ticketQuantity ?? pack.game?.ticketsPerPack ?? null,
+        firstOrLastTicket: pack.firstOrLastTicket,
+      }) : null);
+      return {
+        pack: line.pack?.serialNumber ?? line.packId, display: line.slotNumber, direction: pack?.firstOrLastTicket,
+        beginning: line.beginningPhysicalTicket, expected, ending: line.endingPhysicalTicket,
+        variance: expected == null || line.endingPhysicalTicket == null ? null
+          : calculatePhysicalAuditVariance(expected, line.endingPhysicalTicket),
+      };
+    }),
+    cash: {
+      openingCash: optionalNumber(shift.openingCash), expectedCash: optionalNumber(shift.expectedCash),
+      countedCash: optionalNumber(shift.countedCash), cashVariance: optionalNumber(shift.cashVariance),
+      reconciledAt: null, reconciledBy: null,
+    },
+  });
 
   return (
     <div className="space-y-6">
@@ -212,9 +316,7 @@ export default function ShiftDashboard({
           </div>
           </div>
           <div className="mt-4 flex justify-end print:hidden">
-            <Button type="button" variant="outline" onClick={printShiftPaperwork}>
-              Print sales & audit records
-            </Button>
+            <ReportActions document={report} />
           </div>
 
         <div className="mt-6 grid grid-cols-3 gap-4">
@@ -273,27 +375,6 @@ export default function ShiftDashboard({
         )}
       </Panel>
 
-      <section className="shift-paperwork hidden print:block">
-        <style jsx global>{`@media print { body * { visibility: hidden; } .shift-paperwork, .shift-paperwork * { visibility: visible; } .shift-paperwork { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; color: #111827; } .shift-paperwork h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; } .shift-paperwork h2 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; } .shift-paperwork table { width: 100%; border-collapse: collapse; font-size: 11px; } .shift-paperwork th, .shift-paperwork td { border: 1px solid #9ca3af; padding: 5px; text-align: left; } }`}</style>
-        <h1>End-of-Shift Management Records</h1>
-        <p>Terminal {terminalId} · Opened {formatTimestamp(shift.openedAt)}</p>
-        <h2>Sales Record</h2>
-        <table>
-          <thead><tr><th>Pack</th><th>Game</th><th>Tickets sold</th><th>Sales</th></tr></thead>
-          <tbody>{(shift.lines ?? []).map((line: any) => {
-            const beginning = Number(line.beginningTicket ?? 0);
-            const current = line.pack?.currentTicketNumber == null ? beginning : Number(line.pack.currentTicketNumber);
-            const sold = Math.max(beginning - Math.min(Math.max(current, 0), beginning), 0);
-            return <tr key={line.id}><td>{line.pack?.serialNumber ?? line.packId}</td><td>{line.pack?.game?.name ?? "—"}</td><td>{sold}</td><td>{formatCurrency(sold * Number(line.pack?.ticketPrice ?? line.pack?.game?.price ?? 0))}</td></tr>;
-          })}</tbody>
-          <tfoot><tr><th colSpan={2}>Totals</th><th>{totalTickets}</th><th>{formatCurrency(totalSales)}</th></tr></tfoot>
-        </table>
-        <h2>Physical Audit Record</h2>
-        <table>
-          <thead><tr><th>Pack</th><th>Beginning ticket</th><th>Ending ticket</th><th>Variance</th></tr></thead>
-          <tbody>{(shift.inventoryAudit?.lines ?? []).map((line: any) => <tr key={line.id}><td>{line.pack?.serialNumber ?? line.packId}</td><td>{line.beginningPhysicalTicket ?? "—"}</td><td>{line.endingPhysicalTicket ?? "—"}</td><td>{line.variance ?? "—"}</td></tr>)}</tbody>
-        </table>
-      </section>
     </div>
   );
 }
@@ -303,7 +384,7 @@ function Stat({
   value,
 }: {
   label: string;
-  value: any;
+  value: string | number;
 }) {
   return (
     <div className="rounded-xl border bg-gray-50 p-4">

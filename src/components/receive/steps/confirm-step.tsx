@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InvoiceUpload } from "@/components/receive/invoice-upload";
+import { ReportActions } from "@/components/reports/report-actions";
+import { buildReceivingReportDocument, type ReceivingShipmentReport } from "@/lib/receiving-report-document";
 
 import type {
   ShipmentState,
@@ -44,6 +46,7 @@ export function ConfirmStep({
   const [activationPromptOpen, setActivationPromptOpen] = useState(false);
   const [activationConfigured, setActivationConfigured] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [confirmedShipment, setConfirmedShipment] = useState<ReceivingShipmentReport | null>(null);
   const [loading, setLoading] = useState(false);
   const scannedRetailValue = packs.reduce(
     (sum, pack) =>
@@ -56,15 +59,6 @@ export function ConfirmStep({
     scannedRetailValue > 0 &&
     expectedInventoryCost > 0 &&
     Math.round(enteredInventoryCost * 100) === Math.round(expectedInventoryCost * 100);
-
-  function printReceivingRecord() {
-    const body = document.body;
-    const cleanup = () => body.classList.remove("receiving-record-printing");
-    body.classList.add("receiving-record-printing");
-    window.addEventListener("afterprint", cleanup, { once: true });
-    window.print();
-    window.setTimeout(cleanup, 1500);
-  }
 
   async function handleConfirm() {
     if (packs.length !== Number(shipment.expectedPacks ?? 0) && !overrideApproved) {
@@ -104,6 +98,7 @@ export function ConfirmStep({
         return;
       }
 
+      setConfirmedShipment(data);
       setConfirmed(true);
       onConfirmed?.();
     } catch (error) {
@@ -117,18 +112,6 @@ export function ConfirmStep({
   if (confirmed) {
     return (
       <Panel className="mx-auto max-w-3xl p-12">
-        <section className="receiving-print-report hidden" aria-label="Receiving shipment record">
-          <h1 className="text-2xl font-bold">Receiving Shipment Record</h1>
-          <p className="mt-1 text-sm">Initial shipment details</p>
-          <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
-            <PrintField label="Invoice number" value={shipment.invoiceNumber || "—"} />
-            <PrintField label="Confirmation number" value={shipment.shipmentConfirmationNumber || "—"} />
-            <PrintField label="Shipment date" value={shipment.shipmentDate || "—"} />
-            <PrintField label="Expected packs" value={String(shipment.expectedPacks ?? "—")} />
-            <PrintField label="Expected inventory cost" value={`$${Number(shipment.expectedRetailValue ?? 0).toFixed(2)}`} />
-            <PrintField label="Received by" value={shipment.receivedBy || "—"} />
-          </dl>
-        </section>
         <div className="text-center">
 
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-green-100">
@@ -182,9 +165,9 @@ export function ConfirmStep({
           >
             Return to Inventory
           </Button>
-          <Button variant="outline" className="mt-3 sm:ml-3" onClick={printReceivingRecord}>
-            Print Receiving Record
-          </Button>
+          {confirmedShipment && <div className="mt-4 flex justify-center">
+            <ReportActions document={buildReceivingReportDocument(confirmedShipment)} />
+          </div>}
 
         </div>
       </Panel>
@@ -318,10 +301,6 @@ export function ConfirmStep({
 
     </div>
   );
-}
-
-function PrintField({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-xs font-semibold uppercase text-gray-500">{label}</dt><dd className="mt-1 font-medium text-gray-900">{value}</dd></div>;
 }
 
 function SummaryCard({

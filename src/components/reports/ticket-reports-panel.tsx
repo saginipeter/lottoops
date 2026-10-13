@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "@/components/reports/report-actions";
 
 interface TicketReport {
   id: string;
@@ -76,6 +77,7 @@ export function TicketReportsPanel({
       }
 
       setReports(Array.isArray(data?.reports) ? data.reports : []);
+      setError("");
     } catch {
       setError("Unable to load reports.");
     } finally {
@@ -120,6 +122,21 @@ export function TicketReportsPanel({
 
   return (
     <Panel className="p-5">
+      <div className="mb-3">
+        <ReportActions disabled={loading || !!error || resolvingId !== null} document={{
+          title,
+          subtitle: "Pending employee ticket reports",
+          sections: [{
+            title: "Ticket reports",
+            columns: ["Time", "Store", "Reported by", "Terminal", "Shift", "Ticket", "Reason / Detail"],
+            rows: reports.map((report) => {
+              const parsed = parseDetail(report.detail);
+              return [new Date(report.createdAt).toLocaleString(), report.storeName, report.performedByName, parsed?.terminal ?? null, parsed?.shiftId ?? null, parsed?.ticket ?? null, parsed?.reason ?? report.detail];
+            }),
+          }],
+          totals: [{ label: "Pending reports", value: reports.length }],
+        }} />
+      </div>
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Alerts</p>
