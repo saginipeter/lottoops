@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
   AlertTriangle, LayoutDashboard, Package, Layers, ScanLine, Clock, BarChart3, Tv,
-  Settings, ChevronDown, Gamepad2, Radio, Users, Building2, MapPin, Phone, ShieldCheck,
+  Settings, ChevronDown, Gamepad2, Users, Building2, MapPin, Phone, ShieldCheck,
   RotateCcw, CreditCard, MessageCircle, FileText, CheckCircle2, Menu, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -27,7 +27,6 @@ interface NavSection { label: string; items: NavItem[]; }
 
 const navSections: NavSection[] = [
   { label: "Operations", items: [
-    { href: "/inventory/live-scan", label: "Live Scan", icon: Radio },
     { href: "/shifts", label: "Shifts", icon: Clock },
   ] },
   { label: "Inventory", items: [

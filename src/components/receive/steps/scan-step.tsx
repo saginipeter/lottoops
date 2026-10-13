@@ -14,6 +14,12 @@ import { InvoiceUpload } from "../invoice-upload";
 import { ScannedPackTable } from "../scanned-pack-table";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
+export const DRAFT_PACK_PREFIX = "draft-";
+
+export function isDraftPack(pack: Pick<PackWithGame, "id">) {
+  return pack.id.startsWith(DRAFT_PACK_PREFIX);
+}
+
 interface DetectedGame {
   source: "store" | "catalog";
   name: string;
@@ -47,6 +53,7 @@ interface ScanStepProps {
   addPack: (pack: PackWithGame) => void;
   removePack: (id: string) => void;
   nextStep: () => void;
+  savingPacks?: boolean;
   previousStep: () => void;
   onCancel: () => void;
 }
@@ -59,6 +66,7 @@ export function ScanStep({
   addPack,
   removePack,
   nextStep,
+  savingPacks = false,
   previousStep,
   onCancel,
 }: ScanStepProps) {
@@ -140,7 +148,7 @@ export function ScanStep({
     }
   }
 
-  async function handleAddPack() {
+  function handleAddPack() {
     if (savingPack || detecting) return;
     if (!shipment.id) {
       alert("Save the shipment details before scanning packs.");
@@ -169,36 +177,38 @@ export function ScanStep({
     if (!gameNumber || !packNumber) return;
     if (!/^\d{7}$/.test(packNumber)) { alert("Pack number must be exactly 7 digits."); return; }
 
+    const normalizedPrice = Number(ticketPrice);
+    const normalizedQuantity = Number(ticketQuantity);
+    const normalizedFirstTicket = Number(firstTicket);
+    if (!Number.isFinite(normalizedPrice) || normalizedPrice <= 0) { alert("Ticket price must be greater than zero."); return; }
+    if (!Number.isInteger(normalizedQuantity) || normalizedQuantity <= 0) { alert("Ticket quantity must be a whole number greater than zero."); return; }
+    if (!Number.isInteger(normalizedFirstTicket) || normalizedFirstTicket < 1 || normalizedFirstTicket > normalizedQuantity) {
+      alert(`First ticket must be between 1 and ${normalizedQuantity}.`);
+      return;
+    }
+
+    const draftGameNumber = normalizedBarcode.slice(0, 4);
+    const draftPack = {
+      id: `${DRAFT_PACK_PREFIX}${normalizedBarcode}-${Date.now()}`,
+      serialNumber: normalizedBarcode,
+      gameNumber: draftGameNumber,
+      packNumber: normalizedBarcode.slice(4, 11),
+      firstTicket: normalizedFirstTicket,
+      ticketPrice: normalizedPrice,
+      ticketQuantity: normalizedQuantity,
+      packImage: packImage || null,
+      status: "SCANNED",
+      game: {
+        gameNumber: draftGameNumber,
+        name: detectedGame?.name ?? `Game ${draftGameNumber}`,
+        price: normalizedPrice,
+        ticketsPerPack: normalizedQuantity,
+      },
+    } as unknown as PackWithGame;
+
     try {
       setSavingPack(true);
-      const response = await fetch("/api/packs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          shipmentId: shipment.id,
-          barcode: normalizedBarcode,
-          gameNumber: normalizedBarcode.slice(0, 4),
-          packNumber: normalizedBarcode.slice(4, 11),
-          firstTicket: Number(firstTicket),
-          ticketPrice,
-          ticketQuantity,
-          packImage,
-        }),
-      });
-
-      const savedPack = await response.json().catch(() => null);
-      if (!response.ok) {
-        const failure = [
-          savedPack?.error || `Unable to save pack (HTTP ${response.status}).`,
-          typeof savedPack?.code === "string" ? `Code: ${savedPack.code}` : "",
-          typeof savedPack?.details === "string" ? savedPack.details : "",
-        ].filter(Boolean).join("\n");
-        alert(failure);
-        return;
-      }
-      if (!savedPack?.id) { alert("Pack was saved, but the server returned an invalid pack record. Refresh the shipment before retrying."); return; }
-
-      addPack(savedPack);
+      addPack(draftPack);
 
       // Reset for next pack
       setScanDraft((prev) => ({
@@ -213,7 +223,7 @@ export function ScanStep({
       setJustAdded(true);
     } catch (err) {
       console.error(err);
-      alert("Unable to save pack.");
+      alert("Unable to add pack to the draft.");
     } finally {
       setSavingPack(false);
     }
@@ -358,7 +368,7 @@ export function ScanStep({
         {/* Add Pack — appears after the optional override action */}
         <Panel className="p-5 lg:col-span-2">
           <Button className="w-full" onClick={handleAddPack} disabled={!shipmentReady || !validBarcode || !gameNumber || !packNumber || detecting || savingPack || atExpectedLimit}>
-            {savingPack ? "Adding Pack..." : detecting ? "Detecting Game..." : "Add Pack to Shipment"}
+            {detecting ? "Detecting Game..." : "Add Pack to Shipment"}
           </Button>
           {!shipmentReady && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -401,9 +411,9 @@ export function ScanStep({
                 }
                 nextStep();
               }}
-              disabled={packs.length === 0}
+              disabled={packs.length === 0 || savingPacks}
             >
-              Next: Review Shipment →
+              {savingPacks ? "Saving Packs..." : "Next: Review Shipment →"}
             </Button>
           </div>
         </div>

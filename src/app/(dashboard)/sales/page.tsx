@@ -158,8 +158,7 @@ export default async function SalesPage() {
 
           <Panel className="p-4">
             <div className="flex flex-wrap gap-2">
-              <QuickLink href="/inventory/live-scan" label="Go to Live Scan" />
-              <QuickLink href="/shifts" label="Open/Close Shift" />
+              <QuickLink href="/pos" label="Sell Tickets" />
               <QuickLink href="/reports" label="Open Reports" />
             </div>
           </Panel>

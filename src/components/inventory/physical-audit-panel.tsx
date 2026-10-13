@@ -25,7 +25,11 @@ interface AuditState {
 
 export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCount }: { shiftId: string; audit?: AuditState; activeDisplayPackCount: number }) {
   const router = useRouter();
-  const [phase, setPhase] = useState<"beginning" | "ending">("beginning");
+  const [phase, setPhase] = useState<"beginning" | "ending">(() =>
+    activeDisplayPackCount > 0 && (audit?.lines ?? []).filter((line) => line.beginningPhysicalTicket !== null).length >= activeDisplayPackCount
+      ? "ending"
+      : "beginning"
+  );
   const [barcode, setBarcode] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
@@ -36,7 +40,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
   const scanned = useMemo(() => lines.filter((line) => phase === "beginning" ? line.beginningPhysicalTicket !== null : line.endingPhysicalTicket !== null).length, [lines, phase]);
   // An empty display has nothing to reconcile. Treat 0/0 as complete so the
   // shift can move directly to closing without requiring a phantom scan.
-  const beginningComplete = activeDisplayPackCount === 0 || lines.filter((line) => line.beginningPhysicalTicket !== null).length === activeDisplayPackCount;
+  const beginningComplete = activeDisplayPackCount === 0 || lines.filter((line) => line.beginningPhysicalTicket !== null).length >= activeDisplayPackCount;
   const varianceLines = lines.filter((line) => line.endingPhysicalTicket !== null && Number(line.variance ?? 0) !== 0);
   const shortCount = varianceLines.reduce((sum, line) => sum + Math.max(-Number(line.variance ?? 0), 0), 0);
   const overCount = varianceLines.reduce((sum, line) => sum + Math.max(Number(line.variance ?? 0), 0), 0);
@@ -84,7 +88,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
         {!beginningComplete && <p className="mt-2 text-xs font-medium text-amber-700">Complete the Opening Audit first. The Closing Audit becomes available afterward.</p>}
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]"><input ref={inputRef} autoFocus value={barcode} inputMode="numeric" onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void scan(); } }} placeholder={phase === "beginning" ? "Scan the current ticket for the Opening Audit" : "Scan the current ticket for the Closing Audit"} className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono text-lg tracking-wider" /><Button onClick={() => { void scan(); }} disabled={!barcode.trim()}>Record {phase === "beginning" ? "Opening" : "Closing"} Scan</Button></div>
         <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before sales begin." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
-        <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned !== activeDisplayPackCount} onClick={completeAudit}>Complete Closing Audit</Button>
+        <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned < activeDisplayPackCount} onClick={completeAudit}>Complete Closing Audit</Button>
       </>}
       {audit?.status === "COMPLETED" && <section className="mt-4 border border-border bg-surface-soft p-4" aria-label="Physical audit variance report">
         <div className="flex flex-wrap items-start justify-between gap-3">

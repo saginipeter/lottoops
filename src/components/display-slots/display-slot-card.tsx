@@ -120,7 +120,7 @@ export default function DisplaySlotCard({
         <Button
           className="w-full"
           onClick={() => {
-            window.location.href = "/inventory/live-scan";
+            window.location.href = "/pos";
           }}
         >
           Scan Sale

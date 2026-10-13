@@ -49,17 +49,21 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
+  if (pathname.startsWith("/inventory/live-scan")) {
+    return NextResponse.redirect(new URL("/pos", req.url));
+  }
+
   if (pathname.startsWith("/platform") && session.role !== "PLATFORM_ADMIN") {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // EMPLOYEE: shift open/close + live scan only — no corrections, no other pages
+  // EMPLOYEE: shift management and ticket POS only — no corrections or admin pages
   if (session.role === "EMPLOYEE") {
     const allowed =
       pathname === "/" ||
       pathname.startsWith("/employee") ||
       pathname.startsWith("/shifts") ||
-      pathname.startsWith("/inventory/live-scan");
+      pathname.startsWith("/pos");
     if (!allowed) return NextResponse.redirect(new URL("/shifts", req.url));
     return NextResponse.next();
   }
@@ -70,7 +74,7 @@ export async function proxy(req: NextRequest) {
     const alwaysAllowed =
       pathname === "/" ||
       pathname.startsWith("/shifts") ||
-      pathname.startsWith("/inventory/live-scan");
+      pathname.startsWith("/pos");
 
     const conditionalAllowed =
       (pathname.startsWith("/reports") && granted.includes("REPORTS")) ||

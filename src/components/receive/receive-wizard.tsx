@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 
 import { ProgressStepper } from "./progress-stepper";
 import { InvoiceStep } from "./steps/invoice-step";
-import { ScanStep } from "./steps/scan-step";
+import { ScanStep, isDraftPack } from "./steps/scan-step";
 import { ReviewStep } from "./steps/review-step";
 import { ConfirmStep } from "./steps/confirm-step";
 
@@ -138,7 +138,83 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
     }
   }
 
-  function goToStep(targetStep: WizardStep) {
+  const [savingPacks, setSavingPacks] = useState(false);
+
+  // Packs scanned in Step 2 live only in the local draft. They are written to
+  // the server when the user moves on to Review, so adding/removing packs in
+  // Step 2 never counts against the shipment's expected-pack limit.
+  async function persistDraftPacks(): Promise<boolean> {
+    if (!shipment.id) {
+      alert("Save the shipment details before reviewing it.");
+      return false;
+    }
+    setSavingPacks(true);
+    try {
+      const syncResponse = await fetch("/api/packs", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shipmentId: shipment.id,
+          keepPackIds: packs.filter((pack) => !isDraftPack(pack)).map((pack) => pack.id),
+        }),
+      });
+      if (!syncResponse.ok) {
+        const data = await syncResponse.json().catch(() => null);
+        alert(data?.error || "Unable to sync removed packs with the server.");
+        return false;
+      }
+
+      for (const pack of packs) {
+        if (!isDraftPack(pack)) continue;
+        const response = await fetch("/api/packs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shipmentId: shipment.id,
+            barcode: pack.serialNumber,
+            gameNumber: pack.gameNumber,
+            packNumber: pack.packNumber,
+            firstTicket: pack.firstTicket,
+            ticketPrice: Number(pack.ticketPrice),
+            ticketQuantity: pack.ticketQuantity,
+            packImage: pack.packImage || null,
+          }),
+        });
+        const saved = await response.json().catch(() => null);
+        if (!response.ok || !saved?.id) {
+          const failure = [
+            `Pack ${pack.gameNumber}-${pack.packNumber}: ${saved?.error || `Unable to save pack (HTTP ${response.status}).`}`,
+            typeof saved?.code === "string" ? `Code: ${saved.code}` : "",
+            typeof saved?.details === "string" ? saved.details : "",
+          ].filter(Boolean).join("\n");
+          alert(failure);
+          return false;
+        }
+        setPacks((prev) => prev.map((item) => (item.id === pack.id ? (saved as PackWithGame) : item)));
+      }
+      return true;
+    } catch (error) {
+      console.error("Unable to save scanned packs:", error);
+      alert("Unable to save scanned packs. Check the connection and try again.");
+      return false;
+    } finally {
+      setSavingPacks(false);
+    }
+  }
+
+  async function goToReview() {
+    if (await persistDraftPacks()) {
+      setStep(3);
+      router.push("/inventory/receive/step/3");
+    }
+  }
+
+  async function goToStep(targetStep: WizardStep) {
+    if (targetStep > step + 1) return;
+    if (step === 2 && targetStep === 3) {
+      if (packs.length === 0) return;
+      if (!(await persistDraftPacks())) return;
+    }
     setStep(targetStep);
     router.push(`/inventory/receive/step/${targetStep}`);
   }
@@ -282,7 +358,8 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
                 setScanDraft={setScanDraft}
                 addPack={addPack}
                 removePack={removePack}
-                nextStep={nextStep}
+                nextStep={goToReview}
+                savingPacks={savingPacks}
                 previousStep={previousStep}
                 onCancel={cancelReceiving}
               />

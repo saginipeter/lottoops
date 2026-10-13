@@ -474,6 +474,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           status: "found",
           id: existingPack.id,
+          shiftId: openShift.id,
           ticketBarcode: normalizedSerial,
           serialNumber: existingPack.serialNumber,
           gameNumber: existingPack.game.gameNumber,

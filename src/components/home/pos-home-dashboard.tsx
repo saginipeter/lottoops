@@ -1,14 +1,13 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, BarChart3, Boxes, CheckCircle2, ClipboardCheck, FileText, PackagePlus, Settings, ShoppingCart, Store, Users, X } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, ArrowRight, BarChart3, Boxes, CheckCircle2, ClipboardCheck, FileText, PackagePlus, Settings, ShoppingCart, Store, Users } from "lucide-react";
 
 type Action = { title: string; description: string; href: string; icon: typeof ShoppingCart; className: string };
 type Props = { storeName: string; role: string; grantedPermissions: string[] };
 
 export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props) {
-  const [shiftOpen, setShiftOpen] = useState(false);
   const isPlatformAdmin = role === "PLATFORM_ADMIN";
+  const isOwner = role === "OWNER";
   const isAdmin = role === "OWNER" || role === "MANAGER";
   const canReports = isAdmin || role === "AUDITOR" || grantedPermissions.includes("REPORTS");
   const canReceive = isAdmin || grantedPermissions.includes("RECEIVE_SHIPMENTS");
@@ -31,10 +30,8 @@ export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props)
       { title: "Back Stock", description: "Search and activate received packs", href: "/inventory/back-stock", icon: PackagePlus, className: "bg-[#8a4772]" },
     ] : []),
     ...(canDisplay ? [{ title: "Displays", description: "Manage active ticket displays", href: "/display-slots", icon: Store, className: "bg-[#6b46c1]" }] : []),
-    ...(canSettings ? [
-      { title: "Staff & Settings", description: "Users, terminals, and controls", href: "/settings", icon: Settings, className: "bg-[#344563]" },
-      { title: "Owner Overview", description: "Store and organization oversight", href: "/owner", icon: Users, className: "bg-[#087da8]" },
-    ] : []),
+    ...(canSettings ? [{ title: "Staff & Settings", description: "Users, terminals, and controls", href: "/settings", icon: Settings, className: "bg-[#344563]" }] : []),
+    ...(isOwner ? [{ title: "Owner Overview", description: "Store and organization oversight", href: "/owner", icon: Users, className: "bg-[#087da8]" }] : []),
     ...(canGames ? [{ title: "Games", description: "Manage the store game catalogue", href: "/games", icon: Settings, className: "bg-[#159447]" }] : []),
     ...(canDocuments ? [{ title: "Documents", description: "Find invoices, receipts, and compliance records", href: "/documents", icon: FileText, className: "bg-[#39758a]" }] : []),
     ...(isAdmin ? [
@@ -49,10 +46,7 @@ export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props)
       <ActionSection title="POS operations" actions={posActions} />
       {adminActions.length > 0 && <div className="mt-8"><ActionSection title={isPlatformAdmin ? "Platform administration" : "Management & oversight"} actions={adminActions} /></div>}
       {role === "AUDITOR" && <div className="mt-5 flex items-center gap-2 border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900"><FileText size={18} /> Read-only audit access. Operational POS actions are hidden.</div>}
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Quick shift access"><button type="button" onClick={() => setShiftOpen(true)} className="border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#087da8] focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#087da8]"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Shift control</p><p className="mt-2 text-xl font-black">Open Shift</p><p className="mt-1 text-xs font-bold text-[#087da8]">View live status</p></button><a href="/shifts" className="border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#087da8]"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Reconciliation</p><p className="mt-2 text-xl font-black">Drawer & Audit</p><p className="mt-1 text-xs font-bold text-[#087da8]">Open shift workspace</p></a></section>
     </main>
-
-    {shiftOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Shift access"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#087da8]">Shift control</p><h2 className="mt-1 text-2xl font-black">Open the live workspace</h2></div><button type="button" aria-label="Close shift details" onClick={() => setShiftOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={22} /></button></div><p className="mt-5 text-sm leading-6 text-slate-600">Clock in, complete the Opening Audit, manage ticket sales, count the drawer, and close the shift from one place.</p><a href="/shifts" className="mt-6 block rounded-xl bg-[#087da8] px-4 py-3 text-center font-bold text-white hover:bg-[#066989]">Open Shift Management</a></div></div>}
   </div>;
 }
 

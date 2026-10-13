@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
-import { Clock, PlayCircle, Radio, Tv } from "lucide-react";
+import { Clock, PlayCircle, ShoppingCart, Tv } from "lucide-react";
 
 import ShiftPackTable from "./shift-pack-table";
 import PhysicalAuditPanel from "@/components/inventory/physical-audit-panel";
@@ -196,11 +196,11 @@ export default function ShiftDashboard({
           </div>
           <div className="flex gap-2">
             <Link
-              href={`/inventory/live-scan?terminal=${terminalId}`}
+              href="/pos"
               className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-soft"
             >
-              <Radio size={14} />
-              Live Scan
+              <ShoppingCart size={14} />
+              Sell Tickets
             </Link>
             <Link
               href="/display-slots"

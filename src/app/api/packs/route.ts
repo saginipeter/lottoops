@@ -355,3 +355,75 @@ export async function PATCH(req: NextRequest) {
     );
   }
 }
+
+// Removes a pack that is still being received so it no longer counts toward
+// the shipment's expected pack limit or blocks re-scanning the same pack.
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getApiSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canReceiveShipments(session)) {
+      return NextResponse.json({ error: "You do not have permission to remove received packs." }, { status: 403 });
+    }
+
+    const body = (await req.json().catch(() => null)) as {
+      packId?: unknown;
+      shipmentId?: unknown;
+      keepPackIds?: unknown;
+    } | null;
+
+    // Sync mode: remove every still-receiving pack on the shipment that is no
+    // longer in the user's draft (e.g. packs deleted before clicking Review).
+    if (typeof body?.shipmentId === "string" && Array.isArray(body.keepPackIds)) {
+      const keepPackIds = body.keepPackIds.filter((id): id is string => typeof id === "string");
+      const stale: Array<{ id: string }> = await prisma.pack.findMany({
+        where: {
+          storeId: session.storeId,
+          shipmentId: body.shipmentId,
+          status: "RECEIVING",
+          shipment: { status: "IN_PROGRESS" },
+          id: { notIn: keepPackIds },
+        },
+        select: { id: true },
+      });
+      const staleIds = stale.map((row) => row.id);
+      if (staleIds.length > 0) {
+        await prisma.$transaction([
+          prisma.document.updateMany({ where: { packId: { in: staleIds } }, data: { packId: null } }),
+          prisma.pack.deleteMany({ where: { id: { in: staleIds } } }),
+        ]);
+      }
+      return NextResponse.json({ ok: true, removed: staleIds.length });
+    }
+
+    const packId = typeof body?.packId === "string" ? body.packId : "";
+    if (!packId) {
+      return NextResponse.json({ error: "Pack ID is required." }, { status: 400 });
+    }
+
+    const pack = await prisma.pack.findFirst({
+      where: {
+        id: packId,
+        storeId: session.storeId,
+        status: "RECEIVING",
+        shipment: { status: "IN_PROGRESS" },
+      },
+      select: { id: true },
+    });
+    if (!pack) {
+      return NextResponse.json({ ok: true, removed: false });
+    }
+
+    await prisma.$transaction([
+      prisma.document.updateMany({ where: { packId: pack.id }, data: { packId: null } }),
+      prisma.pack.delete({ where: { id: pack.id } }),
+    ]);
+
+    return NextResponse.json({ ok: true, removed: true });
+  } catch (error) {
+    console.error("[DELETE /api/packs] Failed to remove pack:", error);
+    return NextResponse.json({ error: "Failed to remove pack." }, { status: 500 });
+  }
+}

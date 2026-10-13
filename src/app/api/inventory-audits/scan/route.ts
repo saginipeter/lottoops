@@ -9,6 +9,7 @@ interface AuditLine {
   id: string;
   packId: string;
   expectedTicket: number;
+  beginningPhysicalTicket: number | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -49,41 +50,45 @@ export async function POST(request: NextRequest) {
         currentTicketNumber: true,
         firstTicket: true,
         ticketQuantity: true,
+        firstOrLastTicket: true,
+        slot: { select: { slotNumber: true } },
         game: { select: { ticketsPerPack: true } },
       },
     });
     if (!pack) return NextResponse.json({ error: "Only active packs assigned to a display can be audited." }, { status: 404 });
 
+    const expectedPhysicalTicket = getAuditPhysicalTicket({
+      currentTicketNumber: pack.currentTicketNumber,
+      firstTicket: pack.firstTicket,
+      ticketQuantity: pack.ticketQuantity ?? pack.game.ticketsPerPack,
+      firstOrLastTicket: pack.firstOrLastTicket,
+    });
+
     let line = (audit.lines as AuditLine[]).find((item) => item.packId === pack.id);
     if (!line) {
       if (phase !== "beginning") {
         return NextResponse.json(
-          { error: "Record this pack in the beginning audit before its ending audit." },
+          { error: "Record this pack in the Opening Audit before its Closing Audit." },
           { status: 409 }
         );
-      }
-      const shiftLine = await prisma.shiftLine.findUnique({
-        where: { shiftId_packId: { shiftId: audit.shiftId, packId: pack.id } },
-        select: { slotNumber: true },
-      });
-      if (!shiftLine) {
-        return NextResponse.json({ error: "Pack is not part of this shift audit." }, { status: 409 });
       }
       line = await prisma.inventoryAuditLine.create({
         data: {
           auditId: audit.id,
           packId: pack.id,
-          slotNumber: shiftLine.slotNumber,
-          expectedTicket: getAuditPhysicalTicket({
-            currentTicketNumber: pack.currentTicketNumber,
-            firstTicket: pack.firstTicket,
-            ticketQuantity: pack.ticketQuantity ?? pack.game.ticketsPerPack,
-          }),
+          slotNumber: pack.slot?.slotNumber ?? "",
+          expectedTicket: expectedPhysicalTicket,
         },
       });
     }
     if (!line) {
       return NextResponse.json({ error: "Unable to create an audit line for this pack." }, { status: 500 });
+    }
+    if (phase === "ending" && line.beginningPhysicalTicket === null) {
+      return NextResponse.json(
+        { error: "Record this pack in the Opening Audit before its Closing Audit." },
+        { status: 409 }
+      );
     }
 
     if (!Number.isInteger(physicalTicket) || physicalTicket < 0) {
@@ -97,12 +102,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const expectedPhysicalTicket = getAuditPhysicalTicket({
-      currentTicketNumber: pack.currentTicketNumber,
-      firstTicket: pack.firstTicket,
-      ticketQuantity: pack.ticketQuantity ?? pack.game.ticketsPerPack,
-    });
-
     const data = phase === "beginning"
       ? { beginningPhysicalTicket: physicalTicket, expectedTicket: expectedPhysicalTicket }
       : {
@@ -110,7 +109,11 @@ export async function POST(request: NextRequest) {
           endingExpectedTicket: expectedPhysicalTicket,
           variance: physicalTicket - expectedPhysicalTicket,
         };
-    const updated = await prisma.inventoryAuditLine.update({ where: { id: line.id }, data });
+    const updated = await prisma.inventoryAuditLine.update({
+      where: { id: line.id },
+      data,
+      include: { pack: { select: { serialNumber: true, game: { select: { name: true } } } } },
+    });
     await recordShiftParticipant(audit.shiftId, session.userId);
     await logInventoryActivity({ storeId: session.storeId, action: phase === "beginning" ? "BEGINNING_AUDIT_SCAN" : "ENDING_AUDIT_SCAN", entityType: "PACK", entityId: pack.id, detail: `${phase} physical ticket recorded as ${physicalTicket} for audit ${auditId}.`, performedById: session.userId, performedByName: session.name });
     return NextResponse.json(updated);

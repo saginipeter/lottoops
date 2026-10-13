@@ -51,19 +51,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `${incomplete.length} display pack audit scan(s) are still required.` }, { status: 409 });
     }
 
-    const currentLines = (await prisma.shiftLine.findMany({ where: { shiftId: audit.shiftId }, include: { pack: { select: { currentTicketNumber: true, firstTicket: true, ticketQuantity: true, firstOrLastTicket: true } } } })) as Array<{
-      packId: string;
-      endingTicket: number | null;
-      pack: { currentTicketNumber: number | null; firstTicket: number | null; ticketQuantity: number | null; firstOrLastTicket: string | null };
-    }>;
+    const currentPacks: Array<{
+      id: string;
+      currentTicketNumber: number | null;
+      firstTicket: number | null;
+      ticketQuantity: number | null;
+      firstOrLastTicket: string | null;
+      game: { ticketsPerPack: number | null };
+    }> = await prisma.pack.findMany({
+      where: { storeId: session.storeId, id: { in: auditLines.map((line) => line.packId) } },
+      select: { id: true, currentTicketNumber: true, firstTicket: true, ticketQuantity: true, firstOrLastTicket: true, game: { select: { ticketsPerPack: true } } },
+    });
     const resolvedLines = auditLines.map((line) => {
-      const shiftLine = currentLines.find((item) => item.packId === line.packId);
-      const expected = shiftLine
+      const pack = currentPacks.find((item) => item.id === line.packId);
+      const expected = pack
         ? getAuditPhysicalTicket({
-            currentTicketNumber: shiftLine.pack.currentTicketNumber ?? shiftLine.endingTicket,
-            firstTicket: shiftLine.pack.firstTicket,
-            ticketQuantity: shiftLine.pack.ticketQuantity,
-            firstOrLastTicket: shiftLine.pack.firstOrLastTicket,
+            currentTicketNumber: pack.currentTicketNumber,
+            firstTicket: pack.firstTicket,
+            ticketQuantity: pack.ticketQuantity ?? pack.game.ticketsPerPack,
+            firstOrLastTicket: pack.firstOrLastTicket,
           })
         : line.expectedTicket;
       return {

@@ -1,12 +1,11 @@
 import Link from "next/link";
 import {
-  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   Circle,
   ClipboardCheck,
   ListChecks,
-  Radio,
+  ShoppingCart,
   ShieldCheck,
 } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -105,9 +104,9 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
       action: beginningAuditComplete ? "Done" : "Audit",
     },
     {
-      label: "Live ticket scanning",
-      description: "Record ticket movement throughout the active shift.",
-      href: `/inventory/live-scan?terminal=${terminalId}`,
+      label: "Sell tickets",
+      description: "Scan and record lottery ticket sales.",
+      href: "/pos",
       state: shiftOpen ? "ready" : "locked",
       action: "Scan",
     },
@@ -180,14 +179,11 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             </div>
           </section>
 
-          <section className="mt-4 grid gap-3 sm:grid-cols-2" aria-label="Employee tools">
-            <Link href={`/inventory/live-scan?terminal=${terminalId}`} className="group min-h-36 bg-[#17233f] p-4 text-white shadow-[0_6px_0_#0d1528] active:translate-y-0.5">
-              <div className="flex items-start justify-between"><Radio size={21} /><ArrowRight size={18} className="transition-transform group-hover:translate-x-1" /></div>
-              <h2 className="mt-5 text-base font-semibold">Open live scanner</h2><p className="mt-1 text-xs text-white/70">Camera, barcode reader, manual entry, and offline queue.</p>
-            </Link>
-            <Link href={`/inventory/live-scan?terminal=${terminalId}#report-ticket`} className="group min-h-36 border border-[#f1c46b] bg-[#fff7df] p-4 text-[#6d4b00] active:translate-y-0.5">
-              <div className="flex items-start justify-between"><AlertTriangle size={21} /><ArrowRight size={18} className="transition-transform group-hover:translate-x-1" /></div>
-              <h2 className="mt-5 text-base font-semibold">Manager handoff</h2><p className="mt-1 text-xs opacity-75">Report damaged, disputed, or blocked tickets for review.</p>
+          <section className="mt-4" aria-label="Employee tools">
+            <Link href="/pos" className="group flex min-h-28 items-center gap-4 bg-[#17233f] p-4 text-white shadow-[0_6px_0_#0d1528] active:translate-y-0.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-white/25 bg-white/10"><ShoppingCart size={21} /></div>
+              <div className="min-w-0 flex-1"><h2 className="text-base font-semibold">Sell tickets</h2><p className="mt-1 text-xs text-white/70">Scan sales and return the most recent ticket with a reason.</p></div>
+              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
             </Link>
           </section>
 
