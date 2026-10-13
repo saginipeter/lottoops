@@ -54,8 +54,8 @@ export async function GET() {
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, status: "OPEN" }, select: { storeId: true } }),
       prisma.shiftLine.findMany({ where: { shift: { AND: [{ storeId: { in: storeIds } }, { openedAt: { gte: today } }] } }, select: { shift: { select: { storeId: true } }, ticketsSold: true, salesAmount: true } }),
       prisma.shift.findMany({ where: { storeId: { in: storeIds }, openedAt: { gte: today } }, select: { id: true, storeId: true } }),
-      prisma.pack.findMany({ where: { storeId: { in: storeIds }, sequenceLocked: true }, select: { id: true, storeId: true } }),
-      prisma.inventoryAuditLine.findMany({ where: { audit: { storeId: { in: storeIds } }, variance: { not: 0 } }, select: { id: true, audit: { select: { storeId: true } } } }),
+      prisma.pack.findMany({ where: { storeId: { in: storeIds }, sequenceLocked: true }, select: { id: true, storeId: true } }) as Promise<Array<{ id: string; storeId: string }>>,
+      prisma.inventoryAuditLine.findMany({ where: { audit: { storeId: { in: storeIds } }, variance: { not: 0 } }, select: { id: true, audit: { select: { storeId: true } } } }) as Promise<Array<{ id: string; audit: { storeId: string } }>>,
     ]);
     const shiftsToday = rawShiftsToday as Array<{ id: string; storeId: string }>;
     const ownerPacks = packs as OwnerPack[];
