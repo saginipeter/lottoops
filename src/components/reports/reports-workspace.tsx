@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Bookmark, ChevronDown, FileBarChart2, History, Package, RefreshCw, ShieldAlert, Store, TicketCheck, Upload, Users } from "lucide-react";
+import { BarChart3, Bookmark, ChevronDown, Eye, FileBarChart2, History, Package, Printer, RefreshCw, ShieldAlert, Store, TicketCheck, Upload, Users, X } from "lucide-react";
 import { FinancialReports } from "@/components/reports/financial-reports";
 import { ActivityReport } from "@/components/reports/activity-report";
 import { InventoryStatusReport } from "@/components/reports/inventory-status-report";
@@ -58,6 +58,7 @@ export function ReportsWorkspace({ role }: { role: Role }) {
   const available = useMemo(() => reportOptions.filter((option) => canSee(option, role)), [role]);
   const [selected, setSelected] = useState<ReportKey>("shift-sales");
   const [favorites, setFavorites] = useState<ReportKey[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -72,6 +73,15 @@ export function ReportsWorkspace({ role }: { role: Role }) {
     if (!available.some((option) => option.key === selected)) setSelected(available[0]?.key ?? "shift-sales");
   }, [available, selected]);
 
+  useEffect(() => {
+    if (!previewOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreviewOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [previewOpen]);
+
   const current = available.find((option) => option.key === selected) ?? available[0];
   if (!current) return null;
   const Icon = current.icon;
@@ -80,6 +90,13 @@ export function ReportsWorkspace({ role }: { role: Role }) {
     const next = favorites.includes(current.key) ? favorites.filter((key) => key !== current.key) : [...favorites, current.key];
     setFavorites(next);
     window.localStorage.setItem("lottoops-report-favorites", JSON.stringify(next));
+  }
+
+  function printSelectedReport() {
+    document.body.classList.add("report-printing");
+    const cleanup = () => document.body.classList.remove("report-printing");
+    window.addEventListener("afterprint", cleanup, { once: true });
+    window.setTimeout(() => window.print(), 50);
   }
 
   function renderReport() {
@@ -127,12 +144,24 @@ export function ReportsWorkspace({ role }: { role: Role }) {
         </div>
         {favorites.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Quick access</span>{favorites.map((key) => { const option = available.find((item) => item.key === key); return option ? <button key={key} type="button" onClick={() => setSelected(key)} className={`border px-3 py-2 text-xs font-bold ${selected === key ? "border-[#087da8] bg-[#e0f6fc] text-[#087da8]" : "border-slate-200 text-slate-600 hover:border-[#087da8]"}`}>{option.label}</button> : null; })}</div>}
       </section>
-      <section aria-labelledby="selected-report-title">
-        <div className="mb-3 flex items-start gap-3 border-l-4 border-[#087da8] bg-[#17233f] px-4 py-3 text-white sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#087da8] text-white"><Icon size={18} /></span><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8be2ff]">{current.group}</p><h2 id="selected-report-title" className="truncate text-lg font-black">{current.label}</h2></div></div>
-          <p className="hidden max-w-md text-right text-xs text-white/65 lg:block">{current.description}</p>
+      <section
+        aria-labelledby="selected-report-title"
+        role={previewOpen ? "dialog" : undefined}
+        aria-modal={previewOpen || undefined}
+        className={previewOpen ? "fixed inset-0 z-[70] overflow-y-auto bg-black/55 p-3 sm:p-6" : ""}
+      >
+        <div className={previewOpen ? "mx-auto max-w-[1440px] bg-white p-4 shadow-2xl sm:p-6" : ""}>
+          {previewOpen && <div className="mb-3 flex items-center justify-between border-b border-border pb-3 print:hidden"><p className="text-sm font-bold text-text">Report preview</p><button type="button" onClick={() => setPreviewOpen(false)} className="inline-flex min-h-10 items-center gap-2 border border-border px-3 text-sm font-semibold text-text hover:bg-surface-soft"><X size={15} />Close preview</button></div>}
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-l-4 border-[#087da8] bg-[#17233f] px-4 py-3 text-white sm:items-center">
+            <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#087da8] text-white"><Icon size={18} /></span><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8be2ff]">{current.group}</p><h2 id="selected-report-title" className="truncate text-lg font-black">{current.label}</h2></div></div>
+            <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <p className="hidden max-w-md text-right text-xs text-white/65 lg:block">{current.description}</p>
+              <button type="button" onClick={() => setPreviewOpen(true)} className="inline-flex min-h-10 items-center gap-2 border border-white/30 px-3 text-xs font-bold text-white hover:bg-white/10"><Eye size={14} />View Report</button>
+              {current.key !== "shift-sales" && <button type="button" onClick={printSelectedReport} className="inline-flex min-h-10 items-center gap-2 bg-white px-3 text-xs font-bold text-[#17233f] hover:bg-slate-100"><Printer size={14} />Print Report</button>}
+            </div>
+          </div>
+          <div className="report-print-target">{renderReport()}</div>
         </div>
-        {renderReport()}
       </section>
     </div>
   );

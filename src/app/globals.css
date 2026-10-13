@@ -296,6 +296,9 @@ body {
     background: #fff !important;
     color: #111827 !important;
   }
+  body.report-printing .report-print-target :is(button, input, select, textarea) {
+    display: none !important;
+  }
   body.shift-report-printing .report-print-target:not(.shift-report-print) {
     display: none !important;
   }
