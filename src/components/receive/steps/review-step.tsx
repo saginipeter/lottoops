@@ -56,8 +56,12 @@ export function ReviewStep({
 
   async function requestOverride() {
     if (!shipment.id) return;
-    const reason = window.prompt("Enter the reason for this shipment override:");
-    if (reason === null || !reason.trim()) return;
+    const reason = window.prompt("Enter a detailed reason for this shipment override (at least 10 characters):");
+    if (reason === null) return;
+    if (reason.trim().length < 10) {
+      setOverrideError("Enter a detailed reason of at least 10 characters.");
+      return;
+    }
 
     try {
       setOverrideLoading(true);

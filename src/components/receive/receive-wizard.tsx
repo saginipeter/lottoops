@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
 import { PageToolbar } from "@/components/ui/page-toolbar";
@@ -30,6 +30,7 @@ interface ScanDraftState {
 
 interface ReceiveWizardProps {
   initialStep?: WizardStep;
+  receiverName?: string;
 }
 
 interface ReceiveDraft {
@@ -74,7 +75,7 @@ const DEFAULT_SCAN_DRAFT: ScanDraftState = {
   packImage: "",
 };
 
-export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
+export default function ReceiveWizard({ initialStep = 1, receiverName = "" }: ReceiveWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>(
     () => (initialStep === 1 ? readReceiveDraft()?.step ?? initialStep : initialStep)
@@ -87,9 +88,11 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
     setStep(initialStep);
   }
 
-  const [shipment, setShipment] = useState<ShipmentState>(
-    () => readReceiveDraft()?.shipment ?? createDefaultShipment()
-  );
+  const [shipment, setShipment] = useState<ShipmentState>(() => {
+    const savedShipment = readReceiveDraft()?.shipment;
+    const initialShipment = savedShipment ?? createDefaultShipment();
+    return { ...initialShipment, receivedBy: initialShipment.receivedBy || receiverName };
+  });
 
   const [packs, setPacks] = useState<PackWithGame[]>(() => {
     const draftPacks = readReceiveDraft()?.packs;
@@ -322,6 +325,16 @@ export default function ReceiveWizard({ initialStep = 1 }: ReceiveWizardProps) {
         right={
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-tertiary">{shipment.status.replaceAll("_", " ")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => step > 1 ? previousStep() : router.push("/inventory")}
+              className="font-bold"
+            >
+              <ArrowLeft size={14} />
+              Back
+            </Button>
             <Button
               type="button"
               variant="outline"

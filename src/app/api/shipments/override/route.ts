@@ -12,8 +12,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const shipmentId = typeof body.shipmentId === "string" ? body.shipmentId.trim() : "";
-  const reason = typeof body.reason === "string" ? body.reason.trim() : "Shipment discrepancy approved by management.";
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
   if (!shipmentId) return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
+  if (reason.length < 10) return NextResponse.json({ error: "Enter a detailed override reason of at least 10 characters." }, { status: 400 });
 
   const shipment = await prisma.shipment.findFirst({
     where: { id: shipmentId, storeId: session.storeId, status: "IN_PROGRESS" },
