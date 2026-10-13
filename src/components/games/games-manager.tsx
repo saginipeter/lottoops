@@ -87,6 +87,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [addingKey, setAddingKey] = useState<string | null>(null);
+  const [addingAll, setAddingAll] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"ok" | "err">("ok");
@@ -108,6 +109,14 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
         (catalogType === "all" || c.gameType === catalogType)
     );
   }, [catalog, catalogSearch, catalogType]);
+
+  const addableCatalogCount = catalog.filter((item) =>
+    !item.addedToStore &&
+    item.gameType === "scratch_off" &&
+    Boolean(item.gameNumber?.trim()) &&
+    Number.isFinite(Number(item.ticketPrice)) &&
+    Number(item.ticketPrice) > 0
+  ).length;
 
   function notify(msg: string, type: "ok" | "err" = "ok") {
     setMessage(msg);
@@ -249,6 +258,31 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
       await refreshGames(true);
     } catch { notify("Failed to add game.", "err"); }
     finally { setAddingKey(null); }
+  }
+
+  async function addAllFromCatalog() {
+    if (!canManage || addingAll || addableCatalogCount === 0) return;
+    if (!window.confirm(`Add all ${addableCatalogCount} eligible scratch-off games to Active Store Games?`)) return;
+
+    try {
+      setAddingAll(true);
+      const res = await fetch("/api/games/catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add-all" }),
+      });
+      const data = await res.json() as { error?: string; added?: number; skipped?: number };
+      if (!res.ok) { notify(data.error || "Unable to add catalog games.", "err"); return; }
+
+      await Promise.all([refreshCatalog(), refreshGames(true)]);
+      setShowInactive(false);
+      setTab("store");
+      notify(`Added ${Number(data.added ?? 0)} games to Active Store Games. ${Number(data.skipped ?? 0)} were already present.`);
+    } catch {
+      notify("Unable to add catalog games.", "err");
+    } finally {
+      setAddingAll(false);
+    }
   }
 
   return (
@@ -421,6 +455,11 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
               )}
             </div>
             <div className="flex gap-2">
+              {canManage && addableCatalogCount > 0 && (
+                <Button size="sm" onClick={addAllFromCatalog} disabled={addingAll || catalogLoading}>
+                  {addingAll ? <><Loader2 size={12} className="mr-1 animate-spin" />Adding…</> : <><Plus size={12} className="mr-1" />Add all to Active ({addableCatalogCount})</>}
+                </Button>
+              )}
               <select
                 className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-text"
                 value={catalogType}

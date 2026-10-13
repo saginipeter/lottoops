@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { canManageGames } from "@/lib/permissions";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 
 /**
@@ -114,6 +115,49 @@ export async function POST(req: NextRequest) {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const body = await req.json().catch(() => ({}));
+
+  if (body?.action === "add-all") {
+    if (!canManageGames(session)) {
+      return NextResponse.json({ error: "You do not have permission to add games." }, { status: 403 });
+    }
+
+    try {
+      const rows = (await prisma.$queryRawUnsafe(
+        `SELECT game_number AS "gameNumber", name, ticket_price AS "ticketPrice"
+         FROM game_catalog
+         WHERE store_id = $1
+           AND game_type = 'scratch_off'
+           AND NULLIF(BTRIM(game_number), '') IS NOT NULL
+           AND ticket_price IS NOT NULL
+           AND ticket_price > 0
+         ORDER BY game_number ASC`,
+        session.storeId
+      )) as Array<{ gameNumber: string; name: string; ticketPrice: number }>;
+
+      const result = await prisma.game.createMany({
+        data: rows.map((entry) => ({
+          storeId: session.storeId,
+          gameNumber: entry.gameNumber.trim(),
+          name: entry.name,
+          price: Number(entry.ticketPrice),
+          ticketsPerPack: getSuggestedTicketQuantity(Number(entry.ticketPrice)),
+          active: true,
+        })),
+        skipDuplicates: true,
+      });
+
+      return NextResponse.json({
+        success: true,
+        added: result.count,
+        eligible: rows.length,
+        skipped: Math.max(rows.length - result.count, 0),
+      });
+    } catch (error) {
+      console.error("[POST /api/games/catalog add-all]", error);
+      return NextResponse.json({ error: "Unable to add all eligible games." }, { status: 500 });
+    }
+  }
+
   const { externalKey } = body;
 
   if (!externalKey) return NextResponse.json({ error: "externalKey is required." }, { status: 400 });
