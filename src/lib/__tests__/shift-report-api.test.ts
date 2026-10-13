@@ -16,11 +16,15 @@ const employee: SessionPayload = {
   email: "employee@example.com", role: "EMPLOYEE", grantedPermissions: [],
 };
 
-type QueryWhere = { storeId: string; id?: string; status: string; openedById?: string };
+type QueryWhere = {
+  storeId: string; id?: string; status: string;
+  OR?: Array<{ openedById?: string; closedById?: string }>;
+};
 const shifts = [
-  { id: "own-shift", storeId: "store-1", openedById: "employee-1" },
-  { id: "coworker-shift", storeId: "store-1", openedById: "employee-2" },
-  { id: "other-store-shift", storeId: "store-2", openedById: "employee-1" },
+  { id: "own-shift", storeId: "store-1", openedById: "employee-1", closedById: "employee-2" },
+  { id: "own-closed-shift", storeId: "store-1", openedById: "employee-2", closedById: "employee-1" },
+  { id: "coworker-shift", storeId: "store-1", openedById: "employee-2", closedById: "employee-3" },
+  { id: "other-store-shift", storeId: "store-2", openedById: "employee-1", closedById: "employee-1" },
 ].map((shift) => ({
   ...shift, status: "CLOSED", openedAt: new Date("2026-10-13T08:00:00Z"),
   closedAt: new Date("2026-10-13T16:00:00Z"), openedBy: { name: "Operator" },
@@ -36,7 +40,9 @@ function loadRoute(session: SessionPayload | null) {
         return shifts.filter((shift) =>
           shift.storeId === where.storeId && shift.status === where.status &&
           (!where.id || shift.id === where.id) &&
-          (!where.openedById || shift.openedById === where.openedById));
+          (!where.OR || where.OR.some((condition) =>
+            (condition.openedById !== undefined && shift.openedById === condition.openedById) ||
+            (condition.closedById !== undefined && shift.closedById === condition.closedById))));
       },
     },
     $queryRawUnsafe: async () => [],
@@ -61,15 +67,17 @@ function loadRoute(session: SessionPayload | null) {
   return { get: exports.GET, query: () => query };
 }
 
-test("employees may retrieve only closed shifts they opened, scoped to their store", async () => {
+test("employees may retrieve closed shifts they opened or closed, scoped to their store", async () => {
   for (const [shiftId, expectedStatus] of [
-    ["own-shift", 200], ["coworker-shift", 404], ["other-store-shift", 404],
+    ["own-shift", 200], ["own-closed-shift", 200], ["coworker-shift", 404], ["other-store-shift", 404],
   ] as const) {
     const route = loadRoute(employee);
     const response = await route.get(new Request(`http://localhost/api/reports/shifts?shiftId=${shiftId}`));
     assert.equal(response.status, expectedStatus);
     assert.equal(route.query()?.storeId, employee.storeId);
-    assert.equal(route.query()?.openedById, employee.userId);
+    assert.equal(JSON.stringify(route.query()?.OR), JSON.stringify([
+      { openedById: employee.userId }, { closedById: employee.userId },
+    ]));
     assert.equal(route.query()?.status, "CLOSED");
   }
 });
@@ -79,7 +87,7 @@ test("report-authorized roles can read coworkers' shifts but never other stores"
     const session = { ...employee, role, grantedPermissions: role === "SHIFT_LEAD" ? ["REPORTS"] : [] };
     const route = loadRoute(session);
     assert.equal((await route.get(new Request("http://localhost/api/reports/shifts?shiftId=coworker-shift"))).status, 200);
-    assert.equal(route.query()?.openedById, undefined);
+    assert.equal(route.query()?.OR, undefined);
     assert.equal((await route.get(new Request("http://localhost/api/reports/shifts?shiftId=other-store-shift"))).status, 404);
   }
 });

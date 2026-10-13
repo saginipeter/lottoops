@@ -67,7 +67,9 @@ export async function GET(req: NextRequest) {
       storeId: session.storeId,
       status: "CLOSED",
       ...(shiftId ? { id: shiftId } : { closedAt: { gte: fromDate, lte: toDate } }),
-      ...(!hasReportAccess ? { openedById: session.userId } : {}),
+      ...(!hasReportAccess ? {
+        OR: [{ openedById: session.userId }, { closedById: session.userId }],
+      } : {}),
     },
     include: {
       openedBy: { select: { name: true } },
