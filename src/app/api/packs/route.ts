@@ -390,10 +390,7 @@ export async function DELETE(req: NextRequest) {
       });
       const staleIds = stale.map((row) => row.id);
       if (staleIds.length > 0) {
-        await prisma.$transaction([
-          prisma.document.updateMany({ where: { packId: { in: staleIds } }, data: { packId: null } }),
-          prisma.pack.deleteMany({ where: { id: { in: staleIds } } }),
-        ]);
+        await deleteReceivingPacks(session.storeId, staleIds);
       }
       return NextResponse.json({ ok: true, removed: staleIds.length });
     }
@@ -416,14 +413,36 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ ok: true, removed: false });
     }
 
-    await prisma.$transaction([
-      prisma.document.updateMany({ where: { packId: pack.id }, data: { packId: null } }),
-      prisma.pack.delete({ where: { id: pack.id } }),
-    ]);
+    const removed = await deleteReceivingPacks(session.storeId, [pack.id]);
 
-    return NextResponse.json({ ok: true, removed: true });
+    return NextResponse.json({ ok: true, removed: removed > 0 });
   } catch (error) {
     console.error("[DELETE /api/packs] Failed to remove pack:", error);
     return NextResponse.json({ error: "Failed to remove pack." }, { status: 500 });
   }
+}
+
+async function deleteReceivingPacks(storeId: string, packIds: string[]) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const documentTable = await tx.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT to_regclass('public.documents') IS NOT NULL AS "exists"
+    `;
+
+    if (documentTable[0]?.exists) {
+      await tx.document.updateMany({
+        where: { packId: { in: packIds } },
+        data: { packId: null },
+      });
+    }
+
+    const result = await tx.pack.deleteMany({
+      where: {
+        id: { in: packIds },
+        storeId,
+        status: "RECEIVING",
+        shipment: { status: "IN_PROGRESS" },
+      },
+    });
+    return result.count;
+  });
 }
