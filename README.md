@@ -26,6 +26,14 @@ LottoOps has two main parts: an **Admin Dashboard** for store staff and a **TV D
 
 6. **Reports** – Managers can view daily summaries, scan logs, and activity history to track sales and inventory movement.
 
+### Report preview and printing
+
+Use **View Report** to preview a data-only document or **Print Report** to print it directly. A4 documents are rendered in isolated frames, without dashboard navigation, filters, or action buttons; browser printing also supports saving as PDF. Shipment archive rows provide these actions for individual receiving transactions.
+
+Shift documents include ticket positions, sales, physical audit variance, and recorded drawer reconciliation. Payment-method splits and shift-specific returns/voids are currently not recorded, so documents explicitly mark those fields rather than inventing totals.
+
+Receiving documents include invoice/confirmation numbers, optional supplier details, the saved receiver, confirmation timestamp, and pack line items. Deploy the shipment supplier migration with `npm run db:deploy` before using the updated receiving workflow; older records without supplier details show “Not recorded.”
+
 ---
 
 ##  Key Features

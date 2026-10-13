@@ -43,7 +43,8 @@ export async function GET(req: NextRequest) {
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
   const shiftId = searchParams.get("shiftId")?.trim();
-  if (!shiftId && !canAccessReports(session)) {
+  const hasReportAccess = canAccessReports(session);
+  if (!shiftId && !hasReportAccess) {
     return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
   const requestedLimit = Number(searchParams.get("limit") ?? "100");
@@ -66,6 +67,7 @@ export async function GET(req: NextRequest) {
       storeId: session.storeId,
       status: "CLOSED",
       ...(shiftId ? { id: shiftId } : { closedAt: { gte: fromDate, lte: toDate } }),
+      ...(!hasReportAccess ? { openedById: session.userId } : {}),
     },
     include: {
       openedBy: { select: { name: true } },

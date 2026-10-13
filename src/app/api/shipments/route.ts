@@ -176,44 +176,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    let shipment;
-    try {
-      shipment = await prisma.shipment.create({
-        data: {
-          invoiceNumber: normalizedInvoiceNumber,
-          invoicePhoto: normalizedInvoicePhoto,
-          supplierDetails: normalizedSupplierDetails,
-          shipmentConfirmationNumber: normalizedConfirmationNumber,
-          confirmationReceiptPhoto: normalizedConfirmationPhoto,
-          expectedPacks: Number(expectedPacks),
-          shipmentDate: parsedShipmentDate,
-          scannedPacks: 0,
-          storeId: session.storeId,
-          receivedById: session.userId,
-        },
-      });
-    } catch (createError: unknown) {
-      if (
-        createError instanceof Prisma.PrismaClientKnownRequestError &&
-        (createError.code === "P2021" || createError.code === "P2022")
-      ) {
-        // Temporary compatibility path when production DB is behind the app schema.
-        shipment = await prisma.shipment.create({
-          data: {
-            invoiceNumber: normalizedInvoiceNumber,
-            invoicePhoto: normalizedInvoicePhoto,
-            expectedPacks: Number(expectedPacks),
-            scannedPacks: 0,
-            storeId: session.storeId,
-            receivedById: session.userId,
-          },
-        });
-      } else {
-        throw createError;
-      }
-    }
-
-    
+    const shipment = await prisma.shipment.create({
+      data: {
+        invoiceNumber: normalizedInvoiceNumber,
+        invoicePhoto: normalizedInvoicePhoto,
+        supplierDetails: normalizedSupplierDetails,
+        shipmentConfirmationNumber: normalizedConfirmationNumber,
+        confirmationReceiptPhoto: normalizedConfirmationPhoto,
+        expectedPacks: Number(expectedPacks),
+        shipmentDate: parsedShipmentDate,
+        scannedPacks: 0,
+        storeId: session.storeId,
+        receivedById: session.userId,
+      },
+    });
 
     return NextResponse.json({
       success: true,

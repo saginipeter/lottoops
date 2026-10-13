@@ -97,6 +97,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         where: { storeId: session.storeId, status: "CLOSED", closedAt: { not: null } },
         orderBy: { closedAt: "desc" },
         select: {
+          id: true,
           openedAt: true,
           closedAt: true,
           openedBy: { select: { name: true } },
@@ -148,7 +149,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       })
     : [];
 
-  const eventData = timelineEvents.map((event: any) => ({
+  const eventData = timelineEvents.map((event: { id: string; action: string; detail: string; timestamp: Date; performedBy: { name: string } | null }) => ({
     id: event.id,
     action: event.action,
     detail: event.detail,

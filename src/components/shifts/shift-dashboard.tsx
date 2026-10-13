@@ -15,7 +15,7 @@ import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 import { calculatePhysicalAuditVariance } from "@/lib/core-validation";
 import type { ReportDocument } from "@/lib/report-document";
 
-interface DashboardLine {
+export interface DashboardLine {
   id: string;
   packId: string;
   slotNumber: string;
@@ -28,7 +28,7 @@ interface DashboardLine {
   };
 }
 
-interface DashboardShift {
+export interface DashboardShift {
   id: string;
   openedAt: string;
   closedAt?: string | null;
