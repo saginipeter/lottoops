@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { ensureActivitySchema } from "@/lib/activity-log";
 import { isManagerOrAbove } from "@/lib/permissions";
 
 export async function GET() {
@@ -10,6 +11,7 @@ export async function GET() {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   try {
+    await ensureActivitySchema();
     const rows = (await prisma.$queryRawUnsafe(
       `
       SELECT logs.id, logs.store_id AS "storeId", stores.name AS "storeName",
@@ -18,7 +20,7 @@ export async function GET() {
       FROM inventory_activity_logs logs
       JOIN stores ON stores.id = logs.store_id
       WHERE logs.action = 'SHIPMENT_OVERRIDE'
-        AND ($1 = 'OWNER' AND stores."ownerUserId" = $2 OR $1 <> 'OWNER' AND logs.store_id = $3)
+        AND (logs.store_id = $3 OR (($1)::text = 'OWNER' AND stores."ownerUserId" = ($2)::text))
       ORDER BY logs.created_at DESC
       LIMIT 50
       `,
@@ -28,7 +30,8 @@ export async function GET() {
     )) as unknown[];
 
     return NextResponse.json({ notifications: rows });
-  } catch {
-    return NextResponse.json({ notifications: [] });
+  } catch (error) {
+    console.error("Unable to load shipment overrides:", error);
+    return NextResponse.json({ error: "Unable to load shipment overrides." }, { status: 500 });
   }
 }

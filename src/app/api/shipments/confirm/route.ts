@@ -1,3 +1,4 @@
+import { sortBySlotNumber } from "@/lib/slot-order";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -147,13 +148,13 @@ export async function POST(req: NextRequest) {
 
     // If destination is "active", activate only with display assignment.
     if (destination === "active") {
-      const availableDisplays = await prisma.displaySlot.findMany({
+      const availableDisplays = sortBySlotNumber(await prisma.displaySlot.findMany({
         where: {
           storeId: shipment.storeId,
           packId: null,
         },
         orderBy: { slotNumber: "asc" },
-      });
+      }));
 
       if (availableDisplays.length < shipmentPacks.length) {
         return NextResponse.json(

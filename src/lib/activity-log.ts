@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 let schemaReady = false;
 
-async function ensureActivitySchema() {
+export async function ensureActivitySchema() {
   if (schemaReady || !prisma) return;
 
   await prisma.$executeRawUnsafe(`

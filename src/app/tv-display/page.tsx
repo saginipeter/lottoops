@@ -1,3 +1,4 @@
+import { sortBySlotNumber } from "@/lib/slot-order";
 import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
@@ -73,7 +74,7 @@ export default async function TvDisplayKioskPage({
       game: { name: string; gameNumber: string; price: unknown };
     } | null;
   }>;
-  const activeSlots = typedSlots.flatMap((slot) => {
+  const activeSlots = sortBySlotNumber(typedSlots).flatMap((slot) => {
       if (!slot.pack || slot.pack.status !== "ACTIVE") return [];
       const pack = slot.pack;
       const quantity = pack.ticketQuantity ?? 0;

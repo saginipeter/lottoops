@@ -1,3 +1,4 @@
+import { sortBySlotNumber } from "@/lib/slot-order";
 import { prisma } from "@/lib/prisma";
 
 export const DISPLAY_SLOT_COUNT = 100;
@@ -58,7 +59,7 @@ export async function getDisplaySlots(storeId: string) {
     },
   });
 
-  return slots.map((slot: any) => ({
+  return sortBySlotNumber(slots).map((slot: any) => ({
     ...slot,
     pack: slot.pack
       ? {

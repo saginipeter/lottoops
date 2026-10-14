@@ -1,3 +1,4 @@
+import { sortBySlotNumber } from "@/lib/slot-order";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
@@ -16,7 +17,7 @@ export async function GET() {
   }
 
   try {
-    const slots = await prisma.displaySlot.findMany({
+    const slots = sortBySlotNumber(await prisma.displaySlot.findMany({
       where: { storeId: session.storeId },
       orderBy: { slotNumber: "asc" },
       include: {
@@ -24,8 +25,7 @@ export async function GET() {
           include: { game: true },
         },
       },
-    });
-
+    }));
 
     const serialized = slots.map((s: any) => ({
       slotNumber: s.slotNumber,

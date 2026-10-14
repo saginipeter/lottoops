@@ -1,3 +1,4 @@
+import { sortBySlotNumber } from "@/lib/slot-order";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
@@ -47,7 +48,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(slots);
+    return NextResponse.json(sortBySlotNumber(slots));
   } catch (error) {
     console.error(error);
 

@@ -1,3 +1,4 @@
+import { sortBySlotNumber } from "@/lib/slot-order";
 import { Header } from "@/components/layout/header";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
@@ -46,7 +47,7 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
     orderBy: { slotNumber: "asc" },
   });
 
-  const activeSlots = slots
+  const activeSlots = sortBySlotNumber(slots as Array<{ slotNumber: string }>) as typeof slots
     .filter((slot: any) => slot.pack && slot.pack.status === "ACTIVE")
     .map((slot: any) => {
       const pack = slot.pack;

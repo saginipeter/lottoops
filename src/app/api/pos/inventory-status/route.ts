@@ -1,3 +1,4 @@
+import { sortBySlotNumber } from "@/lib/slot-order";
 import { NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +19,7 @@ export async function GET() {
       prisma.displaySlot.findMany({ where: { storeId: session.storeId }, select: { id: true, slotNumber: true, packId: true }, orderBy: { slotNumber: "asc" } }),
     ]);
     const packs = packsResult as unknown as ActivePackRow[];
-    const slots = slotsResult as unknown as DisplaySlotRow[];
+    const slots = sortBySlotNumber(slotsResult as unknown as DisplaySlotRow[]);
     const activePacks = packs.map((pack) => {
       const quantity = Number(pack.ticketQuantity ?? pack.game.ticketsPerPack ?? 0);
       const remaining = getRemainingTicketCount(pack.currentTicketNumber, quantity);

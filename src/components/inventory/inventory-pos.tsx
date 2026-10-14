@@ -1,5 +1,6 @@
 "use client";
 
+import { sortBySlotNumber } from "@/lib/slot-order";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ChevronLeft, PackagePlus, Search, X } from "lucide-react";
@@ -35,7 +36,7 @@ export function InventoryPos({ packs, slots }: { packs: InventoryPack[]; slots: 
     void refresh(); const timer = window.setInterval(() => { void refresh(); }, 5000);
     return () => { active = false; window.clearInterval(timer); };
   }, []);
-  const visibleSlots = useMemo(() => liveSlots.filter((slot) => !search || `${slot.slotNumber} ${slot.pack?.game ?? ""} ${slot.pack?.serial ?? ""} ${slot.pack?.invoice ?? ""}`.toLowerCase().includes(search.toLowerCase())), [search, liveSlots]);
+  const visibleSlots = useMemo(() => sortBySlotNumber(liveSlots).filter((slot) => !search || `${slot.slotNumber} ${slot.pack?.game ?? ""} ${slot.pack?.serial ?? ""} ${slot.pack?.invoice ?? ""}`.toLowerCase().includes(search.toLowerCase())), [search, liveSlots]);
   const occupied = liveSlots.filter((slot) => slot.pack).length;
   const empty = liveSlots.length - occupied;
 
