@@ -13,6 +13,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (session.impersonatedBy) return NextResponse.json({ error: "Support sessions cannot change account security." }, { status: 403 });
   const body = await request.json().catch(() => ({}));
   if (typeof body.code === "string" && body.code.trim()) {
     const valid = await verifyMfaCode(session.userId, body.code.trim(), true);
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE() {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (session.impersonatedBy) return NextResponse.json({ error: "Support sessions cannot change account security." }, { status: 403 });
   await disableMfa(session.userId);
   await revokeUserSessions(session.userId);
   return NextResponse.json({ success: true });
