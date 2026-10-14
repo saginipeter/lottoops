@@ -9,6 +9,7 @@ import { buildTicketReturnRequestsDocument } from "@/lib/workspace-detail-report
 
 interface ReturnRequest {
   id: string;
+  status: "PENDING" | "RETURNED_PENDING_REVIEW";
   storeId: string;
   shiftId: string;
   packId: string;
@@ -156,6 +157,11 @@ export function TicketReturnRequestsPanel({
               <p className="mt-1 text-xs text-text-tertiary">
                 Requested by {request.requestedByName ?? "Unknown"}
               </p>
+              <p className="mt-1 text-xs text-text-secondary">
+                {request.status === "RETURNED_PENDING_REVIEW"
+                  ? "Already returned for resale. Approve or flag the review only; inventory and sales will not change."
+                  : "Legacy request awaiting approval. Approval restores the ticket; denial leaves the sale unchanged."}
+              </p>
 
               <div className="mt-2 flex gap-2">
                 <Button
@@ -165,7 +171,7 @@ export function TicketReturnRequestsPanel({
                   className="h-8"
                 >
                   <PackageCheck size={14} />
-                  {actingId === request.id ? "Approving..." : "Approve Return"}
+                  {actingId === request.id ? "Approving..." : request.status === "RETURNED_PENDING_REVIEW" ? "Approve Review" : "Approve Return"}
                 </Button>
                 <Button
                   size="sm"
@@ -175,7 +181,7 @@ export function TicketReturnRequestsPanel({
                   className="h-8"
                 >
                   <XCircle size={14} />
-                  Deny
+                  {request.status === "RETURNED_PENDING_REVIEW" ? "Flag Review" : "Deny"}
                 </Button>
               </div>
             </div>

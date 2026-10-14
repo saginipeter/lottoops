@@ -59,6 +59,7 @@ export function TicketQuantityOnly({
 
           <input
             type="number"
+            onWheel={(event) => event.currentTarget.blur()}
             value={quantity}
             onChange={handleQuantityChange}
             readOnly={!overrideEnabled}

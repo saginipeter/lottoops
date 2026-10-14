@@ -162,4 +162,33 @@ test.describe("Data-only report documents", () => {
     expect(call?.html).not.toContain("other-shift");
     expect(call?.html).not.toContain("Other Operator");
   });
+
+  for (const completion of ["afterprint", "return"] as const) {
+    test(`print cancellation via ${completion} allows repeated printing and report navigation`, async ({ page }) => {
+      await page.addInitScript((mode) => {
+        window.print = () => {
+          const state = window.top as Window & { printCalls?: Array<{ topLevel: boolean; html: string }> };
+          state.printCalls?.push({ topLevel: window === window.top, html: document.body.innerHTML });
+          if (mode === "afterprint") window.dispatchEvent(new Event("afterprint"));
+        };
+      }, completion);
+      await page.route("**/api/reports/activity?*", (route) => route.fulfill({ json: { logs: [] } }));
+      await page.goto("/admin/reports");
+      await page.getByLabel("Choose report").selectOption("activity");
+      const print = page.getByRole("button", { name: "Print Report", exact: true });
+      for (let count = 1; count <= 3; count++) {
+        await print.click();
+        await expect.poll(() => page.evaluate(() =>
+          (window as Window & { printCalls?: unknown[] }).printCalls?.length,
+        )).toBe(count);
+        await expect(page.locator('iframe[title="Print report document"]')).toHaveCount(0);
+        await expect(print).toBeEnabled();
+      }
+      await page.getByRole("button", { name: "View Report", exact: true }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.getByRole("button", { name: "Close", exact: true }).click();
+      await page.getByLabel("Choose report").selectOption("shift-sales");
+      await expect(page.getByLabel("Choose report")).toHaveValue("shift-sales");
+    });
+  }
 });

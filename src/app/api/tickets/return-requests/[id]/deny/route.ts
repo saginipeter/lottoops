@@ -5,7 +5,7 @@ import { isManagerOrAbove } from "@/lib/permissions";
 
 /**
  * POST /api/tickets/return-requests/[id]/deny
- * Manager denies an employee's ticket return request. The sale stands.
+ * Deny a review without undoing the return, or deny a legacy pending request.
  */
 export async function POST(
   _req: NextRequest,
@@ -31,7 +31,7 @@ export async function POST(
             `
             SELECT r.id FROM ticket_return_requests r
             JOIN stores ON stores.id = r.store_id
-            WHERE r.id = $1 AND r.status = 'PENDING' AND stores."ownerUserId" = $2
+            WHERE r.id = $1 AND r.status IN ('PENDING', 'RETURNED_PENDING_REVIEW') AND stores."ownerUserId" = $2
             LIMIT 1
             `,
             id,
@@ -40,7 +40,7 @@ export async function POST(
         : ((await prisma.$queryRawUnsafe(
             `
             SELECT id FROM ticket_return_requests
-            WHERE id = $1 AND store_id = $2 AND status = 'PENDING'
+            WHERE id = $1 AND store_id = $2 AND status IN ('PENDING', 'RETURNED_PENDING_REVIEW')
             LIMIT 1
             `,
             id,
@@ -52,16 +52,20 @@ export async function POST(
       return NextResponse.json({ error: "Return request not found or already resolved." }, { status: 404 });
     }
 
-    await prisma.$executeRawUnsafe(
+    const resolved = await prisma.$executeRawUnsafe(
       `
       UPDATE ticket_return_requests
-      SET status = 'DENIED', resolved_at = NOW(), resolved_by_id = $2, resolved_by_name = $3
-      WHERE id = $1
+      SET status = CASE WHEN status = 'RETURNED_PENDING_REVIEW' THEN 'RETURN_REVIEW_DENIED' ELSE 'DENIED' END,
+        resolved_at = NOW(), resolved_by_id = $2, resolved_by_name = $3
+      WHERE id = $1 AND status IN ('PENDING', 'RETURNED_PENDING_REVIEW')
       `,
       id,
       session.userId,
       session.name
     );
+    if (resolved !== 1) {
+      return NextResponse.json({ error: "Return request already resolved." }, { status: 409 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -338,6 +338,7 @@ export function ScanStep({
           </label>
           <input
             type="number"
+            onWheel={(event) => event.currentTarget.blur()}
             min={1}
             step={1}
             value={ticketQuantity}

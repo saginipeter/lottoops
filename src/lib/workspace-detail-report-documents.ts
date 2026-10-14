@@ -159,13 +159,13 @@ export function buildTicketReportsDocument(reports: ReadonlyArray<{
 export function buildTicketReturnRequestsDocument(requests: ReadonlyArray<{
   id: string; storeId: string; shiftId: string; packId: string; ticketBarcode: string | null;
   reason: string | null; requestedByName: string | null; createdAt: string;
-  serialNumber: string; gameName: string; gameNumber: string;
+  serialNumber: string; gameName: string; gameNumber: string; status?: string;
 }>, title = "Ticket Return Requests"): ReportDocument {
   return table(title, ["Request ID", "Store ID", "Shift", "Pack ID", "Pack", "Game", "Game number", "Ticket barcode", "Reason", "Requested by", "Requested at"],
     requests.map((request) => [request.id, request.storeId, request.shiftId, request.packId,
       request.serialNumber, request.gameName, request.gameNumber, text(request.ticketBarcode),
       text(request.reason), text(request.requestedByName), request.createdAt]),
-    [{ label: "Scope", value: "All loaded pending return requests" }]);
+    [{ label: "Scope", value: "All loaded return reviews and legacy pending requests. Returned-ticket reviews do not change inventory or sales." }]);
 }
 
 export function buildShipmentOverridesDocument(notifications: ReadonlyArray<{

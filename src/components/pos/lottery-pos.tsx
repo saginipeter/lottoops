@@ -156,7 +156,7 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
       if (!response.ok) { setReturnMessage({ type: "error", text: data?.error ?? "Unable to return this ticket." }); return; }
       setReturnMessage({
         type: "success",
-        text: data?.mode === "self-approved" ? "Ticket returned to the display and removed from sales." : "Return submitted. Waiting for manager approval.",
+        text: "Ticket returned and available for sale immediately. Removed from sales; manager notified for review.",
       });
       setLastSale(null); setResult(null); setReturnOpen(false); setReturnReason("");
       void refreshInventory();

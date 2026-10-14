@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { isManagerOrAbove } from "@/lib/permissions";
+import { Prisma } from "@prisma/client";
 
 interface RequestRow {
   id: string;
   storeId: string;
   shiftId: string;
   packId: string;
+  status: string;
 }
 
 /**
  * POST /api/tickets/return-requests/[id]/approve
- * Manager approves an employee's ticket return request: restores the
- * ticket to the display for resale and marks the request approved.
+ * Resolve an already-returned ticket's review, or restore a legacy pending return.
  */
 export async function POST(
   _req: NextRequest,
@@ -37,10 +38,10 @@ export async function POST(
       session.role === "OWNER"
         ? ((await prisma.$queryRawUnsafe(
             `
-            SELECT r.id, r.store_id AS "storeId", r.shift_id AS "shiftId", r.pack_id AS "packId"
+            SELECT r.id, r.status, r.store_id AS "storeId", r.shift_id AS "shiftId", r.pack_id AS "packId"
             FROM ticket_return_requests r
             JOIN stores ON stores.id = r.store_id
-            WHERE r.id = $1 AND r.status = 'PENDING' AND stores."ownerUserId" = $2
+            WHERE r.id = $1 AND r.status IN ('PENDING', 'RETURNED_PENDING_REVIEW') AND stores."ownerUserId" = $2
             LIMIT 1
             `,
             id,
@@ -48,9 +49,9 @@ export async function POST(
           )) as RequestRow[])
         : ((await prisma.$queryRawUnsafe(
             `
-            SELECT id, store_id AS "storeId", shift_id AS "shiftId", pack_id AS "packId"
+            SELECT id, status, store_id AS "storeId", shift_id AS "shiftId", pack_id AS "packId"
             FROM ticket_return_requests
-            WHERE id = $1 AND store_id = $2 AND status = 'PENDING'
+            WHERE id = $1 AND store_id = $2 AND status IN ('PENDING', 'RETURNED_PENDING_REVIEW')
             LIMIT 1
             `,
             id,
@@ -61,6 +62,17 @@ export async function POST(
     const request = rows[0];
     if (!request) {
       return NextResponse.json({ error: "Return request not found or already resolved." }, { status: 404 });
+    }
+    if (request.status === "RETURNED_PENDING_REVIEW") {
+      const resolved = await prisma.$executeRawUnsafe(`
+        UPDATE ticket_return_requests
+        SET status = 'RETURN_REVIEW_APPROVED', resolved_at = NOW(), resolved_by_id = $2, resolved_by_name = $3
+        WHERE id = $1 AND store_id = $4 AND status = 'RETURNED_PENDING_REVIEW'
+      `, request.id, session.userId, session.name, request.storeId);
+      if (resolved !== 1) {
+        return NextResponse.json({ error: "Return request already resolved." }, { status: 409 });
+      }
+      return NextResponse.json({ success: true, mode: "review-only" });
     }
 
     const shift = await prisma.shift.findFirst({
@@ -126,16 +138,23 @@ export async function POST(
 
     const salesAmount = ticketsSold * Number(pack.game.price);
 
-    await prisma.$transaction([
-      prisma.pack.update({
-        where: { id: pack.id },
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const claimed = await tx.$executeRawUnsafe(`
+        UPDATE ticket_return_requests
+        SET status = 'APPROVED', resolved_at = NOW(), resolved_by_id = $2, resolved_by_name = $3
+        WHERE id = $1 AND store_id = $4 AND status = 'PENDING'
+      `, request.id, session.userId, session.name, request.storeId);
+      if (claimed !== 1) throw new Error("RETURN_CONFLICT");
+      const updated = await tx.pack.updateMany({
+        where: { id: pack.id, storeId: request.storeId, currentTicketNumber: pack.currentTicketNumber, status: pack.status },
         data: {
           status: "ACTIVE",
           currentTicketNumber: restoredCurrent,
           completedAt: null,
         },
-      }),
-      prisma.$executeRawUnsafe(
+      });
+      if (updated.count !== 1) throw new Error("RETURN_CONFLICT");
+      await tx.$executeRawUnsafe(
         `
         DELETE FROM live_scan_events
         WHERE id IN (
@@ -151,20 +170,21 @@ export async function POST(
         request.storeId,
         shift.id,
         pack.id
-      ),
-      prisma.shiftLine.update({
+      );
+      await tx.shiftLine.update({
         where: { id: line.id },
         data: {
           endingTicket: restoredCurrent,
           ticketsSold,
           salesAmount,
         },
-      }),
-      prisma.displaySlot.update({
-        where: { id: slot.id },
+      });
+      const updatedSlot = await tx.displaySlot.updateMany({
+        where: { id: slot.id, storeId: request.storeId, packId: slot.packId },
         data: { packId: pack.id },
-      }),
-      prisma.scanLogEntry.create({
+      });
+      if (updatedSlot.count !== 1) throw new Error("RETURN_CONFLICT");
+      await tx.scanLogEntry.create({
         data: {
           storeId: request.storeId,
           action: "RETURNED",
@@ -172,21 +192,14 @@ export async function POST(
           performedById: session.userId,
           detail: `Manager approved customer-rejected return for pack ${pack.serialNumber}. Restored to slot ${line.slotNumber}.`,
         },
-      }),
-      prisma.$executeRawUnsafe(
-        `
-        UPDATE ticket_return_requests
-        SET status = 'APPROVED', resolved_at = NOW(), resolved_by_id = $2, resolved_by_name = $3
-        WHERE id = $1
-        `,
-        request.id,
-        session.userId,
-        session.name
-      ),
-    ]);
+      });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "RETURN_CONFLICT") {
+      return NextResponse.json({ error: "Return request or inventory changed. Refresh before trying again." }, { status: 409 });
+    }
     console.error("[POST /api/tickets/return-requests/[id]/approve]", error);
     return NextResponse.json({ error: "Unable to approve return request." }, { status: 500 });
   }

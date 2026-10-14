@@ -93,6 +93,7 @@ export function TicketPriceSelector({
 
           <input
             type="number"
+            onWheel={(event) => event.currentTarget.blur()}
             value={quantity}
             readOnly={!overrideEnabled}
             onChange={(e) => setQuantity(Number(e.target.value))}
