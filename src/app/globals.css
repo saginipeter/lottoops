@@ -278,23 +278,27 @@ body {
 /* Reports use one shared page, but each report has its own print action. Keep
    the selected report as the only printable content to prevent blank sheets. */
 @media print {
+  @page { margin: 12mm; }
+  html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; }
   body.report-printing * { visibility: hidden !important; }
   body.report-printing .report-print-target,
   body.report-printing .report-print-target * { visibility: visible !important; }
   body.report-printing .report-workspace-print-target,
   body.report-printing .report-workspace-print-target * { visibility: visible !important; }
   body.report-printing .report-print-target {
-    position: fixed !important;
-    inset: 0 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     z-index: 2147483647 !important;
     display: block !important;
-    width: auto !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
     min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
     margin: 0 !important;
-    padding: 12mm !important;
+    padding: 0 !important;
     background: #fff !important;
     color: #111827 !important;
   }
@@ -338,6 +342,17 @@ body {
   body.shift-report-printing .shift-report-print {
     display: block !important;
   }
+  body.shift-report-printing .shift-report-print .shift-report-heading { margin: 0 0 16px !important; }
+  body.shift-report-printing .shift-report-print h1 { margin: 0 0 5px !important; font-size: 22px !important; line-height: 1.2 !important; font-weight: 700 !important; }
+  body.shift-report-printing .shift-report-print p { margin: 0 !important; font-size: 13px !important; line-height: 1.35 !important; }
+  body.shift-report-printing .shift-report-print h2 { margin: 18px 0 7px !important; font-size: 16px !important; line-height: 1.2 !important; font-weight: 700 !important; break-after: avoid-page !important; }
+  body.shift-report-printing .shift-report-print .shift-report-table { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; font-size: 11px !important; break-inside: avoid-page !important; }
+  body.shift-report-printing .shift-report-print .shift-report-table th,
+  body.shift-report-printing .shift-report-print .shift-report-table td { border: 1px solid #9ca3af !important; padding: 5px 6px !important; text-align: left !important; line-height: 1.25 !important; vertical-align: middle !important; }
+  body.shift-report-printing .shift-report-print .shift-report-table th:nth-child(n+2),
+  body.shift-report-printing .shift-report-print .shift-report-table td:nth-child(n+2) { width: 22% !important; }
+  body.shift-report-printing .shift-report-print .shift-report-table tr { break-inside: avoid-page !important; }
+  body.shift-report-printing .shift-report-print .shift-report-table tfoot th { font-weight: 700 !important; }
   body.receiving-record-printing * { visibility: hidden !important; }
   body.receiving-record-printing .receiving-print-report,
   body.receiving-record-printing .receiving-print-report * { visibility: visible !important; }
