@@ -44,6 +44,9 @@ export async function ensureSupportAccessSchema(db: SupportDatabase = prisma) {
     store_id TEXT PRIMARY KEY REFERENCES stores(id) ON DELETE CASCADE,
     suspended BOOLEAN NOT NULL DEFAULT FALSE, reason TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS session_revocations (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS support_access_requests (
     id TEXT PRIMARY KEY,
     store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
@@ -73,6 +76,8 @@ const LIVE_ACCESS = `EXISTS (
     AND admin.active = TRUE AND admin.role = 'PLATFORM_ADMIN'
     AND COALESCE(c.suspended, FALSE) = FALSE
     AND (r.approved_at IS NULL OR c.updated_at IS NULL OR c.updated_at <= r.approved_at)
+    AND NOT EXISTS (SELECT 1 FROM session_revocations rev
+      WHERE rev.user_id = r.admin_user_id AND rev.revoked_at >= r.created_at)
 )`;
 
 export async function requestSupportAccess(session: SessionPayload, storeId: string, db: SupportDatabase = prisma) {

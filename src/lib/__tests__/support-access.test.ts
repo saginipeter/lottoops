@@ -35,6 +35,7 @@ function assertLiveChecks(sql: string) {
   assert.match(sql, /admin\.active = TRUE AND admin\.role = 'PLATFORM_ADMIN'/);
   assert.match(sql, /COALESCE\(c\.suspended, FALSE\) = FALSE/);
   assert.match(sql, /c\.updated_at <= r\.approved_at/);
+  assert.match(sql, /rev\.user_id = r\.admin_user_id AND rev\.revoked_at >= r\.created_at/);
 }
 
 test("mutations require an exact same origin and reject missing/cross-site origins", () => {
@@ -248,6 +249,10 @@ test("PostgreSQL enforces single-use links, exact identities, expiry, suspension
     await client.query(`UPDATE users SET active = FALSE WHERE id = 'owner'`);
     assert.equal(await isSupportSessionAuthorized(activeSession, db), false);
     await client.query(`UPDATE users SET active = TRUE WHERE id = 'owner'`);
+    const revokedAdminLink = await issue();
+    await client.query(`INSERT INTO session_revocations (user_id) VALUES ('admin')`);
+    await assert.rejects(consumeSupportAccess(admin, revokedAdminLink.token, db));
+    await client.query(`DELETE FROM session_revocations WHERE user_id = 'admin'`);
     await client.query(`UPDATE users SET role = 'MANAGER' WHERE id = 'owner'`);
     assert.equal(await isSupportSessionAuthorized(activeSession, db), false);
     await client.query(`UPDATE users SET role = 'OWNER' WHERE id = 'owner'`);
@@ -287,6 +292,9 @@ test("PostgreSQL enforces single-use links, exact identities, expiry, suspension
     await consumeSupportAccess(admin, activeBeforeSuspension.token, db);
     const suspendedSession = { ...support, supportAccessId: activeBeforeSuspension.id };
     assert.equal(await isSupportSessionAuthorized(suspendedSession, db), true);
+    await client.query(`INSERT INTO session_revocations (user_id) VALUES ('admin')`);
+    assert.equal(await isSupportSessionAuthorized(suspendedSession, db), false);
+    await client.query(`DELETE FROM session_revocations WHERE user_id = 'admin'`);
     await client.query(`UPDATE store_access_controls SET suspended = TRUE, updated_at = NOW() WHERE store_id = 'store'`);
     assert.equal(await isSupportSessionAuthorized(suspendedSession, db), false);
     await client.query(`UPDATE store_access_controls SET suspended = FALSE, updated_at = NOW() WHERE store_id = 'store'`);

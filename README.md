@@ -59,7 +59,7 @@ redeems it via POST; the paste field in Store Access Controls is a fallback.
 Redemption is POST-only and starts a **30-minute**, store-scoped support
 session. Only a token hash is stored; URL fragments keep tokens out of request
 URLs. Owners can decline requests or revoke access from Support. Suspension,
-owner changes, inactive accounts, revocation, and expiration block access.
+owner changes, inactive accounts, access/requester-session revocation, and expiration block access.
 Requests, approvals, redemptions, and revocations are audited without link tokens.
 The existing **Exit support** action restores the admin session.
 
