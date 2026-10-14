@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getSession } from "@/lib/get-session";
 import ReceiveWizard, { type WizardStep } from "@/components/receive/receive-wizard";
 
 interface ReceiveStepPageProps {
@@ -6,6 +7,8 @@ interface ReceiveStepPageProps {
 }
 
 export default async function ReceiveStepPage({ params }: ReceiveStepPageProps) {
+  const session = await getSession();
+  if (!session) redirect("/login?from=/inventory/receive");
   const { step: rawStep } = await params;
   const stepNumber = Number(rawStep);
 
@@ -15,5 +18,5 @@ export default async function ReceiveStepPage({ params }: ReceiveStepPageProps) 
 
   const step = stepNumber as WizardStep;
 
-  return <ReceiveWizard initialStep={step} />;
+  return <ReceiveWizard initialStep={step} receiverName={session.name} draftScope={`${session.storeId}:${session.userId}`} />;
 }
