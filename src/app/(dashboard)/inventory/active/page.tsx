@@ -17,11 +17,28 @@ export default async function ActiveStockPage() {
       storeId: session.storeId,
       status: "ACTIVE",
     },
-    include: {
-      game: true,
-      shipment: true,
-      slot: true,
-      receivedBy: true,
+    select: {
+      id: true,
+      firstOrLastTicket: true,
+      ticketQuantity: true,
+      currentTicketNumber: true,
+      firstTicket: true,
+      packNumber: true,
+      serialNumber: true,
+      ticketPrice: true,
+      activatedAt: true,
+      game: {
+        select: {
+          name: true,
+          ticketsPerPack: true,
+          price: true,
+        },
+      },
+      slot: {
+        select: {
+          slotNumber: true,
+        },
+      },
     },
     orderBy: {
       activatedAt: "desc",
