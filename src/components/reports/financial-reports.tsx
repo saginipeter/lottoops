@@ -81,7 +81,16 @@ export function FinancialReports() {
   const [error, setError] = useState<string | null>(null);
   const [expandedShift, setExpandedShift] = useState<string | null>(null);
   const [printShift, setPrintShift] = useState<ShiftRow | null>(null);
+  const [printRequested, setPrintRequested] = useState(false);
   const [activeTab, setActiveTab] = useState<"shifts" | "daily" | "games">("shifts");
+
+  useEffect(() => {
+    if (!printRequested || !printShift) return;
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => window.print());
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [printRequested, printShift]);
 
   const loadReport = useCallback(async () => {
     setLoading(true);
@@ -133,9 +142,13 @@ export function FinancialReports() {
   function printClosedShift(shift: ShiftRow) {
     setPrintShift(shift);
     document.body.classList.add("report-printing", "shift-report-printing");
-    const cleanup = () => document.body.classList.remove("report-printing", "shift-report-printing");
+    const cleanup = () => {
+      document.body.classList.remove("report-printing", "shift-report-printing");
+      setPrintRequested(false);
+      setPrintShift(null);
+    };
     window.addEventListener("afterprint", cleanup, { once: true });
-    window.setTimeout(() => window.print(), 50);
+    setPrintRequested(true);
   }
 
   return (
