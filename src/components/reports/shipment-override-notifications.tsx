@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Clock3, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "./report-actions";
+import { buildShipmentOverridesDocument } from "@/lib/workspace-detail-report-documents";
 
 interface OverrideNotification {
   id: string | number;
@@ -16,13 +18,18 @@ interface OverrideNotification {
 export function ShipmentOverrideNotifications() {
   const [notifications, setNotifications] = useState<OverrideNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   async function load() {
     try {
       setLoading(true);
+      setError("");
       const response = await fetch("/api/notifications/overrides", { cache: "no-store" });
       const data = await response.json();
-      if (response.ok) setNotifications(data.notifications ?? []);
+      if (!response.ok) throw new Error(data.error || "Unable to load shipment overrides.");
+      setNotifications(data.notifications ?? []);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to load shipment overrides.");
     } finally {
       setLoading(false);
     }
@@ -37,6 +44,8 @@ export function ShipmentOverrideNotifications() {
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Owner notifications</p>
           <h3 className="mt-1 text-base font-semibold text-text">Shipment Overrides</h3>
         </div>
+        <ReportActions document={buildShipmentOverridesDocument(notifications)} disabled={loading || !!error} />
+        {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
         </Button>

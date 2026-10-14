@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "./report-actions";
+import { buildTicketReportsDocument } from "@/lib/workspace-detail-report-documents";
 
 interface TicketReport {
   id: string;
@@ -76,6 +78,7 @@ export function TicketReportsPanel({
       }
 
       setReports(Array.isArray(data?.reports) ? data.reports : []);
+      setError("");
     } catch {
       setError("Unable to load reports.");
     } finally {
@@ -137,6 +140,8 @@ export function TicketReportsPanel({
           Refresh
         </Button>
       </div>
+
+      <ReportActions document={buildTicketReportsDocument(reports, title)} disabled={loading || !!error || resolvingId !== null} />
 
       {error && (
         <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">

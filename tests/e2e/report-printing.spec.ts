@@ -108,4 +108,37 @@ test.describe("Data-only report documents", () => {
       (window as typeof window & { printCalls?: Array<{ html: string }> }).printCalls?.[1].html,
     )).toContain("INV-B");
   });
+
+  test("shift documents show recorded counts and cash without inventing payment totals", async ({ page }) => {
+    await page.route("**/api/reports/shifts?*", (route) => route.fulfill({
+      json: {
+        summary: { totalGross: 10, totalCogs: 9.5, totalNet: 0.5, totalTickets: 10, avgMarginPct: 5, shiftCount: 1 },
+        shifts: [{
+          id: "closed-shift", storeName: "Report Store", terminalId: "Terminal A",
+          openedAt: "2026-10-14T08:00:00Z", closedAt: "2026-10-14T12:00:00Z",
+          openedBy: "Opening Operator", closedBy: "Closing Operator",
+          grossSales: 10, cogs: 9.5, netMargin: 0.5, marginPct: 5, ticketsSold: 10,
+          gameBreakdown: [{ name: "Game A", tickets: 10, sales: 10, cost: 9.5 }],
+          packSales: [{ pack: "pack-A", game: "Game A", display: "1", beginning: 100, ending: 90, tickets: 10, sales: 10 }],
+          audit: [{ pack: "pack-A", display: "1", direction: "FIRST", beginningExpected: 1, beginning: 1, expected: 11, ending: 12 }],
+          auditOpenedBy: "Opening Operator", auditClosedBy: "Closing Operator",
+          auditOpenedAt: "2026-10-14T08:00:00Z", auditClosedAt: "2026-10-14T12:00:00Z",
+          cash: { openingCash: 100, expectedCash: 110, countedCash: 108, cashVariance: -2, reconciledAt: "2026-10-14T12:00:00Z", reconciledBy: "Closing Operator" },
+        }],
+        dailyTotals: [], gamePerformance: [],
+      },
+    }));
+    await page.goto("/admin/reports");
+    await page.getByRole("button", { name: "View Report", exact: true }).click();
+    const preview = page.frameLocator('iframe[title$=" preview"]');
+    await expect(preview.getByText("closed-shift", { exact: true })).toBeVisible();
+    await expect(preview.getByText("Opening Operator", { exact: true }).first()).toBeVisible();
+    await expect(preview.getByText("Closing Operator", { exact: true }).first()).toBeVisible();
+    await expect(preview.getByRole("row").filter({ hasText: "Cash sales" })).toContainText("Not recorded");
+    await expect(preview.getByRole("row").filter({ hasText: "Card sales" })).toContainText("Not recorded");
+    await expect(preview.getByRole("row").filter({ hasText: "Returns" })).toContainText("Not recorded");
+    await expect(preview.getByRole("row").filter({ hasText: "Voids" })).toContainText("Not recorded");
+    await expect(preview.getByRole("row").filter({ hasText: "Recorded cash variance" })).toContainText("-$2.00");
+    expect(await preview.locator("nav, aside, button, input, script").count()).toBe(0);
+  });
 });

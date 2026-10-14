@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { History, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "./report-actions";
+import { buildCorrectionDocument } from "@/lib/workspace-detail-report-documents";
 
 interface Correction {
   id: string;
@@ -57,6 +59,7 @@ export function CorrectionReport() {
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
         </Button>
       </div>
+      <ReportActions document={buildCorrectionDocument(corrections)} disabled={loading || !!error} />
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
       {loading ? <div className="mt-4 flex items-center gap-2 text-sm text-text-secondary"><Loader2 size={15} className="animate-spin" /> Loading correction history...</div> : corrections.length === 0 ? <p className="mt-4 text-sm text-text-secondary">No protected corrections recorded.</p> : <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary"><th className="py-2 pr-3">Time</th><th className="py-2 pr-3">Entity</th><th className="py-2 pr-3">Field</th><th className="py-2 pr-3">Original</th><th className="py-2 pr-3">Corrected</th><th className="py-2 pr-3">Reason</th><th className="py-2">By</th></tr></thead><tbody>{corrections.map((correction) => <tr key={correction.id} className="border-b border-border last:border-0"><td className="whitespace-nowrap py-2.5 pr-3 text-xs text-text-tertiary">{new Date(correction.createdAt).toLocaleString()}</td><td className="py-2.5 pr-3"><span className="font-mono text-xs">{correction.entityId}</span><br /><span className="text-xs text-text-secondary">{correction.entityType}</span></td><td className="py-2.5 pr-3 text-text-secondary">{correction.fieldName}</td><td className="py-2.5 pr-3 text-red-700">{correction.oldValue ?? "-"}</td><td className="py-2.5 pr-3 font-semibold text-emerald-700">{correction.newValue}</td><td className="max-w-64 py-2.5 pr-3 text-xs text-text-secondary">{correction.reason}</td><td className="py-2.5 text-text-secondary">{correction.correctedByName ?? "Unknown"}</td></tr>)}</tbody></table></div>}
     </Panel>
