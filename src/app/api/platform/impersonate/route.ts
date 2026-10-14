@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (!target || !store) return NextResponse.json({ error: "Store owner unavailable." }, { status: 403 });
   const supportSession = { userId: target.id, storeId: store.id, storeName: store.name, name: target.name, email: target.email, role: "MANAGER" as const, grantedPermissions: [], supportAccessId: access.id, impersonatedBy: { userId: session.userId, name: session.name, email: session.email } };
   const token = await signSession(supportSession);
-  const response = NextResponse.json({ success: true, store: { id: store.id, name: store.name }, user: { name: target.name, role: supportSession.role } });
+  const response = NextResponse.json({ success: true, store: { id: store.id, name: store.name }, user: { name: target.name, role: supportSession.role } }, { headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   await logPlatformActivity({ action: "SUPPORT_ACCESS_REDEEMED", entityType: "STORE", entityId: store.id, detail: `Owner-approved support session started for request ${access.id}.`, performedById: session.userId, performedByName: session.name });
   response.cookies.set(BACKUP_COOKIE, await signSession(session), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 30, path: "/" });
   response.cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 30, path: "/" });

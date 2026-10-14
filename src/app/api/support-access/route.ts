@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       const { token, storeId } = await approveSupportAccess(session, body.requestId);
       await logPlatformActivity({ action: "SUPPORT_ACCESS_APPROVED", entityType: "STORE", entityId: storeId, detail: `Owner approved access request ${body.requestId}.`, performedById: session.userId, performedByName: session.name });
       // Fragments keep bearer tokens out of HTTP URLs and server access logs.
-      return NextResponse.json({ link: `${request.nextUrl.origin}/support#support-token=${token}`, expiresInMinutes: 15 }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ link: `${request.nextUrl.origin}/support#token=${token}`, expiresInMinutes: 15 }, { headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
     }
     if (body.action === "revoke") {
       const { storeId } = await revokeSupportAccess(session, body.requestId);

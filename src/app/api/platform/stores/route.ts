@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { logPlatformActivity } from "@/lib/platform-audit";
+import { getPlatformStoreOwners } from "@/lib/platform-store-owners";
 
-interface PlatformStore { id: string; name: string; ownerUserId: string | null; users: Array<{ name: string; email: string }> }
+interface PlatformStore { id: string; name: string; ownerUserId: string | null }
 
 let schemaReady = false;
 async function ensureSchema() {
@@ -28,10 +29,11 @@ export async function GET() {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
   try {
     await ensureSchema();
-    const stores = await prisma.store.findMany({ where: { ownerUserId: { not: null } }, select: { id: true, name: true, ownerUserId: true, users: { where: { role: "OWNER" }, select: { name: true, email: true }, take: 1 } }, orderBy: { name: "asc" } }) as PlatformStore[];
+    const stores = await prisma.store.findMany({ where: { ownerUserId: { not: null } }, select: { id: true, name: true, ownerUserId: true }, orderBy: { name: "asc" } }) as PlatformStore[];
+    const ownerMap = await getPlatformStoreOwners(stores.map((store) => store.ownerUserId));
     const controls = await prisma.$queryRawUnsafe(`SELECT store_id AS "storeId", suspended, reason, updated_at AS "updatedAt" FROM store_access_controls`) as Array<{ storeId: string; suspended: boolean; reason: string | null; updatedAt: Date }>;
     const controlMap = new Map(controls.map((control) => [control.storeId, control]));
-    return NextResponse.json({ stores: stores.map((store) => ({ ...store, owner: store.users[0] ?? null, access: controlMap.get(store.id) ?? { suspended: false, reason: null, updatedAt: null } })) });
+    return NextResponse.json({ stores: stores.map((store) => ({ ...store, owner: ownerMap.get(store.ownerUserId ?? "") ?? null, access: controlMap.get(store.id) ?? { suspended: false, reason: null, updatedAt: null } })) });
   } catch (error) {
     console.error("[GET /api/platform/stores]", error);
     return NextResponse.json({ error: "Unable to load platform stores." }, { status: 500 });

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { redeemSupportLink } from "@/lib/support-link";
 
 interface AccessRequest {
   id: string;
@@ -23,6 +24,18 @@ export function SupportAccessPanel({ role }: { role: "OWNER" | "PLATFORM_ADMIN" 
   const [ownerLink, setOwnerLink] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const redeem = useCallback(async (link: string) => {
+    setBusy(true); setError("");
+    try {
+      await redeemSupportLink(link);
+      setOwnerLink("");
+      router.replace("/");
+      router.refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to enter support session.");
+    } finally { setBusy(false); }
+  }, [router]);
+
   async function load() {
     try {
       const response = await fetch("/api/support-access", { cache: "no-store" });
@@ -38,15 +51,17 @@ export function SupportAccessPanel({ role }: { role: "OWNER" | "PLATFORM_ADMIN" 
     const timer = window.setTimeout(() => {
       void load();
       if (role === "PLATFORM_ADMIN") {
-        const token = new URLSearchParams(window.location.hash.slice(1)).get("support-token");
+        const fragment = new URLSearchParams(window.location.hash.slice(1));
+        const token = fragment.get("token") ?? fragment.get("support-token");
         if (token) {
           setOwnerLink(token);
           window.history.replaceState(null, "", window.location.pathname + window.location.search);
+          void redeem(token);
         }
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [role]);
+  }, [role, redeem]);
 
   async function mutate(action: "approve" | "revoke", requestId: string) {
     if (action === "approve" && !window.confirm("Allow this requesting admin to access this store for 30 minutes? Generate a single-use link to share explicitly.")) return;
@@ -63,26 +78,6 @@ export function SupportAccessPanel({ role }: { role: "OWNER" | "PLATFORM_ADMIN" 
     } finally { setBusy(false); }
   }
 
-  async function redeem() {
-    let token = ownerLink.trim();
-    if (!/^[a-f0-9]{64}$/.test(token)) {
-      try { token = new URLSearchParams(new URL(token).hash.slice(1)).get("support-token") ?? ""; }
-      catch { token = ""; }
-    }
-    if (!/^[a-f0-9]{64}$/.test(token)) { setError("Paste the complete owner-shared link."); return; }
-    setBusy(true); setError("");
-    try {
-      const response = await fetch("/api/platform/impersonate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to enter support session.");
-      setOwnerLink("");
-      router.replace("/");
-      router.refresh();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to enter support session.");
-    } finally { setBusy(false); }
-  }
-
   return (
     <Panel className="mb-4 p-5">
       <h3 className="font-semibold text-text">Store assistance access</h3>
@@ -91,7 +86,7 @@ export function SupportAccessPanel({ role }: { role: "OWNER" | "PLATFORM_ADMIN" 
         : "Only the requesting admin can redeem an owner-shared link. Approval alone does not grant access; ask the owner to share their single-use link."}</p>
       {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
       {role === "PLATFORM_ADMIN" && (
-        <form className="mt-3 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void redeem(); }}>
+        <form className="mt-3 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void redeem(ownerLink); }}>
           <input aria-label="Owner-shared support link" value={ownerLink} onChange={(event) => setOwnerLink(event.target.value)} placeholder="Paste owner-shared support link" autoComplete="off" className="min-w-0 flex-1 rounded border border-border bg-bg px-3 py-2 text-sm" />
           <Button type="submit" size="sm" disabled={busy || !ownerLink.trim()}>Enter support session</Button>
         </form>

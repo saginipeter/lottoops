@@ -12,8 +12,8 @@ const admin: SessionPayload = {
   userId: "admin", storeId: "platform", storeName: "Platform", name: "Admin",
   email: "admin@example.test", role: "PLATFORM_ADMIN", grantedPermissions: [],
 };
-const owner: SessionPayload = { ...admin, userId: "owner", storeId: "store", role: "OWNER" };
-const support = { ...owner, role: "MANAGER" as const, supportAccessId: "request", impersonatedBy: { userId: admin.userId, name: admin.name, email: admin.email } };
+const owner: SessionPayload = { ...admin, userId: "owner", storeId: "home-store", role: "OWNER" };
+const support = { ...owner, storeId: "store", role: "MANAGER" as const, supportAccessId: "request", impersonatedBy: { userId: admin.userId, name: admin.name, email: admin.email } };
 const token = "a".repeat(64);
 
 function database(rows: unknown[] = []) {
@@ -206,9 +206,9 @@ test("PostgreSQL enforces single-use links, exact identities, expiry, suspension
     await client.query(`SET search_path TO "${schema}"`);
     await client.query(`CREATE TABLE stores (id TEXT PRIMARY KEY, name TEXT, "ownerUserId" TEXT)`);
     await client.query(`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT, role TEXT, active BOOLEAN, "storeId" TEXT)`);
-    await client.query(`INSERT INTO stores VALUES ('store', 'Test Store', 'owner')`);
+    await client.query(`INSERT INTO stores VALUES ('store', 'Test Store', 'owner'), ('home-store', 'Home Store', 'owner')`);
     await client.query(`INSERT INTO users VALUES
-      ('owner', 'Owner', 'owner@example.test', 'OWNER', TRUE, 'store'),
+      ('owner', 'Owner', 'owner@example.test', 'OWNER', TRUE, 'home-store'),
       ('other-owner', 'Other Owner', 'other-owner@example.test', 'OWNER', TRUE, 'store'),
       ('admin', 'Admin', 'admin@example.test', 'PLATFORM_ADMIN', TRUE, 'platform'),
       ('other-admin', 'Other Admin', 'other-admin@example.test', 'PLATFORM_ADMIN', TRUE, 'platform')`);
@@ -248,11 +248,25 @@ test("PostgreSQL enforces single-use links, exact identities, expiry, suspension
     await client.query(`UPDATE users SET active = FALSE WHERE id = 'owner'`);
     assert.equal(await isSupportSessionAuthorized(activeSession, db), false);
     await client.query(`UPDATE users SET active = TRUE WHERE id = 'owner'`);
+    await client.query(`UPDATE users SET role = 'MANAGER' WHERE id = 'owner'`);
+    assert.equal(await isSupportSessionAuthorized(activeSession, db), false);
+    await client.query(`UPDATE users SET role = 'OWNER' WHERE id = 'owner'`);
+    await client.query(`UPDATE users SET role = 'MANAGER' WHERE id = 'admin'`);
+    assert.equal(await isSupportSessionAuthorized(activeSession, db), false);
+    await client.query(`UPDATE users SET role = 'PLATFORM_ADMIN' WHERE id = 'admin'`);
     await revokeSupportAccess(owner, pendingId, db);
     assert.equal(await isSupportSessionAuthorized(activeSession, db), false);
     const expired = await issue();
     await client.query(`UPDATE support_access_requests SET expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, [expired.id]);
     await assert.rejects(consumeSupportAccess(admin, expired.token, db));
+    const inactiveAdminLink = await issue();
+    await client.query(`UPDATE users SET active = FALSE WHERE id = 'admin'`);
+    await assert.rejects(consumeSupportAccess(admin, inactiveAdminLink.token, db));
+    await client.query(`UPDATE users SET active = TRUE WHERE id = 'admin'`);
+    const inactiveOwnerRequest = await requestSupportAccess(admin, "store", db);
+    await client.query(`UPDATE users SET active = FALSE WHERE id = 'owner'`);
+    await assert.rejects(approveSupportAccess(owner, inactiveOwnerRequest, db));
+    await client.query(`UPDATE users SET active = TRUE WHERE id = 'owner'`);
     const suspendedLink = await issue();
     const pendingSuspension = await requestSupportAccess(admin, "store", db);
     await client.query(`INSERT INTO store_access_controls (store_id, suspended) VALUES ('store', TRUE)`);
