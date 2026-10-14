@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -23,6 +23,8 @@ export function SupportAccessPanel({ role }: { role: "OWNER" | "PLATFORM_ADMIN" 
   const [sharedLink, setSharedLink] = useState("");
   const [ownerLink, setOwnerLink] = useState("");
   const [copied, setCopied] = useState(false);
+  const pendingLaunchToken = useRef<string | null>(null);
+  const attemptedLaunchToken = useRef<string | null>(null);
 
   const redeem = useCallback(async (link: string) => {
     setBusy(true); setError("");
@@ -48,16 +50,22 @@ export function SupportAccessPanel({ role }: { role: "OWNER" | "PLATFORM_ADMIN" 
   }
 
   useEffect(() => {
+    if (role === "PLATFORM_ADMIN") {
+      const fragment = new URLSearchParams(window.location.hash.slice(1));
+      const token = fragment.get("token") ?? fragment.get("support-token");
+      if (token) {
+        pendingLaunchToken.current = token;
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+    }
     const timer = window.setTimeout(() => {
       void load();
-      if (role === "PLATFORM_ADMIN") {
-        const fragment = new URLSearchParams(window.location.hash.slice(1));
-        const token = fragment.get("token") ?? fragment.get("support-token");
-        if (token) {
-          setOwnerLink(token);
-          window.history.replaceState(null, "", window.location.pathname + window.location.search);
-          void redeem(token);
-        }
+      const token = pendingLaunchToken.current;
+      if (role === "PLATFORM_ADMIN" && token && attemptedLaunchToken.current !== token) {
+        attemptedLaunchToken.current = token;
+        pendingLaunchToken.current = null;
+        setOwnerLink(token);
+        void redeem(token);
       }
     }, 0);
     return () => window.clearTimeout(timer);
