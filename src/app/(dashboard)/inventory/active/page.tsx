@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
@@ -9,7 +10,7 @@ import { getDisplaySlots } from "@/lib/services/display-slots";
 
 export default async function ActiveStockPage() {
   const session = await getSession();
-  if (!session) return null;
+  if (!session) redirect("/login");
 
   const [packs, displaySlots] = await Promise.all([prisma.pack.findMany({
     where: {
