@@ -5,6 +5,8 @@ import { useState } from "react";
 import { CheckCircle2, ChevronLeft, Clock3, LogIn, LogOut, ShoppingCart, Users } from "lucide-react";
 import PhysicalAuditPanel from "@/components/inventory/physical-audit-panel";
 import { formatCurrency } from "@/lib/utils";
+import { ReportActions } from "@/components/reports/report-actions";
+import { loadShiftReportDocument } from "@/lib/shift-report";
 
 type ShiftEvent = { id: string; action: string; detail: string; timestamp: string; performedBy: string };
 type Participant = { userId: string; name: string; email: string; firstSeenAt: string; lastSeenAt: string };
@@ -15,6 +17,7 @@ export function ShiftPos({ shift, recentClosedShift, terminalId, activeDisplayPa
   const [message, setMessage] = useState("");
   const [openingCash, setOpeningCash] = useState("");
   const [countedCash, setCountedCash] = useState("");
+  const [closedShiftId, setClosedShiftId] = useState<string | null>(null);
   const ticketsSold = shift?.lines?.reduce((sum: number, line: any) => sum + soldFromLine(line), 0) ?? 0;
   const sales = shift?.lines?.reduce((sum: number, line: any) => sum + soldFromLine(line) * Number(line.pack?.ticketPrice ?? line.pack?.game?.price ?? 0), 0) ?? 0;
   const drawerOpening = Number(shift?.openingCash ?? 0);
@@ -40,8 +43,17 @@ export function ShiftPos({ shift, recentClosedShift, terminalId, activeDisplayPa
     setLoading(true); setMessage("");
     const response = await fetch("/api/shifts/close", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shiftId: shift.id, countedCash: amount }) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) setMessage(data.error ?? "Unable to clock out."); else window.location.reload();
+    if (!response.ok) setMessage(data.error ?? "Unable to clock out."); else setClosedShiftId(shift.id);
     setLoading(false);
+  }
+
+  if (closedShiftId) {
+    return <main className="mx-auto max-w-3xl space-y-4 p-6">
+      <h1 className="text-2xl font-black">Shift closed · {terminalId}</h1>
+      <p className="text-sm text-slate-500">View or print the finalized sales and audit report before continuing.</p>
+      <ReportActions key={closedShiftId} loadDocument={() => loadShiftReportDocument(closedShiftId)} />
+      <button type="button" onClick={() => window.location.reload()} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold">Continue to shift management</button>
+    </main>;
   }
 
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
@@ -55,6 +67,9 @@ export function ShiftPos({ shift, recentClosedShift, terminalId, activeDisplayPa
         <section className="mt-4" id="physical-audit"><PhysicalAuditPanel shiftId={shift.id} audit={shift.inventoryAudit} activeDisplayPackCount={activeDisplayPackCount} /></section>
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 className="font-black">Latest activity</h3>{shiftEvents.length === 0 ? <p className="mt-3 text-sm text-slate-500">No activity recorded yet.</p> : <div className="mt-3 grid gap-2 sm:grid-cols-2">{shiftEvents.slice(0, 6).map((event) => <div key={event.id} className="rounded-lg bg-slate-50 p-3"><p className="text-xs font-black uppercase text-slate-500">{event.action.replaceAll("_", " ")}</p><p className="mt-1 text-sm">{event.detail}</p></div>)}</div>}</section>
       </>}
+      {!shift && recentClosedShift && <div className="mt-3">
+        <ReportActions key={recentClosedShift.id} loadDocument={() => loadShiftReportDocument(recentClosedShift.id)} />
+      </div>}
     </main><div className="mx-auto flex max-w-[1180px] justify-between px-5 pb-5 text-xs font-semibold text-slate-500 sm:px-8"><Link href="/" className="inline-flex items-center gap-1 hover:text-[#1688ff]"><ChevronLeft size={15} /> Back to home</Link><span>Shift management · {terminalId}</span></div>
   </div>;
 }

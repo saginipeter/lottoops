@@ -147,6 +147,9 @@ model Shipment {
   shipmentDate               DateTime?
   confirmationReceiptPhoto   String?
   shipmentConfirmationNumber String?
+  supplierName               String?
+  supplierDetails            String?
+  expectedInventoryCost      Decimal?       @db.Decimal(10, 2)
   packs                      Pack[]
   receivedBy                 User           @relation("ShipmentsReceived", fields: [receivedById], references: [id])
   store                      Store          @relation(fields: [storeId], references: [id])

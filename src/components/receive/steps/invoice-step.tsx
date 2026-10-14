@@ -18,12 +18,16 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
     if (!shipment.expectedRetailValue || shipment.expectedRetailValue <= 0) return alert("Enter the expected inventory cost before continuing.");
     try {
       const hasExistingShipment = Boolean(shipment.id);
-      const response = await fetch("/api/shipments", { method: hasExistingShipment ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(hasExistingShipment ? { shipmentId: shipment.id } : {}), invoiceNumber: shipment.invoiceNumber, invoicePhoto: shipment.invoicePhoto, shipmentConfirmationNumber: shipment.shipmentConfirmationNumber, confirmationReceiptPhoto: shipment.confirmationReceiptPhoto, shipmentDate: shipment.shipmentDate, expectedPacks: shipment.expectedPacks, expectedRetailValue: shipment.expectedRetailValue }) });
+      const response = await fetch("/api/shipments", { method: hasExistingShipment ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(hasExistingShipment ? { shipmentId: shipment.id } : {}), invoiceNumber: shipment.invoiceNumber, invoicePhoto: shipment.invoicePhoto, shipmentConfirmationNumber: shipment.shipmentConfirmationNumber, confirmationReceiptPhoto: shipment.confirmationReceiptPhoto, shipmentDate: shipment.shipmentDate, expectedPacks: shipment.expectedPacks, expectedRetailValue: shipment.expectedRetailValue, supplierName: shipment.supplierName, supplierDetails: shipment.supplierDetails }) });
       const data = await response.json();
       if (!response.ok) return alert(data.error || "Unable to create shipment.");
       setShipment((prev) => ({
         ...prev,
         id: data.id ?? prev.id,
+        receivedBy: data.receivedBy?.name ?? prev.receivedBy,
+        supplierName: data.supplierName ?? "",
+        supplierDetails: data.supplierDetails ?? "",
+        expectedRetailValue: data.expectedInventoryCost == null ? prev.expectedRetailValue : Number(data.expectedInventoryCost),
         scannedPacks: Number(data.existingPackCount ?? data.scannedPacks ?? prev.scannedPacks ?? 0),
         status: data.status ?? prev.status,
       }));
@@ -40,6 +44,8 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
       <Field label="Expected packs" icon={<Package size={15} />}><input type="number" inputMode="numeric" min="1" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.expectedPacks ?? 0} onChange={(e) => setShipment((prev) => ({ ...prev, expectedPacks: Number(e.target.value) }))} /></Field>
       <Field label="Expected inventory cost" icon={<Package size={15} />} hint="Enter the amount paid upfront. It will be locked and verified as 95% of face value after scanning."><div className="relative"><span className="absolute left-3 top-3 text-sm text-text-tertiary">$</span><input type="number" inputMode="decimal" min="0" step="0.01" required className="h-11 w-full border border-border bg-muted/20 pl-7 pr-3 text-sm outline-none focus:border-accent" value={shipment.expectedRetailValue ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, expectedRetailValue: e.target.value === "" ? undefined : Number(e.target.value) }))} placeholder="Enter inventory cost" /></div></Field>
       <Field label="Received by" icon={<FileText size={15} />} hint="Automatically identified from your signed-in account."><input readOnly className="h-11 w-full border border-border bg-muted/20 px-3 text-sm text-text-secondary" value={shipment.receivedBy || ""} /></Field>
+      <Field label="Supplier name (optional)" icon={<FileText size={15} />}><input maxLength={200} className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.supplierName ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, supplierName: e.target.value }))} placeholder="Supplier name" /></Field>
+      <Field label="Supplier details (optional)" icon={<FileText size={15} />}><textarea maxLength={2000} className="min-h-20 w-full border border-border bg-muted/20 px-3 py-2 text-sm outline-none focus:border-accent" value={shipment.supplierDetails ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, supplierDetails: e.target.value }))} placeholder="Address, contact, or reference details" /></Field>
     </div>
     <div className="mt-4 grid gap-3 lg:grid-cols-2"><UploadField label="Invoice photo" value={shipment.invoicePhoto ?? ""} title="Upload invoice photo" previewAlt="Invoice photo" onChange={(url) => setShipment((prev) => ({ ...prev, invoicePhoto: url }))} /><UploadField label="Confirmation receipt photo" value={shipment.confirmationReceiptPhoto ?? ""} title="Upload confirmation receipt" previewAlt="Confirmation receipt photo" onChange={(url) => setShipment((prev) => ({ ...prev, confirmationReceiptPhoto: url }))} /></div>
     <div className="mt-4 grid gap-2 sm:grid-cols-2"><Button variant="outline" className="w-full" onClick={onCancel}>Cancel</Button><Button className="w-full" onClick={handleContinue}>Continue to scan packs →</Button></div>

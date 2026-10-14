@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Printer, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "@/components/reports/report-actions";
+import { loadShipmentReport } from "@/lib/shipment-report";
 
 interface ShipmentRecord {
   id: string;
@@ -50,18 +52,11 @@ export function ReceivingShipmentsReport() {
 
   useEffect(() => { void load(1); }, [load]);
 
-  function printReport() {
-    document.body.classList.add("report-printing");
-    const cleanup = () => document.body.classList.remove("report-printing");
-    window.addEventListener("afterprint", cleanup, { once: true });
-    window.setTimeout(() => window.print(), 50);
-  }
-
   const shipments = result?.shipments ?? [];
   const firstRecord = result && result.total > 0 ? (page - 1) * result.pageSize + 1 : 0;
   const lastRecord = result ? Math.min(page * result.pageSize, result.total) : 0;
 
-  return <Panel className="report-print-target p-4 sm:p-5">
+  return <Panel className="p-4 sm:p-5">
     <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Inventory history</p>
@@ -72,9 +67,6 @@ export function ReceivingShipmentsReport() {
         <Button variant="outline" onClick={() => void load(page)} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
         </Button>
-        <Button variant="secondary" onClick={printReport} disabled={loading || shipments.length === 0}>
-          <Printer size={14} /> Print Report
-        </Button>
       </div>
     </header>
 
@@ -84,19 +76,20 @@ export function ReceivingShipmentsReport() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
-              <th className="py-2 pr-3">Shipment date</th><th className="py-2 pr-3">Invoice</th><th className="py-2 pr-3">Confirmation</th><th className="py-2 pr-3">Received by</th><th className="py-2 pr-3 text-right">Expected packs</th><th className="py-2 pr-3 text-right">Recorded packs</th><th className="py-2">Status</th>
+              <th className="py-2 pr-3">Shipment date</th><th className="py-2 pr-3">Invoice</th><th className="py-2 pr-3">Confirmation</th><th className="py-2 pr-3">Received by</th><th className="py-2 pr-3 text-right">Expected packs</th><th className="py-2 pr-3 text-right">Recorded packs</th><th className="py-2">Status</th><th className="py-2">Report</th>
             </tr></thead>
             <tbody>
               {shipments.map((shipment) => <tr key={shipment.id} className="border-b border-border last:border-0">
                 <td className="py-2.5 pr-3">{shipment.shipmentDate ? new Date(shipment.shipmentDate).toLocaleDateString() : new Date(shipment.createdAt).toLocaleDateString()}</td>
                 <td className="py-2.5 pr-3 font-mono">{shipment.invoiceNumber}</td>
                 <td className="py-2.5 pr-3 font-mono">{shipment.shipmentConfirmationNumber || "—"}</td>
-                <td className="py-2.5 pr-3">{shipment.receivedBy?.name || "Unknown"}</td>
+                <td className="py-2.5 pr-3">{shipment.receivedBy?.name || "Not recorded"}</td>
                 <td className="py-2.5 pr-3 text-right tabular-nums">{shipment.expectedPacks}</td>
                 <td className="py-2.5 pr-3 text-right tabular-nums">{shipment._count?.packs ?? shipment.scannedPacks}</td>
                 <td className="py-2.5">{shipment.status.replaceAll("_", " ")}</td>
+                <td className="py-2.5"><ReportActions loadDocument={() => loadShipmentReport(shipment.id)} /></td>
               </tr>)}
-              {shipments.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-sm text-text-secondary">No shipment records found.</td></tr>}
+              {shipments.length === 0 && <tr><td colSpan={8} className="py-10 text-center text-sm text-text-secondary">No shipment records found.</td></tr>}
             </tbody>
           </table>
         </div>

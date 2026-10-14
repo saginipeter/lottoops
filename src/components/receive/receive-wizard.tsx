@@ -91,7 +91,7 @@ export default function ReceiveWizard({ initialStep = 1, receiverName = "" }: Re
   const [shipment, setShipment] = useState<ShipmentState>(() => {
     const savedShipment = readReceiveDraft()?.shipment;
     const initialShipment = savedShipment ?? createDefaultShipment();
-    return { ...initialShipment, receivedBy: initialShipment.receivedBy || receiverName };
+    return { ...initialShipment, receivedBy: receiverName };
   });
 
   const [packs, setPacks] = useState<PackWithGame[]>(() => {
@@ -103,6 +103,30 @@ export default function ReceiveWizard({ initialStep = 1, receiverName = "" }: Re
     () => readReceiveDraft()?.scanDraft ?? DEFAULT_SCAN_DRAFT
   );
   const [overrideApproved, setOverrideApproved] = useState(false);
+
+  useEffect(() => {
+    if (!shipment.id) return;
+    const controller = new AbortController();
+    async function restoreShipmentMetadata() {
+      try {
+        const response = await fetch(`/api/shipments/${encodeURIComponent(shipment.id)}`, { cache: "no-store", signal: controller.signal });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (controller.signal.aborted) return;
+        setShipment((prev) => ({
+          ...prev,
+          receivedBy: data.receivedBy?.name ?? "",
+          supplierName: prev.supplierName ?? data.supplierName ?? "",
+          supplierDetails: prev.supplierDetails ?? data.supplierDetails ?? "",
+          expectedRetailValue: prev.expectedRetailValue ?? (data.expectedInventoryCost == null ? undefined : Number(data.expectedInventoryCost)),
+        }));
+      } catch (error) {
+        if (!controller.signal.aborted) console.error("Unable to restore shipment details:", error);
+      }
+    }
+    void restoreShipmentMetadata();
+    return () => controller.abort();
+  }, [shipment.id]);
 
   useEffect(() => {
     const normalizedScannedCount = packs.length;

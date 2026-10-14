@@ -41,6 +41,21 @@ LottoOps has two main parts: an **Admin Dashboard** for store staff and a **TV D
 |  **Profit Tracking** | Track pack cost, retail value, and potential profit per pack |
 |  **Audit Trail** | Every action logged in Scan Log for accountability |
 
+### Report preview and printing
+
+Use the separate **View Report** and **Print Report** actions on a report or
+individual shift/shipment. View opens an isolated document preview; Print sends
+the same data-only document to the browser's print dialog, where it can also be
+saved as PDF. Dashboard navigation, filters, and action controls are not included.
+Print templates use A4 by default and support an 80 mm receipt layout.
+
+Receiving records are available after confirmation and from each shipment in the
+Reports archive. Supplier information entered during receiving is retained for
+these documents. Historical or unsupported values, including untracked payment
+methods, returns, and voids, are labeled **Not recorded**, not assumed to be zero.
+Deploy the shipment supplier/details migration with `npm run db:deploy` before
+running this version against an existing database.
+
 ---
 
 ##  Tech Stack
