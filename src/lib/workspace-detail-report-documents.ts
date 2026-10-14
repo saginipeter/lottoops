@@ -164,7 +164,10 @@ export function buildTicketReturnRequestsDocument(requests: ReadonlyArray<{
   return table(title, ["Request ID", "Store ID", "Shift", "Pack ID", "Pack", "Game", "Game number", "Ticket barcode", "Reason", "Requested by", "Requested at"],
     requests.map((request) => [request.id, request.storeId, request.shiftId, request.packId,
       request.serialNumber, request.gameName, request.gameNumber, text(request.ticketBarcode),
-      text(request.reason), text(request.requestedByName), request.createdAt]),
+      request.status === "RETURNED_PENDING_REVIEW"
+        ? `Already returned; review only. Reason: ${request.reason ?? "Not recorded"}`
+        : text(request.reason),
+      text(request.requestedByName), request.createdAt]),
     [{ label: "Scope", value: "All loaded return reviews and legacy pending requests. Returned-ticket reviews do not change inventory or sales." }]);
 }
 

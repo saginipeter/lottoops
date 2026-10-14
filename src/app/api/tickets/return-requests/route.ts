@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         where: { id: packId, storeId: session.storeId },
         select: {
           id: true, serialNumber: true, status: true, currentTicketNumber: true,
-          firstTicket: true, ticketQuantity: true, game: { select: { price: true } },
+          firstTicket: true, ticketQuantity: true, ticketPrice: true, game: { select: { price: true } },
         },
       });
       if (!pack) throw new ReturnError("Pack not found.", 404);
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
         firstTicket: pack.firstTicket, ticketQuantity: pack.ticketQuantity,
       });
       const current = Number(pack.currentTicketNumber ?? beginning);
-      if (!Number.isInteger(current) || beginning <= 0 || current < 0 || current >= beginning ||
+      if (!Number.isInteger(current) || !Number.isInteger(beginning) || beginning <= 0 || current < 0 || current >= beginning ||
           (pack.status !== "ACTIVE" && pack.status !== "SOLD_OUT")) {
         throw new ReturnError("No recent sale to reverse for this pack.", 409);
       }
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       }
       const restoredCurrent = current + 1;
       const ticketsSold = beginning - restoredCurrent;
-      const salesAmount = ticketsSold * Number(pack.game.price);
+      const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
       const updated = await tx.pack.updateMany({
         where: { id: pack.id, storeId: session.storeId, status: { in: ["ACTIVE", "SOLD_OUT"] }, currentTicketNumber: pack.currentTicketNumber },
         data: { status: "ACTIVE", currentTicketNumber: restoredCurrent, completedAt: null },

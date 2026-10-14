@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { NextRequest } from "next/server";
+import { buildTicketReturnRequestsDocument } from "../workspace-detail-report-documents";
 
 test("ticket return endpoints restore immediately and resolve reviews without repeating returns", async (context) => {
   const require = createRequire(import.meta.url);
@@ -11,7 +12,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   const staff = { userId: "staff", storeId: "store", name: "Staff", role: "EMPLOYEE" };
   let session: typeof staff | null = staff;
   const initial = () => ({
-    pack: { id: "pack", storeId: "store", serialNumber: "P1", status: "ACTIVE", currentTicketNumber: 9, firstTicket: 1, ticketQuantity: 10, game: { price: 5 }, completedAt: null },
+    pack: { id: "pack", storeId: "store", serialNumber: "P1", status: "ACTIVE", currentTicketNumber: 9, firstTicket: 1, ticketQuantity: 10, ticketPrice: null as number | null, game: { price: 5 }, completedAt: null },
     shift: { id: "shift", storeId: "store", status: "OPEN", lines: [{ id: "line", packId: "pack", slotNumber: "1", beginningTicket: 10, endingTicket: 9, ticketsSold: 1, salesAmount: 5 }] },
     slot: { id: "slot", storeId: "store", packId: "pack" as string | null },
     // Deliberately older than two minutes and sold by somebody else.
@@ -72,7 +73,11 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       if (sql.includes("FOR UPDATE")) {
         assert.equal(typeof values[0], "string");
         assert.equal(values[1], session?.storeId);
-        return [];
+        if (sql.includes("status = 'OPEN'")) {
+          assert.match(sql, /FROM shifts/);
+          return state.shift.status === "OPEN" && fail !== "close-race" ? [{ id: state.shift.id }] : [];
+        }
+        return [{ id: values[0] }];
       }
       if (sql.includes("FROM live_scan_events")) {
         assert.deepEqual(values, [session?.storeId, "shift", "pack"]);
@@ -117,7 +122,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         return 1;
       }
       assert.match(sql, /UPDATE ticket_return_requests/);
-      assert.match(sql, /WHERE id = \$1.*status /s);
+      assert.match(sql, /WHERE id = \$1[\s\S]*status /);
       const row = state.requests.find((r) => r.id === values[0]);
       if (!row || !["PENDING", "RETURNED_PENDING_REVIEW"].includes(row.status) || fail === "resolved") return 0;
       if (sql.includes("status = 'RETURN_REVIEW_APPROVED'")) {
@@ -139,7 +144,10 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       transactionTail = new Promise<void>((resolve) => { release = resolve; });
       await previous;
       const before = structuredClone(state);
-      try { return await callback(fakePrisma); }
+      try {
+        if (fail === "serialization") throw Object.assign(new Error("transaction conflict"), { code: "P2034" });
+        return await callback(fakePrisma);
+      }
       catch (error) { state = before; throw error; }
       finally { release(); }
     },
@@ -214,6 +222,15 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal(state.shift.lines[0].salesAmount, 45);
   });
 
+  await context.test("sales totals use the same pack-specific price as the sell endpoint", async () => {
+    reset(); state.pack.currentTicketNumber = 8; state.pack.ticketPrice = 10;
+    const response = await POST(request());
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).salesAmount, 10);
+    assert.equal(state.shift.lines[0].ticketsSold, 1);
+    assert.equal(state.shift.lines[0].salesAmount, 10);
+  });
+
   await context.test("scope, open shifts, latest barcode, sale counts and slot occupancy are protected", async () => {
     for (const scenario of ["foreign-store", "foreign-pack", "foreign-shift", "closed", "no-line", "wrong-barcode", "missing-event", "no-sale", "negative-count", "inactive", "occupied", "missing-slot"]) {
       reset();
@@ -244,14 +261,30 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal(state.notifications.length, 1);
   });
 
-  await context.test("CAS, event, slot and required notification failures roll back every return change", async () => {
-    for (const failure of ["pack", "event", "slot", "notification"]) {
+  await context.test("CAS, event, slot, serialization and required notification failures roll back every return change", async (subcontext) => {
+    subcontext.mock.method(console, "error", () => {});
+    for (const failure of ["pack", "event", "slot", "serialization", "notification"]) {
       reset(); fail = failure;
       const before = structuredClone(state);
       const response = await POST(request());
       assert.equal(response.status, failure === "notification" ? 500 : 409, failure);
       assert.deepEqual(state, before, failure);
     }
+  });
+
+  await context.test("printed return reviews distinguish already-restored tickets from legacy approval requests", () => {
+    const record = {
+      id: "return", storeId: "store", shiftId: "shift", packId: "pack", ticketBarcode: "barcode",
+      reason: "Customer declined", requestedByName: "Staff", createdAt: "2026-10-14T12:00:00Z",
+      serialNumber: "P1", gameName: "Game", gameNumber: "1",
+    };
+    const document = buildTicketReturnRequestsDocument([
+      { ...record, status: "RETURNED_PENDING_REVIEW" },
+      { ...record, id: "legacy", status: "PENDING" },
+    ]);
+    assert.equal(document.sections[0].rows[0][8], "Already returned; review only. Reason: Customer declined");
+    assert.equal(document.sections[0].rows[1][8], "Customer declined");
+    assert.match(String(document.metadata?.[0].value), /reviews do not change inventory or sales/);
   });
 
   await context.test("both new reviews and legacy requests list under store/owner scope", async () => {
@@ -306,6 +339,19 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       assert.equal(state.pack.currentTicketNumber, action === approve ? 10 : 9);
       assert.equal(state.events.length, action === approve ? 0 : 1);
       assert.equal((await resolve(action)).status, 404);
+    }
+  });
+
+  await context.test("legacy approval rejects closed shifts and rolls back concurrent close or slot occupation", async () => {
+    for (const scenario of ["closed", "close-race", "slot"]) {
+      reset(); session = { ...staff, role: "MANAGER" };
+      state.requests.push({ id: "legacy", storeId: "store", shiftId: "shift", packId: "pack", status: "PENDING" });
+      if (scenario === "closed") state.shift.status = "CLOSED";
+      else fail = scenario;
+      const before = structuredClone(state);
+      assert.equal((await resolve(approve)).status, 409, scenario);
+      assert.deepEqual(state, before, scenario);
+      assert.equal(state.requests[0].status, "PENDING", scenario);
     }
   });
 });

@@ -83,6 +83,9 @@ export async function POST(
     if (!shift || shift.lines.length === 0) {
       return NextResponse.json({ error: "No shift line found for this pack." }, { status: 400 });
     }
+    if (shift.status !== "OPEN") {
+      return NextResponse.json({ error: "Tickets can only be returned during an open shift." }, { status: 409 });
+    }
 
     const line = shift.lines[0];
     const pack = await prisma.pack.findFirst({
@@ -92,6 +95,7 @@ export async function POST(
         status: true,
         serialNumber: true,
         currentTicketNumber: true,
+        ticketPrice: true,
         game: { select: { price: true } },
       },
     });
@@ -136,9 +140,15 @@ export async function POST(
       );
     }
 
-    const salesAmount = ticketsSold * Number(pack.game.price);
+    const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const openShifts = await tx.$queryRawUnsafe<Array<{ id: string }>>(`
+        SELECT id FROM shifts
+        WHERE id = $1 AND "storeId" = $2 AND status = 'OPEN'
+        FOR UPDATE
+      `, shift.id, request.storeId);
+      if (openShifts.length !== 1) throw new Error("RETURN_CONFLICT");
       const claimed = await tx.$executeRawUnsafe(`
         UPDATE ticket_return_requests
         SET status = 'APPROVED', resolved_at = NOW(), resolved_by_id = $2, resolved_by_name = $3

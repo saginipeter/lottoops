@@ -122,7 +122,6 @@ export function LiveScanDashboard({
   currentShift,
   activePacks,
   terminalId,
-  isOwner,
   isEmployee = false,
   compact = false,
 }: LiveScanDashboardProps) {
@@ -988,8 +987,7 @@ export function LiveScanDashboard({
                   <p className="text-xs leading-5 text-[#64748b]">{shiftStats.ticketsSold} tickets scanned</p>
                 </div>
               </div>
-              {(
-                <Button
+              <Button
                   variant="outline"
                   size="sm"
                   className="mt-2"
@@ -997,8 +995,7 @@ export function LiveScanDashboard({
                   disabled={returnRequestLoading || returnRequestStatus === "success"}
                 >
                   {returnRequestLoading ? "Returning..." : "Customer Rejected - Return Ticket"}
-                </Button>
-              )}
+              </Button>
               {returnRequestStatus !== "idle" && (
                 <p className={`mt-2 text-xs font-medium ${returnRequestStatus === "success" ? "text-emerald-700" : "text-red-700"}`}>
                   {returnRequestMessage}
