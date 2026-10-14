@@ -102,7 +102,7 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
   }
 
   function displayedCurrentTicket(pack: any) {
-    const quantity = Number(pack.ticketQuantity ?? 0);
+    const quantity = Number(pack.ticketQuantity ?? pack.game?.ticketsPerPack ?? 0);
     const remaining = Number(pack.currentTicketNumber ?? quantity);
     const direction = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
     return getDisplayedTicketNumber(
