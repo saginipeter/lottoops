@@ -98,6 +98,7 @@ interface TicketHistoryResult {
 }
 
 interface LiveScanResult {
+  saleId?: string;
   id: string;
   ticketBarcode?: string;
   gameNumber?: string;
@@ -525,7 +526,7 @@ export function LiveScanDashboard({
   }
 
   async function handleReturnTicketRequest() {
-    if (!lastScan?.id) {
+    if (!lastScan?.id || !lastScan.saleId) {
       setScanError("No recent scan to return.");
       return;
     }
@@ -544,6 +545,7 @@ export function LiveScanDashboard({
           packId: lastScan.id,
           shiftId: currentShift.id,
           ticketBarcode: lastScan.ticketBarcode,
+          saleId: lastScan.saleId,
           reason: "Customer rejected the ticket at time of sale.",
         }),
       });
@@ -764,7 +766,7 @@ export function LiveScanDashboard({
                   size="sm"
                   className="mt-2"
                   onClick={handleReturnTicketRequest}
-                  disabled={returnRequestLoading || returnRequestStatus === "success"}
+                  disabled={!lastScan.saleId || returnRequestLoading || returnRequestStatus === "success"}
                 >
                   {returnRequestLoading ? "Submitting..." : "Customer Rejected - Return Ticket"}
                 </Button>
@@ -992,7 +994,7 @@ export function LiveScanDashboard({
                   size="sm"
                   className="mt-2"
                   onClick={handleReturnTicketRequest}
-                  disabled={returnRequestLoading || returnRequestStatus === "success"}
+                  disabled={!lastScan.saleId || returnRequestLoading || returnRequestStatus === "success"}
                 >
                   {returnRequestLoading ? "Returning..." : "Customer Rejected - Return Ticket"}
               </Button>

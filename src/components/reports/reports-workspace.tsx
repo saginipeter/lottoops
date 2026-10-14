@@ -44,7 +44,7 @@ const reportOptions: ReportOption[] = [
   { key: "ai-review", label: "AI Discrepancy Review", description: "Generate a manager review of unusual discrepancies.", group: "Management", icon: ShieldAlert, minimumRole: "MANAGER" },
   { key: "whatsapp", label: "Daily Summary", description: "Send the current operational summary to the configured channel.", group: "Management", icon: Users, minimumRole: "MANAGER" },
   { key: "ticket-reports", label: "Employee Ticket Reports", description: "Review tickets reported by employees for manager action.", group: "Management", icon: FileBarChart2, minimumRole: "MANAGER" },
-  { key: "returns", label: "Ticket Return Requests", description: "Approve or deny ticket return requests.", group: "Management", icon: RefreshCw, minimumRole: "MANAGER" },
+  { key: "returns", label: "Ticket Return Requests", description: "Review tickets already returned for resale and resolve legacy return requests.", group: "Management", icon: RefreshCw, minimumRole: "MANAGER" },
   { key: "shipment-overrides", label: "Shipment Overrides", description: "Review receiving overrides and exception notifications.", group: "Management", icon: Package, minimumRole: "MANAGER" },
   { key: "receiving-shipments", label: "Receiving Shipments", description: "Search historical shipment records, receiver names, and pack counts.", group: "Inventory", icon: Package, minimumRole: "MANAGER" },
   { key: "state-uploads", label: "State Report Uploads", description: "Upload required state reports and supporting evidence.", group: "Management", icon: Upload, minimumRole: "MANAGER" },

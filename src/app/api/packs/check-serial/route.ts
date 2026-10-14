@@ -396,9 +396,15 @@ export async function POST(req: NextRequest) {
         const scanEventId = `lse_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
         await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          const openShifts = await tx.$queryRawUnsafe<Array<{ id: string }>>(`
+            SELECT id FROM shifts
+            WHERE id = $1 AND "storeId" = $2 AND status = 'OPEN' FOR UPDATE
+          `, openShift.id, session.storeId);
+          if (openShifts.length !== 1) throw new Error("CONCURRENT_TICKET_SCAN");
           const updateResult = await tx.pack.updateMany({
             where: {
               id: existingPack.id,
+              storeId: session.storeId,
               status: "ACTIVE",
               currentTicketNumber: existingPack.currentTicketNumber,
             },
@@ -475,6 +481,7 @@ export async function POST(req: NextRequest) {
           status: "found",
           id: existingPack.id,
           shiftId: openShift.id,
+          saleId: scanEventId,
           ticketBarcode: normalizedSerial,
           serialNumber: existingPack.serialNumber,
           gameNumber: existingPack.game.gameNumber,

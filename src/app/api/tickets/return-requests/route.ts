@@ -31,6 +31,11 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS idx_ticket_return_requests_pending
     ON ticket_return_requests (store_id, status, created_at DESC)
   `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE ticket_return_requests ADD COLUMN IF NOT EXISTS sale_event_id TEXT`);
+  await prisma.$executeRawUnsafe(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ticket_return_requests_sale
+    ON ticket_return_requests (store_id, sale_event_id) WHERE sale_event_id IS NOT NULL
+  `);
   // Persist the manager alert in the same transaction as the returned ticket.
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS inventory_notifications (
@@ -68,9 +73,10 @@ export async function POST(req: NextRequest) {
     const packId = typeof body?.packId === "string" ? body.packId.trim() : "";
     const shiftId = typeof body?.shiftId === "string" ? body.shiftId.trim() : "";
     const ticketBarcode = typeof body?.ticketBarcode === "string" ? body.ticketBarcode.trim() : "";
+    const saleId = typeof body?.saleId === "string" ? body.saleId.trim() : "";
     const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
-    if (!packId || !shiftId || !ticketBarcode) {
-      return NextResponse.json({ error: "packId, shiftId, and ticketBarcode are required." }, { status: 400 });
+    if (!packId || !shiftId || !ticketBarcode || !saleId) {
+      return NextResponse.json({ error: "packId, shiftId, ticketBarcode, and saleId are required." }, { status: 400 });
     }
     if (reason.length < 6) {
       return NextResponse.json({ error: "A return reason of at least 6 characters is required." }, { status: 400 });
@@ -97,13 +103,18 @@ export async function POST(req: NextRequest) {
       if (shift.status !== "OPEN") throw new ReturnError("Tickets can only be returned during an open shift.", 409);
       const line = shift.lines[0];
       if (!line) throw new ReturnError("No shift line found for this pack.", 409);
+      const priorReturns = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM ticket_return_requests WHERE store_id = $1 AND sale_event_id = $2 LIMIT 1`,
+        session.storeId, saleId,
+      );
+      if (priorReturns.length > 0) throw new ReturnError("This sale has already been returned. Refresh before trying again.", 409);
       const latestScans = await tx.$queryRawUnsafe<Array<{ id: string; ticketBarcode: string }>>(`
         SELECT id, ticket_barcode AS "ticketBarcode" FROM live_scan_events
         WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3
         ORDER BY scanned_at DESC, id DESC LIMIT 1
       `, session.storeId, shiftId, packId);
       const latestScan = latestScans[0];
-      if (!latestScan || !canReturnLatestTicket({
+      if (!latestScan || latestScan.id !== saleId || !canReturnLatestTicket({
         role: session.role, requestedBarcode: ticketBarcode, latestBarcode: latestScan.ticketBarcode,
       })) throw new ReturnError("Only the latest sold ticket for this pack can be returned.", 409);
 
@@ -147,9 +158,9 @@ export async function POST(req: NextRequest) {
       if (updatedSlot.count !== 1) throw new ReturnError("The display slot changed. Refresh before trying again.", 409);
       await tx.$executeRawUnsafe(`
         INSERT INTO ticket_return_requests
-          (id, store_id, shift_id, pack_id, ticket_barcode, status, reason, requested_by_id, requested_by_name)
-        VALUES ($1, $2, $3, $4, $5, 'RETURNED_PENDING_REVIEW', $6, $7, $8)
-      `, id, session.storeId, shiftId, packId, ticketBarcode, reason, session.userId, session.name);
+          (id, store_id, shift_id, pack_id, ticket_barcode, status, reason, requested_by_id, requested_by_name, sale_event_id)
+        VALUES ($1, $2, $3, $4, $5, 'RETURNED_PENDING_REVIEW', $6, $7, $8, $9)
+      `, id, session.storeId, shiftId, packId, ticketBarcode, reason, session.userId, session.name, saleId);
       await tx.scanLogEntry.create({
         data: {
           storeId: session.storeId, action: "RETURNED", packId: pack.id, performedById: session.userId,
