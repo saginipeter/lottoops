@@ -353,6 +353,21 @@ body {
   body.shift-report-printing .shift-report-print .shift-report-table td:nth-child(n+2) { width: 22% !important; }
   body.shift-report-printing .shift-report-print .shift-report-table tr { break-inside: avoid-page !important; }
   body.shift-report-printing .shift-report-print .shift-report-table tfoot th { font-weight: 700 !important; }
+  body.shift-paperwork-printing * { visibility: hidden !important; }
+  body.shift-paperwork-printing .shift-paperwork,
+  body.shift-paperwork-printing .shift-paperwork * { visibility: visible !important; }
+  body.shift-paperwork-printing .shift-paperwork { position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; box-sizing: border-box !important; margin: 0 !important; padding: 0 !important; color: #111827 !important; background: #fff !important; }
+  body.shift-paperwork-printing .shift-paperwork .shift-report-heading { margin: 0 0 16px !important; }
+  body.shift-paperwork-printing .shift-paperwork h1 { margin: 0 0 5px !important; font-size: 22px !important; line-height: 1.2 !important; font-weight: 700 !important; }
+  body.shift-paperwork-printing .shift-paperwork p { margin: 0 !important; font-size: 13px !important; line-height: 1.35 !important; }
+  body.shift-paperwork-printing .shift-paperwork h2 { margin: 18px 0 7px !important; font-size: 16px !important; line-height: 1.2 !important; font-weight: 700 !important; break-after: avoid-page !important; }
+  body.shift-paperwork-printing .shift-paperwork .shift-report-table { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; font-size: 11px !important; break-inside: avoid-page !important; }
+  body.shift-paperwork-printing .shift-paperwork .shift-report-table th,
+  body.shift-paperwork-printing .shift-paperwork .shift-report-table td { border: 1px solid #9ca3af !important; padding: 5px 6px !important; text-align: left !important; line-height: 1.25 !important; vertical-align: middle !important; }
+  body.shift-paperwork-printing .shift-paperwork .shift-report-table th:nth-child(n+2),
+  body.shift-paperwork-printing .shift-paperwork .shift-report-table td:nth-child(n+2) { width: 22% !important; }
+  body.shift-paperwork-printing .shift-paperwork .shift-report-table tr { break-inside: avoid-page !important; }
+  body.shift-paperwork-printing .shift-paperwork .shift-report-table tfoot th { font-weight: 700 !important; }
   body.receiving-record-printing * { visibility: hidden !important; }
   body.receiving-record-printing .receiving-print-report,
   body.receiving-record-printing .receiving-print-report * { visibility: visible !important; }
