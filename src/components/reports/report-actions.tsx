@@ -16,20 +16,13 @@ export function ReportActions({ document: report, loadDocument, disabled = false
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const printFrame = useRef<HTMLIFrameElement>(null);
-  const cleanupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disposePrint = useRef<(() => void) | null>(null);
   const loadedSnapshot = useRef<ReportDocument | null>(null);
   const preparing = useRef(false);
 
   useEffect(() => () => {
-    if (cleanupTimer.current) clearTimeout(cleanupTimer.current);
+    disposePrint.current?.();
   }, []);
-
-  useEffect(() => {
-    if (!printing) return;
-    const cleanup = () => setPrinting(null);
-    window.addEventListener("afterprint", cleanup);
-    return () => window.removeEventListener("afterprint", cleanup);
-  }, [printing]);
 
   async function prepare(action: "view" | "print") {
     if (preparing.current) return;
@@ -48,15 +41,45 @@ export function ReportActions({ document: report, loadDocument, disabled = false
   }
 
   function printLoadedDocument() {
+    if (disposePrint.current) return;
     const frameWindow = printFrame.current?.contentWindow;
     if (!frameWindow) { setError("Unable to open print document."); setPrinting(null); return; }
+    const printMedia = frameWindow.matchMedia("print");
+    let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+    const dispose = () => {
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      frameWindow.removeEventListener("afterprint", finish);
+      window.removeEventListener("afterprint", finish);
+      window.removeEventListener("focus", onFocus);
+      printMedia.removeEventListener("change", onPrintMediaChange);
+      disposePrint.current = null;
+    };
+    // Let the browser close its print dialog before removing the print frame.
+    const finish = () => {
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      cleanupTimer = setTimeout(() => {
+        cleanupTimer = null;
+        if (printMedia.matches) return;
+        dispose();
+        if (document.activeElement === printFrame.current) {
+          (document.activeElement as HTMLIFrameElement).blur();
+        }
+        setPrinting(null);
+      }, 0);
+    };
+    const onFocus = () => { if (!printMedia.matches) finish(); };
+    const onPrintMediaChange = () => { if (!printMedia.matches) finish(); };
+    disposePrint.current = dispose;
+    frameWindow.addEventListener("afterprint", finish);
+    window.addEventListener("afterprint", finish);
+    window.addEventListener("focus", onFocus);
+    printMedia.addEventListener("change", onPrintMediaChange);
     try {
-      frameWindow.addEventListener("afterprint", () => setPrinting(null), { once: true });
-      frameWindow.focus();
       frameWindow.print();
-      if (cleanupTimer.current) clearTimeout(cleanupTimer.current);
-      cleanupTimer.current = setTimeout(() => setPrinting(null), 300_000);
+      // Blocking print implementations may return without emitting afterprint.
+      if (!printMedia.matches && document.hasFocus()) finish();
     } catch {
+      dispose();
       setError("Printing is unavailable in this browser. Try viewing the report.");
       setPrinting(null);
     }

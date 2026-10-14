@@ -98,6 +98,7 @@ interface TicketHistoryResult {
 }
 
 interface LiveScanResult {
+  saleId?: string;
   id: string;
   ticketBarcode?: string;
   gameNumber?: string;
@@ -122,14 +123,12 @@ export function LiveScanDashboard({
   currentShift,
   activePacks,
   terminalId,
-  isOwner,
   isEmployee = false,
   compact = false,
 }: LiveScanDashboardProps) {
   const router = useRouter();
   const [barcode, setBarcode] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [reversing, setReversing] = useState(false);
   const [returnRequestLoading, setReturnRequestLoading] = useState(false);
   const [returnRequestStatus, setReturnRequestStatus] = useState<"idle" | "success" | "error">("idle");
   const [returnRequestMessage, setReturnRequestMessage] = useState("");
@@ -526,50 +525,8 @@ export function LiveScanDashboard({
     }
   }
 
-  async function handleRejectLastSale() {
-    if (!lastScan?.id) {
-      setScanError("No recent scan to reverse.");
-      return;
-    }
-
-    const pin = window.prompt("Enter manager approval PIN to return this ticket");
-    if (pin === null) return;
-    if (!pin.trim()) {
-      setScanError("PIN is required.");
-      return;
-    }
-
-    try {
-      setReversing(true);
-      const res = await fetch("/api/packs/reverse-sale", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          packId: lastScan.id,
-          pin: pin.trim(),
-          shiftId: currentShift?.id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setScanError(data.error || "Unable to reverse sale.");
-        return;
-      }
-
-      setScanError("");
-      setLastRefreshTime(new Date());
-      router.refresh();
-    } catch (error) {
-      console.error(error);
-      setScanError("Unable to reverse sale.");
-    } finally {
-      setReversing(false);
-      scanInputRef.current?.focus();
-    }
-  }
-
   async function handleReturnTicketRequest() {
-    if (!lastScan?.id) {
+    if (!lastScan?.id || !lastScan.saleId) {
       setScanError("No recent scan to return.");
       return;
     }
@@ -588,6 +545,7 @@ export function LiveScanDashboard({
           packId: lastScan.id,
           shiftId: currentShift.id,
           ticketBarcode: lastScan.ticketBarcode,
+          saleId: lastScan.saleId,
           reason: "Customer rejected the ticket at time of sale.",
         }),
       });
@@ -599,13 +557,9 @@ export function LiveScanDashboard({
       }
 
       setReturnRequestStatus("success");
-      if (data?.mode === "self-approved") {
-        setReturnRequestMessage("Ticket returned to the display and removed from this shift's sales.");
-        setLastRefreshTime(new Date());
-        router.refresh();
-      } else {
-        setReturnRequestMessage("Return request submitted. Waiting for manager approval.");
-      }
+      setReturnRequestMessage("Ticket returned and available for sale immediately. Removed from this shift's sales; manager notified for review.");
+      setLastRefreshTime(new Date());
+      router.refresh();
     } catch (error) {
       console.error(error);
       setReturnRequestStatus("error");
@@ -812,7 +766,7 @@ export function LiveScanDashboard({
                   size="sm"
                   className="mt-2"
                   onClick={handleReturnTicketRequest}
-                  disabled={returnRequestLoading || returnRequestStatus === "success"}
+                  disabled={!lastScan.saleId || returnRequestLoading || returnRequestStatus === "success"}
                 >
                   {returnRequestLoading ? "Submitting..." : "Customer Rejected - Return Ticket"}
                 </Button>
@@ -1035,16 +989,19 @@ export function LiveScanDashboard({
                   <p className="text-xs leading-5 text-[#64748b]">{shiftStats.ticketsSold} tickets scanned</p>
                 </div>
               </div>
-              {isOwner && (
-                <Button
+              <Button
                   variant="outline"
                   size="sm"
                   className="mt-2"
-                  onClick={handleRejectLastSale}
-                  disabled={reversing}
+                  onClick={handleReturnTicketRequest}
+                  disabled={!lastScan.saleId || returnRequestLoading || returnRequestStatus === "success"}
                 >
-                  {reversing ? "Reversing..." : "Customer Rejected - Return to Display (PIN)"}
-                </Button>
+                  {returnRequestLoading ? "Returning..." : "Customer Rejected - Return Ticket"}
+              </Button>
+              {returnRequestStatus !== "idle" && (
+                <p className={`mt-2 text-xs font-medium ${returnRequestStatus === "success" ? "text-emerald-700" : "text-red-700"}`}>
+                  {returnRequestMessage}
+                </p>
               )}
             </div>
           )}

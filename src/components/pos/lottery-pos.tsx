@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, Cloud, CloudOff, Keyboard, LockKeyhole, Re
 import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanner";
 
 interface PosProps { employeeName: string; storeName: string; terminalId: string; }
-interface SaleResult { error?: string; code?: string; id?: string; shiftId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
+interface SaleResult { error?: string; code?: string; id?: string; shiftId?: string; saleId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
 interface QueueEntry { id: string; barcode: string; queuedAt: string; attempts: number; state?: "PENDING" | "CONFLICT"; conflictReason?: string; }
 interface StockAlert { id: string; severity: string; title: string; detail: string; }
 
@@ -144,19 +144,19 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
   function resetForNextScan() { setShowSuccess(false); setResult(null); setError(""); setBarcode(""); focusInput(); }
 
   async function submitReturn() {
-    if (!lastSale?.id || !lastSale.shiftId || !returnReason || returning) return;
+    if (!lastSale?.id || !lastSale.shiftId || !lastSale.saleId || !returnReason || returning) return;
     setReturning(true); setReturnMessage(null);
     try {
       const response = await fetch("/api/tickets/return-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId: lastSale.id, shiftId: lastSale.shiftId, ticketBarcode: lastSale.ticketBarcode, reason: returnReason }),
+        body: JSON.stringify({ packId: lastSale.id, shiftId: lastSale.shiftId, saleId: lastSale.saleId, ticketBarcode: lastSale.ticketBarcode, reason: returnReason }),
       });
       const data = await response.json().catch(() => null) as { error?: string; mode?: string } | null;
       if (!response.ok) { setReturnMessage({ type: "error", text: data?.error ?? "Unable to return this ticket." }); return; }
       setReturnMessage({
         type: "success",
-        text: data?.mode === "self-approved" ? "Ticket returned to the display and removed from sales." : "Return submitted. Waiting for manager approval.",
+        text: "Ticket returned and available for sale immediately. Removed from sales; manager notified for review.",
       });
       setLastSale(null); setResult(null); setReturnOpen(false); setReturnReason("");
       void refreshInventory();
@@ -177,7 +177,7 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
     <section className="mt-5 border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Return ticket">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center bg-amber-50 text-amber-700"><RotateCcw size={20} /></span><div><h2 className="text-lg font-black">Return ticket</h2><p className="text-xs text-slate-500">{lastSale?.id ? `Last sale: ${lastSale.gameName ?? "Lottery ticket"} · ${lastSale.ticketBarcode ?? ""}` : "Sell a ticket first. Only the most recent sale can be returned."}</p></div></div>
-        {!returnOpen && <button type="button" onClick={() => { setReturnOpen(true); setReturnMessage(null); }} disabled={!lastSale?.id || !lastSale.shiftId} className="min-h-12 bg-amber-600 px-5 font-black text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300">Return Ticket</button>}
+        {!returnOpen && <button type="button" onClick={() => { setReturnOpen(true); setReturnMessage(null); }} disabled={!lastSale?.id || !lastSale.shiftId || !lastSale.saleId} className="min-h-12 bg-amber-600 px-5 font-black text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300">Return Ticket</button>}
       </div>
       {returnOpen && lastSale?.id && <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
         <label className="sr-only" htmlFor="return-reason">Return reason</label>

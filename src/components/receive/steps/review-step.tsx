@@ -179,7 +179,7 @@ export function ReviewStep({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="rounded-xl border bg-gray-50 p-4">
                 <span className="text-xs uppercase tracking-wide text-gray-500">Expected Inventory Cost</span>
-                <input type="number" min="0" step="0.01" value={expectedRetailValue || ""} onChange={(event) => setShipment((current) => ({ ...current, expectedRetailValue: Number(event.target.value) }))} className="mt-2 w-full border border-gray-300 bg-white px-3 py-2 font-semibold outline-none focus:border-emerald-600" />
+                <input type="number" onWheel={(event) => event.currentTarget.blur()} min="0" step="0.01" value={expectedRetailValue || ""} onChange={(event) => setShipment((current) => ({ ...current, expectedRetailValue: Number(event.target.value) }))} className="mt-2 w-full border border-gray-300 bg-white px-3 py-2 font-semibold outline-none focus:border-emerald-600" />
                 <span className="mt-1 block text-[11px] text-gray-500">Enter the supplier cost; the system validates it against 95% of face value.</span>
               </label>
               <Info
