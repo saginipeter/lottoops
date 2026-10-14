@@ -77,7 +77,6 @@ test("simple end-of-shift report shows selected shift statistics and signed vari
     assert.equal(document.metadata?.find((field) => field.label === "Report date (UTC)")?.value, "2025-01-01");
     assert.deepEqual(document.sections[0].rows, [
       ["Tickets sold", 12], ["Total sales", "$60.00"],
-      ["Opening remaining tickets", 50], ["Closing remaining tickets", 38],
     ]);
     assert.deepEqual(document.sections[1].rows.at(-1), ["Recorded cash variance", "-$5.00"]);
     assert.deepEqual(document.sections[2].rows, [["1 / P1", 13, 15, 2]]);
@@ -95,13 +94,12 @@ test("simple end-of-shift report shows selected shift statistics and signed vari
     assert.deepEqual(document.sections[2].rows, []);
     assert.match(document.notes![1], /1 of 1 audited packs match/);
     assert.deepEqual(document.sections[0].rows[1], ["Total sales", "$0.00"]);
-    assert.deepEqual(document.sections[0].rows[3], ["Closing remaining tickets", 0]);
     assert.deepEqual(document.sections[1].rows.at(-1), ["Recorded cash variance", "$0.00"]);
     shift.audit[0].ending = null;
     shift.packSales[0].ending = null;
     document = buildEndOfShiftReportDocument(shift);
     assert.deepEqual(document.sections[2].rows, [["1 / P1", 13, null, null]]);
-    assert.deepEqual(document.sections[0].rows[3], ["Closing remaining tickets", null]);
+    assert.equal(document.sections[1].rows[0][1], "Not recorded");
   });
 
   test("simple report does not claim a clean audit when no audit exists", () => {
@@ -110,7 +108,7 @@ test("simple end-of-shift report shows selected shift statistics and signed vari
     shift.packSales = [];
     const document = buildEndOfShiftReportDocument(shift);
     assert.equal(document.notes![1], "No physical ticket audit recorded.");
-    assert.equal(document.sections[0].rows[2][1], null);
+    assert.equal(document.sections[0].rows.length, 2);
   });
 test("exact shift query omits date restrictions while retaining store and closed scopes", () => {
   const from = new Date("2026-01-01");

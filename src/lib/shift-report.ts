@@ -116,9 +116,6 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
       ? null : calculatePhysicalAuditVariance(line.expected, line.ending),
   }));
   const exceptions = audits.filter((line) => line.variance !== 0);
-  const remainingTotal = (field: "beginning" | "ending") =>
-    shift.packSales.length && shift.packSales.every((line) => line[field] != null)
-      ? shift.packSales.reduce((sum, line) => sum + line[field]!, 0) : null;
   return {
     title: "End of Shift Report",
     subtitle: shift.storeName,
@@ -138,8 +135,6 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
         rows: [
           ["Tickets sold", shift.ticketsSold],
           ["Total sales", money(shift.grossSales)],
-          ["Opening remaining tickets", remainingTotal("beginning")],
-          ["Closing remaining tickets", remainingTotal("ending")],
         ],
       },
       {
