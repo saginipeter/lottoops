@@ -45,6 +45,23 @@ LottoOps has two main parts: an **Admin Dashboard** for store staff and a **TV D
 
 ##  Tech Stack
 
+### Owner-approved store assistance
+
+Platform admins request store assistance from **Store Access Controls**. Delivery is
+**in-app only**: the actual store owner opens **Support** (`/support`), reviews the
+requesting admin, and explicitly approves and generates a single-use link. There
+is no email delivery. The owner must copy and share that link directly with the
+requesting admin; it is displayed once and cannot be retrieved by admins.
+
+The link expires after **15 minutes** and can only be redeemed by that exact
+authenticated requesting admin, using the link or the paste field in Store Access
+Controls. Redemption is POST-only and starts a **30-minute**, store-scoped support
+session. Only a token hash is stored; URL fragments keep tokens out of request
+URLs. Owners can decline requests or revoke access from Support. Suspension,
+owner changes, inactive accounts, revocation, and expiration block access.
+Requests, approvals, redemptions, and revocations are audited without link tokens.
+The existing **Exit support** action restores the admin session.
+
 | Layer | Technology |
 | :--- | :--- |
 | **Frontend** | React with TypeScript |

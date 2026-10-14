@@ -5,6 +5,7 @@ import { revokeUserSessions } from "@/lib/session-revocation";
 import bcrypt from "bcryptjs";
 import { setMfaRequired } from "@/lib/mfa";
 import { disableMfa } from "@/lib/mfa";
+import { verifyPasswordChange } from "@/lib/password-change";
 
 function platformOnly(role: string) { return role === "PLATFORM_ADMIN"; }
 
@@ -23,9 +24,12 @@ export async function PATCH(request: NextRequest) {
   if (!platformOnly(session.role)) return NextResponse.json({ error: "Platform admin access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
   const body = await request.json().catch(() => ({}));
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Request body must be an object." }, { status: 400 });
+  }
   const userId = typeof body.userId === "string" ? body.userId.trim() : "";
   if (!userId) return NextResponse.json({ error: "User ID is required." }, { status: 400 });
-  const user = await prisma.user.findFirst({ where: { id: userId, role: { not: "PLATFORM_ADMIN" } }, select: { id: true, active: true } });
+  const user = await prisma.user.findFirst({ where: { id: userId, role: { not: "PLATFORM_ADMIN" } }, select: { id: true, active: true, passwordHash: true } });
   if (!user) return NextResponse.json({ error: "User not found." }, { status: 404 });
   if (body.revokeSessions === true) {
     await revokeUserSessions(userId);
@@ -41,12 +45,13 @@ export async function PATCH(request: NextRequest) {
     await revokeUserSessions(userId);
     return NextResponse.json({ success: true, mfaReset: true });
   }
-  if (typeof body.password === "string") {
-    if (body.password.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+  if (Object.hasOwn(body, "password")) {
+    const change = await verifyPasswordChange(body.currentPassword, body.password, user.passwordHash);
+    if (change.error !== undefined) return NextResponse.json({ error: change.error }, { status: change.status });
     const passwordUsers = await prisma.user.findMany({ where: { id: { not: userId } }, select: { passwordHash: true } });
-    const reused = await Promise.all(passwordUsers.map((candidate: { passwordHash: string }) => bcrypt.compare(body.password, candidate.passwordHash))).then((matches) => matches.some(Boolean));
+    const reused = await Promise.all(passwordUsers.map((candidate: { passwordHash: string }) => bcrypt.compare(change.password, candidate.passwordHash))).then((matches) => matches.some(Boolean));
     if (reused) return NextResponse.json({ error: "Choose a unique password for this account." }, { status: 409 });
-    await prisma.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(body.password, 12) } });
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(change.password, 12) } });
     await revokeUserSessions(userId);
     return NextResponse.json({ success: true, passwordReset: true });
   }

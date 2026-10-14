@@ -1,11 +1,12 @@
 "use client";
 
 import { AlertTriangle, ArrowRight, BarChart3, Boxes, CheckCircle2, ClipboardCheck, FileText, PackagePlus, Settings, ShoppingCart, Store, Users } from "lucide-react";
+import { TvDisplayLauncher, type TvStore } from "./tv-display-launcher";
 
 type Action = { title: string; description: string; href: string; icon: typeof ShoppingCart; className: string };
-type Props = { storeName: string; role: string; grantedPermissions: string[] };
+type Props = { storeName: string; storeId?: string; tvStores?: TvStore[]; role: string; grantedPermissions: string[] };
 
-export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props) {
+export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, grantedPermissions }: Props) {
   const isPlatformAdmin = role === "PLATFORM_ADMIN";
   const isOwner = role === "OWNER";
   const isAdmin = role === "OWNER" || role === "MANAGER";
@@ -43,6 +44,7 @@ export function PosHomeDashboard({ storeName, role, grantedPermissions }: Props)
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
     <main className="mx-auto w-full max-w-[1366px] px-5 py-5 sm:px-8 sm:py-7">
       <div className="mb-5 flex items-end justify-between gap-4"><div><p className="text-sm font-semibold text-slate-500">{storeName}</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{isPlatformAdmin ? "Platform workspace" : isAdmin ? "Management workspace" : "What would you like to do?"}</h2></div><p className="hidden text-sm font-semibold text-emerald-700 sm:block">{isPlatformAdmin || isAdmin ? "Oversight access enabled" : "POS ready"}</p></div>
+      {isAdmin && <TvDisplayLauncher stores={isOwner ? tvStores : storeId ? [{ id: storeId, name: storeName }] : []} currentStoreId={storeId} />}
       <ActionSection title="POS operations" actions={posActions} />
       {adminActions.length > 0 && <div className="mt-8"><ActionSection title={isPlatformAdmin ? "Platform administration" : "Management & oversight"} actions={adminActions} /></div>}
       {role === "AUDITOR" && <div className="mt-5 flex items-center gap-2 border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900"><FileText size={18} /> Read-only audit access. Operational POS actions are hidden.</div>}

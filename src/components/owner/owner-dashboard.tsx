@@ -14,6 +14,7 @@ import { StateReportsUploader } from "@/components/owner/state-reports-uploader"
 import { StoreComparisonPanel } from "@/components/owner/store-comparison-panel";
 import { CompanyExceptionsPanel } from "@/components/owner/company-exceptions-panel";
 import { CompanyInventoryPanel } from "@/components/owner/company-inventory-panel";
+import { TvDisplayLauncher } from "@/components/home/tv-display-launcher";
 
 interface StoreKPI {
   id: string;
@@ -185,7 +186,7 @@ function StoreCard({ store }: { store: StoreKPI }) {
   );
 }
 
-export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "stores" }) {
+export function OwnerDashboard({ view = "overview", currentStoreId }: { view?: "overview" | "stores"; currentStoreId?: string }) {
   const [stores, setStores] = useState<StoreKPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -250,6 +251,7 @@ export function OwnerDashboard({ view = "overview" }: { view?: "overview" | "sto
 
   return (
     <div className="space-y-5">
+      {view === "overview" && <TvDisplayLauncher stores={stores} currentStoreId={currentStoreId} loading={loading} />}
       {view === "overview" && <StateReportsUploader />}
       {view === "overview" && <StoreComparisonPanel />}
       {view === "overview" && <CompanyExceptionsPanel />}

@@ -4,6 +4,7 @@ import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
 import { SupportTicketsPanel } from "@/components/support/support-tickets-panel";
 import { getSession } from "@/lib/get-session";
+import { SupportAccessPanel } from "@/components/support/support-access-panel";
 
 export default async function SupportPage() {
   const session = await getSession();
@@ -18,6 +19,7 @@ export default async function SupportPage() {
         right={<span className="text-xs text-text-tertiary">Support queue</span>}
       />
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5">
+        {!session.impersonatedBy && (session.role === "OWNER" || session.role === "PLATFORM_ADMIN") && <SupportAccessPanel role={session.role} />}
         <SupportTicketsPanel />
       </div>
       <StatusBar left={<span>Support</span>} center={<span>Requests are tracked for follow-up</span>} right={<span>Store scoped</span>} />

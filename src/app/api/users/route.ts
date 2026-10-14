@@ -77,6 +77,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (session.impersonatedBy) {
+    return NextResponse.json({ error: "Support sessions cannot manage user accounts." }, { status: 403 });
+  }
   if (session.role !== "MANAGER" && session.role !== "OWNER") return NextResponse.json({ error: "Managers only" }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 

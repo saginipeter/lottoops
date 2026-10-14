@@ -174,6 +174,7 @@ function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserMod
   const [employeeUserId, setEmployeeUserId] = useState(user.employeeUserId ?? "");
   const [role, setRole] = useState<Role>(user.role);
   const [newPassword, setNewPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [grants, setGrants] = useState<string[]>(user.grantedPermissions ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,6 +188,10 @@ function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserMod
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (newPassword && !currentPassword) {
+      setError("Enter this user's current password before setting a new password.");
+      return;
+    }
     setLoading(true);
     try {
       const body: Record<string, unknown> = {
@@ -196,7 +201,10 @@ function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserMod
         role,
         grantedPermissions: role === "SHIFT_LEAD" ? grants : [],
       };
-      if (newPassword) body.password = newPassword;
+      if (newPassword) {
+        body.currentPassword = currentPassword;
+        body.password = newPassword;
+      }
       const res = await fetch(`/api/users/${user.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -290,11 +298,27 @@ function EditUserModal({ user, onUpdated, onClose, canCreateOwner }: EditUserMod
           )}
 
           <div>
+            <label htmlFor="current-password" className="block text-xs font-medium text-text-secondary mb-1">
+              User&apos;s Current Password <span className="text-text-tertiary font-normal">(required to change password)</span>
+            </label>
+            <input
+              id="current-password"
+              type="password"
+              autoComplete="off"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+              placeholder="This user's current password, not your own"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required={Boolean(newPassword)}
+            />
+          </div>
+          <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">
               Reset Password <span className="text-text-tertiary font-normal">(leave blank to keep current)</span>
             </label>
             <input
               type="password"
+              autoComplete="new-password"
               className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="New password (min. 8 chars)"
               value={newPassword}

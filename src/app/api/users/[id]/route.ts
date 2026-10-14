@@ -8,6 +8,7 @@ import {
   setEmployeeUserId,
 } from "@/lib/user-profiles";
 import { revokeUserSessions } from "@/lib/session-revocation";
+import { verifyPasswordChange } from "@/lib/password-change";
 
 // PATCH /api/users/[id] — update name, role, active, or reset password
 export async function PATCH(
@@ -16,6 +17,9 @@ export async function PATCH(
 ) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (session.impersonatedBy) {
+    return NextResponse.json({ error: "Support sessions cannot manage user accounts." }, { status: 403 });
+  }
   if (session.role !== "MANAGER" && session.role !== "OWNER") return NextResponse.json({ error: "Managers only" }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
@@ -26,7 +30,7 @@ export async function PATCH(
     where: session.role === "OWNER"
       ? { id, store: { ownerUserId: session.userId } }
       : { id, storeId: session.storeId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, passwordHash: true },
   });
   if (!existing) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
@@ -43,7 +47,11 @@ export async function PATCH(
   }
 
   const body = await req.json().catch(() => ({}));
-  const { name, role, active, password, grantedPermissions, email, employeeUserId } = body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Request body must be an object." }, { status: 400 });
+  }
+  const { name, role, active, password, currentPassword, grantedPermissions, email, employeeUserId } = body;
+  const changingPassword = Object.hasOwn(body, "password");
 
   // OWNER can assign any role; MANAGER cannot assign OWNER
   const allowedRoles = session.role === "OWNER"
@@ -81,21 +89,20 @@ export async function PATCH(
   if (grantedPermissions !== undefined && Array.isArray(grantedPermissions)) {
     updateData.grantedPermissions = grantedPermissions.filter((p: unknown) => typeof p === "string");
   }
-  if (password !== undefined) {
-    if (String(password).length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
-    }
+  if (changingPassword) {
+    const change = await verifyPasswordChange(currentPassword, password, existing.passwordHash);
+    if (change.error !== undefined) return NextResponse.json({ error: change.error }, { status: change.status });
     const passwordUsers = await prisma.user.findMany({
       where: { id: { not: id } },
       select: { passwordHash: true },
     });
     const reusedPassword = await Promise.all(
-      passwordUsers.map((user: { passwordHash: string }) => bcrypt.compare(String(password), user.passwordHash))
+      passwordUsers.map((user: { passwordHash: string }) => bcrypt.compare(change.password, user.passwordHash))
     ).then((matches) => matches.some(Boolean));
     if (reusedPassword) {
       return NextResponse.json({ error: "Choose a unique password for this account." }, { status: 409 });
     }
-    updateData.passwordHash = await bcrypt.hash(String(password), 12);
+    updateData.passwordHash = await bcrypt.hash(change.password, 12);
   }
 
   if (Object.keys(updateData).length === 0) {
@@ -147,7 +154,7 @@ export async function PATCH(
         },
       });
 
-  if (password !== undefined) {
+  if (changingPassword) {
     await revokeUserSessions(id);
   }
 
@@ -172,6 +179,9 @@ export async function DELETE(
 ) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (session.impersonatedBy) {
+    return NextResponse.json({ error: "Support sessions cannot manage user accounts." }, { status: 403 });
+  }
   if (session.role !== "MANAGER" && session.role !== "OWNER") return NextResponse.json({ error: "Managers only" }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 

@@ -29,7 +29,7 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
         take: 12,
       }),
-      prisma.subscription.findMany({ select: { status: true, plan: { select: { monthlyPriceCents: true } } } }),
+      prisma.subscription.findMany({ select: { status: true } }),
     ]);
 
     const health = await prisma.store.findMany({
@@ -83,7 +83,6 @@ export async function GET() {
     return NextResponse.json({
       metrics: {
         stores, users, owners, managers, packs, openShifts, subscriptions,
-        mrrCents: subscriptionRows.filter((row: { status: string }) => ["TRIALING", "ACTIVE"].includes(row.status)).reduce((sum: number, row: { plan: { monthlyPriceCents: number } }) => sum + row.plan.monthlyPriceCents, 0),
         activeSubscriptions: subscriptionRows.filter((row: { status: string }) => ["TRIALING", "ACTIVE"].includes(row.status)).length,
         pastDueSubscriptions: subscriptionRows.filter((row: { status: string }) => row.status === "PAST_DUE").length,
         canceledSubscriptions: subscriptionRows.filter((row: { status: string }) => row.status === "CANCELED").length,

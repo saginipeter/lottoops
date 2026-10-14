@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifySession, SESSION_COOKIE } from "@/lib/session";
+import { getSession } from "@/lib/get-session";
 import { ImpersonationBanner } from "@/components/platform/impersonation-banner";
 import { prisma } from "@/lib/prisma";
 import { ConsoleTopBar } from "@/components/layout/console-top-bar";
@@ -12,11 +11,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // Read session server-side to populate the POS console header.
-  // Middleware already guarantees a valid session exists by the time
-  // this layout renders, so the null fallback is just a safety net.
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  const session = token ? await verifySession(token) : null;
+  const session = await getSession();
   const store = session && session.role !== "OWNER" && prisma
     ? await prisma.store.findUnique({
         where: { id: session.storeId },
