@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
 
     // If destination is "active", activate only with display assignment.
     if (destination === "active") {
-      const availableDisplays = sortBySlotNumber(await prisma.displaySlot.findMany({
+      const availableDisplays = sortBySlotNumber<{ id: string; slotNumber: string }>(await prisma.displaySlot.findMany({
         where: {
           storeId: shipment.storeId,
           packId: null,

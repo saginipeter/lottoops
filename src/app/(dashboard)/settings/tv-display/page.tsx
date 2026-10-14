@@ -47,7 +47,8 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
     orderBy: { slotNumber: "asc" },
   });
 
-  const activeSlots = sortBySlotNumber(slots as Array<{ slotNumber: string }>) as typeof slots
+  const sortedSlots = sortBySlotNumber(slots as Array<{ slotNumber: string }>) as typeof slots;
+  const activeSlots = sortedSlots
     .filter((slot: any) => slot.pack && slot.pack.status === "ACTIVE")
     .map((slot: any) => {
       const pack = slot.pack;
