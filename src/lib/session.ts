@@ -9,6 +9,7 @@ export interface SessionPayload {
   role: "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE" | "AUDITOR";
   grantedPermissions: string[];
   impersonatedBy?: { userId: string; name: string; email: string };
+  supportAccessId?: string;
 }
 
 function getSecret() {
@@ -30,6 +31,11 @@ export async function verifySession(
 ): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
+    if (payload.impersonatedBy && (
+      typeof payload.supportAccessId !== "string" ||
+      !payload.supportAccessId ||
+      payload.role !== "MANAGER"
+    )) return null;
     return payload as unknown as SessionPayload;
   } catch {
     return null;

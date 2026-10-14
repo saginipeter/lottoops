@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Activity, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "./report-actions";
+import { buildLifecycleAnalyticsDocument } from "@/lib/workspace-detail-report-documents";
 
 interface AnalyticsData {
   summary: {
@@ -62,6 +64,7 @@ export function LifecycleAnalyticsReport() {
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
         </Button>
       </div>
+      <ReportActions document={data ? buildLifecycleAnalyticsDocument(data) : undefined} disabled={loading || !!error || !data} />
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
       {loading ? (
         <div className="mt-4 flex items-center gap-2 text-sm text-text-secondary"><Loader2 size={15} className="animate-spin" /> Loading analytics...</div>

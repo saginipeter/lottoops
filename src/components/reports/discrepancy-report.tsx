@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "./report-actions";
+import { buildDiscrepancyDocument } from "@/lib/workspace-detail-report-documents";
 
 interface DiscrepancyRow {
   id: string;
@@ -26,6 +28,7 @@ export function DiscrepancyReport() {
   const [filter, setFilter] = useState<"ALL" | "UNRESOLVED" | "RESOLVED">("ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [resolving, setResolving] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -55,9 +58,16 @@ export function DiscrepancyReport() {
   async function resolve(row: DiscrepancyRow) {
     const reason = window.prompt("Enter the resolution reason (at least 6 characters):");
     if (!reason || reason.trim().length < 6) return;
-    const response = await fetch("/api/reports/discrepancies/resolve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: row.type, id: row.id, reason }) });
-    if (!response.ok) { const data = await response.json().catch(() => ({})); window.alert(data.error || "Unable to resolve discrepancy."); return; }
-    await load();
+    setResolving(true);
+    try {
+      const response = await fetch("/api/reports/discrepancies/resolve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: row.type, id: row.id, reason }) });
+      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || "Unable to resolve discrepancy."); }
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to resolve discrepancy.");
+    } finally {
+      setResolving(false);
+    }
   }
 
   return (
@@ -77,6 +87,7 @@ export function DiscrepancyReport() {
           <Button size="sm" variant="outline" onClick={load} disabled={loading} aria-label="Refresh discrepancies"><RefreshCw size={14} /></Button>
         </div>
       </div>
+      <ReportActions document={buildDiscrepancyDocument(rows, filter)} disabled={loading || !!error || resolving} />
       {error && <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
 import { Clock, PlayCircle, ShoppingCart, Tv } from "lucide-react";
+import { ReportActions } from "@/components/reports/report-actions";
+import { loadShiftReportDocument } from "@/lib/shift-report";
 
 import ShiftPackTable from "./shift-pack-table";
 import PhysicalAuditPanel from "@/components/inventory/physical-audit-panel";
@@ -97,6 +99,9 @@ export default function ShiftDashboard({
             <p className="mt-1 text-sm text-text-secondary">
               Ended {formatTimestamp(recentClosedShift.closedAt)} by {recentClosedShift.closedBy?.name ?? "Unknown"}
             </p>
+            <div className="mt-3">
+              <ReportActions key={recentClosedShift.id} loadDocument={() => loadShiftReportDocument(recentClosedShift.id)} />
+            </div>
           </Panel>
         )}
 
@@ -164,13 +169,6 @@ export default function ShiftDashboard({
       );
       }, 0) ?? 0;
 
-  function printShiftPaperwork() {
-    document.body.classList.add("shift-paperwork-printing");
-    const cleanup = () => document.body.classList.remove("shift-paperwork-printing");
-    window.addEventListener("afterprint", cleanup, { once: true });
-    window.setTimeout(() => window.print(), 50);
-  }
-
   return (
     <div className="space-y-6">
       <Panel className="p-6">
@@ -213,11 +211,6 @@ export default function ShiftDashboard({
               Displays
             </Link>
           </div>
-          </div>
-          <div className="mt-4 flex justify-end print:hidden">
-            <Button type="button" variant="outline" onClick={printShiftPaperwork}>
-              Print sales & audit records
-            </Button>
           </div>
 
         <div className="mt-6 grid grid-cols-3 gap-4">
@@ -276,29 +269,6 @@ export default function ShiftDashboard({
         )}
       </Panel>
 
-      <section className="shift-paperwork hidden print:block">
-        <div className="shift-report-heading">
-          <h1>End-of-Shift Management Records</h1>
-          <p>Terminal {terminalId} · Opened {formatTimestamp(shift.openedAt)}</p>
-        </div>
-        <h2>Sales Summary</h2>
-        <table className="shift-report-table sales-summary-table">
-          <thead><tr><th>Game</th><th>Tickets sold</th><th>Sales</th><th>Cost</th></tr></thead>
-          <tbody>{(shift.lines ?? []).map((line: any) => {
-            const beginning = Number(line.beginningTicket ?? 0);
-            const current = line.pack?.currentTicketNumber == null ? beginning : Number(line.pack.currentTicketNumber);
-            const sold = Math.max(beginning - Math.min(Math.max(current, 0), beginning), 0);
-            const sales = sold * Number(line.pack?.ticketPrice ?? line.pack?.game?.price ?? 0);
-            return <tr key={line.id}><td>{line.pack?.game?.name ?? "—"}</td><td>{sold}</td><td>{formatCurrency(sales)}</td><td>{formatCurrency(sales * 0.95)}</td></tr>;
-          })}</tbody>
-          <tfoot><tr><th>Totals</th><th>{totalTickets}</th><th>{formatCurrency(totalSales)}</th><th>{formatCurrency(totalSales * 0.95)}</th></tr></tfoot>
-        </table>
-        <h2>Physical Audit</h2>
-        <table className="shift-report-table audit-table">
-          <thead><tr><th>Pack</th><th>Beginning ticket</th><th>Ending ticket</th><th>Variance</th></tr></thead>
-          <tbody>{(shift.inventoryAudit?.lines ?? []).length > 0 ? (shift.inventoryAudit?.lines ?? []).map((line: any) => <tr key={line.id}><td>{line.pack?.serialNumber ?? line.packId}</td><td>{line.beginningPhysicalTicket ?? "—"}</td><td>{line.endingPhysicalTicket ?? "—"}</td><td>{line.variance ?? "—"}</td></tr>) : <tr><td colSpan={4}>No physical audit records</td></tr>}</tbody>
-        </table>
-      </section>
     </div>
   );
 }

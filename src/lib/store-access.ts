@@ -14,6 +14,6 @@ export async function isStoreSuspended(storeId: string) {
     const rows = await prisma.$queryRawUnsafe(`SELECT suspended FROM store_access_controls WHERE store_id = $1 LIMIT 1`, storeId) as Array<{ suspended: boolean }>;
     return rows[0]?.suspended === true;
   } catch {
-    return false;
+    return true;
   }
 }

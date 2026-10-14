@@ -9,6 +9,8 @@ import {
 
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "@/components/reports/report-actions";
+import { loadShiftReportDocument } from "@/lib/shift-report";
 
 import ShiftPackTable from "./shift-pack-table";
 
@@ -20,6 +22,8 @@ export default function CloseShiftCard({
   shift,
 }: Props) {
   const [loading, setLoading] = useState(false);
+  const [closed, setClosed] = useState(false);
+  const [countedCash, setCountedCash] = useState("");
 
   async function closeShift() {
     try {
@@ -32,6 +36,7 @@ export default function CloseShiftCard({
         },
         body: JSON.stringify({
           shiftId: shift.id,
+          countedCash: Number(countedCash),
         }),
       });
 
@@ -42,21 +47,24 @@ export default function CloseShiftCard({
         return;
       }
 
-      alert(
-        `Shift Closed
-
-Tickets Sold: ${data.totalTickets}
-
-Sales: $${Number(data.totalSales).toFixed(2)}`
-      );
-
-      window.location.reload();
+      setClosed(true);
     } catch (err) {
       console.error(err);
       alert("Unable to close shift.");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (closed) {
+    return (
+      <Panel className="space-y-4 p-6">
+        <h2 className="text-2xl font-bold">Shift closed</h2>
+        <p className="text-sm text-text-secondary">View or print the finalized sales and audit report.</p>
+        <ReportActions key={shift.id} loadDocument={() => loadShiftReportDocument(shift.id)} />
+        <Button variant="outline" onClick={() => window.location.reload()}>Continue</Button>
+      </Panel>
+    );
   }
 
   return (
@@ -96,10 +104,15 @@ Sales: $${Number(data.totalSales).toFixed(2)}`
       <ShiftPackTable shift={shift} />
 
       <Panel className="p-6">
-
+        <label className="mb-4 block text-sm font-medium">
+          Counted closing drawer cash
+          <input type="number" min="0" step="0.01" value={countedCash}
+            onChange={(event) => setCountedCash(event.target.value)}
+            className="mt-2 block w-full rounded-md border border-border px-3 py-2" />
+        </label>
         <Button
           className="w-full"
-          disabled={loading}
+          disabled={loading || countedCash === "" || !Number.isFinite(Number(countedCash)) || Number(countedCash) < 0}
           onClick={closeShift}
         >
 

@@ -41,9 +41,42 @@ LottoOps has two main parts: an **Admin Dashboard** for store staff and a **TV D
 |  **Profit Tracking** | Track pack cost, retail value, and potential profit per pack |
 |  **Audit Trail** | Every action logged in Scan Log for accountability |
 
+### Report preview and printing
+
+Use the separate **View Report** and **Print Report** actions on a report or
+individual shift/shipment. View opens an isolated document preview; Print sends
+the same data-only document to the browser's print dialog, where it can also be
+saved as PDF. Dashboard navigation, filters, and action controls are not included.
+Print templates use A4 by default and support an 80 mm receipt layout.
+
+Receiving records are available after confirmation and from each shipment in the
+Reports archive. Supplier information entered during receiving is retained for
+these documents. Historical or unsupported values, including untracked payment
+methods, returns, and voids, are labeled **Not recorded**, not assumed to be zero.
+Deploy the shipment supplier/details migration with `npm run db:deploy` before
+running this version against an existing database.
+
 ---
 
 ##  Tech Stack
+
+### Owner-approved store assistance
+
+Platform admins request store assistance from **Store Access Controls**. Delivery is
+**in-app only**: the actual store owner opens **Support** (`/support`), reviews the
+requesting admin, and explicitly approves and generates a single-use link. There
+is no email delivery. The owner must copy and share that link directly with the
+requesting admin; it is displayed once and cannot be retrieved by admins.
+
+The link expires after **15 minutes** and can only be redeemed by that exact
+authenticated requesting admin. Opening the shared link while signed in automatically
+redeems it via POST; the paste field in Store Access Controls is a fallback.
+Redemption is POST-only and starts a **30-minute**, store-scoped support
+session. Only a token hash is stored; URL fragments keep tokens out of request
+URLs. Owners can decline requests or revoke access from Support. Suspension,
+owner changes, inactive accounts, access/requester-session revocation, and expiration block access.
+Requests, approvals, redemptions, and revocations are audited without link tokens.
+The existing **Exit support** action restores the admin session.
 
 | Layer | Technology |
 | :--- | :--- |

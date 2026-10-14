@@ -6,7 +6,7 @@ import { TicketReportsPanel } from "@/components/reports/ticket-reports-panel";
 import { TicketReturnRequestsPanel } from "@/components/reports/ticket-return-requests-panel";
 import { ShipmentOverrideNotifications } from "@/components/reports/shipment-override-notifications";
 import { DiscrepancyReport } from "@/components/reports/discrepancy-report";
-import { OperationalAlertsPanel } from "@/components/alerts/operational-alerts-panel";
+import { AlertsCenter } from "@/components/alerts/alerts-center";
 import { getSession } from "@/lib/get-session";
 import { isManagerOrAbove } from "@/lib/permissions";
 
@@ -19,7 +19,7 @@ export default async function AlertsPage() {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Header
         title="Alerts"
-        subtitle="Employee-reported ticket exceptions requiring manager or owner review"
+        subtitle="Categorized operational alerts requiring manager or owner review"
       />
 
       <PageToolbar
@@ -29,15 +29,14 @@ export default async function AlertsPage() {
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 space-y-5">
-        <TicketReturnRequestsPanel
+        <AlertsCenter returns={<TicketReturnRequestsPanel
           title={session.role === "OWNER" ? "Ticket Return Requests Across Stores" : "Ticket Return Requests"}
-        />
-        <ShipmentOverrideNotifications />
-        <OperationalAlertsPanel />
-        <DiscrepancyReport />
-        <TicketReportsPanel
+        />}
+          shipments={<ShipmentOverrideNotifications />}
+          discrepancies={<DiscrepancyReport />}
+          tickets={<TicketReportsPanel
           title={session.role === "OWNER" ? "Employee Ticket Reports Across Stores" : "Employee Ticket Reports"}
-        />
+        />} />
       </div>
 
       <StatusBar

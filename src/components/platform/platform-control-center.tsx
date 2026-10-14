@@ -18,7 +18,6 @@ interface Metrics {
   managers: number;
   packs: number;
   subscriptions: number;
-  mrrCents: number;
   activeSubscriptions: number;
   pastDueSubscriptions: number;
   canceledSubscriptions: number;
@@ -126,7 +125,7 @@ export function PlatformControlCenter() {
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       {showAccountForm && (
-        <Panel className="border-accent/30 p-5">
+        <Panel id="create-customer-account" className="scroll-mt-5 border-accent/30 p-5">
           <h3 className="text-base font-semibold text-text">New Customer Account</h3>
           <p className="mt-1 text-sm text-text-secondary">Creates the customer Owner login and their first store.</p>
           <form onSubmit={createAccount} className="mt-4 grid gap-3 md:grid-cols-2">
@@ -148,30 +147,44 @@ export function PlatformControlCenter() {
             { label: "Managers", value: metrics.managers, Icon: Users },
             { label: "Tracked Packs", value: metrics.packs, Icon: Activity },
             { label: "Subscriptions", value: metrics.subscriptions, Icon: CheckCircle2 },
-            { label: "Monthly Recurring Revenue", value: `$${(metrics.mrrCents / 100).toFixed(2)}`, Icon: CheckCircle2 },
             { label: "Past Due", value: metrics.pastDueSubscriptions, Icon: Activity },
           ].map(({ label, value, Icon }) => <Panel key={label} className="p-4"><Icon size={16} className="text-accent" /><p className="mt-3 text-xs text-text-secondary">{label}</p><p className="mt-1 text-2xl font-bold text-text">{value}</p></Panel>)}
         </div>
       )}
 
-      <StoreAccessPanel />
-      <PlatformSubscriptionPanel />
-      <FeatureFlagsPanel />
-      <PlatformActivityPanel />
-      <RolePermissionPanel />
-      <PlatformUserPanel />
+      <nav aria-label="Platform administration tools" className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <button type="button" onClick={() => { setShowAccountForm(true); window.setTimeout(() => document.getElementById("create-customer-account")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); }} className="rounded-md border border-border bg-surface p-4 text-left hover:border-accent focus-visible:outline-2 focus-visible:outline-accent"><span className="block text-sm font-semibold text-accent">Create customer account</span><span className="mt-1 block text-xs text-text-secondary">Create an owner login and first store</span></button>
+        {[
+          ["store-access", "Customer store access", "View stores and authorized support access"],
+          ["subscriptions", "Subscriptions", "Manage customer plans and billing status"],
+          ["feature-flags", "Feature flags", "Configure deployment capabilities"],
+          ["platform-activity", "Platform activity", "Review recent administration events"],
+          ["role-permissions", "Role permissions", "Manage role access controls"],
+          ["platform-users", "Customer users", "Manage customer user accounts"],
+          ["recent-accounts", "Recent accounts", "Review newly created customers"],
+          ["ocr-health", "OCR health", "Monitor report processing"],
+          ["store-health", "Store compliance", "Review reports and discrepancies"],
+        ].map(([id, label, detail]) => <a key={id} href={`#${id}`} className="rounded-md border border-border bg-surface p-4 hover:border-accent focus-visible:outline-2 focus-visible:outline-accent"><span className="block text-sm font-semibold text-accent">{label}</span><span className="mt-1 block text-xs text-text-secondary">{detail}</span></a>)}
+      </nav>
 
-      <Panel className="p-5">
+      <section id="store-access" className="scroll-mt-5"><StoreAccessPanel /></section>
+      <section id="subscriptions" className="scroll-mt-5"><PlatformSubscriptionPanel /></section>
+      <section id="feature-flags" className="scroll-mt-5"><FeatureFlagsPanel /></section>
+      <section id="platform-activity" className="scroll-mt-5"><PlatformActivityPanel /></section>
+      <section id="role-permissions" className="scroll-mt-5"><RolePermissionPanel /></section>
+      <section id="platform-users" className="scroll-mt-5"><PlatformUserPanel /></section>
+
+      <Panel id="recent-accounts" className="scroll-mt-5 p-5">
         <div className="mb-3 flex items-center gap-2"><Activity size={17} className="text-accent" /><h3 className="text-base font-semibold text-text">Recently created accounts</h3></div>
         {recentUsers.length === 0 ? <p className="text-sm text-text-secondary">No customer accounts yet.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary"><th className="py-2 pr-3">Owner</th><th className="py-2 pr-3">Email</th><th className="py-2 pr-3">Store</th><th className="py-2 pr-3">Role</th><th className="py-2">Created</th></tr></thead><tbody>{recentUsers.map((user) => <tr key={user.id} className="border-b border-border last:border-0"><td className="py-2.5 pr-3 font-medium text-text">{user.name}</td><td className="py-2.5 pr-3 text-text-secondary">{user.email}</td><td className="py-2.5 pr-3 text-text-secondary">{user.store.name}</td><td className="py-2.5 pr-3 text-text-secondary">{user.role}</td><td className="py-2.5 text-text-secondary">{new Date(user.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table></div>}
       </Panel>
 
-      <Panel className="p-5">
+      <Panel id="ocr-health" className="scroll-mt-5 p-5">
         <div className="mb-3 flex items-center gap-2"><Activity size={17} className="text-accent" /><h3 className="text-base font-semibold text-text">OCR processing health</h3></div>
         {!ocrHealth ? <p className="text-sm text-text-secondary">OCR health data is unavailable.</p> : <div className="grid grid-cols-2 gap-3 md:grid-cols-6"><div><p className="text-xs text-text-secondary">Total reports</p><p className="mt-1 text-xl font-bold text-text">{ocrHealth.total}</p></div><div><p className="text-xs text-text-secondary">Complete</p><p className="mt-1 text-xl font-bold text-emerald-700">{ocrHealth.complete}</p></div><div><p className="text-xs text-text-secondary">Pending</p><p className="mt-1 text-xl font-bold text-amber-700">{ocrHealth.pending}</p></div><div><p className="text-xs text-text-secondary">Failed</p><p className="mt-1 text-xl font-bold text-red-700">{ocrHealth.failed}</p></div><div><p className="text-xs text-text-secondary">Empty</p><p className="mt-1 text-xl font-bold text-text-secondary">{ocrHealth.empty}</p></div><div><p className="text-xs text-text-secondary">OCR text size</p><p className="mt-1 text-xl font-bold text-text">{(ocrHealth.photoBytes / 1024).toFixed(1)} KB</p></div></div>}
       </Panel>
 
-      <Panel className="p-5">
+      <Panel id="store-health" className="scroll-mt-5 p-5">
         <div className="mb-3 flex items-center gap-2"><Activity size={17} className="text-accent" /><h3 className="text-base font-semibold text-text">Store health and compliance</h3></div>
         {health.length === 0 ? <p className="text-sm text-text-secondary">No customer store health data is available.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[600px] text-sm"><thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary"><th className="py-2 pr-3">Store</th><th className="py-2 pr-3">Monday reports</th><th className="py-2">Discrepancies</th></tr></thead><tbody>{health.map((store) => <tr key={store.id} className="border-b border-border last:border-0"><td className="py-2.5 pr-3 font-medium text-text">{store.name}</td><td className="py-2.5 pr-3"><span className={store.reportCount === 3 ? "text-emerald-700" : "text-amber-700"}>{store.reportCount} / 3</span></td><td className={store.discrepancyCount > 0 ? "py-2.5 font-semibold text-red-700" : "py-2.5 text-emerald-700"}>{store.discrepancyCount}</td></tr>)}</tbody></table></div>}
       </Panel>

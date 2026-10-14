@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Download, FileUp, Loader2 } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "@/components/reports/report-actions";
+import { buildStateReportArchiveDocument } from "@/lib/workspace-detail-report-documents";
 
 type ReportType = "SETTLED_PACK" | "ACTIVATED" | "INVENTORY";
 
@@ -153,6 +155,17 @@ export function StateReportsUploader() {
                   </div>
                   {uploading === report.type && <p role="status" className="mt-2 text-xs text-text-secondary">Uploading {uploadingFileName}. Keep this page open.</p>}
                   {current && <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-700"><CheckCircle2 size={13} /> Uploaded {new Date(current.uploadedAt).toLocaleString()}</p>}
+                  {current && <div className="mt-3">
+                    <ReportActions
+                      document={buildStateReportArchiveDocument(current, {
+                        storeName: stores.find((store) => store.id === current.storeId)?.name,
+                        weekStart,
+                        label: report.label,
+                      })}
+                      disabled={loading || !!error || uploading !== null}
+                    />
+                    {current.imageUrl && <a href={current.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block text-xs font-medium text-accent underline">View original evidence</a>}
+                  </div>}
                 </div>
               );
             })}

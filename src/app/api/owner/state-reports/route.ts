@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { resolveStoreId } from "@/lib/permissions";
 
 const REPORT_TYPES = ["SETTLED_PACK", "ACTIVATED", "INVENTORY"] as const;
 type ReportType = (typeof REPORT_TYPES)[number];
@@ -107,12 +108,12 @@ export async function POST(req: NextRequest) {
   if (file.size > 10 * 1024 * 1024) {
     return NextResponse.json({ error: "Files must be 10 MB or smaller." }, { status: 400 });
   }
+  if (resolveStoreId(session, storeId) !== storeId) {
+    return NextResponse.json({ error: "Store is not available for this account." }, { status: 404 });
+  }
 
   try {
     await ensureSchema();
-    const store = await prisma.store.findFirst({ where: { id: storeId, ownerUserId: session.userId }, select: { id: true } });
-    const managerStore = session.role === "MANAGER" && storeId === session.storeId;
-    if (!store && !managerStore) return NextResponse.json({ error: "Store is not available for this account." }, { status: 404 });
     const isPhoto = file.type.startsWith("image/");
     const content = isPhoto ? "" : await file.text();
     const rows = isPhoto ? 0 : content.split(/\r?\n/).filter((line) => line.trim()).length;

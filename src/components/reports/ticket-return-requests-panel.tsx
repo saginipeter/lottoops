@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Clock3, PackageCheck, RefreshCw, XCircle } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import { ReportActions } from "./report-actions";
+import { buildTicketReturnRequestsDocument } from "@/lib/workspace-detail-report-documents";
 
 interface ReturnRequest {
   id: string;
@@ -58,6 +60,7 @@ export function TicketReturnRequestsPanel({
         return;
       }
       setRequests(Array.isArray(data?.requests) ? data.requests : []);
+      setError("");
     } catch {
       setError("Unable to load return requests.");
     } finally {
@@ -115,6 +118,8 @@ export function TicketReturnRequestsPanel({
           Refresh
         </Button>
       </div>
+
+      <ReportActions document={buildTicketReturnRequestsDocument(requests, title)} disabled={loading || !!error || actingId !== null} />
 
       {error && (
         <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">

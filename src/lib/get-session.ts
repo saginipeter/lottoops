@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isSessionRevoked } from "@/lib/session-revocation";
 import { isStoreSuspended } from "@/lib/store-access";
 import { getRoleDefaultPermissions } from "@/lib/feature-flags";
+import { isSupportSessionAuthorized } from "@/lib/support-access";
 
 export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
@@ -16,9 +17,18 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!session) return null;
   if (await isSessionRevoked(session)) return null;
   if (session.role !== "PLATFORM_ADMIN" && await isStoreSuspended(session.storeId)) return null;
-  if (!prisma) return process.env.NODE_ENV === "development" && process.env.ALLOW_OFFLINE_AUTH === "true" ? session : null;
+  if (!prisma) return !session.impersonatedBy && process.env.NODE_ENV === "development" && process.env.ALLOW_OFFLINE_AUTH === "true" ? session : null;
 
   try {
+    if (session.impersonatedBy) {
+      if (!await isSupportSessionAuthorized(session)) return null;
+      const store = await prisma.store.findFirst({
+        where: { id: session.storeId, ownerUserId: session.userId },
+        select: { name: true },
+      });
+      if (!store) return null;
+      return { ...session, storeName: store.name, role: "MANAGER", grantedPermissions: [] };
+    }
     const user = await prisma.user.findFirst({
       where: { id: session.userId, active: true, storeId: session.storeId },
       include: { store: { select: { name: true } } },

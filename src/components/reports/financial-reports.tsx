@@ -1,24 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { Fragment, useState, useEffect, useCallback } from "react";
+import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { ReportActions } from "@/components/reports/report-actions";
+import { buildEndOfShiftReportDocument, type ShiftReportData } from "@/lib/shift-report";
 
 interface GameRow { name: string; tickets: number; sales: number; cost: number; netMargin: number; marginPct: number; }
-interface ShiftRow {
-  id: string;
-  openedAt: string;
-  closedAt: string | null;
-  openedBy: string;
-  closedBy: string;
-  grossSales: number;
+interface ShiftRow extends ShiftReportData {
   cogs: number;
   netMargin: number;
   marginPct: number;
-  ticketsSold: number;
-  gameBreakdown: GameRow[];
-  audit: Array<{ pack: string; display?: string; direction?: string; beginning: number | null; expected: number | null; ending: number | null; variance: number | null }>;
 }
 interface DailyRow { date: string; grossSales: number; ticketsSold: number; shifts: number; }
 interface Summary {
@@ -80,17 +73,7 @@ export function FinancialReports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedShift, setExpandedShift] = useState<string | null>(null);
-  const [printShift, setPrintShift] = useState<ShiftRow | null>(null);
-  const [printRequested, setPrintRequested] = useState(false);
   const [activeTab, setActiveTab] = useState<"shifts" | "daily" | "games">("shifts");
-
-  useEffect(() => {
-    if (!printRequested || !printShift) return;
-    const frame = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => window.print());
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [printRequested, printShift]);
 
   const loadReport = useCallback(async () => {
     setLoading(true);
@@ -137,18 +120,6 @@ export function FinancialReports() {
       })();
     setFrom(f);
     setTo(t);
-  }
-
-  function printClosedShift(shift: ShiftRow) {
-    setPrintShift(shift);
-    document.body.classList.add("report-printing", "shift-report-printing");
-    const cleanup = () => {
-      document.body.classList.remove("report-printing", "shift-report-printing");
-      setPrintRequested(false);
-      setPrintShift(null);
-    };
-    window.addEventListener("afterprint", cleanup, { once: true });
-    setPrintRequested(true);
   }
 
   return (
@@ -255,12 +226,12 @@ export function FinancialReports() {
                         <th className="py-2 pr-4 text-right">COGS</th>
                         <th className="py-2 pr-4 text-right">Net</th>
                         <th className="py-2 pr-3 text-right">Margin</th>
-                        <th className="py-2 text-right">Print</th>
+                        <th className="py-2 text-right">Report</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.shifts.map((shift) => (
-                        <>
+                        <Fragment key={shift.id}>
                           <tr key={shift.id}
                             className="border-b border-border cursor-pointer hover:bg-surface-soft"
                             onClick={() => setExpandedShift(expandedShift === shift.id ? null : shift.id)}>
@@ -272,7 +243,7 @@ export function FinancialReports() {
                               <p className="text-xs text-text-tertiary">Opened {fmtDate(shift.openedAt)}</p>
                             </td>
                             <td className="py-2.5 pr-4 text-text-secondary">{shift.openedBy}</td>
-                            <td className="py-2.5 pr-4 text-text-secondary">{shift.closedBy}</td>
+                            <td className="py-2.5 pr-4 text-text-secondary">{shift.closedBy ?? "Not recorded"}</td>
                             <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-text">{shift.ticketsSold}</td>
                             <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-text">{fmt(shift.grossSales)}</td>
                             <td className="py-2.5 pr-4 text-right tabular-nums text-text-secondary">{fmt(shift.cogs)}</td>
@@ -280,7 +251,7 @@ export function FinancialReports() {
                               {fmt(shift.netMargin)}
                             </td>
                             <td className="py-2.5 pr-3 text-right"><MarginBar pct={shift.marginPct} /></td>
-                            <td className="py-2.5 text-right"><Button type="button" size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); printClosedShift(shift); }}><Printer size={13} /> Print</Button></td>
+                            <td className="py-2.5 text-right" onClick={(event) => event.stopPropagation()}><ReportActions document={buildEndOfShiftReportDocument(shift)} /></td>
                           </tr>
                           {expandedShift === shift.id && shift.gameBreakdown.length > 0 && (
                             <tr key={`${shift.id}-expand`} className="bg-surface-soft">
@@ -297,7 +268,7 @@ export function FinancialReports() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -430,18 +401,6 @@ export function FinancialReports() {
         </div>
       )}
 
-      {printShift && (
-        <section className="report-print-target shift-report-print hidden print:block" aria-label="Printable shift sales and audit report">
-          <div className="shift-report-heading">
-            <h1>End-of-Shift Management Records</h1>
-            <p>Closed {printShift.closedAt ? fmtDate(printShift.closedAt) : "—"} · Completed by {printShift.closedBy}</p>
-          </div>
-          <h2>Sales Summary</h2>
-          <table className="shift-report-table sales-summary-table"><thead><tr><th>Game</th><th>Tickets sold</th><th>Sales</th><th>Cost</th></tr></thead><tbody>{printShift.gameBreakdown.length > 0 ? printShift.gameBreakdown.map((game) => <tr key={game.name}><td>{game.name}</td><td>{game.tickets}</td><td>{fmt(game.sales)}</td><td>{fmt(game.cost)}</td></tr>) : <tr><td colSpan={4}>No ticket sales recorded</td></tr>}</tbody><tfoot><tr><th>Totals</th><th>{printShift.ticketsSold}</th><th>{fmt(printShift.grossSales)}</th><th>{fmt(printShift.cogs)}</th></tr></tfoot></table>
-          <h2>Physical Audit</h2>
-          <table className="shift-report-table audit-table"><thead><tr><th>Pack</th><th>Beginning ticket</th><th>Ending ticket</th><th>Variance</th></tr></thead><tbody>{printShift.audit.length > 0 ? printShift.audit.map((line) => <tr key={line.pack}><td>{line.pack}</td><td>{line.beginning ?? "—"}</td><td>{line.ending ?? "—"}</td><td>{line.variance === null ? "—" : line.variance > 0 ? `+${line.variance}` : line.variance}</td></tr>) : <tr><td colSpan={4}>No physical audit records</td></tr>}</tbody></table>
-        </section>
-      )}
     </div>
   );
 }

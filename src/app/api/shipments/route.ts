@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { canReceiveShipments, canManageBackstock } from "@/lib/permissions";
+import { shipmentMetadataInput } from "@/lib/shipment-input";
 
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
@@ -56,6 +57,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    let metadata;
+    try {
+      metadata = shipmentMetadataInput(body);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid shipment details." }, { status: 400 });
+    }
 
     const {
       invoiceNumber,
@@ -156,6 +163,7 @@ export async function POST(req: NextRequest) {
       const resumedShipment = await prisma.shipment.update({
         where: { id: existingShipment.id },
         data: {
+          ...metadata,
           invoiceNumber: normalizedInvoiceNumber,
           invoicePhoto: normalizedInvoicePhoto || existingShipment.invoicePhoto,
           shipmentConfirmationNumber: normalizedConfirmationNumber || existingShipment.shipmentConfirmationNumber,
@@ -163,6 +171,7 @@ export async function POST(req: NextRequest) {
           shipmentDate: parsedShipmentDate ?? existingShipment.shipmentDate,
           expectedPacks: normalizedExpectedPacks,
         },
+        include: { receivedBy: { select: { name: true } } },
       });
 
       return NextResponse.json({
@@ -173,43 +182,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    let shipment;
-    try {
-      shipment = await prisma.shipment.create({
-        data: {
-          invoiceNumber: normalizedInvoiceNumber,
-          invoicePhoto: normalizedInvoicePhoto,
-          shipmentConfirmationNumber: normalizedConfirmationNumber,
-          confirmationReceiptPhoto: normalizedConfirmationPhoto,
-          expectedPacks: Number(expectedPacks),
-          shipmentDate: parsedShipmentDate,
-          scannedPacks: 0,
-          storeId: session.storeId,
-          receivedById: session.userId,
-        },
-      });
-    } catch (createError: unknown) {
-      if (
-        createError instanceof Prisma.PrismaClientKnownRequestError &&
-        (createError.code === "P2021" || createError.code === "P2022")
-      ) {
-        // Temporary compatibility path when production DB is behind the app schema.
-        shipment = await prisma.shipment.create({
-          data: {
-            invoiceNumber: normalizedInvoiceNumber,
-            invoicePhoto: normalizedInvoicePhoto,
-            expectedPacks: Number(expectedPacks),
-            scannedPacks: 0,
-            storeId: session.storeId,
-            receivedById: session.userId,
-          },
-        });
-      } else {
-        throw createError;
-      }
-    }
-
-    
+    const shipment = await prisma.shipment.create({
+      data: {
+        ...metadata,
+        invoiceNumber: normalizedInvoiceNumber,
+        invoicePhoto: normalizedInvoicePhoto,
+        shipmentConfirmationNumber: normalizedConfirmationNumber,
+        confirmationReceiptPhoto: normalizedConfirmationPhoto,
+        expectedPacks: Number(expectedPacks),
+        shipmentDate: parsedShipmentDate,
+        scannedPacks: 0,
+        storeId: session.storeId,
+        receivedById: session.userId,
+      },
+      include: { receivedBy: { select: { name: true } } },
+    });
 
     return NextResponse.json({
       success: true,
@@ -336,7 +323,14 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { shipmentId, invoiceNumber, invoicePhoto, shipmentConfirmationNumber, confirmationReceiptPhoto, expectedPacks, shipmentDate } = await req.json();
+    const body = await req.json();
+    const { shipmentId, invoiceNumber, invoicePhoto, shipmentConfirmationNumber, confirmationReceiptPhoto, expectedPacks, shipmentDate } = body;
+    let metadata;
+    try {
+      metadata = shipmentMetadataInput(body);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid shipment details." }, { status: 400 });
+    }
 
     if (!shipmentId || typeof shipmentId !== "string") {
       return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
@@ -387,6 +381,7 @@ export async function PATCH(req: NextRequest) {
     const updated = await prisma.shipment.update({
       where: { id: shipment.id },
       data: {
+        ...metadata,
         invoiceNumber: normalizedInvoiceNumber,
         ...(invoicePhoto !== undefined ? { invoicePhoto: String(invoicePhoto ?? "").trim() || null } : {}),
         ...(shipmentConfirmationNumber !== undefined
@@ -396,6 +391,7 @@ export async function PATCH(req: NextRequest) {
         ...(expectedPacks !== undefined ? { expectedPacks: Number(expectedPacks) } : {}),
         ...(shipmentDate !== undefined ? { shipmentDate: parsedShipmentDate } : {}),
       },
+      include: { receivedBy: { select: { name: true } } },
     });
 
     return NextResponse.json({ success: true, ...updated });
