@@ -109,11 +109,73 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
   };
 }
 
+export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDocument {
+  const audits = shift.audit.map((line) => ({
+    ...line,
+    variance: line.expected == null || line.ending == null
+      ? null : calculatePhysicalAuditVariance(line.expected, line.ending),
+  }));
+  const exceptions = audits.filter((line) => line.variance !== 0);
+  const remainingTotal = (field: "beginning" | "ending") =>
+    shift.packSales.length && shift.packSales.every((line) => line[field] != null)
+      ? shift.packSales.reduce((sum, line) => sum + line[field]!, 0) : null;
+  return {
+    title: "End of Shift Report",
+    subtitle: shift.storeName,
+    paper: "A4",
+    metadata: [
+      { label: "Shift ID", value: shift.id },
+      { label: "Report date (UTC)", value: shift.closedAt?.slice(0, 10) ?? NOT_RECORDED },
+      { label: "Opened", value: timestamp(shift.openedAt) },
+      { label: "Closed", value: timestamp(shift.closedAt) },
+      { label: "Opened by", value: shift.openedBy },
+      { label: "Closed by", value: shift.closedBy ?? NOT_RECORDED },
+    ],
+    sections: [
+      {
+        title: "Shift Statistics",
+        columns: ["Statistic", "Total"],
+        rows: [
+          ["Tickets sold", shift.ticketsSold],
+          ["Total sales", money(shift.grossSales)],
+          ["Opening remaining tickets", remainingTotal("beginning")],
+          ["Closing remaining tickets", remainingTotal("ending")],
+        ],
+      },
+      {
+        title: "Cash & Variance",
+        columns: ["Cash", "Amount"],
+        rows: [
+          ["Opening drawer cash", money(shift.cash.openingCash)],
+          ["Recorded expected cash", money(shift.cash.expectedCash)],
+          ["Counted closing cash", money(shift.cash.countedCash)],
+          ["Recorded cash variance", money(shift.cash.cashVariance)],
+        ],
+      },
+      {
+        title: "Ticket Variances",
+        columns: ["Display / Pack", "Expected ticket", "Counted ticket", "Variance"],
+        rows: exceptions.map((line) => [
+          `${line.display ?? NOT_RECORDED} / ${line.pack}`, line.expected, line.ending, line.variance,
+        ]),
+      },
+    ],
+    notes: [
+      "Statistics cover this selected shift only, not other shifts on the report date.",
+      audits.length
+        ? `${audits.filter((line) => line.variance === 0).length} of ${audits.length} audited packs match. Only variances and incomplete counts are listed.`
+        : "No physical ticket audit recorded.",
+      "Ticket variance = counted closing ticket number minus expected ticket number. Cash variance is the recorded reconciliation value.",
+      "Not recorded means unavailable, not zero. Cash/card sales, returns, and voids are not tracked separately.",
+    ],
+  };
+}
+
 export async function loadShiftReportDocument(shiftId: string): Promise<ReportDocument> {
   const response = await fetch(`/api/reports/shifts?shiftId=${encodeURIComponent(shiftId)}`, { cache: "no-store" });
   if (!response.ok) throw new Error("Unable to load this shift report.");
   const data = await response.json() as { shifts: ShiftReportData[] };
   const shift = data.shifts.find((item) => item.id === shiftId);
   if (!shift) throw new Error("Closed shift report not found.");
-  return buildShiftReportDocument(shift);
+  return buildEndOfShiftReportDocument(shift);
 }

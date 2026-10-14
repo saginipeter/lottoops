@@ -5,7 +5,7 @@ import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, C
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "@/components/reports/report-actions";
-import { buildShiftReportDocument, type ShiftReportData } from "@/lib/shift-report";
+import { buildEndOfShiftReportDocument, type ShiftReportData } from "@/lib/shift-report";
 
 interface GameRow { name: string; tickets: number; sales: number; cost: number; netMargin: number; marginPct: number; }
 interface ShiftRow extends ShiftReportData {
@@ -251,7 +251,7 @@ export function FinancialReports() {
                               {fmt(shift.netMargin)}
                             </td>
                             <td className="py-2.5 pr-3 text-right"><MarginBar pct={shift.marginPct} /></td>
-                            <td className="py-2.5 text-right" onClick={(event) => event.stopPropagation()}><ReportActions document={buildShiftReportDocument(shift)} /></td>
+                            <td className="py-2.5 text-right" onClick={(event) => event.stopPropagation()}><ReportActions document={buildEndOfShiftReportDocument(shift)} /></td>
                           </tr>
                           {expandedShift === shift.id && shift.gameBreakdown.length > 0 && (
                             <tr key={`${shift.id}-expand`} className="bg-surface-soft">

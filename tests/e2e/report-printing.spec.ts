@@ -109,7 +109,7 @@ test.describe("Data-only report documents", () => {
     )).toContain("INV-B");
   });
 
-  test("shift documents show recorded counts and cash without inventing payment totals", async ({ page }) => {
+  test("simple shift report prints only the selected shift statistics and variance", async ({ page }) => {
     await page.route("**/api/reports/shifts?*", (route) => route.fulfill({
       json: {
         summary: { totalGross: 10, totalCogs: 9.5, totalNet: 0.5, totalTickets: 10, avgMarginPct: 5, shiftCount: 1 },
@@ -124,21 +124,42 @@ test.describe("Data-only report documents", () => {
           auditOpenedBy: "Opening Operator", auditClosedBy: "Closing Operator",
           auditOpenedAt: "2026-10-14T08:00:00Z", auditClosedAt: "2026-10-14T12:00:00Z",
           cash: { openingCash: 100, expectedCash: 110, countedCash: 108, cashVariance: -2, reconciledAt: "2026-10-14T12:00:00Z", reconciledBy: "Closing Operator" },
+        }, {
+          id: "other-shift", storeName: "Report Store", terminalId: "Terminal B",
+          openedAt: "2026-10-14T13:00:00Z", closedAt: "2026-10-14T17:00:00Z",
+          openedBy: "Other Operator", closedBy: "Other Operator",
+          grossSales: 999, cogs: 0, netMargin: 999, marginPct: 100, ticketsSold: 999,
+          gameBreakdown: [], packSales: [], audit: [],
+          auditOpenedBy: null, auditClosedBy: null, auditOpenedAt: null, auditClosedAt: null,
+          cash: { openingCash: null, expectedCash: null, countedCash: null, cashVariance: null, reconciledAt: null, reconciledBy: null },
         }],
         dailyTotals: [], gamePerformance: [],
       },
     }));
     await page.goto("/admin/reports");
-    await page.getByRole("button", { name: "View Report", exact: true }).click();
+    const selected = page.getByRole("row").filter({ has: page.getByText("Opening Operator", { exact: true }) }).first();
+    await selected.getByRole("button", { name: "View Report", exact: true }).click();
     const preview = page.frameLocator('iframe[title$=" preview"]');
     await expect(preview.getByText("closed-shift", { exact: true })).toBeVisible();
     await expect(preview.getByText("Opening Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByText("Closing Operator", { exact: true }).first()).toBeVisible();
-    await expect(preview.getByRole("row").filter({ hasText: "Cash sales" })).toContainText("Not recorded");
-    await expect(preview.getByRole("row").filter({ hasText: "Card sales" })).toContainText("Not recorded");
-    await expect(preview.getByRole("row").filter({ hasText: "Returns" })).toContainText("Not recorded");
-    await expect(preview.getByRole("row").filter({ hasText: "Voids" })).toContainText("Not recorded");
+    await expect(preview.getByRole("heading", { name: "End of Shift Report" })).toBeVisible();
+    await expect(preview.getByRole("row").filter({ hasText: "Tickets sold" })).toContainText("10");
     await expect(preview.getByRole("row").filter({ hasText: "Recorded cash variance" })).toContainText("-$2.00");
+    await expect(preview.getByRole("row").filter({ hasText: "1 / pack-A" })).toHaveText("1 / pack-A11121");
     expect(await preview.locator("nav, aside, button, input, script").count()).toBe(0);
+    const previewHtml = await preview.locator("body").innerHTML();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await selected.getByRole("button", { name: "Print Report", exact: true }).click();
+    await expect.poll(() => page.evaluate(() =>
+      (window as typeof window & { printCalls?: unknown[] }).printCalls?.length ?? 0,
+    )).toBe(1);
+    const call = await page.evaluate(() =>
+      (window as typeof window & { printCalls?: Array<{ topLevel: boolean; html: string }> }).printCalls?.[0],
+    );
+    expect(call?.topLevel).toBe(false);
+    expect(call?.html).toBe(previewHtml);
+    expect(call?.html).not.toContain("other-shift");
+    expect(call?.html).not.toContain("Other Operator");
   });
 });

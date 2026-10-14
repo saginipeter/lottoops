@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildShiftReportDocument, loadShiftReportDocument, type ShiftReportData } from "../shift-report";
+import { buildEndOfShiftReportDocument, buildShiftReportDocument, loadShiftReportDocument, type ShiftReportData } from "../shift-report";
 import { readShiftCashRecord, SHIFT_REPORT_CASH_QUERY } from "../shift-report-cash";
 import { shiftReportWhere } from "../shift-report-query";
 
@@ -64,12 +64,54 @@ test("safe cash extraction preserves zeros and negative variance and tolerates a
     terminalId: "T4",
     cash: { openingCash: 0, expectedCash: null, countedCash: 0, cashVariance: -2.5, reconciledAt: null, reconciledBy: "Cashier" },
   });
+
   assert.equal(readShiftCashRecord({ openingCash: "invalid" }).cash.openingCash, null);
   assert.match(SHIFT_REPORT_CASH_QUERY, /to_jsonb\(s\)->>'openingCash'/);
   assert.match(SHIFT_REPORT_CASH_QUERY, /s\."storeId" = \$1 AND s\.id = ANY\(\$2::text\[\]\)/);
   assert.doesNotMatch(SHIFT_REPORT_CASH_QUERY, /ALTER TABLE/);
 });
 
+test("simple end-of-shift report shows selected shift statistics and signed variances", () => {
+    const document = buildEndOfShiftReportDocument(fixture());
+    assert.equal(document.title, "End of Shift Report");
+    assert.equal(document.metadata?.find((field) => field.label === "Report date (UTC)")?.value, "2025-01-01");
+    assert.deepEqual(document.sections[0].rows, [
+      ["Tickets sold", 12], ["Total sales", "$60.00"],
+      ["Opening remaining tickets", 50], ["Closing remaining tickets", 38],
+    ]);
+    assert.deepEqual(document.sections[1].rows.at(-1), ["Recorded cash variance", "-$5.00"]);
+    assert.deepEqual(document.sections[2].rows, [["1 / P1", 13, 15, 2]]);
+    assert.match(document.notes![0], /selected shift only/);
+  });
+
+  test("simple report omits matching packs but preserves incomplete counts and zero totals", () => {
+    const shift = fixture();
+    shift.grossSales = 0;
+    shift.ticketsSold = 0;
+    shift.cash = readShiftCashRecord({ cashVariance: 0 }).cash;
+    shift.packSales[0].ending = 0;
+    shift.audit[0].ending = shift.audit[0].expected;
+    let document = buildEndOfShiftReportDocument(shift);
+    assert.deepEqual(document.sections[2].rows, []);
+    assert.match(document.notes![1], /1 of 1 audited packs match/);
+    assert.deepEqual(document.sections[0].rows[1], ["Total sales", "$0.00"]);
+    assert.deepEqual(document.sections[0].rows[3], ["Closing remaining tickets", 0]);
+    assert.deepEqual(document.sections[1].rows.at(-1), ["Recorded cash variance", "$0.00"]);
+    shift.audit[0].ending = null;
+    shift.packSales[0].ending = null;
+    document = buildEndOfShiftReportDocument(shift);
+    assert.deepEqual(document.sections[2].rows, [["1 / P1", 13, null, null]]);
+    assert.deepEqual(document.sections[0].rows[3], ["Closing remaining tickets", null]);
+  });
+
+  test("simple report does not claim a clean audit when no audit exists", () => {
+    const shift = fixture();
+    shift.audit = [];
+    shift.packSales = [];
+    const document = buildEndOfShiftReportDocument(shift);
+    assert.equal(document.notes![1], "No physical ticket audit recorded.");
+    assert.equal(document.sections[0].rows[2][1], null);
+  });
 test("exact shift query omits date restrictions while retaining store and closed scopes", () => {
   const from = new Date("2026-01-01");
   const to = new Date("2026-02-01");
