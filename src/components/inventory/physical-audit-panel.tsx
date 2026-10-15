@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { calculatePhysicalAuditInventory } from "@/lib/core-validation";
 
 interface AuditLine {
   id: string;
@@ -23,7 +24,19 @@ interface AuditState {
   lines: AuditLine[];
 }
 
-export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCount }: { shiftId: string; audit?: AuditState; activeDisplayPackCount: number }) {
+interface InventoryLine {
+  packId: string;
+  beginningTicket: number;
+  pack: {
+    currentTicketNumber: number | null;
+    firstTicket: number | null;
+    ticketQuantity: number | null;
+    firstOrLastTicket: string | null;
+    game: { ticketsPerPack: number };
+  };
+}
+
+export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCount, inventoryLines = [] }: { shiftId: string; audit?: AuditState; activeDisplayPackCount: number; inventoryLines?: InventoryLine[] }) {
   const router = useRouter();
   const [phase, setPhase] = useState<"beginning" | "ending">(() =>
     activeDisplayPackCount > 0 && (audit?.lines ?? []).filter((line) => line.beginningPhysicalTicket !== null).length >= activeDisplayPackCount
@@ -56,7 +69,9 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
     const response = await fetch("/api/inventory-audits/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id, serialNumber: barcode.trim(), phase }) });
     const data = await response.json();
     setMessageType(response.ok ? "success" : "error");
-    setMessage(response.ok ? "Audit scan recorded." : data.error ?? "Unable to record audit scan.");
+    setMessage(response.ok
+      ? `Audit scan recorded. Variance: ${Number(data.variance) > 0 ? "+" : ""}${data.variance ?? 0}.${data.scannedSoldTicket ? " Sold ticket excluded from remaining inventory." : ""}`
+      : data.error ?? "Unable to record audit scan.");
     if (response.ok) {
       setLocalLines((current) => {
         const index = current.findIndex((line) => line.id === data.id);
@@ -90,6 +105,30 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
         <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before sales begin." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
         <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned < activeDisplayPackCount} onClick={completeAudit}>Complete Closing Audit</Button>
       </>}
+      {lines.length > 0 && <div className="mt-4 overflow-x-auto">
+        <table className="w-full text-left text-xs" aria-label="Physical audit inventory counts">
+          <thead><tr><th className="p-2">Display</th><th className="p-2">Beginning tickets</th><th className="p-2">Sales</th><th className="p-2">Expected ending</th><th className="p-2">Unsold remaining</th><th className="p-2">Ticket variance</th></tr></thead>
+          <tbody>{lines.map((line) => {
+            const stock = inventoryLines.find((item) => item.packId === line.packId);
+            if (!stock) return null;
+            const beginning = stock.beginningTicket;
+            const opening = phase === "beginning" && audit?.status !== "COMPLETED";
+            const expected = opening ? beginning : stock.pack.currentTicketNumber ?? beginning;
+            const observed = opening ? line.beginningPhysicalTicket : line.endingPhysicalTicket;
+            const result = observed == null ? null : calculatePhysicalAuditInventory(
+              stock.pack.firstTicket ?? 1, stock.pack.ticketQuantity ?? stock.pack.game.ticketsPerPack,
+              expected, observed, stock.pack.firstOrLastTicket,
+            );
+            return <tr key={line.id} className="border-t border-border">
+              <td className="p-2">{line.slotNumber}</td><td className="p-2">{beginning}</td>
+              <td className="p-2">{Math.max(beginning - expected, 0)}</td><td className="p-2">{expected}</td>
+              <td className="p-2">{result?.remaining ?? "Not scanned"}</td>
+              <td className="p-2">{result ? `${result.variance > 0 ? "+" : ""}${result.variance}` : "Not scanned"}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+        <p className="mt-2 text-xs text-text-tertiary">Beginning − sales = expected ending in either direction. Sold tickets are excluded; ticket variance = scanned ID − expected ID.</p>
+      </div>}
       {audit?.status === "COMPLETED" && <section className="mt-4 border border-border bg-surface-soft p-4" aria-label="Physical audit variance report">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><h4 className="text-sm font-bold text-text">Physical audit reconciliation</h4><p className="mt-1 text-xs text-text-secondary">Observed closing ticket compared with the system ticket after recorded sales.</p></div>
@@ -99,8 +138,8 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
           <div className="border border-border bg-surface p-2"><span className="text-text-tertiary">Packs checked</span><strong className="ml-2 text-text">{lines.length}</strong></div>
-          <div className="border border-border bg-surface p-2"><span className="text-text-tertiary">Short</span><strong className="ml-2 text-red-700">{shortCount}</strong></div>
-          <div className="border border-border bg-surface p-2"><span className="text-text-tertiary">Over</span><strong className="ml-2 text-amber-700">{overCount}</strong></div>
+          <div className="border border-border bg-surface p-2"><span className="text-text-tertiary">Negative ticket delta</span><strong className="ml-2 text-red-700">{shortCount}</strong></div>
+          <div className="border border-border bg-surface p-2"><span className="text-text-tertiary">Positive ticket delta</span><strong className="ml-2 text-amber-700">{overCount}</strong></div>
         </div>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-xs">

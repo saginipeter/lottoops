@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
-import { calculatePhysicalAuditVariance } from "@/lib/core-validation";
+import { calculatePhysicalAuditInventory, calculatePhysicalAuditVariance } from "@/lib/core-validation";
 import { prisma } from "@/lib/prisma";
 import { readShiftCashRecord, SHIFT_REPORT_CASH_QUERY } from "@/lib/shift-report-cash";
 import { shiftReportWhere } from "@/lib/shift-report-query";
@@ -165,6 +165,15 @@ export async function GET(req: NextRequest) {
             })
           : null);
         const observed = line.endingPhysicalTicket;
+        const expectedRemaining = shiftLine == null ? null
+          : Math.max(shiftLine.beginningTicket - Number(shiftLine.ticketsSold ?? 0), 0);
+        const inventory = shiftLine && expectedRemaining != null && observed != null
+          ? calculatePhysicalAuditInventory(
+              shiftLine.pack.firstTicket ?? 1,
+              shiftLine.pack.ticketQuantity ?? shiftLine.pack.game.ticketsPerPack,
+              expectedRemaining, observed, shiftLine.pack.firstOrLastTicket,
+            )
+          : null;
         return {
           pack: line.pack?.serialNumber ?? line.packId,
           display: line.slotNumber,
@@ -173,6 +182,10 @@ export async function GET(req: NextRequest) {
           beginning: line.beginningPhysicalTicket,
           expected: systemExpected,
           ending: observed,
+          beginningTickets: shiftLine?.beginningTicket ?? null,
+          salesTickets: shiftLine?.ticketsSold ?? null,
+          expectedEndingTickets: expectedRemaining,
+          endingTickets: inventory?.remaining ?? null,
           variance: observed == null || systemExpected == null
             ? null
             : calculatePhysicalAuditVariance(Number(systemExpected), Number(observed)),

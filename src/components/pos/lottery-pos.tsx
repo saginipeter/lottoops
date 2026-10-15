@@ -135,13 +135,13 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
     const normalized = value.replace(/\D/g, "");
     if (!normalized || scanning) return;
     if (normalized.length !== 14) { setError("Enter or scan the complete 14-digit ticket barcode."); return; }
-    setScanning(true); setError(""); setResult(null); setBarcode("");
+    setScanning(true); setError(""); setShowSuccess(false); setBarcode("");
     if (!navigator.onLine) { enqueue(normalized); setScanning(false); focusInput(); return; }
     await sendSale(normalized); void refreshInventory();
     setScanning(false); focusInput();
   }
 
-  function resetForNextScan() { setShowSuccess(false); setResult(null); setError(""); setBarcode(""); focusInput(); }
+  function resetForNextScan() { setShowSuccess(false); setError(""); setBarcode(""); focusInput(); }
 
   async function submitReturn() {
     if (!lastSale?.id || !lastSale.shiftId || !lastSale.saleId || !returnReason || returning) return;

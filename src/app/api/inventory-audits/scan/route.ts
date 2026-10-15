@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { logInventoryActivity } from "@/lib/activity-log";
 import { recordShiftParticipant } from "@/lib/shift-participants";
-import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
+import { getAuditPhysicalTicket, getSafeCurrentTicket } from "@/lib/ticket-quantity";
+import { calculatePhysicalAuditInventory } from "@/lib/core-validation";
 
 interface AuditLine {
   id: string;
@@ -101,13 +102,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const inventory = calculatePhysicalAuditInventory(
+      pack.firstTicket ?? 1,
+      ticketQuantity,
+      pack.currentTicketNumber === 0 ? 0 : getSafeCurrentTicket({ ...pack, ticketQuantity }),
+      physicalTicket,
+      pack.firstOrLastTicket,
+    );
+    if (!inventory) {
+      return NextResponse.json({ error: "Physical ticket is outside this pack's inventory range." }, { status: 400 });
+    }
 
     const data = phase === "beginning"
-      ? { beginningPhysicalTicket: physicalTicket, expectedTicket: expectedPhysicalTicket }
+      ? { beginningPhysicalTicket: physicalTicket, expectedTicket: expectedPhysicalTicket, variance: inventory.variance }
       : {
           endingPhysicalTicket: physicalTicket,
           endingExpectedTicket: expectedPhysicalTicket,
-          variance: physicalTicket - expectedPhysicalTicket,
+          variance: inventory.variance,
         };
     const updated = await prisma.inventoryAuditLine.update({
       where: { id: line.id },
@@ -116,7 +127,7 @@ export async function POST(request: NextRequest) {
     });
     await recordShiftParticipant(audit.shiftId, session.userId);
     await logInventoryActivity({ storeId: session.storeId, action: phase === "beginning" ? "BEGINNING_AUDIT_SCAN" : "ENDING_AUDIT_SCAN", entityType: "PACK", entityId: pack.id, detail: `${phase} physical ticket recorded as ${physicalTicket} for audit ${auditId}.`, performedById: session.userId, performedByName: session.name });
-    return NextResponse.json(updated);
+    return NextResponse.json({ ...updated, remaining: inventory.remaining, scannedSoldTicket: inventory.scannedSoldTicket });
   } catch (error) {
     console.error("[POST /api/inventory-audits/scan]", error);
     return NextResponse.json({ error: "Unable to record audit scan." }, { status: 500 });

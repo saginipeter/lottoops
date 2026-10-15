@@ -29,6 +29,17 @@ test("shift template uses finalized sales, counts, operators, and signed audit v
   assert.equal(document.metadata?.find((field) => field.label === "Closed")?.value, "2025-01-01 16:00:00 UTC");
 });
 
+test("audit report separates inventory balances from physical ticket IDs", () => {
+  const shift = fixture();
+  Object.assign(shift.audit[0], {
+    beginningTickets: 150, salesTickets: 10, expectedEndingTickets: 140, endingTickets: 140,
+  });
+  const document = buildShiftReportDocument(shift);
+  assert.deepEqual(document.sections.find((section) => section.title === "Physical Audit Inventory Counts")?.rows, [
+    ["1 / P1", 150, 10, 140, 140],
+  ]);
+});
+
 test("cash report preserves recorded values without deriving cash sales or reconciling again", () => {
   const shift = fixture();
   shift.cash.expectedCash = 125;

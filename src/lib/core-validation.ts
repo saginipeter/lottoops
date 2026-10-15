@@ -33,9 +33,11 @@ export function expectedPhysicalTicketByDirection(
   remainingTickets: number,
   direction?: string | null,
 ): number | null {
+  if (!Number.isInteger(firstTicket) || !Number.isInteger(ticketsPerPack) || !Number.isInteger(remainingTickets)) return null;
+  if (firstTicket < 1 || ticketsPerPack < firstTicket || remainingTickets < 0 || remainingTickets > ticketsPerPack) return null;
+  if (remainingTickets === 0) return 0;
   if (direction === "LAST") {
-    const remaining = Math.max(0, Math.min(Number(remainingTickets) || 0, ticketsPerPack));
-    return remaining > 0 ? remaining : 0;
+    return remainingTickets;
   }
   return expectedPhysicalTicket(firstTicket, ticketsPerPack, remainingTickets);
 }
@@ -62,6 +64,25 @@ export function remainingTicketsFromPhysicalTicket(
   if (physicalTicket < firstTicket || physicalTicket > ticketsPerPack) return null;
   const initialRemaining = ticketsPerPack - firstTicket + 1;
   return firstTicket + initialRemaining - physicalTicket;
+}
+
+/** Ticket-ID variance is separate from inventory; sold tickets cannot restore stock. */
+export function calculatePhysicalAuditInventory(
+  firstTicket: number,
+  ticketsPerPack: number,
+  expectedRemaining: number,
+  observedPhysicalTicket: number,
+  direction?: string | null,
+): { expectedTicket: number; remaining: number; variance: number; scannedSoldTicket: boolean } | null {
+  const expectedTicket = expectedPhysicalTicketByDirection(firstTicket, ticketsPerPack, expectedRemaining, direction);
+  const observedRemaining = remainingTicketsFromPhysicalTicket(firstTicket, ticketsPerPack, observedPhysicalTicket, direction);
+  if (expectedTicket === null || observedRemaining === null) return null;
+  return {
+    expectedTicket,
+    remaining: Math.min(observedRemaining, expectedRemaining),
+    variance: observedPhysicalTicket - expectedTicket,
+    scannedSoldTicket: observedPhysicalTicket !== 0 && observedRemaining > expectedRemaining,
+  };
 }
 
 /** Preserve the sold/remaining count when switching display direction. */
