@@ -5,9 +5,9 @@ import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, C
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "@/components/reports/report-actions";
-import { buildEndOfShiftReportDocument, type ShiftReportData } from "@/lib/shift-report";
+import { buildEndOfShiftReportDocument, type ShiftGameSummary, type ShiftReportData } from "@/lib/shift-report";
 
-interface GameRow { name: string; tickets: number; sales: number; cost: number; netMargin: number; marginPct: number; }
+interface GameRow extends ShiftGameSummary { netMargin: number; marginPct: number; }
 interface ShiftRow extends ShiftReportData {
   cogs: number;
   netMargin: number;
@@ -187,8 +187,8 @@ export function FinancialReports() {
       {data && (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-            <StatCard label="Gross Sales" value={fmt(data.summary.totalGross)} up={true} sub="Total revenue" />
-            <StatCard label="Est. COGS" value={fmt(data.summary.totalCogs)} sub="Cost of tickets" />
+            <StatCard label="Gross Sales (100%)" value={fmt(data.summary.totalGross)} up={true} sub="Total revenue" />
+            <StatCard label="Cost / Payout (95%)" value={fmt(data.summary.totalCogs)} sub="95% of gross sales" />
             <StatCard label="Net Margin" value={fmt(data.summary.totalNet)}
               up={data.summary.totalNet >= 0} sub={`${data.summary.avgMarginPct}% avg margin`} />
             <StatCard label="Tickets Sold" value={data.summary.totalTickets.toLocaleString()} sub="Across all shifts" />
@@ -223,7 +223,7 @@ export function FinancialReports() {
                         <th className="py-2 pr-4">Closed By</th>
                         <th className="py-2 pr-4 text-right">Tickets</th>
                         <th className="py-2 pr-4 text-right">Gross</th>
-                        <th className="py-2 pr-4 text-right">COGS</th>
+                        <th className="py-2 pr-4 text-right">Cost / Payout (95%)</th>
                         <th className="py-2 pr-4 text-right">Net</th>
                         <th className="py-2 pr-3 text-right">Margin</th>
                         <th className="py-2 text-right">Report</th>
@@ -257,14 +257,31 @@ export function FinancialReports() {
                             <tr key={`${shift.id}-expand`} className="bg-surface-soft">
                               <td colSpan={10} className="px-4 pb-3 pt-1">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-2">Game Breakdown</p>
-                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                                  {shift.gameBreakdown.map((g) => (
-                                    <div key={g.name} className="rounded-md border border-border bg-surface p-2.5">
-                                      <p className="text-xs font-medium text-text truncate">{g.name}</p>
-                                      <p className="text-xs text-text-secondary mt-0.5">{g.tickets} tickets · {fmt(g.sales)}</p>
-                                    </div>
-                                  ))}
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead><tr className="text-left">
+                                      <th className="p-2">Game Name / ID</th><th className="p-2">Total Tickets</th>
+                                      <th className="p-2">Tickets Sold</th><th className="p-2">Active Stock</th>
+                                      <th className="p-2">Gross Sales (100%)</th><th className="p-2">Cost / Payout (95%)</th>
+                                    </tr></thead>
+                                    <tbody>{shift.gameBreakdown.map((g) => (
+                                      <tr key={g.id ?? g.name}>
+                                        <td className="p-2">{g.name} / {g.gameNumber ?? g.id ?? "Not recorded"}</td>
+                                        <td className="p-2">{g.totalTickets ?? "Not recorded"}</td>
+                                        <td className="p-2">{g.tickets}</td><td className="p-2">{g.activeStock ?? "Not recorded"}</td>
+                                        <td className="p-2">{fmt(g.sales)}</td><td className="p-2">{fmt(g.cost)}</td>
+                                      </tr>
+                                    ))}</tbody>
+                                    <tfoot><tr className="border-t border-border font-semibold">
+                                      <td className="p-2">TOTAL SHIFT SUMMARY</td>
+                                      <td className="p-2">{shift.gameBreakdown.some((g) => g.totalTickets == null) ? "Not recorded" : shift.gameBreakdown.reduce((sum, g) => sum + (g.totalTickets ?? 0), 0)}</td>
+                                      <td className="p-2">{shift.ticketsSold}</td>
+                                      <td className="p-2">{shift.gameBreakdown.some((g) => g.activeStock == null) ? "Not recorded" : shift.gameBreakdown.reduce((sum, g) => sum + (g.activeStock ?? 0), 0)}</td>
+                                      <td className="p-2">{fmt(shift.grossSales)}</td><td className="p-2">{fmt(shift.cogs)}</td>
+                                    </tr></tfoot>
+                                  </table>
                                 </div>
+                                <p className="mt-2 text-xs text-text-secondary">Total tickets = opening available stock; active stock = closing unsold stock. Cost / Payout is a 95% sales obligation, not recorded prize payments.</p>
                               </td>
                             </tr>
                           )}
@@ -347,36 +364,40 @@ export function FinancialReports() {
                   <div className="mb-5 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Fastest moving</p>
-                      {data.gamePerformance.slice(0, 3).map((game, index) => <div key={game.name} className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="truncate font-medium text-emerald-950">{index + 1}. {game.name}</span><span className="shrink-0 font-semibold text-emerald-800">{game.tickets} tickets</span></div>)}
+                      {data.gamePerformance.slice(0, 3).map((game, index) => <div key={game.id ?? game.name} className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="truncate font-medium text-emerald-950">{index + 1}. {game.name}</span><span className="shrink-0 font-semibold text-emerald-800">{game.tickets} tickets</span></div>)}
                     </div>
                     <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Slowest moving</p>
-                      {[...data.gamePerformance].sort((a, b) => a.tickets - b.tickets).slice(0, 3).map((game, index) => <div key={game.name} className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="truncate font-medium text-amber-950">{index + 1}. {game.name}</span><span className="shrink-0 font-semibold text-amber-800">{game.tickets} tickets</span></div>)}
+                      {[...data.gamePerformance].sort((a, b) => a.tickets - b.tickets).slice(0, 3).map((game, index) => <div key={game.id ?? game.name} className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="truncate font-medium text-amber-950">{index + 1}. {game.name}</span><span className="shrink-0 font-semibold text-amber-800">{game.tickets} tickets</span></div>)}
                     </div>
                   </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
-                        <th className="py-2 pr-4">Game</th>
-                        <th className="py-2 pr-4 text-right">Tickets</th>
-                        <th className="py-2 pr-4 text-right">Gross</th>
-                        <th className="py-2 pr-4 text-right">COGS</th>
+                        <th className="py-2 pr-4">Game Name / ID</th>
+                        <th className="py-2 pr-4 text-right">Total Tickets</th>
+                        <th className="py-2 pr-4 text-right">Tickets Sold</th>
+                        <th className="py-2 pr-4 text-right">Active Stock</th>
+                        <th className="py-2 pr-4 text-right">Gross Sales (100%)</th>
+                        <th className="py-2 pr-4 text-right">Cost / Payout (95%)</th>
                         <th className="py-2 pr-4 text-right">Net</th>
                         <th className="py-2 text-right">Margin</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.gamePerformance.map((g, i) => (
-                        <tr key={g.name} className="border-b border-border">
+                        <tr key={g.id ?? g.name} className="border-b border-border">
                           <td className="py-2.5 pr-4">
                             <div className="flex items-center gap-2">
                               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">
                                 {i + 1}
                               </span>
-                              <span className="font-medium text-text">{g.name}</span>
+                              <span className="font-medium text-text">{g.name} / {g.gameNumber ?? g.id ?? "Not recorded"}</span>
                             </div>
                           </td>
+                          <td className="py-2.5 pr-4 text-right tabular-nums text-text">{g.totalTickets?.toLocaleString() ?? "Not recorded"}</td>
                           <td className="py-2.5 pr-4 text-right tabular-nums text-text">{g.tickets.toLocaleString()}</td>
+                          <td className="py-2.5 pr-4 text-right tabular-nums text-text">{g.activeStock?.toLocaleString() ?? "Not recorded"}</td>
                           <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-text">{fmt(g.sales)}</td>
                           <td className="py-2.5 pr-4 text-right tabular-nums text-text-secondary">{fmt(g.cost)}</td>
                           <td className={`py-2.5 pr-4 text-right tabular-nums font-semibold ${g.netMargin >= 0 ? "text-green-600" : "text-red-500"}`}>
@@ -386,7 +407,18 @@ export function FinancialReports() {
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot><tr className="border-t-2 border-border font-semibold">
+                      <td className="py-2.5 pr-4">TOTAL PERIOD SUMMARY</td>
+                      <td className="py-2.5 pr-4 text-right">{data.gamePerformance.some((g) => g.totalTickets == null) ? "Not recorded" : data.gamePerformance.reduce((sum, g) => sum + (g.totalTickets ?? 0), 0)}</td>
+                      <td className="py-2.5 pr-4 text-right">{data.summary.totalTickets}</td>
+                      <td className="py-2.5 pr-4 text-right">{data.gamePerformance.some((g) => g.activeStock == null) ? "Not recorded" : data.gamePerformance.reduce((sum, g) => sum + (g.activeStock ?? 0), 0)}</td>
+                      <td className="py-2.5 pr-4 text-right">{fmt(data.summary.totalGross)}</td>
+                      <td className="py-2.5 pr-4 text-right">{fmt(data.summary.totalCogs)}</td>
+                      <td className="py-2.5 pr-4 text-right">{fmt(data.summary.totalNet)}</td>
+                      <td className="py-2.5 text-right"><MarginBar pct={data.summary.avgMarginPct} /></td>
+                    </tr></tfoot>
                   </table>
+                  <p className="mt-2 text-xs text-text-secondary">Inventory counts are summed shift opening/closing balances, not a current stock snapshot; the same pack may appear in multiple shifts. Cost / Payout is 95% of gross sales, not recorded prize payments.</p>
                   </>
                 )
               )}

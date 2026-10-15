@@ -60,6 +60,12 @@ test("audit scans retain signed variances and never increase remaining inventory
   assert.equal((await opening.json()).variance, -1);
   pack.firstOrLastTicket = "LAST";
   pack.currentTicketNumber = 140;
+  const matching = await scan(140);
+  assert.equal(matching.status, 200);
+  const matchingResult = await matching.json();
+  assert.equal(matchingResult.variance, 0);
+  assert.equal(matchingResult.remaining, 140);
+  assert.equal(matchingResult.scannedSoldTicket, false);
   const descending = await scan(141);
   assert.equal(descending.status, 200);
   assert.equal((await descending.json()).remaining, 140);

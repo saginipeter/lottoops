@@ -62,6 +62,23 @@ test("150 beginning tickets minus ten sales leaves 140 in either display directi
   }
 });
 
+test("every sequential sale advances the physical ticket in the configured direction without audit variance", () => {
+  for (const direction of ["FIRST", "LAST"] as const) {
+    let previous: number | null = null;
+    for (let remaining = 150; remaining >= 0; remaining--) {
+      const physical = expectedPhysicalTicketByDirection(1, 150, remaining, direction)!;
+      if (previous !== null && remaining > 0) {
+        assert.equal(physical - previous, direction === "LAST" ? -1 : 1);
+        assert.equal(Math.abs(physical - previous), 1);
+      }
+      assert.deepEqual(calculatePhysicalAuditInventory(1, 150, remaining, physical, direction), {
+        expectedTicket: physical, remaining, variance: 0, scannedSoldTicket: false,
+      });
+      previous = physical;
+    }
+  }
+});
+
 test("ascending audit mis-scans preserve signed ID variance without restoring sold stock", () => {
   assert.deepEqual(calculatePhysicalAuditInventory(1, 150, 141, 11, "FIRST"), {
     expectedTicket: 10, remaining: 140, variance: 1, scannedSoldTicket: false,

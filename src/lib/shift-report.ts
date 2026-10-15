@@ -1,6 +1,17 @@
 import type { ReportDocument } from "./report-document";
 import { calculatePhysicalAuditVariance } from "./core-validation";
 
+export interface ShiftGameSummary {
+  id?: string;
+  gameNumber?: string | null;
+  name: string;
+  totalTickets?: number;
+  tickets: number;
+  activeStock?: number | null;
+  sales: number;
+  cost: number;
+}
+
 export interface ShiftReportData {
   id: string;
   storeName: string;
@@ -11,7 +22,7 @@ export interface ShiftReportData {
   closedBy: string | null;
   grossSales: number;
   ticketsSold: number;
-  gameBreakdown: Array<{ name: string; tickets: number; sales: number; cost: number }>;
+  gameBreakdown: ShiftGameSummary[];
   packSales: Array<{
     pack: string; game: string; display: string;
     beginning: number; ending: number | null; tickets: number | null; sales: number | null;
@@ -41,6 +52,26 @@ const timestamp = (value: string | null) => value
   ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
   : NOT_RECORDED;
 
+function salesSummary(shift: ShiftReportData): ReportDocument["sections"][number] {
+  const sumCount = (field: "totalTickets" | "activeStock") =>
+    shift.gameBreakdown.some((game) => game[field] == null)
+      ? NOT_RECORDED
+      : shift.gameBreakdown.reduce((sum, game) => sum + (game[field] ?? 0), 0);
+  return {
+    title: "Sales Summary",
+    columns: ["Game Name / ID", "Total Tickets", "Tickets Sold", "Active Stock", "Gross Sales (100%)", "Cost / Payout (95%)"],
+    rows: shift.gameBreakdown.map((game) => [
+      `${game.name}${game.gameNumber || game.id ? ` / ${game.gameNumber || game.id}` : ""}`,
+      game.totalTickets ?? NOT_RECORDED, game.tickets, game.activeStock ?? NOT_RECORDED,
+      money(game.sales), money(game.cost),
+    ]),
+    totals: [
+      "TOTAL SHIFT SUMMARY", sumCount("totalTickets"), shift.ticketsSold, sumCount("activeStock"),
+      money(shift.grossSales), money(shift.gameBreakdown.reduce((sum, game) => sum + game.cost, 0)),
+    ],
+  };
+}
+
 export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument {
   return {
     title: "Shift Sales & Audit Report",
@@ -59,12 +90,7 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
       { label: "Closing audit time", value: timestamp(shift.auditClosedAt) },
     ],
     sections: [
-      {
-        title: "Sales Summary",
-        columns: ["Game", "Tickets sold", "Total sales", "Estimated inventory cost"],
-        rows: shift.gameBreakdown.map((game) => [game.name, game.tickets, money(game.sales), money(game.cost)]),
-        totals: ["Total", shift.ticketsSold, money(shift.grossSales), money(shift.gameBreakdown.reduce((sum, game) => sum + game.cost, 0))],
-      },
+      salesSummary(shift),
       {
         title: "Pack Ticket Counts",
         columns: ["Display", "Pack / Game", "Opening remaining", "Closing remaining", "Tickets sold", "Sales"],
@@ -113,6 +139,7 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
       },
     ],
     notes: [
+      "Total tickets are opening available stock; active stock is closing unsold stock for this shift. Cost / Payout is 95% of gross sales, not recorded prize payments.",
       "Cash/card payment breakdown, returns, and voids are not recorded by this system. Total ticket sales must not be treated as cash sales.",
       "Expected cash and cash variance above are recorded reconciliation values, not a payment-method breakdown.",
       "Ticket audit variance = closing physical ticket number minus closing expected ticket number. Ticket numbers follow the pack direction; remaining counts are shown separately.",
@@ -166,6 +193,7 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
           `${line.display ?? NOT_RECORDED} / ${line.pack}`, line.expected, line.ending, line.variance,
         ]),
       },
+      salesSummary(shift),
     ],
     notes: [
       "Statistics cover this selected shift only, not other shifts on the report date.",
@@ -174,6 +202,7 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
         : "No physical ticket audit recorded.",
       "Ticket variance = counted closing ticket number minus expected ticket number. Cash variance is the recorded reconciliation value.",
       "Not recorded means unavailable, not zero. Cash/card sales, returns, and voids are not tracked separately.",
+      "Total tickets are opening available stock; active stock is closing unsold stock for this shift. Cost / Payout is 95% of gross sales, not recorded prize payments.",
     ],
   };
 }
