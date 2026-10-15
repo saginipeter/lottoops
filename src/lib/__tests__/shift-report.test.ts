@@ -54,6 +54,16 @@ test("financial summaries preserve zero stock and unknown closing inventory", ()
   assert.equal(buildShiftReportDocument(shift).sections[0].totals?.[3], "Not recorded");
 });
 
+test("financial summary totals use 95% of shift gross before currency rounding", () => {
+  const shift = fixture();
+  shift.grossSales = 1;
+  shift.gameBreakdown = [
+    { name: "A", tickets: 1, sales: 0.5, cost: 0.48 },
+    { name: "B", tickets: 1, sales: 0.5, cost: 0.48 },
+  ];
+  assert.equal(buildShiftReportDocument(shift).sections[0].totals?.[5], "$0.95");
+});
+
 test("audit report separates inventory balances from physical ticket IDs", () => {
   const shift = fixture();
   Object.assign(shift.audit[0], {

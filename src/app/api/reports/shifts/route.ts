@@ -7,6 +7,7 @@ import { readShiftCashRecord, SHIFT_REPORT_CASH_QUERY } from "@/lib/shift-report
 import { shiftReportWhere } from "@/lib/shift-report-query";
 
 const INVENTORY_COST_RATE = 0.95;
+// Round 95% of finalized gross at each aggregation level; rounded game costs may not sum to shift/period cost.
 const roundCurrency = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
 interface GamePerformance {
   id: string; gameNumber: string; name: string;

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { queryInventoryActivity } from "@/lib/activity-log";
 
 const INVENTORY_COST_RATE = 0.95;
+// Match the API: each row/total rounds 95% of its own gross, not the sum of rounded child costs.
 const roundCurrency = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
 
 function escapeCSV(val: unknown): string {

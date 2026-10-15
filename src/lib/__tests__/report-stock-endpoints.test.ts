@@ -218,6 +218,22 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.deepEqual((await gamesCSV())[1], ["", "", "Total (shift-scoped)", "0", "0", "0", "0.00", "0.00", "0.00", "0.0"]);
   });
 
+  await context.test("API and CSV totals round their own gross even when rounded game costs sum differently", async () => {
+    shifts = [shift("rounding", ["game-a", "game-b", "game-c"].map((id, index) =>
+      line(id, String(index + 1), 1, 1, "0.10", 0)))];
+    const data = await (await getReport(reportRequest())).json();
+    assert.equal(data.shifts[0].cogs, 0.29);
+    assert.equal(data.summary.totalCogs, 0.29);
+    assert.equal(data.shifts[0].netMargin, 0.01);
+    assert.equal(data.summary.totalNet, 0.01);
+    assert.deepEqual(data.shifts[0].gameBreakdown.map((game: { cost: number }) => game.cost), [0.1, 0.1, 0.1]);
+    assert.deepEqual(data.gamePerformance.map((game: { cost: number }) => game.cost), [0.1, 0.1, 0.1]);
+    const rows = await gamesCSV();
+    assert.deepEqual(rows.slice(1, -1).map((row) => row[7]), ["0.10", "0.10", "0.10"]);
+    assert.deepEqual(rows.at(-1)?.slice(6, 9), ["0.30", "0.29", "0.01"]);
+    assert.deepEqual((await shiftsCSV())[1].slice(8, 11), ["0.30", "0.29", "0.01"]);
+  });
+
   await context.test("existing PDF behavior is preserved", async () => {
     shifts = [example];
     const response = await getExport(exportRequest("shifts", "pdf"));

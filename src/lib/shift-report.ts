@@ -21,6 +21,7 @@ export interface ShiftReportData {
   openedBy: string;
   closedBy: string | null;
   grossSales: number;
+  cogs?: number;
   ticketsSold: number;
   gameBreakdown: ShiftGameSummary[];
   packSales: Array<{
@@ -67,7 +68,7 @@ function salesSummary(shift: ShiftReportData): ReportDocument["sections"][number
     ]),
     totals: [
       "TOTAL SHIFT SUMMARY", sumCount("totalTickets"), shift.ticketsSold, sumCount("activeStock"),
-      money(shift.grossSales), money(shift.gameBreakdown.reduce((sum, game) => sum + game.cost, 0)),
+      money(shift.grossSales), money(shift.cogs ?? Math.round((shift.grossSales * 0.95 + Number.EPSILON) * 100) / 100),
     ],
   };
 }
