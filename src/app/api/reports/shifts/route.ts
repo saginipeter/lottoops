@@ -7,6 +7,13 @@ import { readShiftCashRecord, SHIFT_REPORT_CASH_QUERY } from "@/lib/shift-report
 import { shiftReportWhere } from "@/lib/shift-report-query";
 
 const INVENTORY_COST_RATE = 0.95;
+// Round 95% of finalized gross at each aggregation level; rounded game costs may not sum to shift/period cost.
+const roundCurrency = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
+interface GamePerformance {
+  id: string; gameNumber: string; name: string;
+  totalTickets: number; tickets: number; activeStock: number | null;
+  sales: number; cost: number;
+}
 type Numeric = number | string | { toString(): string };
 interface ReportShiftRecord {
   id: string; openedAt: Date; closedAt: Date | null;
@@ -17,7 +24,7 @@ interface ReportShiftRecord {
     pack: {
       serialNumber: string; firstTicket: number | null; ticketQuantity: number | null;
       firstOrLastTicket: string | null;
-      game: { id: string; name: string; price: Numeric; ticketsPerPack: number };
+      game: { id: string; gameNumber: string; name: string; price: Numeric; ticketsPerPack: number };
     };
   }>;
   inventoryAudit: {
@@ -100,31 +107,34 @@ export async function GET(req: NextRequest) {
 
   const shiftSummaries = shifts.map((shift) => {
     let grossSales = 0;
-    let cogs = 0;
     let ticketsSold = 0;
-    const gameBreakdown: Record<string, { name: string; tickets: number; sales: number; cost: number }> = {};
+    let totalTickets = 0;
+    let activeStock: number | null = 0;
+    const gameBreakdown = new Map<string, GamePerformance>();
 
     for (const line of shift.lines) {
       const sold = Number(line.ticketsSold ?? 0);
       const sales = Number(line.salesAmount ?? 0);
-      // Reports use the same inventory cost rule as receiving: 95% of face value.
-      const ticketPrice = Number(line.pack.game.price);
-      const packCost = sold * ticketPrice * INVENTORY_COST_RATE;
-
       grossSales += sales;
-      cogs += packCost;
       ticketsSold += sold;
+      totalTickets += line.beginningTicket;
+      activeStock = activeStock === null || line.endingTicket == null ? null : activeStock + line.endingTicket;
 
       const gid = line.pack.game.id;
-      if (!gameBreakdown[gid]) {
-        gameBreakdown[gid] = { name: line.pack.game.name, tickets: 0, sales: 0, cost: 0 };
-      }
-      gameBreakdown[gid].tickets += sold;
-      gameBreakdown[gid].sales += sales;
-      gameBreakdown[gid].cost += packCost;
+      const game = gameBreakdown.get(gid) ?? {
+        id: gid, gameNumber: line.pack.game.gameNumber, name: line.pack.game.name,
+        totalTickets: 0, tickets: 0, activeStock: 0, sales: 0, cost: 0,
+      };
+      game.totalTickets += line.beginningTicket;
+      game.tickets += sold;
+      game.activeStock = game.activeStock === null || line.endingTicket == null ? null : game.activeStock + line.endingTicket;
+      game.sales += sales;
+      gameBreakdown.set(gid, game);
     }
 
-    const netMargin = grossSales - cogs;
+    grossSales = roundCurrency(grossSales);
+    const cogs = roundCurrency(grossSales * INVENTORY_COST_RATE);
+    const netMargin = roundCurrency(grossSales - cogs);
     const marginPct = grossSales > 0 ? (netMargin / grossSales) * 100 : 0;
 
     return {
@@ -140,7 +150,15 @@ export async function GET(req: NextRequest) {
       netMargin: Math.round(netMargin * 100) / 100,
       marginPct: Math.round(marginPct * 10) / 10,
       ticketsSold,
-      gameBreakdown: Object.values(gameBreakdown).sort((a, b) => b.sales - a.sales),
+      totalTickets,
+      activeStock,
+      gameBreakdown: Array.from(gameBreakdown.values())
+        .map((game) => ({
+          ...game,
+          sales: roundCurrency(game.sales),
+          cost: roundCurrency(game.sales * INVENTORY_COST_RATE),
+        }))
+        .sort((a, b) => b.sales - a.sales),
       packSales: shift.lines.map((line) => ({
         pack: line.pack.serialNumber,
         game: line.pack.game.name,
@@ -207,29 +225,39 @@ export async function GET(req: NextRequest) {
   const dailyTotals = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
   // Per-game totals across all shifts
-  const allGamesMap = new Map<string, { name: string; tickets: number; sales: number; cost: number }>();
+  const allGamesMap = new Map<string, GamePerformance>();
   for (const s of shiftSummaries) {
     for (const g of s.gameBreakdown) {
-      const existing = allGamesMap.get(g.name) ?? { name: g.name, tickets: 0, sales: 0, cost: 0 };
+      const existing = allGamesMap.get(g.id) ?? {
+        id: g.id, gameNumber: g.gameNumber, name: g.name,
+        totalTickets: 0, tickets: 0, activeStock: 0, sales: 0, cost: 0,
+      };
+      existing.totalTickets += g.totalTickets;
       existing.tickets += g.tickets;
+      existing.activeStock = existing.activeStock === null || g.activeStock === null ? null : existing.activeStock + g.activeStock;
       existing.sales += g.sales;
-      existing.cost += g.cost;
-      allGamesMap.set(g.name, existing);
+      allGamesMap.set(g.id, existing);
     }
   }
   const gamePerformance = Array.from(allGamesMap.values())
-    .map((g) => ({
-      ...g,
-      sales: Math.round(g.sales * 100) / 100,
-      cost: Math.round(g.cost * 100) / 100,
-      netMargin: Math.round((g.sales - g.cost) * 100) / 100,
-      marginPct: g.sales > 0 ? Math.round(((g.sales - g.cost) / g.sales) * 1000) / 10 : 0,
-    }))
+    .map((g) => {
+      const sales = roundCurrency(g.sales);
+      const cost = roundCurrency(sales * INVENTORY_COST_RATE);
+      const netMargin = roundCurrency(sales - cost);
+      return {
+        ...g, sales, cost, netMargin,
+        marginPct: sales > 0 ? Math.round((netMargin / sales) * 1000) / 10 : 0,
+      };
+    })
     .sort((a, b) => b.sales - a.sales);
 
   const totalGross = shiftSummaries.reduce((s: number, r) => s + r.grossSales, 0);
-  const totalCogs = shiftSummaries.reduce((s: number, r) => s + r.cogs, 0);
+  const totalCogs = roundCurrency(totalGross * INVENTORY_COST_RATE);
   const totalTickets = shiftSummaries.reduce((s: number, r) => s + r.ticketsSold, 0);
+  // A pack can appear in multiple shifts; these are shift-scoped sums, not live inventory.
+  const totalOpeningTickets = shiftSummaries.reduce((sum, shift) => sum + shift.totalTickets, 0);
+  const activeStock = shiftSummaries.reduce<number | null>((sum, shift) =>
+    sum === null || shift.activeStock === null ? null : sum + shift.activeStock, 0);
 
   return NextResponse.json({
     fromDate: fromDate.toISOString(),
@@ -239,6 +267,9 @@ export async function GET(req: NextRequest) {
       totalCogs: Math.round(totalCogs * 100) / 100,
       totalNet: Math.round((totalGross - totalCogs) * 100) / 100,
       totalTickets,
+      totalOpeningTickets,
+      activeStock,
+      stockScope: "SHIFT_TOTALS",
       avgMarginPct: totalGross > 0 ? Math.round(((totalGross - totalCogs) / totalGross) * 1000) / 10 : 0,
       shiftCount: shiftSummaries.length,
     },

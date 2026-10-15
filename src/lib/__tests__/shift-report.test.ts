@@ -21,12 +21,47 @@ function fixture(): ShiftReportData {
 
 test("shift template uses finalized sales, counts, operators, and signed audit variance", () => {
   const document = buildShiftReportDocument(fixture());
-  assert.deepEqual(document.sections[0].totals, ["Total", 12, "$60.00", "$57.00"]);
+  assert.deepEqual(document.sections[0].totals, ["TOTAL SHIFT SUMMARY", "Not recorded", 12, "Not recorded", "$60.00", "$57.00"]);
   assert.deepEqual(document.sections[1].rows[0], ["1", "P1 / Game", 50, 38, 12, "$60.00"]);
   assert.deepEqual(document.sections[4].rows[0], ["1 / P1", "FIRST", 1, 1, 13, 15, 2]);
   assert.equal(document.metadata?.find((field) => field.label === "Shift ID")?.value, "shift-old");
   assert.equal(document.metadata?.find((field) => field.label === "Opening audit operator")?.value, "Auditor");
   assert.equal(document.metadata?.find((field) => field.label === "Closed")?.value, "2025-01-01 16:00:00 UTC");
+});
+
+test("financial summaries show bidirectional shift quantities and the 100/95 split", () => {
+  const shift = fixture();
+  shift.grossSales = 250;
+  shift.ticketsSold = 50;
+  shift.gameBreakdown = [
+    { id: "lucky", name: "Lucky 7s (Rev. 150-1)", totalTickets: 150, tickets: 10, activeStock: 140, sales: 50, cost: 47.5 },
+    { id: "mega", name: "Mega Cash (Asc. 1-200)", totalTickets: 200, tickets: 25, activeStock: 175, sales: 125, cost: 118.75 },
+    { id: "wild", name: "Super Wild (Rev. 100-1)", totalTickets: 100, tickets: 15, activeStock: 85, sales: 75, cost: 71.25 },
+  ];
+  for (const build of [buildShiftReportDocument, buildEndOfShiftReportDocument]) {
+    const summary = build(shift).sections.find((section) => section.title === "Sales Summary")!;
+    assert.deepEqual(summary.columns, ["Game Name / ID", "Total Tickets", "Tickets Sold", "Active Stock", "Gross Sales (100%)", "Cost / Payout (95%)"]);
+    assert.deepEqual(summary.rows[0], ["Lucky 7s (Rev. 150-1) / lucky", 150, 10, 140, "$50.00", "$47.50"]);
+    assert.deepEqual(summary.totals, ["TOTAL SHIFT SUMMARY", 450, 50, 400, "$250.00", "$237.50"]);
+  }
+});
+
+test("financial summaries preserve zero stock and unknown closing inventory", () => {
+  const shift = fixture();
+  Object.assign(shift.gameBreakdown[0], { totalTickets: 12, activeStock: 0 });
+  assert.equal(buildShiftReportDocument(shift).sections[0].rows[0][3], 0);
+  shift.gameBreakdown[0].activeStock = null;
+  assert.equal(buildShiftReportDocument(shift).sections[0].totals?.[3], "Not recorded");
+});
+
+test("financial summary totals use 95% of shift gross before currency rounding", () => {
+  const shift = fixture();
+  shift.grossSales = 1;
+  shift.gameBreakdown = [
+    { name: "A", tickets: 1, sales: 0.5, cost: 0.48 },
+    { name: "B", tickets: 1, sales: 0.5, cost: 0.48 },
+  ];
+  assert.equal(buildShiftReportDocument(shift).sections[0].totals?.[5], "$0.95");
 });
 
 test("audit report separates inventory balances from physical ticket IDs", () => {

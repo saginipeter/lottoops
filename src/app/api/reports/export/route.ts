@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { queryInventoryActivity } from "@/lib/activity-log";
 
 const INVENTORY_COST_RATE = 0.95;
+// Match the API: each row/total rounds 95% of its own gross, not the sum of rounded child costs.
+const roundCurrency = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
 
 function escapeCSV(val: unknown): string {
   const str = val === null || val === undefined ? "" : String(val);
@@ -79,7 +81,7 @@ export async function GET(req: NextRequest) {
         include: {
           pack: {
             include: {
-              game: { select: { name: true, gameNumber: true, price: true } },
+              game: { select: { id: true, name: true, gameNumber: true, price: true } },
             },
           },
         },
@@ -94,26 +96,33 @@ export async function GET(req: NextRequest) {
   if (type === "shifts") {
     const headers = [
       "Shift ID", "Opened At", "Closed At", "Opened By", "Closed By",
-      "Tickets Sold", "Gross Sales ($)", "Est. COGS ($)", "Net Margin ($)", "Margin %",
+      "Opening Total Tickets (shift-scoped)", "Tickets Sold", "Ending Active Stock (shift-scoped)",
+      "Gross Sales 100% ($)", "Cost 95% ($)", "Net Margin ($)", "Margin %",
     ];
 
     const rows = (shifts as any[]).map((shift) => {
-      let gross = 0, cogs = 0, tickets = 0;
+      let gross = 0, tickets = 0, totalTickets = 0;
+      let activeStock: number | null = 0;
       for (const line of shift.lines) {
         const sold = Number(line.ticketsSold ?? 0);
         const sales = Number(line.salesAmount ?? 0);
         gross += sales;
-        cogs += sold * Number(line.pack.game.price) * INVENTORY_COST_RATE;
         tickets += sold;
+        totalTickets += line.beginningTicket;
+        activeStock = activeStock === null || line.endingTicket == null ? null : activeStock + line.endingTicket;
       }
-      const net = gross - cogs;
+      gross = roundCurrency(gross);
+      const cogs = roundCurrency(gross * INVENTORY_COST_RATE);
+      const net = roundCurrency(gross - cogs);
       return [
         shift.id,
         shift.openedAt.toISOString(),
         shift.closedAt?.toISOString() ?? "",
         shift.openedBy.name,
         shift.closedBy?.name ?? "",
+        totalTickets,
         tickets,
+        activeStock,
         gross.toFixed(2),
         cogs.toFixed(2),
         net.toFixed(2),
@@ -123,39 +132,68 @@ export async function GET(req: NextRequest) {
     csv = buildCSV(headers, rows);
     filename = `shifts_${fromDate.toISOString().slice(0, 10)}_${toDate.toISOString().slice(0, 10)}.csv`;
   } else if (type === "games") {
-    // Per-game performance across date range
-    const gameMap = new Map<string, { gameNumber: string; name: string; tickets: number; sales: number; cost: number }>();
+    // Opening/ending stock is summed per shift, not a current inventory snapshot.
+    const gameMap = new Map<string, {
+      id: string; gameNumber: string; name: string;
+      totalTickets: number; tickets: number; activeStock: number | null; sales: number;
+    }>();
     for (const shift of shifts) {
       for (const line of shift.lines) {
-        const key = line.pack.game.name;
+        const key = line.pack.game.id;
         const existing = gameMap.get(key) ?? {
+          id: key,
           gameNumber: line.pack.game.gameNumber ?? "",
           name: line.pack.game.name,
           tickets: 0,
+          totalTickets: 0,
+          activeStock: 0,
           sales: 0,
-          cost: 0,
         };
         existing.tickets += Number(line.ticketsSold ?? 0);
+        existing.totalTickets += line.beginningTicket;
+        existing.activeStock = existing.activeStock === null || line.endingTicket == null ? null : existing.activeStock + line.endingTicket;
         existing.sales += Number(line.salesAmount ?? 0);
-        existing.cost += Number(line.ticketsSold ?? 0) * Number(line.pack.game.price) * INVENTORY_COST_RATE;
         gameMap.set(key, existing);
       }
     }
-    const headers = ["Game #", "Game Name", "Tickets Sold", "Gross Sales ($)", "Est. COGS ($)", "Net Margin ($)", "Margin %"];
+    const headers = [
+      "Game ID", "Game #", "Game Name", "Opening Total Tickets (shift-scoped)", "Tickets Sold",
+      "Ending Active Stock (shift-scoped)", "Gross Sales 100% ($)", "Cost 95% ($)", "Net Margin ($)", "Margin %",
+    ];
     const rows = Array.from(gameMap.values())
       .sort((a, b) => b.sales - a.sales)
       .map((g) => {
-        const net = g.sales - g.cost;
+        const sales = roundCurrency(g.sales);
+        const cost = roundCurrency(sales * INVENTORY_COST_RATE);
+        const net = roundCurrency(sales - cost);
         return [
+          g.id,
           g.gameNumber,
           g.name,
+          g.totalTickets,
           g.tickets,
-          g.sales.toFixed(2),
-          g.cost.toFixed(2),
+          g.activeStock,
+          sales.toFixed(2),
+          cost.toFixed(2),
           net.toFixed(2),
-          g.sales > 0 ? ((net / g.sales) * 100).toFixed(1) : "0.0",
+          sales > 0 ? ((net / sales) * 100).toFixed(1) : "0.0",
         ];
       });
+    const totals = Array.from(gameMap.values()).reduce<{
+      totalTickets: number; tickets: number; activeStock: number | null; sales: number;
+    }>((sum, game) => ({
+      totalTickets: sum.totalTickets + game.totalTickets,
+      tickets: sum.tickets + game.tickets,
+      activeStock: sum.activeStock === null || game.activeStock === null ? null : sum.activeStock + game.activeStock,
+      sales: sum.sales + game.sales,
+    }), { totalTickets: 0, tickets: 0, activeStock: 0, sales: 0 });
+    const gross = roundCurrency(totals.sales);
+    const cost = roundCurrency(gross * INVENTORY_COST_RATE);
+    const net = roundCurrency(gross - cost);
+    rows.push([
+      "", "", "Total (shift-scoped)", totals.totalTickets, totals.tickets, totals.activeStock,
+      gross.toFixed(2), cost.toFixed(2), net.toFixed(2), gross > 0 ? ((net / gross) * 100).toFixed(1) : "0.0",
+    ]);
     csv = buildCSV(headers, rows);
     filename = `games_${fromDate.toISOString().slice(0, 10)}_${toDate.toISOString().slice(0, 10)}.csv`;
   } else if (type === "inventory") {
