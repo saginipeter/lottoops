@@ -142,6 +142,7 @@ export function LiveScanDashboard({
   const [reportStatus, setReportStatus] = useState<"idle" | "success" | "error">("idle");
   const [reportMessage, setReportMessage] = useState("");
   const [lastScan, setLastScan] = useState<LiveScanResult | null>(null);
+  const [showScanResult, setShowScanResult] = useState(false);
   const [sales, setSales] = useState<SalesEntry[]>([]);
   const [shiftStats, setShiftStats] = useState({
     ticketsSold: 0,
@@ -367,6 +368,7 @@ export function LiveScanDashboard({
       if (res.ok) {
         setScanError("");
         setLastScan(data);
+        setShowScanResult(true);
         setReturnRequestStatus("idle");
         setReturnRequestMessage("");
         setLastRefreshTime(new Date());
@@ -374,7 +376,6 @@ export function LiveScanDashboard({
         setScannerActivityAt(Date.now());
         router.refresh();
       } else {
-        setLastScan(null);
         setScanError(data.error || "Pack not found");
       }
 
@@ -633,7 +634,12 @@ export function LiveScanDashboard({
 
         {!currentShift && <Button onClick={handleOpenShift} disabled={shiftActionLoading} className="mx-auto mt-4 min-h-14 w-full max-w-2xl text-lg font-bold">{shiftActionLoading ? "Opening Shift..." : "Open Shift"}</Button>}
 
-        {lastScan && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Ticket scan result"><Panel className="w-full max-w-lg border-2 border-emerald-500 bg-white p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Ticket accepted</p><h3 className="mt-1 text-2xl font-bold text-[#17233f]">Sale recorded</h3></div><Button variant="ghost" size="icon" onClick={() => { setLastScan(null); requestAnimationFrame(() => scanInputRef.current?.focus()); }} aria-label="Close ticket result"><X size={20} /></Button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="col-span-2 border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Game</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.gameName ?? lastScan.gameNumber ?? "Lottery ticket"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Ticket</p><p className="mt-1 break-all font-mono text-sm font-bold text-[#17233f]">{lastScan.ticketBarcode ?? lastScan.serialNumber ?? "—"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Next ticket</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.nextTicketNumber ?? "Sold out"}</p></div></div><Button onClick={() => { setLastScan(null); requestAnimationFrame(() => scanInputRef.current?.focus()); }} className="mt-5 min-h-14 w-full text-lg font-bold">Done · Scan Next Ticket</Button></Panel></div>}
+        {lastScan && !showScanResult && <div className="mt-4 border border-emerald-200 bg-emerald-50 p-4" aria-label="Latest scan">
+          <p className="font-bold text-emerald-900">{lastScan.gameName ?? lastScan.gameNumber ?? "Lottery ticket"}</p>
+          <p className="break-all font-mono text-sm">{lastScan.ticketBarcode ?? lastScan.serialNumber}</p>
+          <p className="text-sm">Next ticket: {lastScan.nextTicketNumber ?? "Sold out"} · Display {lastScan.slot?.slotNumber ?? "—"}</p>
+        </div>}
+        {showScanResult && lastScan && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Ticket scan result"><Panel className="w-full max-w-lg border-2 border-emerald-500 bg-white p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Ticket accepted</p><h3 className="mt-1 text-2xl font-bold text-[#17233f]">Sale recorded</h3></div><Button variant="ghost" size="icon" onClick={() => { setShowScanResult(false); requestAnimationFrame(() => scanInputRef.current?.focus()); }} aria-label="Close ticket result"><X size={20} /></Button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="col-span-2 border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Game</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.gameName ?? lastScan.gameNumber ?? "Lottery ticket"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Ticket</p><p className="mt-1 break-all font-mono text-sm font-bold text-[#17233f]">{lastScan.ticketBarcode ?? lastScan.serialNumber ?? "—"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Next ticket</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.nextTicketNumber ?? "Sold out"}</p></div></div><Button onClick={() => { setShowScanResult(false); requestAnimationFrame(() => scanInputRef.current?.focus()); }} className="mt-5 min-h-14 w-full text-lg font-bold">Done · Scan Next Ticket</Button></Panel></div>}
       </div>
     );
   }

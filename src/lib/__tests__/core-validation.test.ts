@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculatePhysicalAuditVariance, expectedPhysicalTicket, findUnassignedActivePacks, physicalTicketFromRemaining, remainingTicketsFromStartingTicket, validateEndingTicket } from "@/lib/core-validation";
+import { calculatePhysicalAuditInventory, calculatePhysicalAuditVariance, expectedPhysicalTicket, expectedPhysicalTicketByDirection, findUnassignedActivePacks, physicalTicketFromRemaining, remainingTicketsFromStartingTicket, validateEndingTicket } from "@/lib/core-validation";
 
 test("accepts ending ticket zero through beginning ticket", () => {
   assert.equal(validateEndingTicket(100, 0), null);
@@ -52,4 +52,49 @@ test("maps remaining inventory to the physical ticket expected during an audit",
   assert.equal(physicalTicketFromRemaining(1, 50, 42), 9);
   assert.equal(physicalTicketFromRemaining(20, 50, 30), 21);
   assert.equal(physicalTicketFromRemaining(1, 50, 0), 0);
+});
+
+test("150 beginning tickets minus ten sales leaves 140 in either display direction", () => {
+  for (const [direction, ticket] of [["FIRST", 11], ["LAST", 140]] as const) {
+    assert.deepEqual(calculatePhysicalAuditInventory(1, 150, 150 - 10, ticket, direction), {
+      expectedTicket: ticket, remaining: 140, variance: 0, scannedSoldTicket: false,
+    });
+  }
+});
+
+test("ascending audit mis-scans preserve signed ID variance without restoring sold stock", () => {
+  assert.deepEqual(calculatePhysicalAuditInventory(1, 150, 141, 11, "FIRST"), {
+    expectedTicket: 10, remaining: 140, variance: 1, scannedSoldTicket: false,
+  });
+  assert.deepEqual(calculatePhysicalAuditInventory(1, 150, 141, 9, "FIRST"), {
+    expectedTicket: 10, remaining: 141, variance: -1, scannedSoldTicket: true,
+  });
+});
+
+test("descending audit excludes previously sold tickets and preserves ID variance", () => {
+  assert.deepEqual(calculatePhysicalAuditInventory(1, 150, 140, 141, "LAST"), {
+    expectedTicket: 140, remaining: 140, variance: 1, scannedSoldTicket: true,
+  });
+  assert.deepEqual(calculatePhysicalAuditInventory(1, 150, 140, 139, "LAST"), {
+    expectedTicket: 140, remaining: 139, variance: -1, scannedSoldTicket: false,
+  });
+});
+
+test("empty packs never regain inventory from scanning a sold ticket", () => {
+  for (const direction of ["FIRST", "LAST"]) {
+    assert.equal(expectedPhysicalTicketByDirection(1, 150, 0, direction), 0);
+    assert.equal(calculatePhysicalAuditInventory(1, 150, 0, 1, direction)?.remaining, 0);
+    assert.equal(calculatePhysicalAuditInventory(1, 150, 0, 0, direction)?.variance, 0);
+  }
+});
+
+test("audit inventory handles partial packs and rejects invalid sequence states", () => {
+  assert.equal(calculatePhysicalAuditInventory(20, 150, 121, 30, "FIRST")?.remaining, 121);
+  assert.equal(calculatePhysicalAuditInventory(20, 150, 121, 19, "FIRST"), null);
+  for (const direction of ["FIRST", "LAST"]) {
+    for (const remaining of [-1, 151, 1.5, NaN]) {
+      assert.equal(calculatePhysicalAuditInventory(1, 150, remaining, 10, direction), null);
+    }
+    assert.equal(calculatePhysicalAuditInventory(1, 150, 140, 151, direction), null);
+  }
 });

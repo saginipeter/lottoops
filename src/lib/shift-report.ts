@@ -20,6 +20,8 @@ export interface ShiftReportData {
     pack: string; display?: string; direction?: string;
     beginningExpected: number | null; beginning: number | null;
     expected: number | null; ending: number | null;
+    beginningTickets?: number | null; salesTickets?: number | null;
+    expectedEndingTickets?: number | null; endingTickets?: number | null;
   }>;
   auditOpenedBy: string | null;
   auditClosedBy: string | null;
@@ -100,11 +102,21 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
             : calculatePhysicalAuditVariance(line.expected, line.ending) ?? NOT_RECORDED,
         ]),
       },
+      {
+        title: "Physical Audit Inventory Counts",
+        columns: ["Display / Pack", "Beginning tickets", "Sales", "Expected ending", "Unsold remaining"],
+        rows: shift.audit.map((line) => [
+          `${line.display ?? NOT_RECORDED} / ${line.pack}`,
+          line.beginningTickets ?? NOT_RECORDED, line.salesTickets ?? NOT_RECORDED,
+          line.expectedEndingTickets ?? NOT_RECORDED, line.endingTickets ?? NOT_RECORDED,
+        ]),
+      },
     ],
     notes: [
       "Cash/card payment breakdown, returns, and voids are not recorded by this system. Total ticket sales must not be treated as cash sales.",
       "Expected cash and cash variance above are recorded reconciliation values, not a payment-method breakdown.",
       "Ticket audit variance = closing physical ticket number minus closing expected ticket number. Ticket numbers follow the pack direction; remaining counts are shown separately.",
+      "Beginning tickets − sales = expected ending tickets in either direction. Already sold tickets are excluded from unsold remaining counts.",
     ],
   };
 }
