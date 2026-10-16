@@ -75,26 +75,26 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 }
 function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kioskMode: boolean; artIndex: number }) {
   const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
-  return <article className={`group relative flex min-h-0 flex-col overflow-hidden border-2 border-[#12283a] bg-white shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "h-full text-[0.85em]" : "aspect-[0.78]"}`}>
+  return <article className={`group relative min-h-0 overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "h-full text-[0.85em]" : "aspect-[0.78]"}`}>
     <strong className="absolute right-2 top-2 z-10 rounded-sm bg-[#1A365D] px-2 py-1 text-xl font-black leading-none tabular-nums text-white shadow sm:text-2xl">{slot.slotNumber}</strong>
-    <div className="relative min-h-0 flex-1 overflow-hidden bg-[#e6f4f4]">
+    <div className="absolute inset-0 overflow-hidden">
       <Image
         src={slot.gameImage || referenceImage}
         alt={`${slot.gameName} lottery game artwork`}
         fill
         sizes="(min-width: 1536px) 14vw, (min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
         unoptimized
-        className="object-contain"
+        className="object-cover"
       />
     </div>
-    <div className="grid shrink-0 grid-cols-[1fr_1fr_auto] items-center gap-2 border-t-2 border-[#102b40] bg-[#eef8f8] px-2 py-1.5 text-[#101828] sm:px-3">
+    <div className="absolute inset-x-0 bottom-0 z-10 grid grid-cols-[1fr_1fr_auto] items-center gap-2 border-t border-white/20 bg-[#071827]/85 px-2 py-1.5 text-white backdrop-blur-sm sm:px-3">
       <div className="flex min-w-0 flex-col">
-        <span className="text-[7px] font-black uppercase tracking-wide text-[#667085] sm:text-[9px]">Current</span>
-        <strong className="text-base font-black leading-none tabular-nums text-[#c62828] sm:text-xl">{slot.currentTicket}</strong>
+        <span className="text-[7px] font-black uppercase tracking-wide text-white/70 sm:text-[9px]">CURRENT</span>
+        <strong className="text-base font-black leading-none tabular-nums text-[#ff6868] sm:text-xl">{slot.currentTicket}</strong>
       </div>
       <div className="flex min-w-0 flex-col">
-        <span className="text-[7px] font-black uppercase tracking-wide text-[#667085] sm:text-[9px]">Next</span>
-        <strong className="text-base font-black leading-none tabular-nums text-[#17233f] sm:text-xl">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
+        <span className="text-[7px] font-black uppercase tracking-wide text-white/70 sm:text-[9px]">NEXT</span>
+        <strong className="text-base font-black leading-none tabular-nums text-white sm:text-xl">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
       </div>
       <span className={`shrink-0 rounded px-1.5 py-1 text-[7px] font-black uppercase sm:text-[9px] ${slot.sellDirection === "LAST" ? "bg-[#fff0db] text-[#8a4b08]" : "bg-[#e7f4ed] text-[#17633b]"}`}>{slot.sellDirection}</span>
     </div>
