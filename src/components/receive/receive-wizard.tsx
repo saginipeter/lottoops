@@ -29,6 +29,7 @@ interface ScanDraftState {
 }
 
 interface ReceiveWizardProps {
+  storeId: string;
   initialStep?: WizardStep;
   receiverName?: string;
 }
@@ -40,10 +41,12 @@ interface ReceiveDraft {
   scanDraft?: ScanDraftState;
 }
 
-function readReceiveDraft(): ReceiveDraft | null {
+function readReceiveDraft(draftKey: string): ReceiveDraft | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(RECEIVE_DRAFT_KEY);
+    // Legacy drafts have no store identity and cannot be restored safely.
+    window.localStorage.removeItem(RECEIVE_DRAFT_KEY);
+    const raw = window.localStorage.getItem(draftKey);
     return raw ? (JSON.parse(raw) as ReceiveDraft) : null;
   } catch (error) {
     console.error("Unable to restore receiving draft:", error);
@@ -75,11 +78,15 @@ const DEFAULT_SCAN_DRAFT: ScanDraftState = {
   packImage: "",
 };
 
-export default function ReceiveWizard({ initialStep = 1, receiverName = "" }: ReceiveWizardProps) {
+export default function ReceiveWizard(props: ReceiveWizardProps) {
+  return <StoreReceiveWizard key={props.storeId} {...props} />;
+}
+
+function StoreReceiveWizard({ storeId, initialStep = 1, receiverName = "" }: ReceiveWizardProps) {
   const router = useRouter();
-  const [step, setStep] = useState<WizardStep>(
-    () => (initialStep === 1 ? readReceiveDraft()?.step ?? initialStep : initialStep)
-  );
+  const draftKey = `${RECEIVE_DRAFT_KEY}:${storeId}`;
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [step, setStep] = useState<WizardStep>(initialStep);
   const [syncedInitialStep, setSyncedInitialStep] = useState(initialStep);
 
   // Keep step in sync with the route-driven initialStep prop without an effect.
@@ -89,20 +96,23 @@ export default function ReceiveWizard({ initialStep = 1, receiverName = "" }: Re
   }
 
   const [shipment, setShipment] = useState<ShipmentState>(() => {
-    const savedShipment = readReceiveDraft()?.shipment;
-    const initialShipment = savedShipment ?? createDefaultShipment();
-    return { ...initialShipment, receivedBy: receiverName };
+    return { ...createDefaultShipment(), receivedBy: receiverName };
   });
 
-  const [packs, setPacks] = useState<PackWithGame[]>(() => {
-    const draftPacks = readReceiveDraft()?.packs;
-    return Array.isArray(draftPacks) ? draftPacks : [];
-  });
+  const [packs, setPacks] = useState<PackWithGame[]>([]);
 
-  const [scanDraft, setScanDraft] = useState<ScanDraftState>(
-    () => readReceiveDraft()?.scanDraft ?? DEFAULT_SCAN_DRAFT
-  );
+  const [scanDraft, setScanDraft] = useState<ScanDraftState>(DEFAULT_SCAN_DRAFT);
   const [overrideApproved, setOverrideApproved] = useState(false);
+
+  useEffect(() => {
+    if (draftLoaded) return;
+    const draft = readReceiveDraft(draftKey);
+    setStep(initialStep === 1 ? draft?.step ?? initialStep : initialStep);
+    setShipment({ ...(draft?.shipment ?? createDefaultShipment()), receivedBy: receiverName });
+    setPacks(Array.isArray(draft?.packs) ? draft.packs : []);
+    setScanDraft(draft?.scanDraft ?? DEFAULT_SCAN_DRAFT);
+    setDraftLoaded(true);
+  }, [draftLoaded, draftKey, initialStep, receiverName]);
 
   useEffect(() => {
     if (!shipment.id) return;
@@ -139,15 +149,16 @@ export default function ReceiveWizard({ initialStep = 1, receiverName = "" }: Re
   }, [packs.length, shipment.scannedPacks]);
 
   useEffect(() => {
+    if (!draftLoaded) return;
     try {
       window.localStorage.setItem(
-        RECEIVE_DRAFT_KEY,
+        draftKey,
         JSON.stringify({ step, shipment, packs, scanDraft })
       );
     } catch (error) {
       console.error("Unable to save receiving draft:", error);
     }
-  }, [step, shipment, packs, scanDraft]);
+  }, [draftLoaded, draftKey, step, shipment, packs, scanDraft]);
 
   function nextStep() {
     if (step < 4) {
@@ -272,7 +283,7 @@ export default function ReceiveWizard({ initialStep = 1, receiverName = "" }: Re
 
   function clearDraft() {
     try {
-      window.localStorage.removeItem(RECEIVE_DRAFT_KEY);
+      window.localStorage.removeItem(draftKey);
     } catch (error) {
       console.error("Unable to clear receiving draft:", error);
     }
@@ -340,6 +351,8 @@ export default function ReceiveWizard({ initialStep = 1, receiverName = "" }: Re
 
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const scannedPacks = Number(shipment.scannedPacks ?? 0);
+
+  if (!draftLoaded) return null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
