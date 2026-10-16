@@ -75,24 +75,28 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 }
 function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kioskMode: boolean; artIndex: number }) {
   const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
-  return <article className={`group relative flex min-h-0 flex-col overflow-hidden border-2 border-[#12283a] bg-white shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "text-[0.85em]" : ""}`}>
-    <div className="flex shrink-0 items-center justify-center gap-2 bg-[#102b40] px-2 py-1 font-black text-white">
-      <span className="text-[10px] uppercase sm:text-xs">Display</span>
-      <strong className="min-w-0 break-all text-2xl leading-none tabular-nums sm:text-4xl">{slot.slotNumber}</strong>
+  return <article className={`group relative flex min-h-0 flex-col overflow-hidden border-2 border-[#12283a] bg-white shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "h-full text-[0.85em]" : "aspect-[0.78]"}`}>
+    <strong className="absolute right-2 top-2 z-10 rounded-sm bg-[#1A365D] px-2 py-1 text-xl font-black leading-none tabular-nums text-white shadow sm:text-2xl">{slot.slotNumber}</strong>
+    <div className="relative min-h-0 flex-1 overflow-hidden bg-[#e6f4f4]">
+      <Image
+        src={slot.gameImage || referenceImage}
+        alt={`${slot.gameName} lottery game artwork`}
+        fill
+        sizes="(min-width: 1536px) 14vw, (min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+        unoptimized
+        className="object-contain"
+      />
     </div>
-    <div className={`relative min-h-0 overflow-hidden bg-[#e6f4f4] ${kioskMode ? "flex-1" : "aspect-[0.85]"}`}>
-      <Image src={slot.gameImage || referenceImage} alt={`${slot.gameName} lottery game artwork`} fill unoptimized className="object-contain" />
-    </div>
-    <div className="shrink-0 border-t-2 border-[#102b40] bg-white text-[#101828]">
-      <div className="flex items-center justify-between gap-1 border-b border-[#c9d9df] bg-[#f7fbfb] px-1.5 py-1 sm:px-2">
-        <div className="min-w-0"><h3 className="truncate text-[9px] font-black leading-tight sm:text-xs">{slot.gameName}</h3><p className="truncate text-[7px] font-bold uppercase text-[#667085] sm:text-[8px]">Game {slot.gameNumber} · ${slot.ticketPrice.toFixed(0)}</p></div>
-        <span className={`shrink-0 px-1 py-0.5 text-[6px] font-black uppercase sm:text-[7px] ${slot.sellDirection === "LAST" ? "bg-[#fff0db] text-[#8a4b08]" : "bg-[#e7f4ed] text-[#17633b]"}`}>{slot.sellDirection === "LAST" ? "LAST" : "FIRST"}</span>
+    <div className="grid shrink-0 grid-cols-[1fr_1fr_auto] items-center gap-2 border-t-2 border-[#102b40] bg-[#eef8f8] px-2 py-1.5 text-[#101828] sm:px-3">
+      <div className="flex min-w-0 flex-col">
+        <span className="text-[7px] font-black uppercase tracking-wide text-[#667085] sm:text-[9px]">Current</span>
+        <strong className="text-base font-black leading-none tabular-nums text-[#c62828] sm:text-xl">{slot.currentTicket}</strong>
       </div>
-      <div className="grid grid-cols-2 bg-[#eef8f8]">
-        <div className="flex items-center justify-between gap-1 border-r border-[#c9d9df] px-1.5 py-1 sm:px-2 sm:py-1.5"><span className="text-[6px] font-black uppercase tracking-wide text-[#667085] sm:text-[8px]">Current</span><strong className="text-base font-black leading-none tabular-nums text-[#c62828] sm:text-xl">{slot.currentTicket}</strong></div>
-        <div className="flex items-center justify-between gap-1 px-1.5 py-1 sm:px-2 sm:py-1.5"><span className="text-[6px] font-black uppercase tracking-wide text-[#667085] sm:text-[8px]">Next</span><strong className="text-base font-black leading-none tabular-nums text-[#17233f] sm:text-xl">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong></div>
+      <div className="flex min-w-0 flex-col">
+        <span className="text-[7px] font-black uppercase tracking-wide text-[#667085] sm:text-[9px]">Next</span>
+        <strong className="text-base font-black leading-none tabular-nums text-[#17233f] sm:text-xl">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
       </div>
+      <span className={`shrink-0 rounded px-1.5 py-1 text-[7px] font-black uppercase sm:text-[9px] ${slot.sellDirection === "LAST" ? "bg-[#fff0db] text-[#8a4b08]" : "bg-[#e7f4ed] text-[#17633b]"}`}>{slot.sellDirection}</span>
     </div>
-    {!kioskMode && <div className="h-1 bg-[#d8e8ec]"><div className="h-1 bg-[#0d82a6]" style={{ width: `${Math.min(slot.quantity > 0 ? Math.max((slot.sold / slot.quantity) * 100, 0) : 0, 100)}%` }} /></div>}
   </article>;
 }
