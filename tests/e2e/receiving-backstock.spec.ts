@@ -157,6 +157,76 @@ test.describe("Receiving and backstock regressions", () => {
     expect(otherQueue.map((entry: { barcode: string }) => entry.barcode)).toEqual(["56781234567001"]);
   });
 
+  test("a stale POS tab keeps its queue unchanged when the signed-in store changes", async ({ page, context, baseURL }) => {
+    await page.clock.install();
+    await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
+    await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
+    const conflicts: unknown[] = [];
+    await page.route("**/api/pos/reconciliation", (route) => {
+      conflicts.push(route.request().postDataJSON());
+      return route.fulfill({ json: { ok: true } });
+    });
+    let currentStore = "inventory-store";
+    let allowSales = false;
+    let requests = 0;
+    await page.route("**/api/packs/check-serial", (route) => {
+      requests++;
+      const body = route.request().postDataJSON();
+      expect(body.expectedStoreId).toBe("inventory-store");
+      if (body.expectedStoreId !== currentStore) {
+        return route.fulfill({ status: 409, json: { error: "The signed-in store changed.", code: "STORE_CHANGED" } });
+      }
+      return route.fulfill({ status: allowSales ? 200 : 503, json: allowSales ? { status: "sold" } : { error: "Unavailable" } });
+    });
+    await page.addInitScript(() => {
+      localStorage.setItem("lottoops:pos-offline-queue:inventory-store:POS-01", JSON.stringify([{
+        id: "pending-a", barcode: "12341234567001", queuedAt: new Date().toISOString(), attempts: 0,
+      }]));
+    });
+    await page.goto("/pos");
+    await expect.poll(() => requests).toBe(1);
+    const readQueue = () => page.evaluate(() => JSON.parse(localStorage.getItem("lottoops:pos-offline-queue:inventory-store:POS-01")!));
+    await expect.poll(async () => (await readQueue())[0]?.attempts).toBe(1);
+    const before = await readQueue();
+    await context.request.post("/api/auth/logout");
+    await signInStore(context, baseURL!, "other-store");
+    currentStore = "other-store";
+    await page.clock.fastForward(5100);
+    await expect.poll(() => requests).toBe(2);
+    expect(await readQueue()).toEqual(before);
+    expect(conflicts).toEqual([]);
+
+    await signInStore(context, baseURL!);
+    currentStore = "inventory-store";
+    allowSales = true;
+    await page.clock.fastForward(5100);
+    await expect.poll(readQueue).toEqual([]);
+  });
+
+  test("a replay confirmed after leaving POS is removed from its originating queue", async ({ page }) => {
+    await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
+    await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
+    let confirmReplay: (() => void) | undefined;
+    const confirmation = new Promise<void>((resolve) => { confirmReplay = resolve; });
+    await page.route("**/api/packs/check-serial", async (route) => {
+      await confirmation;
+      await route.fulfill({ json: { status: "sold" } });
+    });
+    await page.addInitScript(() => {
+      localStorage.setItem("lottoops:pos-offline-queue:inventory-store:POS-01", JSON.stringify([{
+        id: "pending-a", barcode: "12341234567001", queuedAt: new Date().toISOString(), attempts: 0,
+      }]));
+    });
+    const replayStarted = page.waitForRequest("**/api/packs/check-serial");
+    await page.goto("/pos");
+    await replayStarted;
+    await page.getByRole("button", { name: "Back to Dashboard", exact: true }).click();
+    await expect(page).toHaveURL("/");
+    await expect(page.getByPlaceholder("Scan or enter 14 digits")).toHaveCount(0);
+    confirmReplay!();
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("lottoops:pos-offline-queue:inventory-store:POS-01")!))).toEqual([]);
+  });
+
   test("scrolling over focused shipment amounts does not change values", async ({ page }) => {
     await page.goto("/inventory/receive/step/1");
     const fields = page.getByRole("spinbutton");

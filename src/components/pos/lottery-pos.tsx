@@ -78,11 +78,15 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
     writeQueue(storeId, terminalId, next); setQueue(next); setResult({ status: "queued", ticketBarcode: value }); setError(""); setShowSuccess(false);
   }, [storeId, terminalId]);
 
-  const sendSale = useCallback(async (value: string, isReplay = false): Promise<"synced" | "retry" | "conflict"> => {
+  const sendSale = useCallback(async (value: string, isReplay = false): Promise<"synced" | "retry" | "conflict" | "store-changed"> => {
     try {
-      const response = await fetch("/api/packs/check-serial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId }) });
+      const response = await fetch("/api/packs/check-serial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, expectedStoreId: storeId }) });
       const data = (await response.json()) as SaleResult;
       if (response.ok) { if (!isReplay) { setResult(data); setLastSale(data); setReturnMessage(null); setShowSuccess(true); } return "synced"; }
+      if (data.code === "STORE_CHANGED") {
+        if (!isReplay) setError(data.error ?? "The signed-in store changed.");
+        return "store-changed";
+      }
       // If a response was lost after the server committed, the API's duplicate guard
       // means this replay is already accounted for and must leave the queue.
       if (isReplay && response.status === 409 && /already scanned|duplicate/i.test(data.error ?? "")) return "synced";
@@ -94,7 +98,7 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
       if (!isReplay) enqueue(value);
       return "retry";
     }
-  }, [enqueue, terminalId]);
+  }, [enqueue, storeId, terminalId]);
 
   const syncQueue = useCallback(async () => {
     if (!navigator.onLine || replayingRef.current) return;
@@ -105,19 +109,19 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
     for (const entry of pending) {
       if (!activeRef.current) break;
       if (entry.state === "CONFLICT") {
-        try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, barcode: entry.barcode, reason: entry.conflictReason ?? "Server rejected the queued sale. Manager review is required before retrying.", attempts: entry.attempts }) }); } catch { /* Retry publishing the conflict on the next sync cycle. */ }
+        try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, expectedStoreId: storeId, barcode: entry.barcode, reason: entry.conflictReason ?? "Server rejected the queued sale. Manager review is required before retrying.", attempts: entry.attempts }) }); } catch { /* Retry publishing the conflict on the next sync cycle. */ }
         break;
       }
       const outcome = await sendSale(entry.barcode, true);
-      if (!activeRef.current) break;
       if (outcome === "synced") remaining = remaining.filter((item) => item.id !== entry.id);
-      else if (outcome === "conflict") {
+      if (!activeRef.current || outcome === "store-changed") break;
+      if (outcome === "conflict") {
         const reason = replayReasonRef.current;
         remaining = remaining.map((item) => item.id === entry.id ? { ...item, state: "CONFLICT" as const, conflictReason: reason, attempts: item.attempts + 1 } : item);
-        try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, barcode: entry.barcode, reason, attempts: entry.attempts + 1 }) }); } catch { /* The local conflict remains visible until the API is reachable. */ }
+        try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, expectedStoreId: storeId, barcode: entry.barcode, reason, attempts: entry.attempts + 1 }) }); } catch { /* The local conflict remains visible until the API is reachable. */ }
         writeQueue(storeId, terminalId, remaining); setQueue([...remaining]); break;
       }
-      else { remaining = remaining.map((item) => item.id === entry.id ? { ...item, attempts: item.attempts + 1 } : item); break; }
+      else if (outcome === "retry") { remaining = remaining.map((item) => item.id === entry.id ? { ...item, attempts: item.attempts + 1 } : item); break; }
       writeQueue(storeId, terminalId, remaining); setQueue([...remaining]);
     }
     writeQueue(storeId, terminalId, remaining); setQueue(remaining); setSyncing(false); replayingRef.current = false;
@@ -126,7 +130,7 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
   const reconcileDecisions = useCallback(async () => {
     if (!navigator.onLine) return;
     try {
-      const response = await fetch(`/api/pos/reconciliation?terminalId=${encodeURIComponent(terminalId)}`, { cache: "no-store" });
+      const response = await fetch(`/api/pos/reconciliation?terminalId=${encodeURIComponent(terminalId)}&expectedStoreId=${encodeURIComponent(storeId)}`, { cache: "no-store" });
       if (!response.ok) return;
       const data = await response.json() as { items?: Array<{ queueId: string; status: string }> };
       const decisions = new Map((data.items ?? []).map((item) => [item.queueId, item.status]));
