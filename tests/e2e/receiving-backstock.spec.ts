@@ -40,7 +40,7 @@ test.describe("Receiving and backstock regressions", () => {
       await page.goto(entry);
       await expect(page.getByPlaceholder("Enter invoice number")).toHaveValue("STORE-A-INVOICE");
       await expect(page.getByPlaceholder("Enter confirmation number")).toHaveValue("STORE-A-CONFIRMATION");
-      await expect(page.getByPlaceholder("Enter inventory cost")).toHaveValue("95.50");
+      await expect(page.getByPlaceholder("Enter inventory cost")).toHaveValue("95.5");
 
       await page.route("**/api/shipments", (route) => route.fulfill({ json: { ok: true } }));
       page.once("dialog", (dialog) => dialog.accept());
@@ -107,6 +107,54 @@ test.describe("Receiving and backstock regressions", () => {
     await expect(page.getByText("Step 1 of 4", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem("lottoops-receive-draft-v1"))).toBeNull();
     expect(shipmentRequests).toEqual([]);
+  });
+
+  test("offline POS sales cannot replay in another store using the same terminal", async ({ page, context, baseURL }) => {
+    await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
+    await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
+    let allowSales = false;
+    const replayed: string[] = [];
+    await page.route("**/api/packs/check-serial", (route) => {
+      replayed.push(route.request().postDataJSON().serialNumber);
+      return allowSales ? route.fulfill({ json: { status: "sold" } }) : route.abort("failed");
+    });
+    await page.goto("/pos");
+    const input = page.getByPlaceholder("Scan or enter 14 digits");
+    await input.fill("12341234567001");
+    await input.press("Enter");
+    await expect(page.getByText("1 sale waiting to sync", { exact: true })).toBeVisible();
+    await page.evaluate(() => {
+      localStorage.setItem("lottoops:pos-offline-queue:POS-01", JSON.stringify([{
+        id: "legacy", barcode: "99991234567001", queuedAt: new Date().toISOString(), attempts: 0,
+      }]));
+    });
+
+    await context.request.post("/api/auth/logout");
+    await signInStore(context, baseURL!, "other-store");
+    replayed.length = 0;
+    await page.goto("/pos");
+    await expect(input).toBeVisible();
+    await expect(page.getByText("1 sale waiting to sync", { exact: true })).toHaveCount(0);
+    expect(replayed).toEqual([]);
+    await input.fill("56781234567001");
+    await input.press("Enter");
+    await expect(page.getByText("1 sale waiting to sync", { exact: true })).toBeVisible();
+    const queues = await page.evaluate(() => ({
+      a: JSON.parse(localStorage.getItem("lottoops:pos-offline-queue:inventory-store:POS-01")!),
+      b: JSON.parse(localStorage.getItem("lottoops:pos-offline-queue:other-store:POS-01")!),
+    }));
+    expect(queues.a.map((entry: { barcode: string }) => entry.barcode)).toEqual(["12341234567001"]);
+    expect(queues.b.map((entry: { barcode: string }) => entry.barcode)).toEqual(["56781234567001"]);
+
+    await context.request.post("/api/auth/logout");
+    await signInStore(context, baseURL!);
+    allowSales = true;
+    replayed.length = 0;
+    await page.goto("/pos");
+    await expect.poll(() => [...replayed]).toEqual(["12341234567001"]);
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("lottoops:pos-offline-queue:inventory-store:POS-01")!))).toEqual([]);
+    const otherQueue = await page.evaluate(() => JSON.parse(localStorage.getItem("lottoops:pos-offline-queue:other-store:POS-01")!));
+    expect(otherQueue.map((entry: { barcode: string }) => entry.barcode)).toEqual(["56781234567001"]);
   });
 
   test("scrolling over focused shipment amounts does not change values", async ({ page }) => {

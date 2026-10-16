@@ -5,14 +5,14 @@ export interface OfflineScan {
   createdAt: string;
 }
 
-export function offlineScanQueueKey(terminalId: string) {
-  return `lottoops:offline-scan-queue:${terminalId}`;
+export function offlineScanQueueKey(storeId: string, terminalId: string) {
+  return `lottoops:offline-scan-queue:${encodeURIComponent(storeId)}:${encodeURIComponent(terminalId)}`;
 }
 
-export function readOfflineScanQueue(storage: Storage | undefined, terminalId: string): OfflineScan[] {
+export function readOfflineScanQueue(storage: Storage | undefined, storeId: string, terminalId: string): OfflineScan[] {
   if (!storage) return [];
   try {
-    const raw = storage.getItem(offlineScanQueueKey(terminalId));
+    const raw = storage.getItem(offlineScanQueueKey(storeId, terminalId));
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -24,13 +24,14 @@ export function readOfflineScanQueue(storage: Storage | undefined, terminalId: s
 
 export function enqueueOfflineScan(
   storage: Storage | undefined,
+  storeId: string,
   terminalId: string,
   serialNumber: string,
 ): OfflineScan[] {
   const normalizedSerial = serialNumber.trim();
-  if (!storage || !normalizedSerial) return readOfflineScanQueue(storage, terminalId);
+  if (!storage || !normalizedSerial) return readOfflineScanQueue(storage, storeId, terminalId);
 
-  const queue = readOfflineScanQueue(storage, terminalId);
+  const queue = readOfflineScanQueue(storage, storeId, terminalId);
   if (queue.some((item) => item.serialNumber === normalizedSerial)) return queue;
 
   const next = [
@@ -42,17 +43,18 @@ export function enqueueOfflineScan(
       createdAt: new Date().toISOString(),
     },
   ].slice(-100);
-  storage.setItem(offlineScanQueueKey(terminalId), JSON.stringify(next));
+  storage.setItem(offlineScanQueueKey(storeId, terminalId), JSON.stringify(next));
   return next;
 }
 
 export function removeOfflineScan(
   storage: Storage | undefined,
+  storeId: string,
   terminalId: string,
   id: string,
 ): OfflineScan[] {
-  const next = readOfflineScanQueue(storage, terminalId).filter((item) => item.id !== id);
-  if (storage) storage.setItem(offlineScanQueueKey(terminalId), JSON.stringify(next));
+  const next = readOfflineScanQueue(storage, storeId, terminalId).filter((item) => item.id !== id);
+  if (storage) storage.setItem(offlineScanQueueKey(storeId, terminalId), JSON.stringify(next));
   return next;
 }
 

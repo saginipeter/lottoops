@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Cloud, CloudOff, Keyboard, LockKeyhole, RefreshCw, RotateCcw, ScanLine, Ticket, Wifi, X } from "lucide-react";
 import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanner";
 
-interface PosProps { employeeName: string; storeName: string; terminalId: string; }
+interface PosProps { storeId: string; employeeName: string; storeName: string; terminalId: string; }
 interface SaleResult { error?: string; code?: string; id?: string; shiftId?: string; saleId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
 interface QueueEntry { id: string; barcode: string; queuedAt: string; attempts: number; state?: "PENDING" | "CONFLICT"; conflictReason?: string; }
 interface StockAlert { id: string; severity: string; title: string; detail: string; }
@@ -18,12 +18,16 @@ const RETURN_REASONS = [
   "Duplicate scan",
 ];
 
-function queueKey(terminalId: string) { return `${QUEUE_PREFIX}${terminalId}`; }
+function queueKey(storeId: string, terminalId: string) { return `${QUEUE_PREFIX}${encodeURIComponent(storeId)}:${encodeURIComponent(terminalId)}`; }
 function makeId() { return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `offline-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
-function readQueue(terminalId: string): QueueEntry[] { try { const value = window.localStorage.getItem(queueKey(terminalId)); return value ? JSON.parse(value) as QueueEntry[] : []; } catch { return []; } }
-function writeQueue(terminalId: string, queue: QueueEntry[]) { window.localStorage.setItem(queueKey(terminalId), JSON.stringify(queue)); }
+function readQueue(storeId: string, terminalId: string): QueueEntry[] { try { const value = window.localStorage.getItem(queueKey(storeId, terminalId)); return value ? JSON.parse(value) as QueueEntry[] : []; } catch { return []; } }
+function writeQueue(storeId: string, terminalId: string, queue: QueueEntry[]) { window.localStorage.setItem(queueKey(storeId, terminalId), JSON.stringify(queue)); }
 
-export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
+export function LotteryPos(props: PosProps) {
+  return <StoreLotteryPos key={JSON.stringify([props.storeId, props.terminalId])} {...props} />;
+}
+
+function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosProps) {
   const [barcode, setBarcode] = useState("");
   const [result, setResult] = useState<SaleResult | null>(null);
   const [error, setError] = useState("");
@@ -41,9 +45,15 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
   const [returnMessage, setReturnMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const replayingRef = useRef(false);
+  const activeRef = useRef(false);
   const replayReasonRef = useRef("Server rejected the queued sale. Manager review is required before retrying.");
 
-  const refreshQueue = useCallback(() => setQueue(readQueue(terminalId)), [terminalId]);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => { activeRef.current = false; };
+  }, []);
+
+  const refreshQueue = useCallback(() => setQueue(readQueue(storeId, terminalId)), [storeId, terminalId]);
   const focusInput = useCallback(() => window.setTimeout(() => inputRef.current?.focus(), 80), []);
   const refreshInventory = useCallback(async () => {
     try {
@@ -64,9 +74,9 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
   }, [refreshQueue]);
 
   const enqueue = useCallback((value: string) => {
-    const next = [...readQueue(terminalId), { id: makeId(), barcode: value, queuedAt: new Date().toISOString(), attempts: 0, state: "PENDING" as const }];
-    writeQueue(terminalId, next); setQueue(next); setResult({ status: "queued", ticketBarcode: value }); setError(""); setShowSuccess(false);
-  }, [terminalId]);
+    const next = [...readQueue(storeId, terminalId), { id: makeId(), barcode: value, queuedAt: new Date().toISOString(), attempts: 0, state: "PENDING" as const }];
+    writeQueue(storeId, terminalId, next); setQueue(next); setResult({ status: "queued", ticketBarcode: value }); setError(""); setShowSuccess(false);
+  }, [storeId, terminalId]);
 
   const sendSale = useCallback(async (value: string, isReplay = false): Promise<"synced" | "retry" | "conflict"> => {
     try {
@@ -88,28 +98,30 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
 
   const syncQueue = useCallback(async () => {
     if (!navigator.onLine || replayingRef.current) return;
-    const pending = readQueue(terminalId);
+    const pending = readQueue(storeId, terminalId);
     if (pending.length === 0) { setQueue([]); return; }
     replayingRef.current = true; setSyncing(true);
     let remaining = [...pending];
     for (const entry of pending) {
+      if (!activeRef.current) break;
       if (entry.state === "CONFLICT") {
         try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, barcode: entry.barcode, reason: entry.conflictReason ?? "Server rejected the queued sale. Manager review is required before retrying.", attempts: entry.attempts }) }); } catch { /* Retry publishing the conflict on the next sync cycle. */ }
         break;
       }
       const outcome = await sendSale(entry.barcode, true);
+      if (!activeRef.current) break;
       if (outcome === "synced") remaining = remaining.filter((item) => item.id !== entry.id);
       else if (outcome === "conflict") {
         const reason = replayReasonRef.current;
         remaining = remaining.map((item) => item.id === entry.id ? { ...item, state: "CONFLICT" as const, conflictReason: reason, attempts: item.attempts + 1 } : item);
         try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, barcode: entry.barcode, reason, attempts: entry.attempts + 1 }) }); } catch { /* The local conflict remains visible until the API is reachable. */ }
-        writeQueue(terminalId, remaining); setQueue([...remaining]); break;
+        writeQueue(storeId, terminalId, remaining); setQueue([...remaining]); break;
       }
       else { remaining = remaining.map((item) => item.id === entry.id ? { ...item, attempts: item.attempts + 1 } : item); break; }
-      writeQueue(terminalId, remaining); setQueue([...remaining]);
+      writeQueue(storeId, terminalId, remaining); setQueue([...remaining]);
     }
-    writeQueue(terminalId, remaining); setQueue(remaining); setSyncing(false); replayingRef.current = false;
-  }, [sendSale, terminalId]);
+    writeQueue(storeId, terminalId, remaining); setQueue(remaining); setSyncing(false); replayingRef.current = false;
+  }, [sendSale, storeId, terminalId]);
 
   const reconcileDecisions = useCallback(async () => {
     if (!navigator.onLine) return;
@@ -118,16 +130,16 @@ export function LotteryPos({ employeeName, storeName, terminalId }: PosProps) {
       if (!response.ok) return;
       const data = await response.json() as { items?: Array<{ queueId: string; status: string }> };
       const decisions = new Map((data.items ?? []).map((item) => [item.queueId, item.status]));
-      const current = readQueue(terminalId);
+      const current = readQueue(storeId, terminalId);
       const updated = current.flatMap((entry) => {
         const decision = decisions.get(entry.id);
         if (decision === "DISCARDED") return [];
         if (decision === "RETRY") return [{ ...entry, state: "PENDING" as const, conflictReason: undefined }];
         return [entry];
       });
-      if (JSON.stringify(updated) !== JSON.stringify(current)) { writeQueue(terminalId, updated); setQueue(updated); }
+      if (JSON.stringify(updated) !== JSON.stringify(current)) { writeQueue(storeId, terminalId, updated); setQueue(updated); }
     } catch { /* Offline terminals keep their local queue until the next poll. */ }
-  }, [terminalId]);
+  }, [storeId, terminalId]);
 
   useEffect(() => { void refreshInventory(); void reconcileDecisions(); void syncQueue(); const timer = window.setInterval(() => { void refreshInventory(); void reconcileDecisions(); void syncQueue(); }, 5000); return () => window.clearInterval(timer); }, [refreshInventory, reconcileDecisions, syncQueue]);
 
