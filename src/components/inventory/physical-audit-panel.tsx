@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanner";
 import { calculatePhysicalAuditInventory } from "@/lib/core-validation";
 
 interface AuditLine {
@@ -64,9 +65,9 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
     window.location.reload();
   }
 
-  async function scan() {
-    if (!barcode.trim() || !audit) return;
-    const response = await fetch("/api/inventory-audits/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id, serialNumber: barcode.trim(), phase }) });
+  async function scan(value = barcode) {
+    if (!value.trim() || !audit) return;
+    const response = await fetch("/api/inventory-audits/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id, serialNumber: value.trim(), phase }) });
     const data = await response.json();
     setMessageType(response.ok ? "success" : "error");
     setMessage(response.ok
@@ -103,6 +104,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
         {!beginningComplete && <p className="mt-2 text-xs font-medium text-amber-700">Complete the Opening Audit first. The Closing Audit becomes available afterward.</p>}
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]"><input ref={inputRef} autoFocus value={barcode} inputMode="numeric" onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void scan(); } }} placeholder={phase === "beginning" ? "Scan the current ticket for the Opening Audit" : "Scan the current ticket for the Closing Audit"} className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono text-lg tracking-wider" /><Button onClick={() => { void scan(); }} disabled={!barcode.trim()}>Record {phase === "beginning" ? "Opening" : "Closing"} Scan</Button></div>
         <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before sales begin." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
+        <PhoneBarcodeScanner key={`${audit.id}-${phase}`} onScan={(value) => { setBarcode(value); void scan(value); }} />
         <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned < activeDisplayPackCount} onClick={completeAudit}>Complete Closing Audit</Button>
       </>}
       {lines.length > 0 && <div className="mt-4 overflow-x-auto">
