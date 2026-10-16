@@ -36,6 +36,10 @@ async function getAccess() {
 export async function GET(request: NextRequest) {
   const access = await getAccess();
   if (access.error) return access.error;
+  const expectedStoreId = request.nextUrl.searchParams.get("expectedStoreId");
+  if (expectedStoreId !== null && expectedStoreId !== access.session.storeId) {
+    return NextResponse.json({ error: "The signed-in store changed.", code: "STORE_CHANGED" }, { status: 409 });
+  }
   try {
     await ensureTable();
     const terminalId = request.nextUrl.searchParams.get("terminalId");
@@ -59,8 +63,11 @@ export async function POST(request: NextRequest) {
   const access = await getAccess();
   if (access.error) return access.error;
   try {
-    await ensureTable();
     const body = await request.json().catch(() => ({}));
+    if (body.expectedStoreId !== undefined && body.expectedStoreId !== access.session.storeId) {
+      return NextResponse.json({ error: "The signed-in store changed.", code: "STORE_CHANGED" }, { status: 409 });
+    }
+    await ensureTable();
     const queueId = typeof body.queueId === "string" ? body.queueId.trim() : "";
     const terminalId = typeof body.terminalId === "string" ? body.terminalId.trim().toUpperCase() : "";
     const barcode = typeof body.barcode === "string" ? body.barcode.trim() : "";

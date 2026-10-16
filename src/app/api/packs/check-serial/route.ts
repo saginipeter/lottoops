@@ -55,7 +55,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { serialNumber, liveScan, terminalId: rawTerminalId, deviceKey } = await req.json();
+  const { serialNumber, liveScan, terminalId: rawTerminalId, deviceKey, expectedStoreId } = await req.json();
+  if (expectedStoreId !== undefined && expectedStoreId !== session.storeId) {
+    return NextResponse.json({ error: "The signed-in store changed. Return to the original store to sync these scans.", code: "STORE_CHANGED" }, { status: 409 });
+  }
   if (!serialNumber || typeof serialNumber !== "string") {
     return NextResponse.json(
       { error: "serialNumber is required" },

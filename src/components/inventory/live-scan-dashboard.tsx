@@ -63,6 +63,7 @@ interface PackData {
 }
 
 interface LiveScanDashboardProps {
+  storeId: string;
   currentShift: ShiftData | null;
   activePacks: PackData[];
   terminalId: string;
@@ -119,7 +120,12 @@ interface SalesEntry {
   pack?: { serialNumber: string; game: { name: string } };
 }
 
-export function LiveScanDashboard({
+export function LiveScanDashboard(props: LiveScanDashboardProps) {
+  return <StoreLiveScanDashboard key={JSON.stringify([props.storeId, props.terminalId])} {...props} />;
+}
+
+function StoreLiveScanDashboard({
+  storeId,
   currentShift,
   activePacks,
   terminalId,
@@ -162,6 +168,12 @@ export function LiveScanDashboard({
   const [historyResult, setHistoryResult] = useState<TicketHistoryResult | null>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const burstTimestampsRef = useRef<number[]>([]);
+  const activeRef = useRef(false);
+
+  useEffect(() => {
+    activeRef.current = true;
+    return () => { activeRef.current = false; };
+  }, []);
 
   // Auto-refresh polling every 10 seconds
   useEffect(() => {
@@ -244,37 +256,38 @@ export function LiveScanDashboard({
   }, []);
 
   useEffect(() => {
-    setOfflineQueue(readOfflineScanQueue(window.localStorage, terminalId));
-  }, [terminalId]);
+    setOfflineQueue(readOfflineScanQueue(window.localStorage, storeId, terminalId));
+  }, [storeId, terminalId]);
 
   const syncOfflineScans = useCallback(async () => {
     if (!isEmployee || !isOnline || !currentShift || syncingQueue) return;
-    const queued = readOfflineScanQueue(window.localStorage, terminalId);
+    const queued = readOfflineScanQueue(window.localStorage, storeId, terminalId);
     if (queued.length === 0) return;
 
     setSyncingQueue(true);
     setQueueMessage(`Syncing ${queued.length} queued scan${queued.length === 1 ? "" : "s"}...`);
     let synced = 0;
     for (const item of queued) {
+      if (!activeRef.current) break;
       try {
         const response = await fetch("/api/packs/check-serial", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ serialNumber: item.serialNumber, liveScan: true, terminalId, deviceKey: window.localStorage.getItem("lottoops:device-key") }),
+          body: JSON.stringify({ serialNumber: item.serialNumber, liveScan: true, terminalId, expectedStoreId: storeId, deviceKey: window.localStorage.getItem("lottoops:device-key") }),
         });
         if (!response.ok) break;
-        removeOfflineScan(window.localStorage, terminalId, item.id);
+        removeOfflineScan(window.localStorage, storeId, terminalId, item.id);
         synced += 1;
       } catch {
         break;
       }
     }
-    const remaining = readOfflineScanQueue(window.localStorage, terminalId);
+    const remaining = readOfflineScanQueue(window.localStorage, storeId, terminalId);
     setOfflineQueue(remaining);
     setQueueMessage(synced > 0 ? `${synced} queued scan${synced === 1 ? "" : "s"} synced.` : "Queued scans are waiting to retry.");
     setSyncingQueue(false);
     if (synced > 0) router.refresh();
-  }, [currentShift, isEmployee, isOnline, router, syncingQueue, terminalId]);
+  }, [currentShift, isEmployee, isOnline, router, syncingQueue, storeId, terminalId]);
 
   useEffect(() => {
     void syncOfflineScans();
@@ -344,7 +357,7 @@ export function LiveScanDashboard({
     }
 
     if (!isOnline && isEmployee) {
-      const nextQueue = enqueueOfflineScan(window.localStorage, terminalId, value);
+      const nextQueue = enqueueOfflineScan(window.localStorage, storeId, terminalId, value);
       setOfflineQueue(nextQueue);
       setQueueMessage("Saved on this device. It will sync when the connection returns.");
       setBarcode("");
@@ -360,7 +373,7 @@ export function LiveScanDashboard({
       const res = await fetch("/api/packs/check-serial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, deviceKey: window.localStorage.getItem("lottoops:device-key") }),
+        body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, expectedStoreId: storeId, deviceKey: window.localStorage.getItem("lottoops:device-key") }),
       });
 
       const data = await res.json();
