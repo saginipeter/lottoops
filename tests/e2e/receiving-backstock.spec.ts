@@ -1,16 +1,112 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type BrowserContext } from "@playwright/test";
 import { SignJWT } from "jose";
+
+async function signInStore(context: BrowserContext, baseURL: string, storeId = "inventory-store") {
+  const token = await new SignJWT({
+    userId: `operator-${storeId}`, storeId, storeName: storeId,
+    name: "Inventory Operator", email: "operator@example.test", role: "MANAGER", grantedPermissions: [],
+  }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m")
+    .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
+  await context.addCookies([{ name: "lottoops_session", value: token, url: baseURL }]);
+}
 
 test.describe("Receiving and backstock regressions", () => {
   test.skip(!process.env.E2E_REPORT_SECRET, "Requires offline development auth with matching JWT_SECRET and E2E_REPORT_SECRET.");
 
   test.beforeEach(async ({ context, baseURL }) => {
-    const token = await new SignJWT({
-      userId: "inventory-operator", storeId: "inventory-store", storeName: "Inventory Store",
-      name: "Inventory Operator", email: "operator@example.test", role: "MANAGER", grantedPermissions: [],
-    }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m")
-      .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
-    await context.addCookies([{ name: "lottoops_session", value: token, url: baseURL! }]);
+    await signInStore(context, baseURL!);
+  });
+
+  for (const entry of ["/inventory/receive", "/inventory/receive/step/1"]) {
+    test(`unfinished shipment details stay in their own store via ${entry}`, async ({ page, context, baseURL }) => {
+      await page.goto(entry);
+      await page.getByPlaceholder("Enter invoice number").fill("STORE-A-INVOICE");
+      await page.getByPlaceholder("Enter confirmation number").fill("STORE-A-CONFIRMATION");
+      await page.getByPlaceholder("Enter inventory cost").fill("95.50");
+      await page.reload();
+      await expect(page.getByPlaceholder("Enter invoice number")).toHaveValue("STORE-A-INVOICE");
+
+      await context.request.post("/api/auth/logout");
+      await signInStore(context, baseURL!, "other-store");
+      await page.goto(entry);
+      await expect(page.getByPlaceholder("Enter invoice number")).toHaveValue("");
+      await expect(page.getByPlaceholder("Enter confirmation number")).toHaveValue("");
+      await expect(page.getByPlaceholder("Enter inventory cost")).toHaveValue("");
+      await expect(page.getByLabel(/Received by/)).toHaveValue("Inventory Operator");
+      await page.getByPlaceholder("Enter invoice number").fill("STORE-B-INVOICE");
+
+      await context.request.post("/api/auth/logout");
+      await signInStore(context, baseURL!);
+      await page.goto(entry);
+      await expect(page.getByPlaceholder("Enter invoice number")).toHaveValue("STORE-A-INVOICE");
+      await expect(page.getByPlaceholder("Enter confirmation number")).toHaveValue("STORE-A-CONFIRMATION");
+      await expect(page.getByPlaceholder("Enter inventory cost")).toHaveValue("95.50");
+
+      await page.route("**/api/shipments", (route) => route.fulfill({ json: { ok: true } }));
+      page.once("dialog", (dialog) => dialog.accept());
+      await page.getByRole("button", { name: "Clear Form Data" }).click();
+      await expect(page.getByPlaceholder("Enter invoice number")).toHaveValue("");
+      await signInStore(context, baseURL!, "other-store");
+      await page.goto(entry);
+      await expect(page.getByPlaceholder("Enter invoice number")).toHaveValue("STORE-B-INVOICE");
+    });
+  }
+
+  test("scanned packs and scan inputs are restored only for their store", async ({ page, context, baseURL }) => {
+    await page.goto("/inventory/receive");
+    await expect(page.getByPlaceholder("Enter invoice number")).toBeVisible();
+    await page.evaluate(() => {
+      const key = "lottoops-receive-draft-v1:inventory-store";
+      const draft = JSON.parse(localStorage.getItem(key)!);
+      draft.step = 2;
+      draft.shipment.invoiceNumber = "STORE-A-INVOICE";
+      draft.scanDraft.barcode = "24240089877001";
+      draft.scanDraft.gameNumber = "2424";
+      draft.packs = [{
+        id: "draft-store-a", serialNumber: "24240089877", firstTicket: 1,
+        ticketPrice: 10, ticketQuantity: 50, status: "BACK_STOCK",
+        game: { gameNumber: "2424", name: "Store A draft game" },
+      }];
+      localStorage.setItem(key, JSON.stringify(draft));
+    });
+    await page.reload();
+    await expect(page.getByText("Store A draft game", { exact: true })).toBeVisible();
+    await expect(page.getByText("Step 2 of 4", { exact: true })).toBeVisible();
+
+    await context.request.post("/api/auth/logout");
+    await signInStore(context, baseURL!, "other-store");
+    await page.goto("/inventory/receive/step/2");
+    await expect(page.getByText("No packs scanned yet.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Store A draft game", { exact: true })).toHaveCount(0);
+    const otherDraft = await page.evaluate(() => JSON.parse(localStorage.getItem("lottoops-receive-draft-v1:other-store")!));
+    expect(otherDraft.scanDraft.barcode).toBe("");
+    expect(otherDraft.packs).toEqual([]);
+    expect(otherDraft.shipment.invoiceNumber).toBe("");
+
+    await signInStore(context, baseURL!);
+    await page.goto("/inventory/receive");
+    await expect(page.getByText("Store A draft game", { exact: true })).toBeVisible();
+    await expect(page.getByText("Step 2 of 4", { exact: true })).toBeVisible();
+    const restoredDraft = await page.evaluate(() => JSON.parse(localStorage.getItem("lottoops-receive-draft-v1:inventory-store")!));
+    expect(restoredDraft.scanDraft.barcode).toBe("24240089877001");
+  });
+
+  test("legacy drafts without store ownership are discarded, not migrated", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("lottoops-receive-draft-v1", JSON.stringify({
+        step: 2, shipment: { id: "foreign-shipment", invoiceNumber: "FOREIGN-INVOICE" },
+        scanDraft: { barcode: "24240089877001" },
+      }));
+    });
+    const shipmentRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/shipments/")) shipmentRequests.push(request.url());
+    });
+    await page.goto("/inventory/receive");
+    await expect(page.getByPlaceholder("Enter invoice number")).toHaveValue("");
+    await expect(page.getByText("Step 1 of 4", { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("lottoops-receive-draft-v1"))).toBeNull();
+    expect(shipmentRequests).toEqual([]);
   });
 
   test("scrolling over focused shipment amounts does not change values", async ({ page }) => {
