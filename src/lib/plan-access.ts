@@ -30,7 +30,7 @@ export async function getPlanAccess(
       id: session.storeId,
       OR: [
         { ownerUserId: session.userId },
-        { users: { some: { id: session.userId, role: "OWNER", active: true } } },
+        { users: { some: { id: session.userId, active: true } } },
       ],
     },
     select: { organizationId: true },
