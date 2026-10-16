@@ -76,9 +76,12 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kioskMode: boolean; artIndex: number }) {
   const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
   return <article className={`group relative flex min-h-0 flex-col overflow-hidden border-2 border-[#12283a] bg-white shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "text-[0.85em]" : ""}`}>
-    <div className={`relative min-h-0 overflow-hidden bg-[#e6f4f4] ${kioskMode ? "flex-1" : "aspect-[1.15]"}`}>
-      <Image src={referenceImage} alt={`${slot.gameName} lottery game artwork`} fill unoptimized className="object-cover" />
-      <div className="absolute left-0 top-0 bg-[#102b40] px-1.5 py-1 text-[8px] font-black uppercase text-white sm:text-[10px]">Display {slot.slotNumber}</div>
+    <div className="flex shrink-0 items-center justify-center gap-2 bg-[#102b40] px-2 py-1 font-black text-white">
+      <span className="text-[10px] uppercase sm:text-xs">Display</span>
+      <strong className="min-w-0 break-all text-2xl leading-none tabular-nums sm:text-4xl">{slot.slotNumber}</strong>
+    </div>
+    <div className={`relative min-h-0 overflow-hidden bg-[#e6f4f4] ${kioskMode ? "flex-1" : "aspect-[0.85]"}`}>
+      <Image src={slot.gameImage || referenceImage} alt={`${slot.gameName} lottery game artwork`} fill unoptimized className="object-contain" />
     </div>
     <div className="shrink-0 border-t-2 border-[#102b40] bg-white text-[#101828]">
       <div className="flex items-center justify-between gap-1 border-b border-[#c9d9df] bg-[#f7fbfb] px-1.5 py-1 sm:px-2">
