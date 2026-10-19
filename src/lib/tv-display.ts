@@ -36,6 +36,7 @@ export function getDisplayedTicketNumber(
   const first = Math.max(Number(firstTicket) || 1, 1);
   const safeQuantity = Math.max(Number(quantity) || 0, 0);
   const remaining = Math.min(Math.max(Number(remainingTicketCount) || 0, 0), safeQuantity);
+  if (remaining === 0) return 0;
   if (direction === "LAST") return remaining;
   const initialRemaining = Math.max(safeQuantity - first + 1, 0);
   return initialRemaining > 0 ? first + Math.max(initialRemaining - remaining, 0) : 0;
