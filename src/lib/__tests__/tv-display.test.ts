@@ -6,6 +6,7 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 import {
   calculateTicketProgress,
+  getDisplayRemainingTicketCount,
   getDisplayedTicketNumber,
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
@@ -86,6 +87,24 @@ test("derives the next physical ticket from a normal pack", () => {
 test("starts a first-ticket pack at the first physical ticket", () => {
   assert.equal(getDisplayedTicketNumber(1, 150, 150, "FIRST"), 1);
   assert.equal(getNextDisplayedTicket(1, 150, 150, "FIRST"), 2);
+});
+
+test("derives current and next tickets when an active pack has no remaining count", () => {
+  const firstDirectionRemaining = getDisplayRemainingTicketCount(null, 8, 50, "FIRST");
+  assert.equal(firstDirectionRemaining, 43);
+  assert.equal(getDisplayedTicketNumber(8, firstDirectionRemaining, 50, "FIRST"), 8);
+  assert.equal(getNextDisplayedTicket(8, firstDirectionRemaining, 50, "FIRST"), 9);
+
+  const lastDirectionRemaining = getDisplayRemainingTicketCount(null, 8, 50, "LAST");
+  assert.equal(lastDirectionRemaining, 50);
+  assert.equal(getDisplayedTicketNumber(8, lastDirectionRemaining, 50, "LAST"), 50);
+  assert.equal(getNextDisplayedTicket(8, lastDirectionRemaining, 50, "LAST"), 49);
+});
+
+test("preserves an explicit sold-out remaining count", () => {
+  assert.equal(getDisplayRemainingTicketCount(0, 1, 50, "FIRST"), 0);
+  assert.equal(getDisplayedTicketNumber(1, 0, 50, "FIRST"), 0);
+  assert.equal(getNextDisplayedTicket(1, 0, 50, "FIRST"), 0);
 });
 
 test("converts override physical tickets back to the canonical remaining count", () => {

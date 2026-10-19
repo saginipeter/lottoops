@@ -5,7 +5,11 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import AssignPackDialog from "./assign-pack-dialog";
 import { RemoveActivePackModal } from "@/components/inventory/remove-active-pack-modal";
-import { getDisplayedTicketNumber, getNextDisplayedTicket } from "@/lib/tv-display";
+import {
+  getDisplayRemainingTicketCount,
+  getDisplayedTicketNumber,
+  getNextDisplayedTicket,
+} from "@/lib/tv-display";
 
 interface SlotPack {
   id: string;
@@ -56,22 +60,27 @@ export default function DisplaySlotCard({
   }
 
   const ticketQuantity = slot.pack.ticketQuantity ?? 0;
-  const firstTicket = slot.pack.firstTicket ?? 0;
+  const firstTicket = slot.pack.firstTicket ?? 1;
   const totalTickets = ticketQuantity > 0 ? ticketQuantity : firstTicket;
   const direction = slot.pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
+  const remaining = getDisplayRemainingTicketCount(
+    slot.pack.currentTicketNumber,
+    firstTicket,
+    ticketQuantity,
+    direction,
+  );
   const currentTicketNumber = getDisplayedTicketNumber(
     firstTicket,
-    slot.pack.currentTicketNumber ?? 0,
+    remaining,
     ticketQuantity,
     direction,
   );
   const nextTicket = getNextDisplayedTicket(
     firstTicket,
-    slot.pack.currentTicketNumber ?? 0,
+    remaining,
     ticketQuantity,
     direction,
   );
-  const remaining = Math.max(Number(slot.pack.currentTicketNumber ?? 0), 0);
   const percent = totalTickets > 0 ? (remaining / totalTickets) * 100 : 0;
 
   return (

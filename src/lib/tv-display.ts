@@ -9,6 +9,24 @@ export function calculateTicketProgress(
   return { sold, remaining };
 }
 
+export function getDisplayRemainingTicketCount(
+  currentTicketNumber: number | null | undefined,
+  firstTicket: number,
+  quantity: number,
+  direction?: string | null,
+): number {
+  const safeQuantity = Math.max(Number(quantity) || 0, 0);
+  const current = Number(currentTicketNumber);
+  if (currentTicketNumber !== null && currentTicketNumber !== undefined && Number.isFinite(current)) {
+    return Math.min(Math.max(current, 0), safeQuantity);
+  }
+
+  if (direction === "LAST") return safeQuantity;
+
+  const first = Math.max(Number(firstTicket) || 1, 1);
+  return Math.min(Math.max(safeQuantity - first + 1, 0), safeQuantity);
+}
+
 export function getDisplayedTicketNumber(
   firstTicket: number,
   remainingTicketCount: number,
