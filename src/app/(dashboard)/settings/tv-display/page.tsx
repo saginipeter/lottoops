@@ -7,6 +7,7 @@ import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 import { TvKioskLink } from "@/components/settings/tv-kiosk-link";
 import {
   calculateTicketProgress,
+  getDisplayRemainingTicketCount,
   getDisplayedTicketNumber,
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
@@ -51,9 +52,14 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
     .map((slot: any) => {
       const pack = slot.pack;
       const quantity = pack.ticketQuantity ?? 0;
-      const firstTicket = pack.firstTicket ?? 0;
-      const remainingTicketCount = pack.currentTicketNumber ?? 0;
+      const firstTicket = pack.firstTicket ?? 1;
       const direction = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
+      const remainingTicketCount = getDisplayRemainingTicketCount(
+        pack.currentTicketNumber,
+        firstTicket,
+        quantity,
+        direction,
+      );
       const currentTicket = getDisplayedTicketNumber(
         firstTicket,
         remainingTicketCount,

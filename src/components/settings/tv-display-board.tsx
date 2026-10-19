@@ -63,8 +63,8 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
       {slots.length === 0 ? (
         <div className="border border-white/20 bg-white/5 p-10 text-center"><RefreshCw size={26} className="mx-auto mb-4 text-fuchsia-200" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
       ) : (
-        <div className={`grid grid-cols-5 ${kioskMode ? "min-h-0 flex-1 gap-1 overflow-y-auto sm:gap-2" : "gap-2 sm:gap-3"} border-2 border-[#16d5d8] bg-[#16d5d8] p-1 shadow-[0_4px_0_#02262e] sm:p-2`}>
-          {slots.map((slot, index) => <DisplayCard key={slot.id} slot={slot} artIndex={index} />)}
+        <div className={`grid grid-cols-5 ${kioskMode ? "min-h-0 flex-1 auto-rows-[minmax(7rem,1fr)] gap-1 overflow-y-auto sm:gap-2" : "gap-2 sm:gap-3"} border-2 border-[#16d5d8] bg-[#16d5d8] p-1 shadow-[0_4px_0_#02262e] sm:p-2`}>
+          {slots.map((slot, index) => <DisplayCard key={slot.id} slot={slot} artIndex={index} kioskMode={kioskMode} />)}
         </div>
       )}
 
@@ -73,33 +73,35 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
     </div>
   );
 }
-function DisplayCard({ slot, artIndex }: { slot: TvDisplaySlot; artIndex: number }) {
+function DisplayCard({ slot, artIndex, kioskMode }: { slot: TvDisplaySlot; artIndex: number; kioskMode: boolean }) {
   const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
-  return <article className="@container group relative aspect-[0.78] overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)]">
-    <strong className="absolute right-2 top-2 z-10 rounded-sm bg-[#1A365D] px-2 py-1 text-xl font-black leading-none tabular-nums text-white shadow sm:text-2xl">{slot.slotNumber}</strong>
-    <div className="absolute inset-0 overflow-hidden">
-      <Image
-        src={slot.gameImage || referenceImage}
-        alt={`${slot.gameName} lottery game artwork`}
-        fill
-        sizes="20vw"
-        unoptimized
-        className="object-cover"
-      />
-    </div>
-    <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-1 py-1.5 text-white backdrop-blur-sm sm:px-3">
-      <div className="grid grid-cols-2 gap-2 text-center">
-        <div className="min-w-0">
-          <strong className="block truncate text-[clamp(0.45rem,3cqw,0.75rem)] leading-tight">CURRENT TICKET</strong>
-          <strong className="block tabular-nums text-[clamp(0.8rem,6cqw,1.4rem)] leading-tight text-white">
-            {slot.currentTicket > 0 ? slot.currentTicket : "—"}
-          </strong>
-        </div>
-        <div className="min-w-0">
-          <strong className="block truncate text-[clamp(0.45rem,3cqw,0.75rem)] leading-tight">NEXT TICKET</strong>
-          <strong className="block tabular-nums text-[clamp(0.8rem,6cqw,1.4rem)] leading-tight text-amber-300">
-            {slot.nextTicket > 0 ? slot.nextTicket : "—"}
-          </strong>
+  return <article className={`group relative min-h-0 min-w-0 ${kioskMode ? "" : "aspect-[0.78]"} overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)]`}>
+    <div className="@container absolute inset-0">
+      <strong className="absolute right-2 top-2 z-10 rounded-sm bg-[#1A365D] px-2 py-1 text-xl font-black leading-none tabular-nums text-white shadow sm:text-2xl">{slot.slotNumber}</strong>
+      <div className="absolute inset-0 overflow-hidden">
+        <Image
+          src={slot.gameImage || referenceImage}
+          alt={`${slot.gameName} lottery game artwork`}
+          fill
+          sizes="20vw"
+          unoptimized
+          className="object-cover"
+        />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-1 py-1.5 text-white backdrop-blur-sm sm:px-3">
+        <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="min-w-0">
+            <strong className="block truncate text-[clamp(0.45rem,3cqw,0.75rem)] leading-tight">CURRENT TICKET</strong>
+            <strong className="block tabular-nums text-[clamp(0.8rem,6cqw,1.4rem)] leading-tight text-white">
+              {slot.currentTicket > 0 ? slot.currentTicket : "—"}
+            </strong>
+          </div>
+          <div className="min-w-0">
+            <strong className="block truncate text-[clamp(0.45rem,3cqw,0.75rem)] leading-tight">NEXT TICKET</strong>
+            <strong className="block tabular-nums text-[clamp(0.8rem,6cqw,1.4rem)] leading-tight text-amber-300">
+              {slot.nextTicket > 0 ? slot.nextTicket : "—"}
+            </strong>
+          </div>
         </div>
       </div>
     </div>

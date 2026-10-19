@@ -31,14 +31,14 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, />—</);
     assert.equal((html.match(/<strong class="block tabular-nums text-\[clamp\(0\.8rem,6cqw,1\.4rem\)\] leading-tight text-white">(?:12|1)<\/strong>/g) ?? []).length, 2);
     assert.equal((html.match(/<strong class="block tabular-nums text-\[clamp\(0\.8rem,6cqw,1\.4rem\)\] leading-tight text-amber-300">(?:13|—)<\/strong>/g) ?? []).length, 2);
-    assert.equal((html.match(/<article class="@container /g) ?? []).length, 2);
+    assert.equal((html.match(/<div class="@container absolute inset-0">/g) ?? []).length, 2);
   }
 });
 
 test("TV display shows every game together without slides", () => {
   const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
   for (const kioskMode of [false, true]) {
-    for (const count of [0, 1, 14, 15, 16, 30, 31]) {
+    for (const count of [0, 1, 14, 15, 16, 20, 30, 31, 40]) {
       const slots = Array.from({ length: count }, (_, index) => ({
         id: `slot-${index}`, packId: `pack-${index}`, slotNumber: String(index + 1),
         gameName: `Test game ${index + 1}`, gameNumber: "1234", ticketPrice: 1,
