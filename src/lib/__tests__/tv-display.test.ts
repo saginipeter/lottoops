@@ -34,7 +34,7 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
   }
 });
 
-test("TV slides use a fixed 5 by 3 grid and show at most 15 games", () => {
+test("TV display shows every game together without slides", () => {
   const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
   for (const kioskMode of [false, true]) {
     for (const count of [0, 1, 14, 15, 16, 30, 31]) {
@@ -47,24 +47,15 @@ test("TV slides use a fixed 5 by 3 grid and show at most 15 games", () => {
       const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, {
         value: router,
       }, createElement(TvDisplayBoard, { slots, kioskMode, refreshSeconds: 30 })));
-      assert.equal((html.match(/<article /g) ?? []).length, Math.min(count, 15));
+      assert.equal((html.match(/<article /g) ?? []).length, count);
       if (count === 0) {
         assert.match(html, /No games on display/);
       } else {
-        assert.match(html, /grid-cols-5 grid-rows-3/);
-        assert.doesNotMatch(html, /Test game 16 lottery game artwork/);
+        assert.match(html, /grid-cols-5/);
+        assert.match(html, new RegExp(`Test game ${count} lottery game artwork`));
       }
-      if (count > 15) {
-        assert.match(html, new RegExp(`Slide 1 of ${Math.ceil(count / 15)}`));
-        assert.match(html, /aria-label="Previous slide"/);
-        assert.match(html, /aria-label="Next slide"/);
-        assert.match(html, /group\/slides absolute inset-x-0 bottom-0/);
-        assert.match(html, /aria-label="Display slides" class="pointer-events-none [^"]*opacity-0/);
-        assert.match(html, /group-hover\/slides:pointer-events-auto group-hover\/slides:opacity-100/);
-        assert.match(html, /group-focus-within\/slides:pointer-events-auto group-focus-within\/slides:opacity-100/);
-      } else {
-        assert.doesNotMatch(html, /aria-label="Display slides"/);
-      }
+      assert.doesNotMatch(html, /aria-label="Display slides"|Previous slide|Next slide|Slide \d+ of \d+/);
+      if (kioskMode && count > 15) assert.match(html, /overflow-y-auto/);
     }
   }
 });
