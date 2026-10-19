@@ -29,26 +29,10 @@ interface TvDisplayBoardProps {
   kioskToken?: string;
 }
 
-const SLOTS_PER_SLIDE = 15;
-const SLIDE_SECONDS = 10;
-
 export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBoardProps) {
   const router = useRouter();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date>(new Date());
   const [stale, setStale] = useState(false);
-  const [slide, setSlide] = useState(0);
-  const slideCount = Math.max(1, Math.ceil(slots.length / SLOTS_PER_SLIDE));
-  const activeSlide = Math.min(slide, slideCount - 1);
-  const slideOffset = activeSlide * SLOTS_PER_SLIDE;
-  const visibleSlots = slots.slice(slideOffset, slideOffset + SLOTS_PER_SLIDE);
-
-  useEffect(() => {
-    if (slideCount <= 1) return;
-    const timer = setInterval(() => {
-      setSlide((current) => (Math.min(current, slideCount - 1) + 1) % slideCount);
-    }, SLIDE_SECONDS * 1000);
-    return () => clearInterval(timer);
-  }, [slideCount]);
 
   const refreshBoard = useCallback(() => {
     router.refresh();
@@ -79,18 +63,8 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
       {slots.length === 0 ? (
         <div className="border border-white/20 bg-white/5 p-10 text-center"><RefreshCw size={26} className="mx-auto mb-4 text-fuchsia-200" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
       ) : (
-        <div className={`grid grid-cols-5 grid-rows-3 ${kioskMode ? "min-h-0 flex-1 gap-1 overflow-hidden sm:gap-2" : "gap-2 sm:gap-3"} border-2 border-[#16d5d8] bg-[#16d5d8] p-1 shadow-[0_4px_0_#02262e] sm:p-2`}>
-          {visibleSlots.map((slot, index) => <DisplayCard key={slot.id} slot={slot} kioskMode={kioskMode} artIndex={slideOffset + index} />)}
-        </div>
-      )}
-
-      {slideCount > 1 && (
-        <div className="group/slides absolute inset-x-0 bottom-0 z-20 flex justify-center pb-2 pt-6">
-          <nav aria-label="Display slides" className="pointer-events-none flex items-center justify-center gap-4 rounded bg-[#062f3a]/95 px-3 py-2 text-xs font-bold opacity-0 transition-opacity group-hover/slides:pointer-events-auto group-hover/slides:opacity-100 group-focus-within/slides:pointer-events-auto group-focus-within/slides:opacity-100">
-            <button type="button" aria-label="Previous slide" className="rounded border border-white/30 px-3 py-1 hover:bg-white/10" onClick={() => setSlide((activeSlide + slideCount - 1) % slideCount)}>Previous</button>
-            <span>Slide {activeSlide + 1} of {slideCount}</span>
-            <button type="button" aria-label="Next slide" className="rounded border border-white/30 px-3 py-1 hover:bg-white/10" onClick={() => setSlide((activeSlide + 1) % slideCount)}>Next</button>
-          </nav>
+        <div className={`grid grid-cols-5 ${kioskMode ? "min-h-0 flex-1 gap-1 overflow-y-auto sm:gap-2" : "gap-2 sm:gap-3"} border-2 border-[#16d5d8] bg-[#16d5d8] p-1 shadow-[0_4px_0_#02262e] sm:p-2`}>
+          {slots.map((slot, index) => <DisplayCard key={slot.id} slot={slot} artIndex={index} />)}
         </div>
       )}
 
@@ -99,9 +73,9 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
     </div>
   );
 }
-function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kioskMode: boolean; artIndex: number }) {
+function DisplayCard({ slot, artIndex }: { slot: TvDisplaySlot; artIndex: number }) {
   const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
-  return <article className={`@container group relative min-h-0 overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "h-full text-[0.85em]" : "aspect-[0.78]"}`}>
+  return <article className="@container group relative aspect-[0.78] overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)]">
     <strong className="absolute right-2 top-2 z-10 rounded-sm bg-[#1A365D] px-2 py-1 text-xl font-black leading-none tabular-nums text-white shadow sm:text-2xl">{slot.slotNumber}</strong>
     <div className="absolute inset-0 overflow-hidden">
       <Image
