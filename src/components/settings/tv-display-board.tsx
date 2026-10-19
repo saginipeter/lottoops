@@ -115,8 +115,8 @@ function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kiosk
     </div>
     <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-1 py-1.5 text-white backdrop-blur-sm sm:px-3">
       <div className="flex min-w-0 items-center justify-between gap-1 whitespace-nowrap text-[clamp(0.25rem,8cqw,1.5rem)] font-black leading-none text-white">
-        <strong className="tabular-nums">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
         <strong>NEW TICKET</strong>
+        <strong className="tabular-nums text-amber-300">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
       </div>
     </div>
   </article>;
