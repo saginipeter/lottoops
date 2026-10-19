@@ -73,7 +73,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
     : "border border-[#0d82a6] bg-[#062f3a] p-3 text-white sm:p-5";
 
   return (
-    <div className={shellClass}>
+    <div className={`relative ${shellClass}`}>
       {stale && <div className="mb-3 flex items-center gap-2 border border-amber-400/50 bg-amber-300/10 px-3 py-2 text-xs text-amber-100 sm:mb-4"><CircleAlert size={15} /><span><strong>Updates delayed.</strong> Showing the last verified board.</span></div>}
 
       {slots.length === 0 ? (
@@ -85,11 +85,13 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
       )}
 
       {slideCount > 1 && (
-        <nav aria-label="Display slides" className="mt-2 flex shrink-0 items-center justify-center gap-4 text-xs font-bold">
-          <button type="button" aria-label="Previous slide" className="rounded border border-white/30 px-3 py-1 hover:bg-white/10" onClick={() => setSlide((activeSlide + slideCount - 1) % slideCount)}>Previous</button>
-          <span>Slide {activeSlide + 1} of {slideCount}</span>
-          <button type="button" aria-label="Next slide" className="rounded border border-white/30 px-3 py-1 hover:bg-white/10" onClick={() => setSlide((activeSlide + 1) % slideCount)}>Next</button>
-        </nav>
+        <div className="group/slides absolute inset-x-0 bottom-0 z-20 flex justify-center pb-2 pt-6">
+          <nav aria-label="Display slides" className="pointer-events-none flex items-center justify-center gap-4 rounded bg-[#062f3a]/95 px-3 py-2 text-xs font-bold opacity-0 transition-opacity group-hover/slides:pointer-events-auto group-hover/slides:opacity-100 group-focus-within/slides:pointer-events-auto group-focus-within/slides:opacity-100">
+            <button type="button" aria-label="Previous slide" className="rounded border border-white/30 px-3 py-1 hover:bg-white/10" onClick={() => setSlide((activeSlide + slideCount - 1) % slideCount)}>Previous</button>
+            <span>Slide {activeSlide + 1} of {slideCount}</span>
+            <button type="button" aria-label="Next slide" className="rounded border border-white/30 px-3 py-1 hover:bg-white/10" onClick={() => setSlide((activeSlide + 1) % slideCount)}>Next</button>
+          </nav>
+        </div>
       )}
 
       {!kioskMode && <footer className="mt-3 flex items-center justify-between gap-3 border-t border-white/20 pt-2 text-[9px] font-bold uppercase tracking-wider text-white/55"><span className="inline-flex items-center gap-2"><ShieldCheck size={13} className="text-[#65f0d1]" />Live inventory board</span><span>Updated every {refreshSeconds}s</span></footer>}
@@ -99,7 +101,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 }
 function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kioskMode: boolean; artIndex: number }) {
   const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
-  return <article className={`group relative min-h-0 overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "h-full text-[0.85em]" : "aspect-[0.78]"}`}>
+  return <article className={`@container group relative min-h-0 overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "h-full text-[0.85em]" : "aspect-[0.78]"}`}>
     <strong className="absolute right-2 top-2 z-10 rounded-sm bg-[#1A365D] px-2 py-1 text-xl font-black leading-none tabular-nums text-white shadow sm:text-2xl">{slot.slotNumber}</strong>
     <div className="absolute inset-0 overflow-hidden">
       <Image
@@ -111,10 +113,10 @@ function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kiosk
         className="object-cover"
       />
     </div>
-    <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-2 py-1.5 text-white backdrop-blur-sm sm:px-3">
-      <div className="flex min-w-0 flex-col">
-        <span className="text-[7px] font-black uppercase tracking-wide text-white/70 sm:text-[9px]">NEW TICKET</span>
-        <strong className="text-base font-black leading-none tabular-nums text-white sm:text-xl">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
+    <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-1 py-1.5 text-white backdrop-blur-sm sm:px-3">
+      <div className="flex min-w-0 items-center justify-between gap-1 whitespace-nowrap text-[clamp(0.25rem,8cqw,1.5rem)] font-black leading-none text-white">
+        <strong className="tabular-nums">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
+        <strong>NEW TICKET</strong>
       </div>
     </div>
   </article>;

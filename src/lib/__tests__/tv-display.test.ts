@@ -27,6 +27,9 @@ test("TV slot HUDs show only NEW TICKET and the next ticket number in preview an
     assert.doesNotMatch(html, />CURRENT<|>NEXT<|>FIRST<|>LAST<|>12</);
     assert.match(html, />13</);
     assert.match(html, />—</);
+    assert.equal((html.match(/<strong class="tabular-nums">(?:13|—)<\/strong><strong>NEW TICKET<\/strong>/g) ?? []).length, 2);
+    assert.equal((html.match(/<article class="@container /g) ?? []).length, 2);
+    assert.equal((html.match(/justify-between gap-1 whitespace-nowrap text-\[clamp\(0\.25rem,8cqw,1\.5rem\)\] font-black/g) ?? []).length, 2);
   }
 });
 
@@ -54,6 +57,10 @@ test("TV slides use a fixed 5 by 3 grid and show at most 15 games", () => {
         assert.match(html, new RegExp(`Slide 1 of ${Math.ceil(count / 15)}`));
         assert.match(html, /aria-label="Previous slide"/);
         assert.match(html, /aria-label="Next slide"/);
+        assert.match(html, /group\/slides absolute inset-x-0 bottom-0/);
+        assert.match(html, /aria-label="Display slides" class="pointer-events-none [^"]*opacity-0/);
+        assert.match(html, /group-hover\/slides:pointer-events-auto group-hover\/slides:opacity-100/);
+        assert.match(html, /group-focus-within\/slides:pointer-events-auto group-focus-within\/slides:opacity-100/);
       } else {
         assert.doesNotMatch(html, /aria-label="Display slides"/);
       }
