@@ -11,7 +11,7 @@ import {
 } from "@/lib/tv-display";
 import { remainingTicketsAfterDirectionChange, remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
 
-test("TV slot HUDs show only NEW TICKET and the next ticket number in preview and kiosk modes", () => {
+test("TV slot HUDs show current and next ticket numbers in preview and kiosk modes", () => {
   const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
   for (const kioskMode of [false, true]) {
     const slots = (["FIRST", "LAST"] as const).map((sellDirection, index) => ({
@@ -23,13 +23,14 @@ test("TV slot HUDs show only NEW TICKET and the next ticket number in preview an
     const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, {
       value: router,
     }, createElement(TvDisplayBoard, { slots, kioskMode, refreshSeconds: 30 })));
-    assert.equal((html.match(/>NEW TICKET</g) ?? []).length, 2);
-    assert.doesNotMatch(html, />CURRENT<|>NEXT<|>FIRST<|>LAST<|>12</);
+    assert.equal((html.match(/>CURRENT TICKET</g) ?? []).length, 2);
+    assert.equal((html.match(/>NEXT TICKET</g) ?? []).length, 2);
+    assert.equal((html.match(/>12</g) ?? []).length, 1);
     assert.match(html, />13</);
     assert.match(html, />—</);
-    assert.equal((html.match(/<strong>NEW TICKET<\/strong><strong class="tabular-nums text-amber-300">(?:13|—)<\/strong>/g) ?? []).length, 2);
+    assert.equal((html.match(/<strong class="block tabular-nums text-\[clamp\(0\.8rem,6cqw,1\.4rem\)\] leading-tight text-white">(?:12|1)<\/strong>/g) ?? []).length, 2);
+    assert.equal((html.match(/<strong class="block tabular-nums text-\[clamp\(0\.8rem,6cqw,1\.4rem\)\] leading-tight text-amber-300">(?:13|—)<\/strong>/g) ?? []).length, 2);
     assert.equal((html.match(/<article class="@container /g) ?? []).length, 2);
-    assert.equal((html.match(/justify-between gap-1 whitespace-nowrap text-\[clamp\(0\.25rem,8cqw,1\.5rem\)\] font-black/g) ?? []).length, 2);
   }
 });
 
