@@ -30,7 +30,7 @@ export function LotteryPos(props: PosProps) {
 function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosProps) {
   const [barcode, setBarcode] = useState("");
   const [result, setResult] = useState<SaleResult | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ message: string } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [online, setOnline] = useState(true);
@@ -55,6 +55,18 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
 
   const refreshQueue = useCallback(() => setQueue(readQueue(storeId, terminalId)), [storeId, terminalId]);
   const focusInput = useCallback(() => window.setTimeout(() => inputRef.current?.focus(), 80), []);
+  useEffect(() => {
+    if (!showSuccess) return;
+    const timer = window.setTimeout(() => { setShowSuccess(false); focusInput(); }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [showSuccess, focusInput]);
+
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => setError(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [error]);
+
   const refreshInventory = useCallback(async () => {
     try {
       const response = await fetch("/api/pos/inventory-status", { cache: "no-store" });
@@ -75,7 +87,7 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
 
   const enqueue = useCallback((value: string) => {
     const next = [...readQueue(storeId, terminalId), { id: makeId(), barcode: value, queuedAt: new Date().toISOString(), attempts: 0, state: "PENDING" as const }];
-    writeQueue(storeId, terminalId, next); setQueue(next); setResult({ status: "queued", ticketBarcode: value }); setError(""); setShowSuccess(false);
+    writeQueue(storeId, terminalId, next); setQueue(next); setResult({ status: "queued", ticketBarcode: value }); setError(null); setShowSuccess(false);
   }, [storeId, terminalId]);
 
   const sendSale = useCallback(async (value: string, isReplay = false): Promise<"synced" | "retry" | "conflict" | "store-changed"> => {
@@ -84,7 +96,7 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
       const data = (await response.json()) as SaleResult;
       if (response.ok) { if (!isReplay) { setResult(data); setLastSale(data); setReturnMessage(null); setShowSuccess(true); } return "synced"; }
       if (data.code === "STORE_CHANGED") {
-        if (!isReplay) setError(data.error ?? "The signed-in store changed.");
+        if (!isReplay) setError({ message: data.error ?? "The signed-in store changed." });
         return "store-changed";
       }
       // If a response was lost after the server committed, the API's duplicate guard
@@ -92,7 +104,7 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
       if (isReplay && response.status === 409 && /already scanned|duplicate/i.test(data.error ?? "")) return "synced";
       const rejectionReason = data.error || "Unable to complete the ticket sale.";
       if (isReplay) replayReasonRef.current = rejectionReason;
-      if (!isReplay) setError(rejectionReason);
+      if (!isReplay) setError({ message: rejectionReason });
       return isReplay && response.status >= 500 ? "retry" : isReplay ? "conflict" : "synced";
     } catch {
       if (!isReplay) enqueue(value);
@@ -150,14 +162,15 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
   async function submitScan(value = barcode) {
     const normalized = value.replace(/\D/g, "");
     if (!normalized || scanning) return;
-    if (normalized.length !== 14) { setError("Enter or scan the complete 14-digit ticket barcode."); return; }
-    setScanning(true); setError(""); setShowSuccess(false); setBarcode("");
+    setShowSuccess(false);
+    if (normalized.length !== 14) { setError({ message: "Enter or scan the complete 14-digit ticket barcode." }); focusInput(); return; }
+    setScanning(true); setError(null); setBarcode("");
     if (!navigator.onLine) { enqueue(normalized); setScanning(false); focusInput(); return; }
     await sendSale(normalized); void refreshInventory();
     setScanning(false); focusInput();
   }
 
-  function resetForNextScan() { setShowSuccess(false); setError(""); setBarcode(""); focusInput(); }
+  function resetForNextScan() { setShowSuccess(false); setError(null); setBarcode(""); focusInput(); }
 
   async function submitReturn() {
     if (!lastSale?.id || !lastSale.shiftId || !lastSale.saleId || !returnReason || returning) return;
@@ -206,7 +219,7 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
       </div>}
       {returnMessage && <p role="status" className={`mt-3 text-sm font-semibold ${returnMessage.type === "success" ? "text-emerald-700" : "text-red-700"}`}>{returnMessage.text}</p>}
     </section>
-    {error && <div className="mt-5 flex items-start gap-3 border-2 border-red-200 bg-red-50 px-4 py-4 text-red-900" role="alert"><AlertTriangle className="mt-0.5 shrink-0" size={21} /><div><p className="font-black">Scan blocked</p><p className="mt-1 text-sm">{error}</p></div><button type="button" onClick={() => setError("")} className="ml-auto p-1 hover:bg-red-100" aria-label="Dismiss error"><X size={18} /></button></div>}
+    {error && <div className="fixed inset-x-4 top-4 z-[60] mx-auto flex max-w-2xl items-start gap-3 border-2 border-red-600 bg-red-50 px-4 py-4 text-red-900 shadow-2xl" role="alert"><AlertTriangle className="mt-0.5 shrink-0" size={21} /><div><p className="font-black">Scan blocked</p><p className="mt-1 text-sm">{error.message}</p></div><button type="button" onClick={() => setError(null)} className="ml-auto p-1 hover:bg-red-100" aria-label="Dismiss error"><X size={18} /></button></div>}
   </main>{showSuccess && result && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Sale complete"><div className="w-full max-w-md bg-white p-7 text-center shadow-2xl"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 size={38} /></div><p className="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Sale complete</p><h2 className="mt-1 text-3xl font-black">Ticket recorded</h2><p className="mt-2 text-slate-500">${Number(result.salesAmount ?? result.ticketPrice ?? 0).toFixed(2)} · {result.gameName ?? "Lottery ticket"}</p><button type="button" onClick={resetForNextScan} className="mt-6 min-h-14 w-full bg-[#087da8] text-lg font-black text-white">Scan next ticket</button></div></div>}</div>;
 }
 

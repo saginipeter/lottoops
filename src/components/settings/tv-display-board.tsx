@@ -87,7 +87,7 @@ function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kiosk
         className="object-cover"
       />
     </div>
-    <div className="absolute inset-x-0 bottom-0 z-10 grid grid-cols-[1fr_1fr_auto] items-center gap-2 border-t border-white/20 bg-[#071827]/85 px-2 py-1.5 text-white backdrop-blur-sm sm:px-3">
+    <div className="absolute inset-x-0 bottom-0 z-10 grid grid-cols-2 items-center gap-2 border-t border-white/20 bg-[#071827]/85 px-2 py-1.5 text-white backdrop-blur-sm sm:px-3">
       <div className="flex min-w-0 flex-col">
         <span className="text-[7px] font-black uppercase tracking-wide text-white/70 sm:text-[9px]">CURRENT</span>
         <strong className="text-base font-black leading-none tabular-nums text-[#ff6868] sm:text-xl">{slot.currentTicket}</strong>
@@ -96,7 +96,6 @@ function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kiosk
         <span className="text-[7px] font-black uppercase tracking-wide text-white/70 sm:text-[9px]">NEXT</span>
         <strong className="text-base font-black leading-none tabular-nums text-white sm:text-xl">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
       </div>
-      <span className={`shrink-0 rounded px-1.5 py-1 text-[7px] font-black uppercase sm:text-[9px] ${slot.sellDirection === "LAST" ? "bg-[#fff0db] text-[#8a4b08]" : "bg-[#e7f4ed] text-[#17633b]"}`}>{slot.sellDirection}</span>
     </div>
   </article>;
 }
