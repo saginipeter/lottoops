@@ -28,7 +28,8 @@ test("TV slot HUDs show only NEW TICKET and the next ticket number in preview an
     assert.match(html, />13</);
     assert.match(html, />—</);
     assert.equal((html.match(/<strong class="tabular-nums">(?:13|—)<\/strong><strong>NEW TICKET<\/strong>/g) ?? []).length, 2);
-    assert.equal((html.match(/justify-between gap-1 whitespace-nowrap text-\[clamp\(0\.5rem,1\.5vw,1\.5rem\)\] font-black/g) ?? []).length, 2);
+    assert.equal((html.match(/<article class="@container /g) ?? []).length, 2);
+    assert.equal((html.match(/justify-between gap-1 whitespace-nowrap text-\[clamp\(0\.25rem,8cqw,1\.5rem\)\] font-black/g) ?? []).length, 2);
   }
 });
 

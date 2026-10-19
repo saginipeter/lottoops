@@ -101,7 +101,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 }
 function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kioskMode: boolean; artIndex: number }) {
   const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
-  return <article className={`group relative min-h-0 overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "h-full text-[0.85em]" : "aspect-[0.78]"}`}>
+  return <article className={`@container group relative min-h-0 overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)] ${kioskMode ? "h-full text-[0.85em]" : "aspect-[0.78]"}`}>
     <strong className="absolute right-2 top-2 z-10 rounded-sm bg-[#1A365D] px-2 py-1 text-xl font-black leading-none tabular-nums text-white shadow sm:text-2xl">{slot.slotNumber}</strong>
     <div className="absolute inset-0 overflow-hidden">
       <Image
@@ -113,8 +113,8 @@ function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kiosk
         className="object-cover"
       />
     </div>
-    <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-2 py-1.5 text-white backdrop-blur-sm sm:px-3">
-      <div className="flex min-w-0 items-center justify-between gap-1 whitespace-nowrap text-[clamp(0.5rem,1.5vw,1.5rem)] font-black leading-none text-white">
+    <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-1 py-1.5 text-white backdrop-blur-sm sm:px-3">
+      <div className="flex min-w-0 items-center justify-between gap-1 whitespace-nowrap text-[clamp(0.25rem,8cqw,1.5rem)] font-black leading-none text-white">
         <strong className="tabular-nums">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
         <strong>NEW TICKET</strong>
       </div>
