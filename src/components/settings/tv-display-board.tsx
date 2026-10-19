@@ -29,10 +29,26 @@ interface TvDisplayBoardProps {
   kioskToken?: string;
 }
 
+const SLOTS_PER_SLIDE = 15;
+const SLIDE_SECONDS = 10;
+
 export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBoardProps) {
   const router = useRouter();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date>(new Date());
   const [stale, setStale] = useState(false);
+  const [slide, setSlide] = useState(0);
+  const slideCount = Math.max(1, Math.ceil(slots.length / SLOTS_PER_SLIDE));
+  const activeSlide = Math.min(slide, slideCount - 1);
+  const slideOffset = activeSlide * SLOTS_PER_SLIDE;
+  const visibleSlots = slots.slice(slideOffset, slideOffset + SLOTS_PER_SLIDE);
+
+  useEffect(() => {
+    if (slideCount <= 1) return;
+    const timer = setInterval(() => {
+      setSlide((current) => (Math.min(current, slideCount - 1) + 1) % slideCount);
+    }, SLIDE_SECONDS * 1000);
+    return () => clearInterval(timer);
+  }, [slideCount]);
 
   const refreshBoard = useCallback(() => {
     router.refresh();
@@ -63,9 +79,17 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
       {slots.length === 0 ? (
         <div className="border border-white/20 bg-white/5 p-10 text-center"><RefreshCw size={26} className="mx-auto mb-4 text-fuchsia-200" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
       ) : (
-        <div className={`${kioskMode ? "grid min-h-0 flex-1 gap-1 overflow-hidden sm:gap-2" : "grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5 2xl:grid-cols-7"} border-2 border-[#16d5d8] bg-[#16d5d8] p-1 shadow-[0_4px_0_#02262e] sm:p-2`} style={kioskMode ? { gridTemplateColumns: `repeat(${Math.min(Math.max(Math.ceil(Math.sqrt(slots.length * 1.55)), 1), 8)}, minmax(0, 1fr))`, gridAutoRows: "minmax(0, 1fr)" } : undefined}>
-          {slots.map((slot, index) => <DisplayCard key={slot.id} slot={slot} kioskMode={kioskMode} artIndex={index} />)}
+        <div className={`grid grid-cols-5 grid-rows-3 ${kioskMode ? "min-h-0 flex-1 gap-1 overflow-hidden sm:gap-2" : "gap-2 sm:gap-3"} border-2 border-[#16d5d8] bg-[#16d5d8] p-1 shadow-[0_4px_0_#02262e] sm:p-2`}>
+          {visibleSlots.map((slot, index) => <DisplayCard key={slot.id} slot={slot} kioskMode={kioskMode} artIndex={slideOffset + index} />)}
         </div>
+      )}
+
+      {slideCount > 1 && (
+        <nav aria-label="Display slides" className="mt-2 flex shrink-0 items-center justify-center gap-4 text-xs font-bold">
+          <button type="button" aria-label="Previous slide" className="rounded border border-white/30 px-3 py-1 hover:bg-white/10" onClick={() => setSlide((activeSlide + slideCount - 1) % slideCount)}>Previous</button>
+          <span>Slide {activeSlide + 1} of {slideCount}</span>
+          <button type="button" aria-label="Next slide" className="rounded border border-white/30 px-3 py-1 hover:bg-white/10" onClick={() => setSlide((activeSlide + 1) % slideCount)}>Next</button>
+        </nav>
       )}
 
       {!kioskMode && <footer className="mt-3 flex items-center justify-between gap-3 border-t border-white/20 pt-2 text-[9px] font-bold uppercase tracking-wider text-white/55"><span className="inline-flex items-center gap-2"><ShieldCheck size={13} className="text-[#65f0d1]" />Live inventory board</span><span>Updated every {refreshSeconds}s</span></footer>}
@@ -82,18 +106,14 @@ function DisplayCard({ slot, kioskMode, artIndex }: { slot: TvDisplaySlot; kiosk
         src={slot.gameImage || referenceImage}
         alt={`${slot.gameName} lottery game artwork`}
         fill
-        sizes="(min-width: 1536px) 14vw, (min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+        sizes="20vw"
         unoptimized
         className="object-cover"
       />
     </div>
-    <div className="absolute inset-x-0 bottom-0 z-10 grid grid-cols-2 items-center gap-2 border-t border-white/20 bg-[#071827]/85 px-2 py-1.5 text-white backdrop-blur-sm sm:px-3">
+    <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-2 py-1.5 text-white backdrop-blur-sm sm:px-3">
       <div className="flex min-w-0 flex-col">
-        <span className="text-[7px] font-black uppercase tracking-wide text-white/70 sm:text-[9px]">CURRENT</span>
-        <strong className="text-base font-black leading-none tabular-nums text-[#ff6868] sm:text-xl">{slot.currentTicket}</strong>
-      </div>
-      <div className="flex min-w-0 flex-col">
-        <span className="text-[7px] font-black uppercase tracking-wide text-white/70 sm:text-[9px]">NEXT</span>
+        <span className="text-[7px] font-black uppercase tracking-wide text-white/70 sm:text-[9px]">NEW TICKET</span>
         <strong className="text-base font-black leading-none tabular-nums text-white sm:text-xl">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</strong>
       </div>
     </div>

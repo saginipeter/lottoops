@@ -11,7 +11,7 @@ import {
 } from "@/lib/tv-display";
 import { remainingTicketsAfterDirectionChange, remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
 
-test("TV slot HUDs show only current and next tickets in preview and kiosk modes", () => {
+test("TV slot HUDs show only NEW TICKET and the next ticket number in preview and kiosk modes", () => {
   const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
   for (const kioskMode of [false, true]) {
     const slots = (["FIRST", "LAST"] as const).map((sellDirection, index) => ({
@@ -23,13 +23,41 @@ test("TV slot HUDs show only current and next tickets in preview and kiosk modes
     const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, {
       value: router,
     }, createElement(TvDisplayBoard, { slots, kioskMode, refreshSeconds: 30 })));
-    assert.equal((html.match(/>CURRENT</g) ?? []).length, 2);
-    assert.equal((html.match(/>NEXT</g) ?? []).length, 2);
-    assert.doesNotMatch(html, />FIRST<|>LAST</);
-    assert.match(html, />12</);
+    assert.equal((html.match(/>NEW TICKET</g) ?? []).length, 2);
+    assert.doesNotMatch(html, />CURRENT<|>NEXT<|>FIRST<|>LAST<|>12</);
     assert.match(html, />13</);
     assert.match(html, />—</);
-    assert.equal((html.match(/grid-cols-2 items-center/g) ?? []).length, 2);
+  }
+});
+
+test("TV slides use a fixed 5 by 3 grid and show at most 15 games", () => {
+  const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
+  for (const kioskMode of [false, true]) {
+    for (const count of [0, 1, 14, 15, 16, 30, 31]) {
+      const slots = Array.from({ length: count }, (_, index) => ({
+        id: `slot-${index}`, packId: `pack-${index}`, slotNumber: String(index + 1),
+        gameName: `Test game ${index + 1}`, gameNumber: "1234", ticketPrice: 1,
+        sellDirection: "FIRST" as const, firstTicket: 1, currentTicket: 12,
+        nextTicket: 13, remaining: 38, sold: 12, quantity: 50,
+      }));
+      const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, {
+        value: router,
+      }, createElement(TvDisplayBoard, { slots, kioskMode, refreshSeconds: 30 })));
+      assert.equal((html.match(/<article /g) ?? []).length, Math.min(count, 15));
+      if (count === 0) {
+        assert.match(html, /No games on display/);
+      } else {
+        assert.match(html, /grid-cols-5 grid-rows-3/);
+        assert.doesNotMatch(html, /Test game 16 lottery game artwork/);
+      }
+      if (count > 15) {
+        assert.match(html, new RegExp(`Slide 1 of ${Math.ceil(count / 15)}`));
+        assert.match(html, /aria-label="Previous slide"/);
+        assert.match(html, /aria-label="Next slide"/);
+      } else {
+        assert.doesNotMatch(html, /aria-label="Display slides"/);
+      }
+    }
   }
 });
 
