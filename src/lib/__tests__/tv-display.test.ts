@@ -1,11 +1,37 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 import {
   calculateTicketProgress,
   getDisplayedTicketNumber,
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
 import { remainingTicketsAfterDirectionChange, remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
+
+test("TV slot HUDs show only current and next tickets in preview and kiosk modes", () => {
+  const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
+  for (const kioskMode of [false, true]) {
+    const slots = (["FIRST", "LAST"] as const).map((sellDirection, index) => ({
+      id: `slot-${index}`, packId: `pack-${index}`, slotNumber: String(index + 1),
+      gameName: "Test game", gameNumber: "1234", ticketPrice: 1, sellDirection,
+      firstTicket: 1, currentTicket: index === 0 ? 12 : 1, nextTicket: index === 0 ? 13 : 0,
+      remaining: 1, sold: 49, quantity: 50,
+    }));
+    const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, {
+      value: router,
+    }, createElement(TvDisplayBoard, { slots, kioskMode, refreshSeconds: 30 })));
+    assert.equal((html.match(/>CURRENT</g) ?? []).length, 2);
+    assert.equal((html.match(/>NEXT</g) ?? []).length, 2);
+    assert.doesNotMatch(html, />FIRST<|>LAST</);
+    assert.match(html, />12</);
+    assert.match(html, />13</);
+    assert.match(html, />—</);
+    assert.equal((html.match(/grid-cols-2 items-center/g) ?? []).length, 2);
+  }
+});
 
 test("calculates sold tickets from a descending remaining counter", () => {
   assert.deepEqual(calculateTicketProgress(1, 97, 100), { sold: 3, remaining: 97 });
