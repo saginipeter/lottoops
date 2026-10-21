@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
@@ -73,7 +74,8 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         .tv-empty-state { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:40px; text-align:center; }
         .tv-board-stack { display:grid; min-height:0; flex:1; gap:10px; overflow:hidden; }
         .tv-board-stack-multiple { grid-template-columns:repeat(2,minmax(0,1fr)); overflow-y:auto; }
-        .tv-jackpot-board { position:relative; display:flex; min-height:0; aspect-ratio:16/9; flex-direction:column; overflow:hidden; background:#250308 url('/tv/game-types/triple-777-jackpot.png') center/cover no-repeat; box-shadow:0 5px 0 #35070a; }
+        .tv-jackpot-board { position:relative; display:flex; min-height:0; aspect-ratio:16/9; flex-direction:column; overflow:hidden; background:#250308; box-shadow:0 5px 0 #35070a; }
+        .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center; }
         .tv-jackpot-board::after { position:absolute; inset:0; border:clamp(2px,.35vw,6px) solid rgba(0,0,0,.78); content:""; pointer-events:none; }
         .tv-top-corner { position:absolute; top:3.2%; z-index:2; display:flex; min-width:9.4%; aspect-ratio:1.45/1; align-items:center; justify-content:center; border:clamp(2px,.28vw,5px) solid #111; border-radius:22%; background:#fff; color:#050505; font-size:clamp(24px,4.7vw,92px); font-weight:1000; line-height:1; box-shadow:0 3px 0 rgba(0,0,0,.45); }
         .tv-top-corner-left { left:2.1%; }
@@ -91,6 +93,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 
 function DisplayBoard({ slot, kioskMode }: { slot: TvDisplaySlot; kioskMode: boolean }) {
   return <article className={`tv-jackpot-board ${kioskMode ? "w-full" : "min-h-[260px]"}`} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
+    <Image className="tv-jackpot-art" src="/tv/game-types/triple-777-jackpot.png" alt={`${slot.gameName || "Triple 777"} jackpot artwork`} fill sizes="100vw" unoptimized priority />
     <div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
     <div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>
     <div className="tv-live-ticket" aria-label={`Current ticket ${slot.currentTicket}`}>{slot.currentTicket}</div>
