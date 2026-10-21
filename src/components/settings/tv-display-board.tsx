@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, ShieldCheck, CircleAlert } from "lucide-react";
+import { CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
 
 type TvDisplaySlot = {
   id: string;
@@ -53,57 +52,48 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
   }, [lastRefreshAt, refreshSeconds]);
 
   const shellClass = kioskMode
-    ? "flex h-screen min-h-0 flex-col overflow-hidden bg-[#062f3a] p-1 text-white sm:p-2"
-    : "border border-[#0d82a6] bg-[#062f3a] p-3 text-white sm:p-5";
+    ? "flex h-screen min-h-0 flex-col overflow-hidden bg-[#120204] text-white"
+    : "border border-[#7f1d1d] bg-[#120204] p-3 text-white sm:p-5";
 
   return (
-    <div className={`relative ${shellClass}`}>
-      {stale && <div className="mb-3 flex items-center gap-2 border border-amber-400/50 bg-amber-300/10 px-3 py-2 text-xs text-amber-100 sm:mb-4"><CircleAlert size={15} /><span><strong>Updates delayed.</strong> Showing the last verified board.</span></div>}
+    <div className={shellClass}>
+      {stale && <div className="tv-delay-banner"><CircleAlert size={14} /><span><strong>Updates delayed.</strong> Showing the last verified board.</span></div>}
 
       {slots.length === 0 ? (
-        <div className="border border-white/20 bg-white/5 p-10 text-center"><RefreshCw size={26} className="mx-auto mb-4 text-fuchsia-200" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
+        <div className="tv-empty-state"><RefreshCw size={26} className="mx-auto mb-4 text-[#f4c542]" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
       ) : (
-        <div className={`grid grid-cols-5 ${kioskMode ? "min-h-0 flex-1 auto-rows-[minmax(7rem,1fr)] gap-1 overflow-y-auto sm:gap-2" : "gap-2 sm:gap-3"} border-2 border-[#16d5d8] bg-[#16d5d8] p-1 shadow-[0_4px_0_#02262e] sm:p-2`}>
-          {slots.map((slot, index) => <DisplayCard key={slot.id} slot={slot} artIndex={index} kioskMode={kioskMode} />)}
+        <div className={`tv-board-stack ${slots.length > 1 ? "tv-board-stack-multiple" : ""}`}>
+          {slots.map((slot) => <DisplayBoard key={slot.id} slot={slot} kioskMode={kioskMode} />)}
         </div>
       )}
 
-      {!kioskMode && <footer className="mt-3 flex items-center justify-between gap-3 border-t border-white/20 pt-2 text-[9px] font-bold uppercase tracking-wider text-white/55"><span className="inline-flex items-center gap-2"><ShieldCheck size={13} className="text-[#65f0d1]" />Live inventory board</span><span>Updated every {refreshSeconds}s</span></footer>}
-      <style jsx>{`@keyframes tv-artwork-drift { from { transform: scale(1.04) translate3d(-1%, -1%, 0); } to { transform: scale(1.12) translate3d(1%, 1%, 0); } }`}</style>
+      {!kioskMode && <footer className="mt-3 flex items-center justify-between gap-3 border-t border-white/20 pt-2 text-[9px] font-bold uppercase tracking-wider text-white/55"><span className="inline-flex items-center gap-2"><ShieldCheck size={13} className="text-[#f4c542]" />Live inventory board</span><span>Updated every {refreshSeconds}s</span></footer>}
+      <style jsx>{`
+        .tv-delay-banner { display:flex; align-items:center; gap:8px; flex:none; border:1px solid rgba(252,211,77,.45); background:rgba(252,211,77,.1); padding:6px 10px; color:#fef3c7; font-size:11px; }
+        .tv-empty-state { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:40px; text-align:center; }
+        .tv-board-stack { display:grid; min-height:0; flex:1; gap:10px; overflow:hidden; }
+        .tv-board-stack-multiple { grid-template-columns:repeat(2,minmax(0,1fr)); overflow-y:auto; }
+        .tv-jackpot-board { position:relative; display:flex; min-height:0; aspect-ratio:16/9; flex-direction:column; overflow:hidden; background:#250308 url('/tv/game-types/triple-777-jackpot.png') center/cover no-repeat; box-shadow:0 5px 0 #35070a; }
+        .tv-jackpot-board::after { position:absolute; inset:0; border:clamp(2px,.35vw,6px) solid rgba(0,0,0,.78); content:""; pointer-events:none; }
+        .tv-top-corner { position:absolute; top:3.2%; z-index:2; display:flex; min-width:9.4%; aspect-ratio:1.45/1; align-items:center; justify-content:center; border:clamp(2px,.28vw,5px) solid #111; border-radius:22%; background:#fff; color:#050505; font-size:clamp(24px,4.7vw,92px); font-weight:1000; line-height:1; box-shadow:0 3px 0 rgba(0,0,0,.45); }
+        .tv-top-corner-left { left:2.1%; }
+        .tv-top-corner-right { right:2.1%; }
+        .tv-live-ticket { position:absolute; top:67.2%; left:36.3%; z-index:2; display:flex; width:16.2%; aspect-ratio:1; align-items:center; justify-content:center; border:clamp(3px,.45vw,8px) solid #120b05; border-radius:50%; background:#fff; color:#050505; font-size:clamp(34px,8.5vw,170px); font-weight:1000; line-height:1; box-shadow:0 0 0 clamp(3px,.42vw,8px) #f9bd18,0 0 clamp(10px,1.4vw,28px) rgba(255,194,22,.95); animation:tv-jackpot-pulse 1.8s ease-in-out infinite; }
+        .tv-live-ticket::before { position:absolute; inset:-13%; border:clamp(3px,.35vw,7px) solid #ffcf2e; border-bottom-color:transparent; border-radius:50%; content:""; transform:rotate(-22deg); }
+        .tv-next-ticket { position:absolute; top:72.8%; left:50.5%; z-index:2; display:flex; width:9.6%; aspect-ratio:1; align-items:center; justify-content:center; border:clamp(2px,.32vw,6px) solid #120b05; border-radius:50%; background:#fff; color:#050505; font-size:clamp(24px,4.3vw,84px); font-weight:1000; line-height:1; box-shadow:0 0 0 clamp(2px,.25vw,5px) #f9bd18; }
+        @keyframes tv-jackpot-pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.035); } }
+        @media (max-width:900px) { .tv-board-stack-multiple { grid-template-columns:1fr; overflow-y:auto; } .tv-jackpot-board { min-height:240px; } }
+        @media (prefers-reduced-motion:reduce) { .tv-live-ticket { animation:none; } }
+      `}</style>
     </div>
   );
 }
-function DisplayCard({ slot, artIndex, kioskMode }: { slot: TvDisplaySlot; artIndex: number; kioskMode: boolean }) {
-  const referenceImage = `/tv/reference-games/game-${String((artIndex % 40) + 1).padStart(2, "0")}.jpg`;
-  return <article className={`group relative min-h-0 min-w-0 ${kioskMode ? "" : "aspect-[0.78]"} overflow-hidden bg-[#0b1724] shadow-[0_2px_0_rgba(0,0,0,0.45)]`}>
-    <div className="@container absolute inset-0">
-      <strong className="absolute right-2 top-2 z-10 rounded-sm bg-[#1A365D] px-2 py-1 text-xl font-black leading-none tabular-nums text-white shadow sm:text-2xl">{slot.slotNumber}</strong>
-      <div className="absolute inset-0 overflow-hidden">
-        <Image
-          src={slot.gameImage || referenceImage}
-          alt={`${slot.gameName} lottery game artwork`}
-          fill
-          sizes="20vw"
-          unoptimized
-          className="object-cover"
-        />
-      </div>
-      <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-[#071827]/85 px-1 py-1.5 text-white backdrop-blur-sm sm:px-3">
-        <div className="grid grid-cols-2 gap-2 text-center">
-          <div className="min-w-0">
-            <strong className="block truncate text-[clamp(0.45rem,3cqw,0.75rem)] leading-tight">CURRENT TICKET</strong>
-            <strong className="block tabular-nums text-[clamp(0.8rem,6cqw,1.4rem)] leading-tight text-white">
-              {slot.currentTicket > 0 ? slot.currentTicket : "—"}
-            </strong>
-          </div>
-          <div className="min-w-0">
-            <strong className="block truncate text-[clamp(0.45rem,3cqw,0.75rem)] leading-tight">NEXT TICKET</strong>
-            <strong className="block tabular-nums text-[clamp(0.8rem,6cqw,1.4rem)] leading-tight text-amber-300">
-              {slot.nextTicket > 0 ? slot.nextTicket : "—"}
-            </strong>
-          </div>
-        </div>
-      </div>
-    </div>
+
+function DisplayBoard({ slot, kioskMode }: { slot: TvDisplaySlot; kioskMode: boolean }) {
+  return <article className={`tv-jackpot-board ${kioskMode ? "w-full" : "min-h-[260px]"}`} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
+    <div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
+    <div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>
+    <div className="tv-live-ticket" aria-label={`Current ticket ${slot.currentTicket}`}>{slot.currentTicket}</div>
+    <div className="tv-next-ticket" aria-label={`Next ticket ${slot.nextTicket > 0 ? slot.nextTicket : "none"}`}>{slot.nextTicket > 0 ? slot.nextTicket : "—"}</div>
   </article>;
 }
