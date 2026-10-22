@@ -63,7 +63,14 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
       {slots.length === 0 ? (
         <div className="tv-empty-state"><RefreshCw size={26} className="mx-auto mb-4 text-[#f4c542]" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
       ) : (
-        <div className={`tv-board-stack ${slots.length > 1 ? "tv-board-stack-multiple" : ""}`}>
+        <div
+          className={`tv-board-stack ${slots.length > 1 ? "tv-board-stack-multiple" : ""}`}
+          style={{
+            backgroundImage: "url('/tv/game-types/triple-777-tile.jpeg')",
+            backgroundRepeat: "repeat",
+            backgroundSize: "2cm 3cm",
+          }}
+        >
           {slots.map((slot) => <DisplayBoard key={slot.id} slot={slot} />)}
         </div>
       )}
@@ -90,8 +97,8 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 }
 
 function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
-  return <article className="tv-jackpot-board" aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
-    <Image className="tv-jackpot-art" src="/tv/game-types/triple-777-tile.jpeg" alt={`${slot.gameName || "Triple 777"} jackpot artwork`} fill sizes="32px" unoptimized priority />
+  return <article className="tv-jackpot-board" style={{ width: "2cm", height: "3cm", flex: "0 0 2cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
+    <Image className="tv-jackpot-art" style={{ objectFit: "cover", objectPosition: "center" }} src="/tv/game-types/triple-777-tile.jpeg" alt={`${slot.gameName || "Triple 777"} jackpot artwork`} fill sizes="32px" unoptimized priority />
     <div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
     <div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>
     <div className="tv-live-ticket" aria-label={`Current ticket ${slot.currentTicket}`}>{slot.currentTicket}</div>
