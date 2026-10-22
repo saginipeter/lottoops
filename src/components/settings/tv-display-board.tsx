@@ -80,9 +80,9 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         .tv-top-corner { position:absolute; top:2px; z-index:2; display:flex; min-width:16px; height:13px; align-items:center; justify-content:center; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:8px; font-weight:900; line-height:1; }
         .tv-top-corner-left { left:2px; }
         .tv-top-corner-right { right:2px; }
-        .tv-live-ticket, .tv-next-ticket { position:absolute; z-index:2; display:flex; align-items:center; justify-content:center; transform:translate(-50%,-50%); border:2px solid #f9bd18; border-radius:50%; background:#fff; color:#050505; font-weight:900; line-height:1; }
-        .tv-live-ticket { top:80%; left:27%; width:32%; height:21.3%; font-size:10px; animation:tv-current-ticket-pulse 1.7s ease-in-out infinite; }
-        .tv-next-ticket { top:82.5%; left:74.5%; width:19.5%; height:13%; font-size:7px; }
+        .tv-live-ticket, .tv-next-ticket { position:absolute; z-index:2; display:flex; aspect-ratio:1; align-items:center; justify-content:center; transform:translate(-50%,-50%); border:2px solid #f9bd18; border-radius:50%; background:#fff; color:#050505; font-weight:900; line-height:1; }
+        .tv-live-ticket { top:69.5%; left:29.5%; width:31%; height:auto; font-size:10px; animation:tv-current-ticket-pulse 1.7s ease-in-out infinite; }
+        .tv-next-ticket { top:69.2%; left:71%; width:18.5%; height:auto; font-size:7px; }
         @keyframes tv-current-ticket-pulse { 0%,100% { box-shadow:0 0 4px rgba(255,196,40,.65); transform:translate(-50%,-50%) scale(1); } 50% { box-shadow:0 0 9px rgba(255,196,40,.95); transform:translate(-50%,-50%) scale(1.04); } }
         @media (prefers-reduced-motion:reduce) { .tv-live-ticket { animation:none; } }
         @media (max-width:900px) { .tv-board-stack { gap:3px; padding:5px; } }
