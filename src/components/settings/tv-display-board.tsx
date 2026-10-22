@@ -80,9 +80,11 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         .tv-top-corner { position:absolute; top:2px; z-index:2; display:flex; min-width:16px; height:13px; align-items:center; justify-content:center; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:8px; font-weight:900; line-height:1; }
         .tv-top-corner-left { left:2px; }
         .tv-top-corner-right { right:2px; }
-        .tv-live-ticket, .tv-next-ticket { position:absolute; bottom:2px; z-index:2; display:flex; min-width:18px; height:12px; align-items:center; justify-content:center; border:1px solid #f9bd18; border-radius:2px; background:rgba(0,0,0,.82); color:#fff; font-size:7px; font-weight:900; line-height:1; }
-        .tv-live-ticket { left:2px; }
-        .tv-next-ticket { right:2px; }
+        .tv-live-ticket, .tv-next-ticket { position:absolute; z-index:2; display:flex; align-items:center; justify-content:center; transform:translate(-50%,-50%); border:2px solid #f9bd18; border-radius:50%; background:#fff; color:#050505; font-weight:900; line-height:1; }
+        .tv-live-ticket { top:79%; left:26%; width:42%; height:18%; font-size:12px; animation:tv-current-ticket-pulse 1.7s ease-in-out infinite; }
+        .tv-next-ticket { top:81%; left:75%; width:22%; height:13%; font-size:8px; }
+        @keyframes tv-current-ticket-pulse { 0%,100% { box-shadow:0 0 4px rgba(255,196,40,.65); transform:translate(-50%,-50%) scale(1); } 50% { box-shadow:0 0 11px rgba(255,196,40,.95); transform:translate(-50%,-50%) scale(1.08); } }
+        @media (prefers-reduced-motion:reduce) { .tv-live-ticket { animation:none; } }
         @media (max-width:900px) { .tv-board-stack { gap:3px; padding:5px; } }
       `}</style>
     </div>
