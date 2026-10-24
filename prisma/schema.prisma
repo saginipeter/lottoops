@@ -165,6 +165,7 @@ model Game {
   storeId        String
   gameNumber     String
   name           String
+  imageUrl       String?
   price          Decimal  @db.Decimal(10, 2)
   ticketsPerPack Int
   active         Boolean  @default(true)

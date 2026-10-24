@@ -1,7 +1,8 @@
 "use client";
 
-import { ReactNode, useMemo, useState, useEffect, useCallback } from "react";
-import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database } from "lucide-react";
+import { ReactNode, useMemo, useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
+import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
@@ -13,6 +14,7 @@ interface GameItem {
   id: string;
   gameNumber: string;
   name: string;
+  imageUrl: string | null;
   price: number;
   ticketsPerPack: number;
   active: boolean;
@@ -224,6 +226,35 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
     finally { setLoading(false); }
   }
 
+  async function saveGameArtwork(game: GameItem, file: File): Promise<string> {
+    if (!canManage) throw new Error("You do not have permission to update game artwork.");
+    if (!file.type.startsWith("image/")) throw new Error("Choose an image file.");
+    if (file.size > 10 * 1024 * 1024) throw new Error("Images must be 10 MB or smaller.");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", "Game Artwork");
+    formData.append("name", `${game.gameNumber} ${game.name} artwork`);
+    formData.append("reference", `game:${game.id}`);
+    const uploadResponse = await fetch("/api/upload", { method: "POST", body: formData });
+    const uploadData = await uploadResponse.json().catch(() => null);
+    if (!uploadResponse.ok || typeof uploadData?.url !== "string") {
+      throw new Error(uploadData?.error || "Unable to upload game artwork.");
+    }
+
+    const updateResponse = await fetch("/api/games", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: game.id, imageUrl: uploadData.url }),
+    });
+    const updateData = await updateResponse.json().catch(() => null);
+    if (!updateResponse.ok) {
+      throw new Error(updateData?.error || "Artwork uploaded, but could not be linked to the game.");
+    }
+    if (uploadData.warning) notify(uploadData.warning, "err");
+    return uploadData.url as string;
+  }
+
   async function syncTexasGames() {
     if (!canManage) return;
     try {
@@ -348,6 +379,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                     <th className="py-2 pr-4 text-right">Price</th>
                     <th className="py-2 pr-4 text-right">Pack Size</th>
                     <th className="py-2 pr-4">Status</th>
+                    <th className="py-2 pr-4">Artwork</th>
                     <th className="py-2 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -362,6 +394,15 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${game.active ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
                           {game.active ? "Active" : "Inactive"}
                         </span>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <GameArtworkControl
+                          game={game}
+                          disabled={!canManage}
+                          saveArtwork={saveGameArtwork}
+                          onSaved={(imageUrl) => setGames((previous) => previous.map((item) => item.id === game.id ? { ...item, imageUrl } : item))}
+                          notify={notify}
+                        />
                       </td>
                       <td className="py-2 text-right">
                         <div className="flex justify-end gap-1">
@@ -566,4 +607,46 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       {children}
     </div>
   );
+}
+
+function GameArtworkControl({
+  game,
+  disabled,
+  saveArtwork,
+  onSaved,
+  notify,
+}: {
+  game: GameItem;
+  disabled: boolean;
+  saveArtwork: (game: GameItem, file: File) => Promise<string>;
+  onSaved: (url: string) => void;
+  notify: (message: string, type?: "ok" | "err") => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setUploading(true);
+      const imageUrl = await saveArtwork(game, file);
+      onSaved(imageUrl);
+      notify(`Artwork saved for ${game.name}.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to upload game artwork.", "err");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return <div className="flex items-center gap-2">
+    {game.imageUrl && <Image src={game.imageUrl} alt={`${game.name} artwork`} width={40} height={40} unoptimized className="h-10 w-10 border border-border object-cover" />}
+    <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="sr-only" disabled={disabled || uploading} onChange={handleChange} />
+    <Button type="button" size="sm" variant="outline" disabled={disabled || uploading} onClick={() => inputRef.current?.click()}>
+      {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
+      {uploading ? "Uploading" : game.imageUrl ? "Replace" : "Upload"}
+    </Button>
+  </div>;
 }

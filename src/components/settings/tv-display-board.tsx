@@ -106,7 +106,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 
 function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   return <article className="tv-jackpot-board" style={{ width: "2cm", height: "3cm", flex: "0 0 2cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
-    <Image className="tv-jackpot-art" style={{ objectFit: "cover", objectPosition: "center" }} src="/tv/game-types/triple-777-tile.jpeg" alt={`${slot.gameName || "Triple 777"} jackpot artwork`} fill sizes="32px" unoptimized priority />
+    <Image className="tv-jackpot-art" style={{ objectFit: "cover", objectPosition: "center" }} src={slot.gameImage || "/tv/game-types/triple-777-tile.jpeg"} alt={`${slot.gameName} artwork`} fill sizes="32px" unoptimized priority />
     <TvPlaceholderValue
       src="/tv/placeholders/slot-number.png"
       alt="Slot number frame"

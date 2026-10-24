@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { gameNumber, name, price, ticketsPerPack, active } = await req.json();
+    const { gameNumber, name, price, ticketsPerPack, active, imageUrl } = await req.json();
 
     const normalizedGameNumber = String(gameNumber ?? "").trim();
     const normalizedName = String(name ?? "").trim();
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
         storeId: session.storeId,
         gameNumber: normalizedGameNumber,
         name: normalizedName,
+        ...(typeof imageUrl === "string" && imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}),
         price: normalizedPrice,
         ticketsPerPack: normalizedTicketsPerPack,
         active: active !== false,
@@ -138,7 +139,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { id, gameNumber, name, price, ticketsPerPack, active } = await req.json();
+    const { id, gameNumber, name, price, ticketsPerPack, active, imageUrl } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: "Game id is required." }, { status: 400 });
@@ -158,6 +159,7 @@ export async function PATCH(req: NextRequest) {
       price?: number;
       ticketsPerPack?: number;
       active?: boolean;
+      imageUrl?: string | null;
     } = {};
 
     if (gameNumber !== undefined) {
@@ -193,6 +195,16 @@ export async function PATCH(req: NextRequest) {
     }
     if (active !== undefined) {
       data.active = Boolean(active);
+    }
+    if (imageUrl !== undefined) {
+      if (imageUrl !== null && typeof imageUrl !== "string") {
+        return NextResponse.json({ error: "Game image URL must be a string or null." }, { status: 400 });
+      }
+      const normalized = typeof imageUrl === "string" ? imageUrl.trim() : "";
+      if (normalized && !/^https:\/\//i.test(normalized)) {
+        return NextResponse.json({ error: "Game image URL must use HTTPS." }, { status: 400 });
+      }
+      data.imageUrl = normalized || null;
     }
 
     const updated = await prisma.game.update({

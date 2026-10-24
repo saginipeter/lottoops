@@ -75,7 +75,7 @@ export default async function TvDisplayKioskPage({
       currentTicketNumber: number | null;
       firstOrLastTicket: string | null;
       packImage: string | null;
-      game: { name: string; gameNumber: string; price: unknown };
+      game: { name: string; gameNumber: string; price: unknown; imageUrl: string | null };
     } | null;
   }>;
   const activeSlots = typedSlots.flatMap((slot) => {
@@ -98,7 +98,7 @@ export default async function TvDisplayKioskPage({
         slotNumber: slot.slotNumber,
         gameName: pack.game.name,
         gameNumber: pack.game.gameNumber,
-        gameImage: pack.packImage ?? null,
+        gameImage: pack.game.imageUrl ?? pack.packImage ?? null,
         ticketPrice: Number(pack.game.price),
         sellDirection: (pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST") as "FIRST" | "LAST",
         firstTicket,
