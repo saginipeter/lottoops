@@ -80,24 +80,6 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         .tv-top-corner { position:absolute; top:2px; z-index:2; display:flex; min-width:16px; height:13px; align-items:center; justify-content:center; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:8px; font-weight:900; line-height:1; }
         .tv-top-corner-left { left:2px; }
         .tv-top-corner-right { right:2px; }
-        .tv-placeholder { position:absolute; z-index:3; }
-        .tv-placeholder[data-loaded="false"] { visibility:hidden; }
-        .tv-placeholder-art { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
-        .tv-placeholder-value { position:absolute; display:flex; align-items:center; justify-content:center; overflow:hidden; color:#050505; font-size:clamp(7px, 1.2cqw, 13px); font-weight:900; line-height:1; text-align:center; white-space:nowrap; }
-        .tv-placeholder-slot,.tv-placeholder-price { top:2px; width:16px; height:13px; }
-        .tv-placeholder-slot { left:2px; }
-        .tv-placeholder-price { right:2px; }
-        .tv-placeholder-slot-value,.tv-placeholder-price-value { inset:0; font-size:8px; }
-        .tv-placeholder-current { left:3%; top:64%; width:44%; aspect-ratio:650 / 530; animation:tv-current-placeholder-glow 2.4s ease-in-out infinite; }
-        .tv-placeholder-next { left:56%; top:67%; width:38%; aspect-ratio:650 / 530; }
-        .tv-placeholder-current-value { left:25%; top:24%; width:50%; height:54%; border:1px solid #111; border-radius:50%; background:#fff; font-size:10px; }
-        .tv-placeholder-next-value { left:24%; top:24%; width:52%; height:54%; border:1px solid #111; border-radius:50%; background:#fff; font-size:8px; }
-        .tv-placeholder-slot { width:16px; height:13px; aspect-ratio:900 / 405; }
-        .tv-placeholder-price { width:16px; height:13px; aspect-ratio:760 / 390; }
-        .tv-placeholder-slot-value { left:20%; top:48%; width:60%; height:28%; border-radius:999px; background:#fff; font-size:5px; }
-        .tv-placeholder-price-value { left:19%; top:51%; width:62%; height:27%; border-radius:999px; background:#fff; font-size:5px; }
-        @keyframes tv-current-placeholder-glow { 0%,100% { filter:drop-shadow(0 0 1px rgba(250,204,21,.25)); } 50% { filter:drop-shadow(0 0 3px rgba(250,204,21,.75)); } }
-        @media (prefers-reduced-motion: reduce) { .tv-placeholder-current { animation:none; } }
         @media (max-width:900px) { .tv-board-stack { gap:3px; padding:5px; } }
       `}</style>
     </div>
@@ -107,71 +89,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   return <article className="tv-jackpot-board" style={{ width: "2cm", height: "3cm", flex: "0 0 2cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
     <Image className="tv-jackpot-art" style={{ objectFit: "cover", objectPosition: "center" }} src={slot.gameImage || "/tv/game-types/triple-777-tile.jpeg"} alt={`${slot.gameName} artwork`} fill sizes="32px" unoptimized priority />
-    <TvPlaceholderValue
-      src="/tv/placeholders/slot-number.png"
-      alt="Slot number frame"
-      value={slot.slotNumber}
-      placement="tv-placeholder-slot"
-      valuePlacement="tv-placeholder-slot-value"
-      fallback={<div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>}
-    />
-    <TvPlaceholderValue
-      src="/tv/placeholders/ticket-price.png"
-      alt="Ticket price frame"
-      value={`$${slot.ticketPrice.toFixed(0)}`}
-      placement="tv-placeholder-price"
-      valuePlacement="tv-placeholder-price-value"
-      fallback={<div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>}
-    />
-    <TvPlaceholderValue
-      src="/tv/placeholders/current-ticket.png"
-      alt="Current ticket frame"
-      value={slot.currentTicket === 0 ? "SOLD OUT" : String(slot.currentTicket)}
-      placement="tv-placeholder-current"
-      valuePlacement="tv-placeholder-current-value"
-    />
-    <TvPlaceholderValue
-      src="/tv/placeholders/next-ticket.png"
-      alt="Next ticket frame"
-      value={slot.nextTicket === 0 ? "—" : String(slot.nextTicket)}
-      placement="tv-placeholder-next"
-      valuePlacement="tv-placeholder-next-value"
-    />
+    <div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
+    <div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>
   </article>;
-}
-
-function TvPlaceholderValue({
-  src,
-  alt,
-  value,
-  placement,
-  valuePlacement = "",
-  fallback,
-}: {
-  src: string;
-  alt: string;
-  value: string;
-  placement: string;
-  valuePlacement?: string;
-  fallback?: React.ReactNode;
-}) {
-  const [loaded, setLoaded] = useState(false);
-
-  return <>
-    {!loaded && fallback}
-    <div className={`tv-placeholder ${placement}`} data-loaded={loaded} aria-label={`${alt.replace(" frame", "")}: ${value}`}>
-      <Image
-        className="tv-placeholder-art"
-        src={src}
-        alt=""
-        fill
-        sizes="32px"
-        unoptimized
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(false)}
-      />
-      {loaded && <span className={`tv-placeholder-value ${valuePlacement}`}>{value}</span>}
-    </div>
-  </>;
 }
