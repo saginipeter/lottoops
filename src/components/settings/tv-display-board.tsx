@@ -88,10 +88,16 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         .tv-placeholder-slot { left:2px; }
         .tv-placeholder-price { right:2px; }
         .tv-placeholder-slot-value,.tv-placeholder-price-value { inset:0; font-size:8px; }
-        .tv-placeholder-current { left:5%; top:67%; width:43%; height:31%; }
-        .tv-placeholder-next { left:55%; top:72%; width:39%; height:26%; }
-        .tv-placeholder-current-value { left:19%; top:19%; width:62%; height:54%; font-size:clamp(8px, 2cqw, 20px); }
-        .tv-placeholder-next-value { left:22%; top:17%; width:56%; height:56%; font-size:clamp(7px, 1.5cqw, 15px); }
+        .tv-placeholder-current { left:3%; top:64%; width:44%; aspect-ratio:650 / 530; animation:tv-current-placeholder-glow 2.4s ease-in-out infinite; }
+        .tv-placeholder-next { left:56%; top:67%; width:38%; aspect-ratio:650 / 530; }
+        .tv-placeholder-current-value { left:25%; top:24%; width:50%; height:54%; border:1px solid #111; border-radius:50%; background:#fff; font-size:10px; }
+        .tv-placeholder-next-value { left:24%; top:24%; width:52%; height:54%; border:1px solid #111; border-radius:50%; background:#fff; font-size:8px; }
+        .tv-placeholder-slot { width:16px; height:13px; aspect-ratio:900 / 405; }
+        .tv-placeholder-price { width:16px; height:13px; aspect-ratio:760 / 390; }
+        .tv-placeholder-slot-value { left:20%; top:48%; width:60%; height:28%; border-radius:999px; background:#fff; font-size:5px; }
+        .tv-placeholder-price-value { left:19%; top:51%; width:62%; height:27%; border-radius:999px; background:#fff; font-size:5px; }
+        @keyframes tv-current-placeholder-glow { 0%,100% { filter:drop-shadow(0 0 1px rgba(250,204,21,.25)); } 50% { filter:drop-shadow(0 0 3px rgba(250,204,21,.75)); } }
+        @media (prefers-reduced-motion: reduce) { .tv-placeholder-current { animation:none; } }
         @media (max-width:900px) { .tv-board-stack { gap:3px; padding:5px; } }
       `}</style>
     </div>
