@@ -76,7 +76,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
     : "border border-black bg-black p-3 text-white sm:p-5";
 
   return (
-    <div className={shellClass}>
+    <div className={shellClass} data-live-status={stale ? "delayed" : "live"}>
       {stale && <div className="tv-delay-banner"><CircleAlert size={14} /><span><strong>Updates delayed.</strong> Showing the last verified board.</span></div>}
 
       {slots.length === 0 ? (
@@ -93,13 +93,14 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
         .tv-empty-state { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:40px; text-align:center; }
         .tv-board-stack { display:flex; min-height:0; flex:1; flex-wrap:wrap; align-content:flex-start; gap:4px; overflow:auto; background:#000; padding:8px; }
         .tv-board-stack-multiple { overflow:auto; }
-        .tv-jackpot-board { position:relative; display:block; width:3cm; height:5cm; flex:0 0 3cm; overflow:hidden; background:#000; }
-        .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center; }
-        .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:4px; background:#111827; color:#f9fafb; font-size:7px; font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
+        .tv-jackpot-board { position:relative; display:block; width:8cm; height:10cm; flex:0 0 8cm; overflow:hidden; background:#000; }
+        .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center; transform-origin:center; }
+        .tv-jackpot-board-artwork::before { position:absolute; top:-10%; bottom:-10%; left:-50%; z-index:1; width:45%; background:linear-gradient(90deg,transparent,rgba(255,241,171,.2),rgba(255,255,255,.4),transparent); opacity:0; pointer-events:none; content:""; }
+        .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:12px; background:#111827; color:#f9fafb; font-size:14px; font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
         .tv-jackpot-board::after { position:absolute; inset:0; border:1px solid rgba(255,255,255,.55); content:""; pointer-events:none; }
-        .tv-top-corner { position:absolute; top:2px; z-index:2; display:flex; min-width:16px; height:13px; align-items:center; justify-content:center; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:8px; font-weight:900; line-height:1; }
-        .tv-top-corner-left { left:2px; }
-        .tv-top-corner-right { right:2px; }
+        .tv-top-corner { position:absolute; top:5px; z-index:2; display:flex; min-width:30px; height:27px; align-items:center; justify-content:center; padding:0 4px; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:18px; font-weight:900; line-height:1; }
+        .tv-top-corner-left { left:5px; }
+        .tv-top-corner-right { right:5px; }
         .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; display:flex; height:39%; align-items:flex-end; justify-content:space-between; box-sizing:border-box; padding:4% 5% 3%; container-type:inline-size; background:transparent; pointer-events:none; }
         .tv-ticket-badge { display:flex; min-width:0; flex-direction:column; align-items:center; gap:4cqi; }
         .tv-ticket-badge-current { width:54%; }
@@ -115,7 +116,21 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
         .tv-ticket-circle,.tv-ticket-face { border-radius:50% !important; }
         .tv-ticket-label { border-radius:999px !important; }
         @keyframes tv-ticket-pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.035); } }
-        @media (prefers-reduced-motion:no-preference) { .tv-ticket-badge-current .tv-ticket-circle { animation:tv-ticket-pulse 2.4s ease-in-out infinite; } }
+        @keyframes tv-artwork-drift { 0%,100% { transform:scale(1); } 50% { transform:scale(1.035); } }
+        @keyframes tv-artwork-shine { 0%,40% { transform:translateX(-160%) skewX(-18deg); opacity:0; } 46% { opacity:.45; } 64% { transform:translateX(480%) skewX(-18deg); opacity:.25; } 70%,100% { transform:translateX(480%) skewX(-18deg); opacity:0; } }
+        @keyframes tv-sun-orbit { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+        @keyframes tv-ticket-change { 0% { transform:scale(.82); opacity:.35; } 65% { transform:scale(1.035); opacity:1; } 100% { transform:scale(1); opacity:1; } }
+        @media (prefers-reduced-motion:no-preference) {
+          .tv-jackpot-board-artwork .tv-jackpot-art { animation:tv-artwork-drift 14s ease-in-out infinite; }
+          .tv-jackpot-board-artwork::before { animation:tv-artwork-shine 8s ease-in-out infinite; }
+          .tv-ticket-circle::before { animation:tv-sun-orbit 14s linear infinite; }
+          .tv-ticket-badge-current .tv-ticket-circle { animation:tv-ticket-pulse 2.4s ease-in-out infinite; }
+          .tv-ticket-number { animation:tv-ticket-change .45s ease-out both; transform-origin:center; }
+        }
+        [data-live-status="delayed"] .tv-jackpot-art,
+        [data-live-status="delayed"] .tv-jackpot-board::before,
+        [data-live-status="delayed"] .tv-ticket-circle,
+        [data-live-status="delayed"] .tv-ticket-circle::before { animation-play-state:paused; }
         @media (max-width:900px) { .tv-board-stack { gap:3px; padding:5px; } }
       `}</style>
     </div>
@@ -126,7 +141,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasArtwork = Boolean(slot.gameImage) && !imageFailed;
 
-  return <article className="tv-jackpot-board" style={{ width: "3cm", height: "5cm", flex: "0 0 3cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
+  return <article className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={{ width: "8cm", height: "10cm", flex: "0 0 8cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
     {hasArtwork ? (
       <Image
         className="tv-jackpot-art"
@@ -134,7 +149,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
         src={slot.gameImage as string}
         alt={`${slot.gameName} artwork`}
         fill
-        sizes="114px"
+        sizes="303px"
         unoptimized
         priority
         onError={() => setImageFailed(true)}
@@ -161,7 +176,7 @@ function TicketIndicator({ kind, ticket }: { kind: "current" | "next"; ticket: n
 
   return <div className={`tv-ticket-badge tv-ticket-badge-${kind}`} aria-label={`${label}: ${value === "—" ? "unavailable" : value}`}>
     <div className="tv-ticket-circle">
-      <div className="tv-ticket-face"><span className="tv-ticket-number" style={numberStyle}>{value}</span></div>
+      <div className="tv-ticket-face"><span key={value} className="tv-ticket-number" style={numberStyle}>{value}</span></div>
     </div>
     <span className="tv-ticket-label">{label}</span>
   </div>;

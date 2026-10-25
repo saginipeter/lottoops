@@ -34,6 +34,12 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, /tv-ticket-badge-current/);
     assert.match(html, /tv-ticket-badge-next/);
     assert.doesNotMatch(html, /ticket-indicator-reference\.jpg/);
+    assert.match(html, /data-live-status="live"/);
+    assert.match(html, /@keyframes tv-artwork-drift/);
+    assert.match(html, /@keyframes tv-artwork-shine/);
+    assert.match(html, /@keyframes tv-sun-orbit/);
+    assert.match(html, /@keyframes tv-ticket-change/);
+    assert.match(html, /prefers-reduced-motion:no-preference/);
   }
 });
 
@@ -57,7 +63,8 @@ test("TV display shows every game together without slides", () => {
       } else {
         assert.match(html, /tv-board-stack/);
         assert.match(html, new RegExp(`Test game ${count} artwork`));
-        assert.match(html, /width:3cm;height:5cm;flex:0 0 3cm/);
+        assert.match(html, /width:8cm;height:10cm;flex:0 0 8cm/);
+        assert.equal((html.match(/class="tv-jackpot-board tv-jackpot-board-artwork"/g) ?? []).length, count);
       }
       assert.doesNotMatch(html, /aria-label="Display slides"|Previous slide|Next slide|Slide \d+ of \d+/);
     }

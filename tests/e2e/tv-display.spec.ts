@@ -17,8 +17,8 @@ let css: string;
 const artwork = "https://tv.test/artwork.jpg";
 let artworkBytes: Buffer;
 let browserHarness: string;
-const TV_CARD_WIDTH_PX = 3 * 96 / 2.54;
-const TV_CARD_HEIGHT_PX = 5 * 96 / 2.54;
+const TV_CARD_WIDTH_PX = 8 * 96 / 2.54;
+const TV_CARD_HEIGHT_PX = 10 * 96 / 2.54;
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
 
 function slot(index: number, currentTicket = 21, nextTicket = 22, remaining = 130) {
@@ -94,7 +94,7 @@ test.beforeAll(async () => {
           const snapshot = use(data);
           const slots = snapshot.remaining < 0 ? [] : [{
             id: "display", packId: snapshot.packId, gameId: snapshot.gameId, slotNumber: "1",
-            gameName: "Test inventory", gameNumber: "1234", ticketPrice: 5,
+            gameName: "Test inventory", gameNumber: "1234", gameImage: "https://tv.test/artwork.jpg", ticketPrice: 5,
             sellDirection: snapshot.direction, firstTicket: 1, quantity: 150,
             remaining: snapshot.remaining, sold: 150 - snapshot.remaining,
             currentTicket: getDisplayedTicketNumber(1, snapshot.remaining, 150, snapshot.direction),
@@ -143,7 +143,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
             lastCardReached: lastRect.top >= boardRect.top && lastRect.bottom <= boardRect.bottom,
           };
         });
-        if (viewport.width === 1280) expect(scrollResult.scrollable).toBe(true);
+        expect(scrollResult.scrollable).toBe(true);
         expect(scrollResult.lastCardReached).toBe(true);
       }
       // One DOM snapshot avoids thousands of slow browser protocol calls, especially in WebKit.
@@ -160,7 +160,8 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
             label: rect(label), circleRadius: getComputedStyle(circle).borderRadius,
             faceRadius: getComputedStyle(face).borderRadius, labelFits: label.scrollWidth <= label.clientWidth };
         });
-        return { dimensions: rect(card), badges, objectFit: getComputedStyle(card.querySelector(".tv-jackpot-art")!).objectFit,
+        const artwork = card.querySelector(".tv-jackpot-board-artwork img, .tv-jackpot-art, img")!;
+        return { dimensions: rect(card), badges, objectFit: getComputedStyle(artwork).objectFit,
           backgroundImage: getComputedStyle(card.querySelector(".tv-ticket-indicators")!).backgroundImage };
       }));
       for (const { dimensions, badges, objectFit, backgroundImage } of snapshots) {
@@ -180,10 +181,12 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
           for (const visible of [number, label]) {
             expect(visible.width).toBeGreaterThan(0);
             expect(visible.height).toBeGreaterThan(0);
-            expect(visible.x).toBeGreaterThanOrEqual(0);
-            expect(visible.x + visible.width).toBeLessThanOrEqual(viewport.width);
-            expect(visible.y).toBeGreaterThanOrEqual(dimensions.y);
-            expect(visible.y + visible.height).toBeLessThanOrEqual(dimensions.y + dimensions.height);
+            // The board is intentionally scrolled before this snapshot, so card x/y
+            // coordinates may be negative. Content must remain inside its card.
+            expect(visible.x).toBeGreaterThanOrEqual(dimensions.x - 0.5);
+            expect(visible.x + visible.width).toBeLessThanOrEqual(dimensions.x + dimensions.width + 0.5);
+            expect(visible.y).toBeGreaterThanOrEqual(dimensions.y - 0.5);
+            expect(visible.y + visible.height).toBeLessThanOrEqual(dimensions.y + dimensions.height + 0.5);
           }
         }
         expect(objectFit).toBe("cover");
@@ -200,9 +203,9 @@ test("one-, two-, and three-digit numbers scale with their circle, including pul
       createElement(TvDisplayBoard, { slots: [slot(0, value, value - 1, 150)], kioskMode: true, refreshSeconds: 15 }))));
     await page.addStyleTag({ content: css });
     for (const scale of [1, 2]) {
-      // Test-only resizing baseline is exactly 3cm x 5cm; production dimensions stay fixed.
+      // Test-only resizing baseline is exactly 8cm x 10cm; production dimensions stay fixed.
       await page.locator("article").evaluate((el, scale) => {
-        el.style.width = `${3 * scale}cm`; el.style.height = `${5 * scale}cm`; el.style.flex = `0 0 ${3 * scale}cm`;
+        el.style.width = `${8 * scale}cm`; el.style.height = `${10 * scale}cm`; el.style.flex = `0 0 ${8 * scale}cm`;
       }, scale);
       for (const phase of ["0s", "-1.2s"]) {
         await page.locator(".tv-ticket-circle").evaluateAll((els, phase) => els.forEach(el => {
@@ -222,18 +225,59 @@ test("one-, two-, and three-digit numbers scale with their circle, including pul
   }
 });
 
+test("artwork, shine, sun-orbit, and ticket-change animations honor motion preferences", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await showBoard(page, 1, true);
+  await expect(page.locator("[data-live-status]")).toHaveAttribute("data-live-status", "live");
+  const animated = await page.locator("article").evaluate((card) => {
+    const artwork = card.querySelector(".tv-jackpot-art")!;
+    const circle = card.querySelector(".tv-ticket-circle")!;
+    const number = card.querySelector(".tv-ticket-number")!;
+    return {
+      artwork: getComputedStyle(artwork).animationName,
+      shine: getComputedStyle(card, "::before").animationName,
+      sunOrbit: getComputedStyle(circle, "::before").animationName,
+      ticketChange: getComputedStyle(number).animationName,
+    };
+  });
+  expect(animated).toEqual({
+    artwork: "tv-artwork-drift",
+    shine: "tv-artwork-shine",
+    sunOrbit: "tv-sun-orbit",
+    ticketChange: "tv-ticket-change",
+  });
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await showBoard(page, 1, true);
+  const reduced = await page.locator("article").evaluate((card) => {
+    const artwork = card.querySelector(".tv-jackpot-art")!;
+    const circle = card.querySelector(".tv-ticket-circle")!;
+    const number = card.querySelector(".tv-ticket-number")!;
+    return {
+      artwork: getComputedStyle(artwork).animationName,
+      shine: getComputedStyle(card, "::before").animationName,
+      sunOrbit: getComputedStyle(circle, "::before").animationName,
+      ticketChange: getComputedStyle(number).animationName,
+    };
+  });
+  expect(reduced).toEqual({ artwork: "none", shine: "none", sunOrbit: "none", ticketChange: "none" });
+});
+
 test("polling loads confirmed FIRST/LAST sales, pack transitions, and sold-out states without timer counting", async ({ page }) => {
   await page.clock.install();
   await mountLiveBoard(page);
   const current = page.locator(".tv-ticket-badge-current .tv-ticket-number");
   const next = page.locator(".tv-ticket-badge-next .tv-ticket-number");
+  const initialCurrentNode = await current.evaluateHandle((element) => element);
   await page.clock.fastForward(5000);
   await expect(current).toHaveText("21"); // Polling alone never advances inventory.
   await expect(next).toHaveText("22");
+  expect(await current.evaluate((element, initial) => element === initial, initialCurrentNode)).toBe(true);
   await page.evaluate(() => (window as any).__tvTest.setRemote({ remaining: 129 }));
   await page.clock.fastForward(5000);
   await expect(current).toHaveText("22");
   await expect(next).toHaveText("23");
+  expect(await current.evaluate((element, initial) => element === initial, initialCurrentNode)).toBe(false);
   await page.evaluate(() => (window as any).__tvTest.setRemote({ remaining: 150, direction: "LAST", packId: "pack-last", gameId: "game-last" }));
   await page.clock.fastForward(5000);
   await expect(current).toHaveText("150");
@@ -268,6 +312,14 @@ test("slow/failed refreshes keep real counts, avoid duplicate requests, and show
   await expect(page.locator(".tv-ticket-badge-current .tv-ticket-number")).toHaveText("22");
   await page.clock.fastForward(12000);
   await expect(page.getByText("Updates delayed.")).toBeVisible();
+  await expect(page.locator("[data-live-status]")).toHaveAttribute("data-live-status", "delayed");
+  const delayedAnimations = await page.locator("article").evaluate((card) => ({
+    artwork: getComputedStyle(card.querySelector(".tv-jackpot-art")!).animationPlayState,
+    shine: getComputedStyle(card, "::before").animationPlayState,
+    sunOrbit: getComputedStyle(card.querySelector(".tv-ticket-circle")!, "::before").animationPlayState,
+    circle: getComputedStyle(card.querySelector(".tv-ticket-circle")!).animationPlayState,
+  }));
+  expect(delayedAnimations).toEqual({ artwork: "paused", shine: "paused", sunOrbit: "paused", circle: "paused" });
   await expect(page.locator(".tv-ticket-badge-current .tv-ticket-number")).toHaveText("22");
   await page.evaluate(() => (window as any).__tvTest.setFailure(false));
   await page.clock.fastForward(5000);
