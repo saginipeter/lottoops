@@ -48,7 +48,7 @@ test("legacy uploads are not presented as official Texas Lottery artwork", async
 
 test("sync refreshes store Games artwork and catalog, preserving the exact game-image association", async ({ page }) => {
   const calls: string[] = [];
-  const updated = games.map(game => ({ ...game, imageUrl: `${imageBase}${game.gameNumber}_img1.gif` }));
+  const updated = games.map(game => ({ ...game, imageUrl: `${imageBase}${game.gameNumber}_200X200.gif` }));
   await page.route("https://lottoops.test/api/games/sync", route => { calls.push("sync"); return route.fulfill({ json: { success: true, summary: { processed: 2, artworkFound: 2, sourceFailures: [] } } }); });
   await page.route("https://lottoops.test/api/games/catalog", route => { calls.push("catalog"); return route.fulfill({ json: { catalog: [], total: 0, lastSyncedAt: "2026-10-25" } }); });
   await page.route("https://lottoops.test/api/games?**", route => { calls.push("games"); return route.fulfill({ json: { games: updated } }); });
@@ -62,14 +62,15 @@ test("sync refreshes store Games artwork and catalog, preserving the exact game-
   await page.getByRole("button", { name: /Store Games/ }).click();
   const first = page.locator("tr").filter({ has: page.getByText("Crossword", { exact: true }) });
   const second = page.locator("tr").filter({ has: page.getByText("Lucky 7 Doubler", { exact: true }) });
-  await expect(first.locator("img")).toHaveAttribute("src", `${imageBase}2753_img1.gif`);
-  await expect(second.locator("img")).toHaveAttribute("src", `${imageBase}2769_img1.gif`);
+  await expect(first.locator("img")).toHaveAttribute("src", `${imageBase}2753_200X200.gif`);
+  await expect(second.locator("img")).toHaveAttribute("src", `${imageBase}2769_200X200.gif`);
   await expect(page.getByText("Texas Lottery", { exact: true })).toHaveCount(2);
   await expect(page.locator('input[type="file"]')).toHaveCount(0);
 });
 
-test("a failed official image becomes Image not available rather than displaying another game's artwork", async ({ page }) => {
+test("a full ticket front is not displayed as valid promotional artwork", async ({ page }) => {
   await page.evaluate(games => (window as any).mountGames(games), [{ ...games[0], imageUrl: `${imageBase}2753_img1.gif` }]);
   await expect(page.getByText("Image not available", { exact: true })).toHaveCount(1);
   await expect(page.locator("img")).toHaveCount(0);
+  await expect(page.getByText("Texas Lottery", { exact: true })).toHaveCount(0);
 });

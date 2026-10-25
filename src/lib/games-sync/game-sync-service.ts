@@ -106,8 +106,14 @@ export class GameSyncService {
     // HEAD verifies image MIME type without downloading ticket image binaries into the database.
     for (let offset = 0; offset < scratchGames.length; offset += 6) {
       await Promise.all(scratchGames.slice(offset, offset + 6).map(async game => {
-        const indexed = artworkResult.status === "fulfilled" ? artworkResult.value.get(game.gameNumber!)?.imageUrl : undefined;
-        game.imageUrl = await getTexasArtwork(game.gameNumber!, this.fetchImpl, indexed);
+        if (artworkResult.status === "fulfilled") {
+          const indexed = artworkResult.value.get(game.gameNumber!)?.imageUrl ?? null;
+          game.imageUrl = await getTexasArtwork(game.gameNumber!, this.fetchImpl, indexed);
+        } else {
+          // A failed source is not evidence that an image is missing. Do not
+          // retry the same failed catalog separately for every game.
+          game.imageUrl = undefined;
+        }
         if (game.imageUrl) artworkFound += 1;
         else if (game.imageUrl === null) artworkMissing += 1;
         else artworkUnavailable += 1;

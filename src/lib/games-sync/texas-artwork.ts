@@ -2,7 +2,6 @@ import type { PrismaClient } from "@prisma/client";
 
 export const texasScratchArtworkCatalogUrl =
   "https://www.texaslottery.com/export/sites/lottery/Games/Scratch_Offs/index.html";
-const IMAGE_BASE = "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/";
 const REQUEST_TIMEOUT_MS = 8_000;
 const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
 
@@ -16,18 +15,19 @@ export function normalizeTexasGameNumber(value: string): string | null {
   return /^\d{3,6}$/.test(number) ? number : null;
 }
 
+/** Only the promotional tiles shown in the official catalog are eligible artwork. */
 export function isOfficialTexasArtwork(value: string, gameNumber?: string): boolean {
   try {
     const url = new URL(value);
     if (url.protocol !== "https:" || url.hostname !== "www.texaslottery.com" || url.port || url.username || url.password || url.search || url.hash) return false;
-    const match = url.pathname.match(/^\/export\/sites\/lottery\/Images\/scratchoffs\/(\d{3,6})_(?:img1|200x200)\.(?:gif|png|jpe?g|webp)$/i);
+    const match = url.pathname.match(/^\/export\/sites\/lottery\/Images\/scratchoffs\/(\d{3,6})_200x200\.(?:gif|png|jpe?g|webp)$/i);
     return Boolean(match && (gameNumber === undefined || match[1] === gameNumber));
   } catch {
     return false;
   }
 }
 
-/** Parse only explicitly published, game-specific images; never match a game by name. */
+/** Parse the published Featured/New and price-category promotional tiles by exact game number. */
 export function parseTexasArtworkIndex(html: string): Map<string, TexasArtworkIndexEntry> {
   const entries = new Map<string, TexasArtworkIndexEntry>();
   for (const tag of html.matchAll(/<img\b[^>]*>/gi)) {
@@ -38,9 +38,7 @@ export function parseTexasArtworkIndex(html: string): Map<string, TexasArtworkIn
     catch { continue; }
     if (!isOfficialTexasArtwork(absolute)) continue;
     const gameNumber = new URL(absolute).pathname.match(/\/(\d{3,6})_/)![1];
-    // The full front is preferred if a page publishes both a thumbnail and the front.
-    const previous = entries.get(gameNumber);
-    if (!previous || /_img1\./i.test(absolute)) entries.set(gameNumber, { gameNumber, imageUrl: absolute });
+    if (!entries.has(gameNumber)) entries.set(gameNumber, { gameNumber, imageUrl: absolute });
   }
   return entries;
 }
@@ -72,29 +70,31 @@ async function checkImage(url: string, fetchImpl: typeof fetch): Promise<"availa
 }
 
 /**
- * The official detail pages publish {gameNumber}_img1.gif as the ticket front.
- * Verify it before saving. null = definitely missing; undefined = temporary source failure.
- * An index thumbnail is used only when that exact game appears in the official index.
+ * Save only an exact image published on the official scratch-ticket index page.
+ * null = definitely missing; undefined = temporary source failure.
+ * Passing null means the shared index was already checked and has no match;
+ * omitting the argument performs a fresh index lookup for individual game creation.
+ * Full ticket fronts and guessed image filenames are never used as fallbacks.
  */
 export async function getTexasArtwork(
   gameNumber: string,
   fetchImpl: typeof fetch = fetch,
-  indexedImage?: string,
+  indexedImage?: string | null,
 ): Promise<string | null | undefined> {
   const normalized = normalizeTexasGameNumber(gameNumber);
   if (!normalized) return null;
-  const fullImage = `${IMAGE_BASE}${normalized}_img1.gif`;
-  const fullResult = await checkImage(fullImage, fetchImpl);
-  if (fullResult === "available") return fullImage;
-  if (indexedImage && isOfficialTexasArtwork(indexedImage, normalized)) {
-    const thumbnailResult = await checkImage(indexedImage, fetchImpl);
-    if (thumbnailResult === "available") return indexedImage;
-    if (thumbnailResult === "unavailable") return undefined;
+  let imageUrl = indexedImage;
+  if (imageUrl === undefined) {
+    try { imageUrl = (await fetchTexasArtworkIndex(fetchImpl)).get(normalized)?.imageUrl ?? null; }
+    catch { return undefined; }
   }
-  return fullResult === "missing" ? null : undefined;
+  if (!imageUrl || !isOfficialTexasArtwork(imageUrl, normalized)) return null;
+  const result = await checkImage(imageUrl, fetchImpl);
+  if (result === "available") return imageUrl;
+  return result === "missing" ? null : undefined;
 }
 
-/** Store creation uses synced metadata first, then a verified official source lookup. */
+/** Store creation uses synced promotional metadata first, then a verified official index lookup. */
 export async function resolveGameArtwork(
   client: Pick<PrismaClient, "$queryRawUnsafe">,
   storeId: string,

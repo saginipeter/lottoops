@@ -5,7 +5,8 @@ import { NextRequest } from "next/server";
 import { PrismaGameRepository } from "@/lib/games-sync/game-repository";
 import type { ClassifiedGame } from "@/lib/games-sync/types";
 
-const image = "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2753_img1.gif";
+const image = "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2753_200X200.gif";
+const oldFrontImage = "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2753_img1.gif";
 
 test("repository preserves undefined artwork, clears confirmed missing art, and updates only the exact existing store game", async () => {
   const queries: unknown[][] = [];
@@ -39,6 +40,7 @@ test("Games and catalog handlers import official artwork without accepting manua
   const originalPrisma = require.cache[prismaPath];
   let session: any = { userId: "manager", storeId: "store-1", name: "Manager", role: "MANAGER" };
   let existing: any = { id: "game", storeId: "store-1", gameNumber: "2753" };
+  let catalogImage: string | null = image;
   const created: any[] = [];
   const updated: any[] = [];
   const queries: unknown[][] = [];
@@ -56,7 +58,7 @@ test("Games and catalog handlers import official artwork without accepting manua
       assert.equal(params[0], "store-1");
       if (sql.includes("SELECT image_url")) return [{ image_url: image }];
       if (sql.includes('AS "gameNumber"')) return [{ gameNumber: "2753", name: "Crossword", ticketPrice: 20, imageUrl: image }];
-      return [{ id: "entry", external_key: "scratch:2753", game_number: "2753", game_type: "scratch_off", name: "Crossword", ticket_price: 20, image_url: image, last_synced_at: "2026-10-25" }];
+      return [{ id: "entry", external_key: "scratch:2753", game_number: "2753", game_type: "scratch_off", name: "Crossword", ticket_price: 20, image_url: catalogImage, last_synced_at: "2026-10-25" }];
     },
   };
   require.cache[sessionPath] = { id: sessionPath, filename: sessionPath, loaded: true, exports: { getApiSession: async () => session } } as any;
@@ -99,6 +101,27 @@ test("Games and catalog handlers import official artwork without accepting manua
       const response = await catalog.POST(request("/api/games/catalog", "POST", { externalKey: "scratch:2753" }));
       assert.equal(response.status, 200);
       assert.equal(created.at(-1).imageUrl, image);
+    });
+    await context.test("catalog hides full ticket fronts and missing artwork", async () => {
+      catalogImage = oldFrontImage;
+      const frontResult = await catalog.GET(request("/api/games/catalog", "GET"));
+      assert.equal(frontResult.status, 200);
+      assert.equal((await frontResult.json()).catalog[0].imageUrl, null);
+
+      const frontAdd = await catalog.POST(request("/api/games/catalog", "POST", { externalKey: "scratch:2753" }));
+      assert.equal(frontAdd.status, 200);
+      assert.equal(created.at(-1).imageUrl, null);
+
+      catalogImage = null;
+      const missingResult = await catalog.GET(request("/api/games/catalog", "GET"));
+      assert.equal(missingResult.status, 200);
+      assert.equal((await missingResult.json()).catalog[0].imageUrl, null);
+
+      const missingAdd = await catalog.POST(request("/api/games/catalog", "POST", { externalKey: "scratch:2753" }));
+      assert.equal(missingAdd.status, 200);
+      assert.equal(created.at(-1).imageUrl, null);
+
+      catalogImage = image;
     });
     await context.test("bulk catalog add includes artwork", async () => {
       const response = await catalog.POST(request("/api/games/catalog", "POST", { action: "add-all" }));
