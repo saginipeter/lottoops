@@ -30,33 +30,33 @@ export default async function SettingsPage() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Panel className="h-full p-5">
+          <Panel className="h-full border-accent/30 bg-surface-soft p-5 shadow-sm">
             <div className="mb-3 inline-flex rounded-lg bg-blue-100 p-2 text-blue-700">
               <Tv size={18} />
             </div>
-            <h3 className="text-base font-semibold text-text">TV Display</h3>
+            <h3 className="text-base font-semibold text-text">TV Screens</h3>
             <p className="mt-1 text-sm text-text-secondary">
-              Show active games and pack status on a customer-facing display.
+              Manage customer-facing screens. Each screen shows up to 40 entries in a 10-column × 4-row layout, with overflow continuing automatically on the next screen.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
                 href="/settings/tv-display"
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-soft"
+                className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90"
               >
-                Open TV Settings
+                Manage Screens
               </Link>
               <Link
-                href="/tv-display?interval=15"
+                href="/tv-display?screen=1&interval=15"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90"
               >
-                Start Kiosk
+                Start Screen 1
                 <ExternalLink size={14} />
               </Link>
             </div>
             <p className="mt-2 text-xs text-text-tertiary">
-              Kiosk opens as full-screen board view with auto-refresh.
+              Fixed screen links keep historical TVs stable when inventory later drops below a screen boundary.
             </p>
           </Panel>
 

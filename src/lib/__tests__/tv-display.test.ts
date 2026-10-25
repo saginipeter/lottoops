@@ -10,6 +10,7 @@ import {
   getDisplayedTicketNumber,
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
+import { parseTvScreenNumber, splitTvScreens, TV_SCREEN_CAPACITY } from "@/lib/tv-screens";
 import { remainingTicketsAfterDirectionChange, remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
 
 test("TV slot HUDs show current and next ticket numbers in preview and kiosk modes", () => {
@@ -43,10 +44,10 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
   }
 });
 
-test("TV display shows every game together without slides", () => {
+test("TV screens show at most 40 real entries in a 10-column 4-row grid", () => {
   const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
   for (const kioskMode of [false, true]) {
-    for (const count of [0, 1, 14, 15, 16, 20, 30, 31, 40]) {
+    for (const count of [0, 1, 14, 15, 16, 20, 30, 31, 40, 41, 80, 81]) {
       const slots = Array.from({ length: count }, (_, index) => ({
         id: `slot-${index}`, packId: `pack-${index}`, gameId: `game-${index}`, slotNumber: String(index + 1),
         gameName: `Test game ${index + 1}`, gameNumber: "1234", ticketPrice: 1,
@@ -57,19 +58,67 @@ test("TV display shows every game together without slides", () => {
       const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, {
         value: router,
       }, createElement(TvDisplayBoard, { slots, kioskMode, refreshSeconds: 30 })));
-      assert.equal((html.match(/<article /g) ?? []).length, count);
+      const visibleCount = Math.min(count, TV_SCREEN_CAPACITY);
+      assert.equal((html.match(/<article /g) ?? []).length, visibleCount);
       if (count === 0) {
         assert.match(html, /No games on display/);
       } else {
         assert.match(html, /tv-board-stack/);
-        assert.match(html, new RegExp(`Test game ${count} artwork`));
-        assert.match(html, /width:8cm;height:10cm;flex:1 1 8cm/);
-        assert.doesNotMatch(html, /flex:0 0 8cm/);
-        assert.equal((html.match(/class="tv-jackpot-board tv-jackpot-board-artwork"/g) ?? []).length, count);
+        assert.match(html, new RegExp(`Test game ${visibleCount} artwork`));
+        assert.match(html, /grid-template-columns:repeat\(10,minmax\(0,1fr\)\)/);
+        assert.match(html, /grid-template-rows:repeat\(4,minmax\(0,1fr\)\)/);
+        assert.doesNotMatch(html, /width:8cm|height:10cm|flex:0 0 8cm/);
+        assert.equal((html.match(/class="tv-jackpot-board tv-jackpot-board-artwork"/g) ?? []).length, visibleCount);
       }
-      assert.doesNotMatch(html, /aria-label="Display slides"|Previous slide|Next slide|Slide \d+ of \d+/);
+      if (count > TV_SCREEN_CAPACITY) assert.match(html, /aria-label="Next screen"/);
     }
   }
+});
+
+test("screen partitioning includes each entry once, in natural display order, without mutating inventory", () => {
+  assert.equal(TV_SCREEN_CAPACITY, 40);
+  for (const count of [0, 1, 39, 40, 41, 80, 81, 125]) {
+    const slots = Array.from({ length: count }, (_, index) => ({ id: `display-${index}`, slotNumber: String(index + 1) })).reverse();
+    const original = slots.map(slot => slot.id);
+    const screens = splitTvScreens(slots);
+    assert.equal(screens.length, Math.max(1, Math.ceil(count / 40)));
+    assert.ok(screens.every(screen => screen.length <= 40));
+    assert.equal(screens.flat().length, count);
+    assert.equal(new Set(screens.flat().map(slot => slot.id)).size, count);
+    assert.deepEqual(screens.flat().map(slot => Number(slot.slotNumber)), Array.from({ length: count }, (_, index) => index + 1));
+    assert.deepEqual(slots.map(slot => slot.id), original);
+  }
+  assert.deepEqual(splitTvScreens([{ slotNumber: "40" }, { slotNumber: "02" }, { slotNumber: "9" }])[0].map(slot => slot.slotNumber), ["02", "9", "40"]);
+});
+
+test("screen selection rejects invalid values but does not redirect a fixed TV to another screen", () => {
+  for (const value of [undefined, null, "", "0", "-1", "2.5", "1e3", "abc", 0, -1, 1.5, Infinity, NaN, 10001, {}, [2]]) {
+    assert.equal(parseTvScreenNumber(value), 1);
+  }
+  for (const value of [1, 2, 10000, "1", "2", "10000"]) assert.equal(parseTvScreenNumber(value), Number(value));
+});
+
+test("screen links preserve kiosk access and removed overflow entries do not duplicate Screen 1", () => {
+  const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
+  const slots = Array.from({ length: 81 }, (_, index) => ({
+    id: `slot-${index}`, packId: `pack-${index}`, gameId: `game-${index}`, slotNumber: String(index + 1),
+    gameName: `Game ${index + 1}`, gameNumber: "1234", ticketPrice: 1,
+    sellDirection: "FIRST" as const, firstTicket: 1, currentTicket: 1,
+    nextTicket: 2, remaining: 50, sold: 0, quantity: 50,
+  }));
+  const render = (screenNumber: number, entries = slots) => renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router },
+    createElement(TvDisplayBoard, { slots: entries, kioskMode: true, refreshSeconds: 15, screenNumber, kioskToken: "signed-token" })));
+  const second = render(2);
+  assert.equal((second.match(/<article /g) ?? []).length, 40);
+  assert.match(second, /data-display-id="slot-40"/);
+  assert.match(second, /data-display-id="slot-79"/);
+  assert.doesNotMatch(second, /data-display-id="slot-0"/);
+  assert.match(second, /screen=3&amp;interval=15&amp;token=signed-token/);
+  assert.match(second, /screen=1&amp;interval=15&amp;token=signed-token/);
+  assert.equal((render(3).match(/<article /g) ?? []).length, 1);
+  const empty = render(2, slots.slice(0, 40));
+  assert.equal((empty.match(/<article /g) ?? []).length, 0);
+  assert.match(empty, /No games on Screen 2/);
 });
 
 test("ticket UI follows confirmed inventory snapshots in both sell directions", () => {

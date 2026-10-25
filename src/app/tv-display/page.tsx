@@ -9,11 +9,13 @@ import {
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
 import { verifyTvKioskToken } from "@/lib/tv-kiosk";
+import { parseTvScreenNumber } from "@/lib/tv-screens";
 
 interface TvDisplayKioskPageProps {
   searchParams?: Promise<{
     interval?: string;
     token?: string;
+    screen?: string;
   }>;
 }
 
@@ -21,6 +23,7 @@ export default async function TvDisplayKioskPage({
   searchParams,
 }: TvDisplayKioskPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
+  const screenNumber = parseTvScreenNumber(resolvedSearchParams.screen);
   const kioskToken = resolvedSearchParams.token ? await verifyTvKioskToken(resolvedSearchParams.token) : null;
   const session = await getSession();
 
@@ -124,6 +127,7 @@ export default async function TvDisplayKioskPage({
       slots={activeSlots}
       kioskMode
       refreshSeconds={refreshSeconds}
+      screenNumber={screenNumber}
       kioskToken={resolvedSearchParams.token}
       verifiedAt={verifiedAt}
     />

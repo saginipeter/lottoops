@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { type CSSProperties, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
+import { parseTvScreenNumber, splitTvScreens, TV_SCREEN_CAPACITY } from "@/lib/tv-screens";
 
 type TvDisplaySlot = {
   id: string;
@@ -29,15 +30,19 @@ interface TvDisplayBoardProps {
   refreshSeconds: number;
   kioskToken?: string;
   verifiedAt?: number;
+  screenNumber?: number;
 }
 
-export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }: TvDisplayBoardProps) {
+export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, kioskToken, screenNumber = 1 }: TvDisplayBoardProps) {
   const router = useRouter();
   const [stale, setStale] = useState(false);
   const lastVerified = useRef(0);
   const latestSnapshot = useRef(verifiedAt ?? 0);
   const refreshLock = useRef(false);
   const [isRefreshing, startRefresh] = useTransition();
+  const screens = splitTvScreens(slots);
+  const selectedScreen = parseTvScreenNumber(screenNumber);
+  const visibleSlots = screens[selectedScreen - 1] ?? [];
 
   useEffect(() => {
     refreshLock.current = isRefreshing;
@@ -71,36 +76,50 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
     return () => clearInterval(watchdog);
   }, [refreshSeconds]);
 
+  function screenHref(screen: number) {
+    const params = new URLSearchParams({ screen: String(screen), interval: String(refreshSeconds) });
+    if (kioskToken) params.set("token", kioskToken);
+    return `${kioskMode ? "/tv-display" : "/settings/tv-display"}?${params.toString()}`;
+  }
+
   const shellClass = kioskMode
-    ? "flex h-screen min-h-0 flex-col overflow-hidden bg-black text-white"
-    : "border border-black bg-black p-3 text-white sm:p-5";
+    ? "tv-screen-shell flex h-screen min-h-0 flex-col overflow-hidden bg-black text-white"
+    : "tv-screen-shell tv-screen-preview flex min-h-0 flex-col overflow-hidden border border-black bg-black text-white";
 
   return (
-    <div className={shellClass} data-live-status={stale ? "delayed" : "live"}>
+    <div className={shellClass} data-live-status={stale ? "delayed" : "live"} data-screen-number={selectedScreen}>
       {stale && <div className="tv-delay-banner"><CircleAlert size={14} /><span><strong>Updates delayed.</strong> Showing the last verified board.</span></div>}
 
-      {slots.length === 0 ? (
-        <div className="tv-empty-state"><RefreshCw size={26} className="mx-auto mb-4 text-[#f4c542]" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
+      {visibleSlots.length === 0 ? (
+        <div className="tv-empty-state"><RefreshCw size={26} className="mx-auto mb-4 text-[#f4c542]" /><p className="text-xl font-bold">{selectedScreen === 1 && slots.length === 0 ? "No games on display" : `No games on Screen ${selectedScreen}`}</p><p className="mt-2 text-sm text-white/60">{selectedScreen > 1 ? "This screen will populate automatically when more active displays are available." : "Assign active packs to displays to populate this board."}</p></div>
       ) : (
-        <div className={`tv-board-stack ${slots.length > 1 ? "tv-board-stack-multiple" : ""}`}>
-          {slots.map((slot) => <DisplayBoard key={`${slot.id}-${slot.gameId}-${slot.gameImage ?? "missing"}`} slot={slot} />)}
+        <div className="tv-board-stack" aria-label={`Screen ${selectedScreen}: ${visibleSlots.length} of ${TV_SCREEN_CAPACITY} displays`}>
+          {visibleSlots.map((slot) => <DisplayBoard key={`${slot.id}-${slot.gameId}-${slot.gameImage ?? "missing"}`} slot={slot} />)}
         </div>
       )}
 
-      {!kioskMode && <footer className="mt-3 flex items-center justify-between gap-3 border-t border-white/20 pt-2 text-[9px] font-bold uppercase tracking-wider text-white/55"><span className="inline-flex items-center gap-2"><ShieldCheck size={13} className="text-[#f4c542]" />Live inventory board</span><span>Updated every {refreshSeconds}s</span></footer>}
+      {(screens.length > 1 || selectedScreen > 1) && (
+        <nav className="tv-screen-controls" aria-label="TV screen navigation">
+          {selectedScreen > 1 ? <a href={screenHref(selectedScreen - 1)} aria-label="Previous screen"><ChevronLeft size={16} />Previous</a> : <span aria-disabled="true"><ChevronLeft size={16} />Previous</span>}
+          <span className="tv-screen-count">Screen {selectedScreen} of {Math.max(screens.length, selectedScreen)} <small>{visibleSlots.length}/{TV_SCREEN_CAPACITY} displays</small></span>
+          {selectedScreen < screens.length ? <a href={screenHref(selectedScreen + 1)} aria-label="Next screen">Next<ChevronRight size={16} /></a> : <span aria-disabled="true">Next<ChevronRight size={16} /></span>}
+        </nav>
+      )}
+
+      {!kioskMode && <footer className="tv-preview-footer"><span className="inline-flex items-center gap-2"><ShieldCheck size={13} className="text-[#f4c542]" />Live inventory board</span><span>Updated every {refreshSeconds}s</span></footer>}
       <style jsx global>{`
+        .tv-screen-preview { height:min(70vh,900px); }
         .tv-delay-banner { display:flex; align-items:center; gap:8px; flex:none; border:1px solid rgba(252,211,77,.45); background:rgba(252,211,77,.1); padding:6px 10px; color:#fef3c7; font-size:11px; }
-        .tv-empty-state { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:40px; text-align:center; }
-        .tv-board-stack { display:flex; min-height:0; flex:1; flex-wrap:wrap; align-content:flex-start; gap:4px; overflow:auto; background:#000; padding:0; }
-        .tv-board-stack-multiple { overflow:auto; }
-        .tv-jackpot-board { position:relative; display:block; width:8cm; min-width:0; height:10cm; flex:1 1 8cm; overflow:hidden; background:#000; }
+        .tv-empty-state { display:flex; min-height:0; flex:1; flex-direction:column; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:20px; text-align:center; }
+        .tv-board-stack { display:grid; min-height:0; min-width:0; flex:1; grid-template-columns:repeat(10,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); gap:8px; overflow:hidden; background:#000; padding:0; }
+        .tv-jackpot-board { position:relative; display:block; min-width:0; min-height:0; width:100%; height:100%; overflow:hidden; background:#000; container-type:size; }
         .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center; transform-origin:center; }
         .tv-jackpot-board-artwork::before { position:absolute; top:-10%; bottom:-10%; left:-50%; z-index:1; width:45%; background:linear-gradient(90deg,transparent,rgba(255,241,171,.2),rgba(255,255,255,.4),transparent); opacity:0; pointer-events:none; content:""; }
-        .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:12px; background:#111827; color:#f9fafb; font-size:14px; font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
+        .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:min(5cqi,12px); background:#111827; color:#f9fafb; font-size:min(8cqi,14px); font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
         .tv-jackpot-board::after { position:absolute; inset:0; border:1px solid rgba(255,255,255,.55); content:""; pointer-events:none; }
-        .tv-top-corner { position:absolute; top:5px; z-index:2; display:flex; min-width:30px; height:27px; align-items:center; justify-content:center; padding:0 4px; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:18px; font-weight:900; line-height:1; }
-        .tv-top-corner-left { left:5px; }
-        .tv-top-corner-right { right:5px; }
+        .tv-top-corner { position:absolute; top:min(2cqi,5px); z-index:2; display:flex; min-width:min(18cqi,30px); height:min(13cqi,27px); align-items:center; justify-content:center; padding:0 min(2cqi,4px); border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:min(9cqi,18px); font-weight:900; line-height:1; }
+        .tv-top-corner-left { left:min(2cqi,5px); }
+        .tv-top-corner-right { right:min(2cqi,5px); }
         .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; display:flex; height:39%; align-items:flex-end; justify-content:space-between; box-sizing:border-box; padding:min(4%,12px) min(5%,15px) min(3%,9px); container-type:inline-size; background:transparent; pointer-events:none; }
         .tv-ticket-badge { display:flex; min-width:0; flex-direction:column; align-items:center; gap:min(4cqi,11px); }
         .tv-ticket-badge-current { width:54%; max-width:147px; }
@@ -115,6 +134,13 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
         /* Deliberate, TV-only exception to globals.css's sharp-edge !important rule. */
         .tv-ticket-circle,.tv-ticket-face { border-radius:50% !important; }
         .tv-ticket-label { border-radius:999px !important; }
+        .tv-screen-controls { display:flex; min-height:40px; flex:none; align-items:center; justify-content:space-between; gap:8px; border-top:1px solid #333; padding:4px 10px; color:#fff08b; font:600 12px Arial,Helvetica,sans-serif; }
+        .tv-screen-controls a,.tv-screen-controls > span[aria-disabled] { display:inline-flex; min-height:30px; align-items:center; gap:4px; padding:0 8px; }
+        .tv-screen-controls a:focus-visible { outline:2px solid #fff08b; outline-offset:2px; }
+        .tv-screen-controls > span[aria-disabled] { opacity:.35; }
+        .tv-screen-count { display:flex; flex-direction:column; align-items:center; gap:2px; }
+        .tv-screen-count small { color:#aaa; font-size:10px; }
+        .tv-preview-footer { display:flex; min-height:28px; flex:none; align-items:center; justify-content:space-between; gap:8px; border-top:1px solid #333; padding:4px 8px; color:#aaa; font:bold 9px Arial,Helvetica,sans-serif; text-transform:uppercase; letter-spacing:.05em; }
         @keyframes tv-ticket-pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.035); } }
         @keyframes tv-artwork-drift { 0%,100% { transform:scale(1); } 50% { transform:scale(1.035); } }
         @keyframes tv-artwork-shine { 0%,40% { transform:translateX(-160%) skewX(-18deg); opacity:0; } 46% { opacity:.45; } 64% { transform:translateX(480%) skewX(-18deg); opacity:.25; } 70%,100% { transform:translateX(480%) skewX(-18deg); opacity:0; } }
@@ -131,7 +157,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
         [data-live-status="delayed"] .tv-jackpot-board::before,
         [data-live-status="delayed"] .tv-ticket-circle,
         [data-live-status="delayed"] .tv-ticket-circle::before { animation-play-state:paused; }
-        @media (max-width:900px) { .tv-board-stack { gap:3px; } }
+        @media (max-width:900px) { .tv-board-stack { gap:6px; } }
       `}</style>
     </div>
   );
@@ -141,7 +167,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasArtwork = Boolean(slot.gameImage) && !imageFailed;
 
-  return <article className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={{ width: "8cm", height: "10cm", flex: "1 1 8cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
+  return <article className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} aria-label={`${slot.gameName} display ${slot.slotNumber}`} data-display-id={slot.id}>
     {hasArtwork ? (
       <Image
         className="tv-jackpot-art"
@@ -149,7 +175,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
         src={slot.gameImage as string}
         alt={`${slot.gameName} artwork`}
         fill
-        sizes="303px"
+        sizes="10vw"
         unoptimized
         priority
         onError={() => setImageFailed(true)}

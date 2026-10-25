@@ -5,17 +5,20 @@ import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 import { TvKioskLink } from "@/components/settings/tv-kiosk-link";
+import { TvScreenManager, type TvScreenSummary } from "@/components/settings/tv-screen-manager";
 import {
   calculateTicketProgress,
   getDisplayRemainingTicketCount,
   getDisplayedTicketNumber,
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
+import { parseTvScreenNumber, splitTvScreens } from "@/lib/tv-screens";
 
 interface TvDisplayPageProps {
   searchParams?: Promise<{
     kiosk?: string;
     interval?: string;
+    screen?: string;
   }>;
 }
 
@@ -99,6 +102,7 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
 
   const resolvedSearchParams = (await searchParams) ?? {};
   const kioskMode = resolvedSearchParams.kiosk === "1";
+  const selectedScreenNumber = parseTvScreenNumber(resolvedSearchParams.screen);
   const parsedInterval = Number(resolvedSearchParams.interval ?? 15);
   const refreshSeconds = Number.isFinite(parsedInterval)
     ? Math.min(Math.max(parsedInterval, 5), 120)
@@ -106,6 +110,12 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
 
   // eslint-disable-next-line react-hooks/purity -- Async server response metadata, stamped after the database read.
   const verifiedAt = Date.now();
+  const screenSummaries: TvScreenSummary[] = splitTvScreens(activeSlots).map((screenSlots, index) => ({
+    screenNumber: index + 1,
+    activeCount: screenSlots.length,
+    firstSlotNumber: screenSlots[0]?.slotNumber ?? null,
+    lastSlotNumber: screenSlots.at(-1)?.slotNumber ?? null,
+  }));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -125,11 +135,26 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
       )}
 
       <div className={kioskMode ? "min-h-0 flex-1 overflow-hidden bg-[#050816]" : "min-h-0 flex-1 overflow-y-auto px-5 py-5 bg-bg"}>
-        {!kioskMode && <TvKioskLink />}
+        {!kioskMode && (
+          <>
+            <TvScreenManager
+              summaries={screenSummaries}
+              selectedScreenNumber={selectedScreenNumber}
+              refreshSeconds={refreshSeconds}
+              canManageScreens={session.role === "MANAGER" || session.role === "OWNER"}
+            />
+            <TvKioskLink
+              key={selectedScreenNumber}
+              screenNumber={selectedScreenNumber}
+              canManage={session.role === "MANAGER" || session.role === "OWNER"}
+            />
+          </>
+        )}
         <TvDisplayBoard
           slots={activeSlots}
           kioskMode={kioskMode}
           refreshSeconds={refreshSeconds}
+          screenNumber={selectedScreenNumber}
           verifiedAt={verifiedAt}
         />
       </div>
