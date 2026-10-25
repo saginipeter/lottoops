@@ -81,6 +81,7 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
       return {
         id: slot.id,
         packId: pack.id,
+        gameId: pack.game.id,
         slotNumber: slot.slotNumber,
         gameName: pack.game.name,
         gameNumber: pack.game.gameNumber,

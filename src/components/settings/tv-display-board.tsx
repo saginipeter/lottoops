@@ -8,6 +8,7 @@ import { CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
 type TvDisplaySlot = {
   id: string;
   packId: string;
+  gameId: string;
   slotNumber: string;
   gameName: string;
   gameNumber: string;
@@ -64,7 +65,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         <div className="tv-empty-state"><RefreshCw size={26} className="mx-auto mb-4 text-[#f4c542]" /><p className="text-xl font-bold">No games on display</p><p className="mt-2 text-sm text-white/60">Assign active packs to displays to populate this board.</p></div>
       ) : (
         <div className={`tv-board-stack ${slots.length > 1 ? "tv-board-stack-multiple" : ""}`}>
-          {slots.map((slot) => <DisplayBoard key={slot.id} slot={slot} />)}
+          {slots.map((slot) => <DisplayBoard key={`${slot.id}-${slot.gameId}-${slot.gameImage ?? "missing"}`} slot={slot} />)}
         </div>
       )}
 
