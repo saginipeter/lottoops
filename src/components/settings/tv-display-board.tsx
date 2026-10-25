@@ -82,10 +82,18 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         .tv-top-corner { position:absolute; top:2px; z-index:2; display:flex; min-width:16px; height:13px; align-items:center; justify-content:center; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:8px; font-weight:900; line-height:1; }
         .tv-top-corner-left { left:2px; }
         .tv-top-corner-right { right:2px; }
-        .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; height:39%; background:url('/tv/ticket-indicator-reference.jpg') center/100% 100% no-repeat; pointer-events:none; }
-        .tv-ticket-number { position:absolute; display:flex; align-items:center; justify-content:center; border-radius:999px; color:#050505; font-family:Arial,Helvetica,sans-serif; font-size:11px; font-weight:950; line-height:1; text-shadow:0 1px 0 rgba(255,255,255,.35); }
-        .tv-ticket-current-number { top:17%; left:26%; width:25%; height:57%; animation:tv-ticket-pulse 1.8s ease-in-out infinite; }
-        .tv-ticket-next-number { top:25%; left:72%; width:19%; height:43%; font-size:8px; }
+        .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; height:39%; pointer-events:none; }
+        .tv-ticket-badge { position:absolute; top:0; display:flex; flex-direction:column; align-items:center; gap:1px; }
+        .tv-ticket-badge-current { left:18%; width:34%; }
+        .tv-ticket-badge-next { left:67%; width:25%; padding-top:6%; }
+        .tv-ticket-circle { position:relative; display:flex; width:100%; aspect-ratio:1; align-items:center; justify-content:center; border:1px solid #f7c62c; border-radius:999px; background:#f8fafc; box-shadow:0 0 0 1px rgba(255,221,82,.9), 0 0 5px rgba(255,192,0,.95), inset 0 0 0 1px #191919; }
+        .tv-ticket-circle::before, .tv-ticket-circle::after { position:absolute; border:1px solid #ffd329; border-top-color:transparent; border-bottom-color:transparent; border-radius:999px; content:""; }
+        .tv-ticket-circle::before { inset:-3px; transform:rotate(28deg); }
+        .tv-ticket-circle::after { inset:-5px; transform:rotate(-30deg); opacity:.85; }
+        .tv-ticket-number { display:flex; max-width:92%; align-items:center; justify-content:center; overflow:hidden; color:#050505; font-family:Arial,Helvetica,sans-serif; font-size:clamp(5px, 0.25cm, 11px); font-weight:950; line-height:1; white-space:nowrap; }
+        .tv-ticket-badge-current .tv-ticket-circle { animation:tv-ticket-pulse 1.8s ease-in-out infinite; }
+        .tv-ticket-badge-next .tv-ticket-number { font-size:clamp(4px, 0.18cm, 8px); }
+        .tv-ticket-label { width:112%; padding:1px 1px; border:1px solid #f5c542; border-radius:999px; background:#090909; color:#ffe788; font-size:clamp(4px, 0.13cm, 6px); font-weight:900; line-height:1; text-align:center; text-transform:uppercase; white-space:nowrap; }
         @keyframes tv-ticket-pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.06); } }
         @media (max-width:900px) { .tv-board-stack { gap:3px; padding:5px; } }
       `}</style>
@@ -118,8 +126,14 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
     <div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
     <div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>
     <div className="tv-ticket-indicators" aria-label={`Current ticket ${slot.currentTicket}, next ticket ${slot.nextTicket > 0 ? slot.nextTicket : "none"}`}>
-      <div className="tv-ticket-number tv-ticket-current-number">{slot.currentTicket}</div>
-      <div className="tv-ticket-number tv-ticket-next-number">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</div>
+      <div className="tv-ticket-badge tv-ticket-badge-current">
+        <div className="tv-ticket-circle"><div className="tv-ticket-number">{slot.currentTicket}</div></div>
+        <div className="tv-ticket-label">Current Ticket</div>
+      </div>
+      <div className="tv-ticket-badge tv-ticket-badge-next">
+        <div className="tv-ticket-circle"><div className="tv-ticket-number">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</div></div>
+        <div className="tv-ticket-label">Next Ticket</div>
+      </div>
     </div>
   </article>;
 }
