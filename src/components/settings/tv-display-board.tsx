@@ -82,13 +82,11 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         .tv-top-corner { position:absolute; top:2px; z-index:2; display:flex; min-width:16px; height:13px; align-items:center; justify-content:center; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:8px; font-weight:900; line-height:1; }
         .tv-top-corner-left { left:2px; }
         .tv-top-corner-right { right:2px; }
-        .tv-ticket-indicators { position:absolute; right:2px; bottom:2px; left:2px; z-index:3; display:flex; align-items:flex-end; justify-content:space-between; pointer-events:none; }
-        .tv-ticket-indicator { display:flex; flex-direction:column; align-items:center; gap:1px; color:#fff; font-size:4px; font-weight:900; line-height:1; text-transform:uppercase; text-shadow:0 1px 2px #000; }
-        .tv-ticket-circle { display:flex; align-items:center; justify-content:center; border:1px solid #090909; border-radius:999px; background:#f8fafc; color:#101827; font-size:8px; font-weight:950; line-height:1; box-shadow:0 0 0 1px rgba(255,255,255,.85), 0 0 7px rgba(255,204,44,.9); }
-        .tv-ticket-current .tv-ticket-circle { width:24px; height:24px; border:2px solid #ffd12e; font-size:11px; animation:tv-ticket-pulse 1.8s ease-in-out infinite; }
-        .tv-ticket-next .tv-ticket-circle { width:17px; height:17px; border-color:#f5c542; font-size:8px; opacity:.98; }
-        .tv-ticket-label { min-width:28px; padding:1px 2px; border:1px solid #f5c542; border-radius:999px; background:rgba(16,10,2,.88); color:#ffe788; letter-spacing:-.15px; text-align:center; }
-        @keyframes tv-ticket-pulse { 0%,100% { box-shadow:0 0 0 1px rgba(255,255,255,.85), 0 0 5px rgba(255,204,44,.65); transform:scale(1); } 50% { box-shadow:0 0 0 2px rgba(255,245,180,.95), 0 0 11px rgba(255,204,44,1); transform:scale(1.06); } }
+        .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; height:39%; background:url('/tv/ticket-indicator-reference.jpg') center/100% 100% no-repeat; pointer-events:none; }
+        .tv-ticket-number { position:absolute; display:flex; align-items:center; justify-content:center; border-radius:999px; color:#050505; font-family:Arial,Helvetica,sans-serif; font-size:11px; font-weight:950; line-height:1; text-shadow:0 1px 0 rgba(255,255,255,.35); }
+        .tv-ticket-current-number { top:17%; left:26%; width:25%; height:57%; animation:tv-ticket-pulse 1.8s ease-in-out infinite; }
+        .tv-ticket-next-number { top:25%; left:72%; width:19%; height:43%; font-size:8px; }
+        @keyframes tv-ticket-pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.06); } }
         @media (max-width:900px) { .tv-board-stack { gap:3px; padding:5px; } }
       `}</style>
     </div>
@@ -120,14 +118,8 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
     <div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
     <div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>
     <div className="tv-ticket-indicators" aria-label={`Current ticket ${slot.currentTicket}, next ticket ${slot.nextTicket > 0 ? slot.nextTicket : "none"}`}>
-      <div className="tv-ticket-indicator tv-ticket-current">
-        <div className="tv-ticket-circle">{slot.currentTicket}</div>
-        <div className="tv-ticket-label">Current</div>
-      </div>
-      <div className="tv-ticket-indicator tv-ticket-next">
-        <div className="tv-ticket-circle">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</div>
-        <div className="tv-ticket-label">Next</div>
-      </div>
+      <div className="tv-ticket-number tv-ticket-current-number">{slot.currentTicket}</div>
+      <div className="tv-ticket-number tv-ticket-next-number">{slot.nextTicket > 0 ? slot.nextTicket : "—"}</div>
     </div>
   </article>;
 }
