@@ -93,7 +93,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
         .tv-empty-state { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:40px; text-align:center; }
         .tv-board-stack { display:flex; min-height:0; flex:1; flex-wrap:wrap; align-content:flex-start; gap:4px; overflow:auto; background:#000; padding:8px; }
         .tv-board-stack-multiple { overflow:auto; }
-        .tv-jackpot-board { position:relative; display:block; width:2cm; height:3cm; flex:0 0 2cm; overflow:hidden; background:#000; }
+        .tv-jackpot-board { position:relative; display:block; width:3cm; height:5cm; flex:0 0 3cm; overflow:hidden; background:#000; }
         .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center; }
         .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:4px; background:#111827; color:#f9fafb; font-size:7px; font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
         .tv-jackpot-board::after { position:absolute; inset:0; border:1px solid rgba(255,255,255,.55); content:""; pointer-events:none; }
@@ -126,7 +126,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasArtwork = Boolean(slot.gameImage) && !imageFailed;
 
-  return <article className="tv-jackpot-board" style={{ width: "2cm", height: "3cm", flex: "0 0 2cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
+  return <article className="tv-jackpot-board" style={{ width: "3cm", height: "5cm", flex: "0 0 3cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
     {hasArtwork ? (
       <Image
         className="tv-jackpot-art"
@@ -134,7 +134,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
         src={slot.gameImage as string}
         alt={`${slot.gameName} artwork`}
         fill
-        sizes="32px"
+        sizes="114px"
         unoptimized
         priority
         onError={() => setImageFailed(true)}

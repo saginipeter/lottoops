@@ -17,6 +17,8 @@ let css: string;
 const artwork = "https://tv.test/artwork.jpg";
 let artworkBytes: Buffer;
 let browserHarness: string;
+const TV_CARD_WIDTH_PX = 3 * 96 / 2.54;
+const TV_CARD_HEIGHT_PX = 5 * 96 / 2.54;
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
 
 function slot(index: number, currentTicket = 21, nextTicket = 22, remaining = 130) {
@@ -122,7 +124,28 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
       await showBoard(page, 40, kioskMode);
       const cards = page.locator("article");
       await expect(cards).toHaveCount(40);
-      expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
+      if (kioskMode) {
+        const pageFitsViewport = await page.evaluate(() => ({
+          height: document.documentElement.scrollHeight <= window.innerHeight,
+          width: document.documentElement.scrollWidth <= window.innerWidth,
+        }));
+        expect(pageFitsViewport.height).toBe(true);
+        expect(pageFitsViewport.width).toBe(true);
+
+        const board = page.locator(".tv-board-stack");
+        const scrollResult = await board.evaluate((element) => {
+          const last = element.lastElementChild as HTMLElement;
+          const boardRect = element.getBoundingClientRect();
+          element.scrollTop = element.scrollHeight;
+          const lastRect = last.getBoundingClientRect();
+          return {
+            scrollable: element.scrollHeight > element.clientHeight,
+            lastCardReached: lastRect.top >= boardRect.top && lastRect.bottom <= boardRect.bottom,
+          };
+        });
+        if (viewport.width === 1280) expect(scrollResult.scrollable).toBe(true);
+        expect(scrollResult.lastCardReached).toBe(true);
+      }
       // One DOM snapshot avoids thousands of slow browser protocol calls, especially in WebKit.
       const snapshots = await cards.evaluateAll(elements => elements.map(card => {
         const rect = (el: Element) => {
@@ -141,8 +164,8 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
           backgroundImage: getComputedStyle(card.querySelector(".tv-ticket-indicators")!).backgroundImage };
       }));
       for (const { dimensions, badges, objectFit, backgroundImage } of snapshots) {
-        expect(dimensions.width).toBeCloseTo(75.59, 0);
-        expect(dimensions.height).toBeCloseTo(113.39, 0);
+        expect(dimensions.width).toBeCloseTo(TV_CARD_WIDTH_PX, 0);
+        expect(dimensions.height).toBeCloseTo(TV_CARD_HEIGHT_PX, 0);
         expect(badges[0].circle.width).toBeGreaterThan(badges[1].circle.width * 1.3);
         expect(badges[0].circle.x + badges[0].circle.width).toBeLessThan(badges[1].circle.x);
         for (const { face, number, label, circleRadius, faceRadius, labelFits } of badges) {
@@ -158,9 +181,9 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
             expect(visible.width).toBeGreaterThan(0);
             expect(visible.height).toBeGreaterThan(0);
             expect(visible.x).toBeGreaterThanOrEqual(0);
-            expect(visible.y).toBeGreaterThanOrEqual(0);
             expect(visible.x + visible.width).toBeLessThanOrEqual(viewport.width);
-            expect(visible.y + visible.height).toBeLessThanOrEqual(viewport.height);
+            expect(visible.y).toBeGreaterThanOrEqual(dimensions.y);
+            expect(visible.y + visible.height).toBeLessThanOrEqual(dimensions.y + dimensions.height);
           }
         }
         expect(objectFit).toBe("cover");
@@ -177,9 +200,9 @@ test("one-, two-, and three-digit numbers scale with their circle, including pul
       createElement(TvDisplayBoard, { slots: [slot(0, value, value - 1, 150)], kioskMode: true, refreshSeconds: 15 }))));
     await page.addStyleTag({ content: css });
     for (const scale of [1, 2]) {
-      // Test-only resizing; production dimensions stay exactly 2cm x 3cm.
+      // Test-only resizing baseline is exactly 3cm x 5cm; production dimensions stay fixed.
       await page.locator("article").evaluate((el, scale) => {
-        el.style.width = `${2 * scale}cm`; el.style.height = `${3 * scale}cm`; el.style.flex = "0 0 auto";
+        el.style.width = `${3 * scale}cm`; el.style.height = `${5 * scale}cm`; el.style.flex = `0 0 ${3 * scale}cm`;
       }, scale);
       for (const phase of ["0s", "-1.2s"]) {
         await page.locator(".tv-ticket-circle").evaluateAll((els, phase) => els.forEach(el => {
@@ -266,7 +289,12 @@ test("capture the implemented ticket design preview", async ({ page, browserName
     await mkdir(output, { recursive: true });
     await page.screenshot({ path: resolve(output, "tv-ticket-1080p.png") });
     const box = await page.locator(".tv-board-stack").boundingBox();
-    await page.screenshot({ path: resolve(output, "tv-ticket-preview.png"), clip: { x: box!.x, y: box!.y, width: 326, height: 133 } });
+    await page.screenshot({ path: resolve(output, "tv-ticket-preview.png"), clip: {
+      x: box!.x,
+      y: box!.y,
+      width: 4 * TV_CARD_WIDTH_PX + 3 * 4 + 16,
+      height: TV_CARD_HEIGHT_PX + 16,
+    } });
   }
   await testInfo.attach("Implemented TV indicators (test inventory)", { body: await page.screenshot(), contentType: "image/png" });
 });

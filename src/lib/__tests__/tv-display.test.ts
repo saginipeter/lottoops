@@ -57,7 +57,7 @@ test("TV display shows every game together without slides", () => {
       } else {
         assert.match(html, /tv-board-stack/);
         assert.match(html, new RegExp(`Test game ${count} artwork`));
-        assert.match(html, /width:2cm;height:3cm;flex:0 0 2cm/);
+        assert.match(html, /width:3cm;height:5cm;flex:0 0 3cm/);
       }
       assert.doesNotMatch(html, /aria-label="Display slides"|Previous slide|Next slide|Slide \d+ of \d+/);
     }
