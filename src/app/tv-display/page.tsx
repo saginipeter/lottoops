@@ -116,12 +116,16 @@ export default async function TvDisplayKioskPage({
     ? Math.min(Math.max(parsedInterval, 5), 120)
     : 15;
 
+  // eslint-disable-next-line react-hooks/purity -- Async server response metadata, stamped after the database read.
+  const verifiedAt = Date.now();
+
   return (
     <TvDisplayBoard
       slots={activeSlots}
       kioskMode
       refreshSeconds={refreshSeconds}
       kioskToken={resolvedSearchParams.token}
+      verifiedAt={verifiedAt}
     />
   );
 }

@@ -16,10 +16,10 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
   const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
   for (const kioskMode of [false, true]) {
     const slots = (["FIRST", "LAST"] as const).map((sellDirection, index) => ({
-      id: `slot-${index}`, packId: `pack-${index}`, slotNumber: String(index + 1),
+      id: `slot-${index}`, packId: `pack-${index}`, gameId: `game-${index}`, slotNumber: String(index + 1),
       gameName: "Test game", gameNumber: "1234", ticketPrice: 1, sellDirection,
       firstTicket: 1, currentTicket: index === 0 ? 12 : 1, nextTicket: index === 0 ? 13 : 0,
-      remaining: 1, sold: 49, quantity: 50,
+      remaining: index === 0 ? 39 : 1, sold: index === 0 ? 11 : 49, quantity: 50,
     }));
     const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, {
       value: router,
@@ -29,9 +29,11 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.equal((html.match(/>12</g) ?? []).length, 1);
     assert.match(html, />13</);
     assert.match(html, />—</);
-    assert.equal((html.match(/<strong class="block tabular-nums text-\[clamp\(0\.8rem,6cqw,1\.4rem\)\] leading-tight text-white">(?:12|1)<\/strong>/g) ?? []).length, 2);
-    assert.equal((html.match(/<strong class="block tabular-nums text-\[clamp\(0\.8rem,6cqw,1\.4rem\)\] leading-tight text-amber-300">(?:13|—)<\/strong>/g) ?? []).length, 2);
-    assert.equal((html.match(/<div class="@container absolute inset-0">/g) ?? []).length, 2);
+    assert.equal((html.match(/class="tv-ticket-face"/g) ?? []).length, 4);
+    assert.equal((html.match(/class="tv-ticket-number"/g) ?? []).length, 4);
+    assert.match(html, /tv-ticket-badge-current/);
+    assert.match(html, /tv-ticket-badge-next/);
+    assert.doesNotMatch(html, /ticket-indicator-reference\.jpg/);
   }
 });
 
@@ -40,8 +42,9 @@ test("TV display shows every game together without slides", () => {
   for (const kioskMode of [false, true]) {
     for (const count of [0, 1, 14, 15, 16, 20, 30, 31, 40]) {
       const slots = Array.from({ length: count }, (_, index) => ({
-        id: `slot-${index}`, packId: `pack-${index}`, slotNumber: String(index + 1),
+        id: `slot-${index}`, packId: `pack-${index}`, gameId: `game-${index}`, slotNumber: String(index + 1),
         gameName: `Test game ${index + 1}`, gameNumber: "1234", ticketPrice: 1,
+        gameImage: `/game-${index}.png`,
         sellDirection: "FIRST" as const, firstTicket: 1, currentTicket: 12,
         nextTicket: 13, remaining: 38, sold: 12, quantity: 50,
       }));
@@ -52,12 +55,45 @@ test("TV display shows every game together without slides", () => {
       if (count === 0) {
         assert.match(html, /No games on display/);
       } else {
-        assert.match(html, /grid-cols-5/);
-        assert.match(html, new RegExp(`Test game ${count} lottery game artwork`));
+        assert.match(html, /tv-board-stack/);
+        assert.match(html, new RegExp(`Test game ${count} artwork`));
+        assert.match(html, /width:2cm;height:3cm;flex:0 0 2cm/);
       }
       assert.doesNotMatch(html, /aria-label="Display slides"|Previous slide|Next slide|Slide \d+ of \d+/);
-      if (kioskMode && count > 15) assert.match(html, /overflow-y-auto/);
     }
+  }
+});
+
+test("ticket UI follows confirmed inventory snapshots in both sell directions", () => {
+  const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
+  for (const direction of ["FIRST", "LAST"] as const) {
+    for (const remaining of [150, 130, 129, 2, 1, 0]) {
+      const currentTicket = getDisplayedTicketNumber(1, remaining, 150, direction);
+      const nextTicket = getNextDisplayedTicket(1, remaining, 150, direction);
+      const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router },
+        createElement(TvDisplayBoard, { kioskMode: true, refreshSeconds: 15, slots: [{
+          id: "display", packId: `pack-${direction}`, gameId: "game", slotNumber: "1",
+          gameName: "Inventory snapshot", gameNumber: "1234", ticketPrice: 5,
+          sellDirection: direction, firstTicket: 1, currentTicket, nextTicket, remaining,
+          sold: 150 - remaining, quantity: 150,
+        }] })));
+      assert.ok(html.includes(`aria-label="CURRENT TICKET: ${remaining > 0 ? currentTicket : "unavailable"}"`));
+      assert.ok(html.includes(`aria-label="NEXT TICKET: ${remaining > 1 ? nextTicket : "unavailable"}"`));
+    }
+  }
+});
+
+test("unavailable ticket data is never rendered as a fabricated number", () => {
+  const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
+  for (const invalid of [NaN, Infinity, -1, 0, 1.5]) {
+    const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router },
+      createElement(TvDisplayBoard, { kioskMode: true, refreshSeconds: 15, slots: [{
+        id: "display", packId: "pack", gameId: "game", slotNumber: "1",
+        gameName: "Missing values", gameNumber: "1234", ticketPrice: 1,
+        sellDirection: "FIRST", firstTicket: 1, currentTicket: invalid, nextTicket: invalid,
+        remaining: 20, sold: 0, quantity: 20,
+      }] })));
+    assert.equal((html.match(/>—</g) ?? []).length, 2);
   }
 });
 

@@ -104,6 +104,9 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
     ? Math.min(Math.max(parsedInterval, 5), 120)
     : 15;
 
+  // eslint-disable-next-line react-hooks/purity -- Async server response metadata, stamped after the database read.
+  const verifiedAt = Date.now();
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {!kioskMode && (
@@ -127,6 +130,7 @@ export default async function TvDisplayPage({ searchParams }: TvDisplayPageProps
           slots={activeSlots}
           kioskMode={kioskMode}
           refreshSeconds={refreshSeconds}
+          verifiedAt={verifiedAt}
         />
       </div>
 
