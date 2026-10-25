@@ -76,6 +76,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
         .tv-board-stack-multiple { overflow:auto; }
         .tv-jackpot-board { position:relative; display:block; width:2cm; height:3cm; flex:0 0 2cm; overflow:hidden; background:#000; }
         .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center; }
+        .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:4px; background:#111827; color:#f9fafb; font-size:7px; font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
         .tv-jackpot-board::after { position:absolute; inset:0; border:1px solid rgba(255,255,255,.55); content:""; pointer-events:none; }
         .tv-top-corner { position:absolute; top:2px; z-index:2; display:flex; min-width:16px; height:13px; align-items:center; justify-content:center; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:8px; font-weight:900; line-height:1; }
         .tv-top-corner-left { left:2px; }
@@ -87,8 +88,27 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds }: TvDisplayBo
 }
 
 function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const hasArtwork = Boolean(slot.gameImage) && !imageFailed;
+
   return <article className="tv-jackpot-board" style={{ width: "2cm", height: "3cm", flex: "0 0 2cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
-    <Image className="tv-jackpot-art" style={{ objectFit: "cover", objectPosition: "center" }} src="/tv/game-types/triple-777-tile.jpeg" alt={`${slot.gameName} artwork`} fill sizes="32px" unoptimized priority />
+    {hasArtwork ? (
+      <Image
+        className="tv-jackpot-art"
+        style={{ objectFit: "cover", objectPosition: "center" }}
+        src={slot.gameImage as string}
+        alt={`${slot.gameName} artwork`}
+        fill
+        sizes="32px"
+        unoptimized
+        priority
+        onError={() => setImageFailed(true)}
+      />
+    ) : (
+      <div className="tv-image-unavailable" role="img" aria-label={`${slot.gameName} image not available`}>
+        Image not available
+      </div>
+    )}
     <div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
     <div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>
   </article>;
