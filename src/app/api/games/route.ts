@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { canManageGames } from "@/lib/permissions";
+import { resolveGameArtwork } from "@/lib/games-sync/texas-artwork";
 
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "EMPLOYEE") {
+  if (!canManageGames(session)) {
     return NextResponse.json(
       { error: "You don't have permission to create games." },
       { status: 403 }
@@ -64,7 +66,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { gameNumber, name, price, ticketsPerPack, active, imageUrl } = await req.json();
+    const body = await req.json();
+    if (Object.prototype.hasOwnProperty.call(body, "imageUrl")) {
+      return NextResponse.json(
+        { error: "Artwork is managed automatically from the official Texas Lottery source; imageUrl cannot be supplied." },
+        { status: 400 }
+      );
+    }
+
+    const { gameNumber, name, price, ticketsPerPack, active } = body;
 
     const normalizedGameNumber = String(gameNumber ?? "").trim();
     const normalizedName = String(name ?? "").trim();
@@ -87,12 +97,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const imageUrl = await resolveGameArtwork(prisma, session.storeId, normalizedGameNumber);
     const created = await prisma.game.create({
       data: {
         storeId: session.storeId,
         gameNumber: normalizedGameNumber,
         name: normalizedName,
-        ...(typeof imageUrl === "string" && imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}),
+        imageUrl,
         price: normalizedPrice,
         ticketsPerPack: normalizedTicketsPerPack,
         active: active !== false,
@@ -124,7 +135,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.role === "EMPLOYEE") {
+  if (!canManageGames(session)) {
     return NextResponse.json(
       { error: "You don't have permission to update games." },
       { status: 403 }
@@ -139,7 +150,15 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { id, gameNumber, name, price, ticketsPerPack, active, imageUrl } = await req.json();
+    const body = await req.json();
+    if (Object.prototype.hasOwnProperty.call(body, "imageUrl")) {
+      return NextResponse.json(
+        { error: "Artwork is managed automatically from the official Texas Lottery source; imageUrl cannot be supplied." },
+        { status: 400 }
+      );
+    }
+
+    const { id, gameNumber, name, price, ticketsPerPack, active } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Game id is required." }, { status: 400 });
@@ -147,7 +166,7 @@ export async function PATCH(req: NextRequest) {
 
     const existing = await prisma.game.findUnique({
       where: { id: String(id) },
-      select: { id: true, storeId: true },
+      select: { id: true, storeId: true, gameNumber: true },
     });
     if (!existing || existing.storeId !== session.storeId) {
       return NextResponse.json({ error: "Game not found." }, { status: 404 });
@@ -196,15 +215,9 @@ export async function PATCH(req: NextRequest) {
     if (active !== undefined) {
       data.active = Boolean(active);
     }
-    if (imageUrl !== undefined) {
-      if (imageUrl !== null && typeof imageUrl !== "string") {
-        return NextResponse.json({ error: "Game image URL must be a string or null." }, { status: 400 });
-      }
-      const normalized = typeof imageUrl === "string" ? imageUrl.trim() : "";
-      if (normalized && !/^https:\/\//i.test(normalized)) {
-        return NextResponse.json({ error: "Game image URL must use HTTPS." }, { status: 400 });
-      }
-      data.imageUrl = normalized || null;
+
+    if (data.gameNumber !== undefined && data.gameNumber !== existing.gameNumber) {
+      data.imageUrl = await resolveGameArtwork(prisma, session.storeId, data.gameNumber);
     }
 
     const updated = await prisma.game.update({

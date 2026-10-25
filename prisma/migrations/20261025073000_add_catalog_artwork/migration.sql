@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS game_catalog
+ADD COLUMN IF NOT EXISTS image_url TEXT;

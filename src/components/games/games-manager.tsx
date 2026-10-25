@@ -1,12 +1,13 @@
 "use client";
 
-import { ReactNode, useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { ReactNode, useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database, ImagePlus } from "lucide-react";
+import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
+import { isOfficialTexasArtwork } from "@/lib/games-sync/texas-artwork";
 
 type UserRole = "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE" | "AUDITOR";
 
@@ -24,6 +25,7 @@ interface GameItem {
 interface CatalogItem {
   externalKey: string;
   name: string;
+  imageUrl?: string | null;
   gameType: string;
   status: string;
   gameNumber: string | null;
@@ -46,6 +48,11 @@ interface TexasReference {
   ticketPrice: number;
   gameCloseDate: string | null;
   sourceUrl: string;
+}
+
+interface SyncArtworkSummary {
+  artworkFound: number | null;
+  sourceFailureCount: number | null;
 }
 
 interface GamesManagerProps {
@@ -93,6 +100,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"ok" | "err">("ok");
+  const [syncArtworkSummary, setSyncArtworkSummary] = useState<SyncArtworkSummary | null>(null);
   const [lookupResult, setLookupResult] = useState<TexasReference | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [catalogSearch, setCatalogSearch] = useState("");
@@ -226,35 +234,6 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
     finally { setLoading(false); }
   }
 
-  async function saveGameArtwork(game: GameItem, file: File): Promise<string> {
-    if (!canManage) throw new Error("You do not have permission to update game artwork.");
-    if (!file.type.startsWith("image/")) throw new Error("Choose an image file.");
-    if (file.size > 10 * 1024 * 1024) throw new Error("Images must be 10 MB or smaller.");
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("type", "Game Artwork");
-    formData.append("name", `${game.gameNumber} ${game.name} artwork`);
-    formData.append("reference", `game:${game.id}`);
-    const uploadResponse = await fetch("/api/upload", { method: "POST", body: formData });
-    const uploadData = await uploadResponse.json().catch(() => null);
-    if (!uploadResponse.ok || typeof uploadData?.url !== "string") {
-      throw new Error(uploadData?.error || "Unable to upload game artwork.");
-    }
-
-    const updateResponse = await fetch("/api/games", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: game.id, imageUrl: uploadData.url }),
-    });
-    const updateData = await updateResponse.json().catch(() => null);
-    if (!updateResponse.ok) {
-      throw new Error(updateData?.error || "Artwork uploaded, but could not be linked to the game.");
-    }
-    if (uploadData.warning) notify(uploadData.warning, "err");
-    return uploadData.url as string;
-  }
-
   async function syncTexasGames() {
     if (!canManage) return;
     try {
@@ -263,10 +242,27 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
       const res = await fetch("/api/games/sync", { method: "POST", headers: { "Content-Type": "application/json" } });
       const data = await res.json();
       if (!res.ok) { notify(data.error || "Sync failed.", "err"); return; }
-      const processed = Number(data.summary?.processed ?? 0);
-      const failures = Number((data.summary?.sourceFailures ?? []).length);
-      notify(`Sync complete — ${processed} games synced${failures > 0 ? `, ${failures} source failure(s)` : ""}.`);
-      await refreshCatalog();
+      const summary = data.summary as {
+        processed?: unknown;
+        artworkFound?: unknown;
+        sourceFailures?: unknown;
+      } | undefined;
+      const processed = Number(summary?.processed ?? 0);
+      const artworkFound = typeof summary?.artworkFound === "number" && Number.isFinite(summary.artworkFound)
+        ? summary.artworkFound
+        : null;
+      const sourceFailureCount = Array.isArray(summary?.sourceFailures)
+        ? summary.sourceFailures.length
+        : typeof summary?.sourceFailures === "number" && Number.isFinite(summary.sourceFailures)
+          ? summary.sourceFailures
+          : null;
+      setSyncArtworkSummary(
+        artworkFound !== null || (sourceFailureCount !== null && sourceFailureCount > 0)
+          ? { artworkFound, sourceFailureCount }
+          : null
+      );
+      notify(`Sync complete — ${processed} games synced${artworkFound !== null ? `, ${artworkFound} artwork found` : ""}${sourceFailureCount !== null && sourceFailureCount > 0 ? `, ${sourceFailureCount} source failure(s)` : ""}.`);
+      await Promise.all([refreshGames(true), refreshCatalog()]);
       setTab("catalog");
     } catch { notify("Sync failed.", "err"); }
     finally { setSyncing(false); }
@@ -350,6 +346,17 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
         </div>
       )}
 
+      {syncArtworkSummary && (syncArtworkSummary.artworkFound !== null || (syncArtworkSummary.sourceFailureCount !== null && syncArtworkSummary.sourceFailureCount > 0)) && (
+        <div className={`rounded-md border px-3 py-2 text-sm ${syncArtworkSummary.sourceFailureCount !== null && syncArtworkSummary.sourceFailureCount > 0 ? "border-amber-200 bg-amber-50 text-amber-800" : "border-blue-200 bg-blue-50 text-blue-800"}`}>
+          {syncArtworkSummary.artworkFound !== null && (
+            <span>Texas Lottery artwork found: {syncArtworkSummary.artworkFound}.</span>
+          )}
+          {syncArtworkSummary.sourceFailureCount !== null && syncArtworkSummary.sourceFailureCount > 0 && (
+            <span className="ml-1">{syncArtworkSummary.sourceFailureCount} source failure(s) reported; some artwork may be unavailable.</span>
+          )}
+        </div>
+      )}
+
       {/* ── STORE GAMES TAB ── */}
       {tab === "store" && (
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
@@ -396,13 +403,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                         </span>
                       </td>
                       <td className="py-2 pr-4">
-                        <GameArtworkControl
-                          game={game}
-                          disabled={!canManage}
-                          saveArtwork={saveGameArtwork}
-                          onSaved={(imageUrl) => setGames((previous) => previous.map((item) => item.id === game.id ? { ...item, imageUrl } : item))}
-                          notify={notify}
-                        />
+                        <GameArtworkThumbnail gameName={game.name} imageUrl={game.imageUrl} />
                       </td>
                       <td className="py-2 text-right">
                         <div className="flex justify-end gap-1">
@@ -546,6 +547,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                     <th className="py-2 pr-3 text-right">Price</th>
                     <th className="py-2 pr-3">Top Prize</th>
                     <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3">Artwork</th>
                     <th className="py-2 text-right">Action</th>
                   </tr>
                 </thead>
@@ -569,6 +571,9 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status] ?? "bg-gray-100 text-gray-500"}`}>
                           {item.status}
                         </span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <GameArtworkThumbnail gameName={item.name} imageUrl={item.imageUrl} />
                       </td>
                       <td className="py-2 text-right">
                         {item.addedToStore ? (
@@ -609,44 +614,30 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function GameArtworkControl({
-  game,
-  disabled,
-  saveArtwork,
-  onSaved,
-  notify,
-}: {
-  game: GameItem;
-  disabled: boolean;
-  saveArtwork: (game: GameItem, file: File) => Promise<string>;
-  onSaved: (url: string) => void;
-  notify: (message: string, type?: "ok" | "err") => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+function GameArtworkThumbnail({ gameName, imageUrl }: { gameName: string; imageUrl?: string | null }) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const imageAvailable = Boolean(imageUrl && isOfficialTexasArtwork(imageUrl)) && failedImageUrl !== imageUrl;
 
-  async function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    try {
-      setUploading(true);
-      const imageUrl = await saveArtwork(game, file);
-      onSaved(imageUrl);
-      notify(`Artwork saved for ${game.name}.`);
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Unable to upload game artwork.", "err");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return <div className="flex items-center gap-2">
-    {game.imageUrl && <Image src={game.imageUrl} alt={`${game.name} artwork`} width={40} height={40} unoptimized className="h-10 w-10 border border-border object-cover" />}
-    <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="sr-only" disabled={disabled || uploading} onChange={handleChange} />
-    <Button type="button" size="sm" variant="outline" disabled={disabled || uploading} onClick={() => inputRef.current?.click()}>
-      {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
-      {uploading ? "Uploading" : game.imageUrl ? "Replace" : "Upload"}
-    </Button>
-  </div>;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-surface-soft">
+        {imageAvailable ? (
+          <Image
+            src={imageUrl!}
+            alt={`${gameName} Texas Lottery artwork`}
+            width={40}
+            height={40}
+            unoptimized
+            className="h-10 w-10 object-cover"
+            onError={() => setFailedImageUrl(imageUrl ?? null)}
+          />
+        ) : (
+          <span aria-hidden="true" className="text-xs text-text-tertiary">—</span>
+        )}
+      </div>
+      <span className={`text-[11px] ${imageAvailable ? "text-text-secondary" : "text-text-tertiary"}`}>
+        {imageAvailable ? "Texas Lottery" : "Image not available"}
+      </span>
+    </div>
+  );
 }

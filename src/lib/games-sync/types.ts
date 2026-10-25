@@ -38,6 +38,7 @@ export interface NormalizedSourceGame {
   sourceUrl: string;
   sourceType: "scratch_offs" | "drawing_schedule" | "unknown";
   gameNumber?: string;
+  imageUrl?: string | null;
   price?: number;
   odds?: string;
   topPrize?: string;
@@ -64,9 +65,11 @@ export interface SyncRunSummary {
   processed: number;
   createdOrUpdated: number;
   unknownCount: number;
+  artworkFound?: number;
+  artworkMissing?: number;
+  artworkUnavailable?: number;
   sourceFailures: Array<{
     sourceType: "scratch_offs" | "drawing_schedule";
     error: string;
   }>;
 }
-

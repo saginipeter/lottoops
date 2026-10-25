@@ -5,6 +5,10 @@ import { GameSyncService } from "@/lib/games-sync/game-sync-service";
 import { PrismaGameRepository } from "@/lib/games-sync/game-repository";
 import { SyncJob } from "@/lib/games-sync/sync-job";
 
+// Official artwork verification is bounded to six requests at a time; leave
+// room for temporary slow responses as well as database persistence.
+export const maxDuration = 180;
+
 // Per-store sync jobs keyed by storeId so concurrent requests for the same
 // store are deduplicated but different stores run independently.
 const syncJobs = new Map<string, SyncJob>();
@@ -103,4 +107,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to sync games." }, { status: 500 });
   }
 }
-

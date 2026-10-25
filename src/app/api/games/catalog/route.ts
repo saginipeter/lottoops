@@ -3,6 +3,7 @@ import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { canManageGames } from "@/lib/permissions";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
+import { isOfficialTexasArtwork } from "@/lib/games-sync/texas-artwork";
 
 /**
  * GET /api/games/catalog
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     // Get catalog entries from raw game_catalog table
 
     const rows = (await prisma.$queryRawUnsafe(
-      `SELECT id, external_key, name, game_type, status, game_number, ticket_price,
+      `SELECT id, external_key, name, game_type, status, game_number, ticket_price, image_url,
               odds, top_prize, prizes_claimed, remaining_top_prizes, end_date,
               draw_days, draw_times, sales_cutoff, last_synced_at
        FROM game_catalog
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
       status: string;
       game_number: string | null;
       ticket_price: number | null;
+      image_url: string | null;
       odds: string | null;
       top_prize: string | null;
       prizes_claimed: number | null;
@@ -78,6 +80,9 @@ export async function GET(req: NextRequest) {
       status: r.status,
       gameNumber: r.game_number,
       ticketPrice: r.ticket_price,
+      imageUrl: r.image_url && r.game_number && isOfficialTexasArtwork(r.image_url, r.game_number)
+        ? r.image_url
+        : null,
       odds: r.odds,
       topPrize: r.top_prize,
       prizesClaimed: r.prizes_claimed,
@@ -111,7 +116,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (session.role === "EMPLOYEE") return NextResponse.json({ error: "Insufficient permissions." }, { status: 403 });
+  if (!canManageGames(session)) return NextResponse.json({ error: "Insufficient permissions." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const body = await req.json().catch(() => ({}));
@@ -123,7 +128,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const rows = (await prisma.$queryRawUnsafe(
-        `SELECT game_number AS "gameNumber", name, ticket_price AS "ticketPrice"
+        `SELECT game_number AS "gameNumber", name, ticket_price AS "ticketPrice", image_url AS "imageUrl"
          FROM game_catalog
          WHERE store_id = $1
            AND game_type = 'scratch_off'
@@ -132,13 +137,16 @@ export async function POST(req: NextRequest) {
            AND ticket_price > 0
          ORDER BY game_number ASC`,
         session.storeId
-      )) as Array<{ gameNumber: string; name: string; ticketPrice: number }>;
+      )) as Array<{ gameNumber: string; name: string; ticketPrice: number; imageUrl: string | null }>;
 
       const result = await prisma.game.createMany({
         data: rows.map((entry) => ({
           storeId: session.storeId,
           gameNumber: entry.gameNumber.trim(),
           name: entry.name,
+          imageUrl: entry.imageUrl && isOfficialTexasArtwork(entry.imageUrl, entry.gameNumber.trim())
+            ? entry.imageUrl
+            : null,
           price: Number(entry.ticketPrice),
           ticketsPerPack: getSuggestedTicketQuantity(Number(entry.ticketPrice)),
           active: true,
@@ -166,10 +174,10 @@ export async function POST(req: NextRequest) {
     // Look up the catalog entry
 
     const rows = (await prisma.$queryRawUnsafe(
-      `SELECT name, game_number, ticket_price FROM game_catalog WHERE store_id = $1 AND external_key = $2 LIMIT 1`,
+      `SELECT name, game_number, ticket_price, image_url FROM game_catalog WHERE store_id = $1 AND external_key = $2 LIMIT 1`,
       session.storeId,
       externalKey
-    )) as { name: string; game_number: string | null; ticket_price: number | null }[];
+    )) as { name: string; game_number: string | null; ticket_price: number | null; image_url: string | null }[];
 
     if (!rows.length) return NextResponse.json({ error: "Catalog entry not found." }, { status: 404 });
 
@@ -191,8 +199,11 @@ export async function POST(req: NextRequest) {
     const game = await prisma.game.create({
       data: {
         storeId: session.storeId,
-        gameNumber: entry.game_number,
+        gameNumber: entry.game_number.trim(),
         name: entry.name,
+        imageUrl: entry.image_url && isOfficialTexasArtwork(entry.image_url, entry.game_number.trim())
+          ? entry.image_url
+          : null,
         price: entry.ticket_price,
         ticketsPerPack: getSuggestedTicketQuantity(Number(entry.ticket_price)),
         active: true,

@@ -3,6 +3,7 @@ import { GameClassifier } from "@/lib/games-sync/game-classifier";
 import { GameRepository } from "@/lib/games-sync/game-repository";
 import { ScratchGameParser, texasScratchSourceUrl } from "@/lib/games-sync/scratch-game-parser";
 import { ClassifiedGame, GameStatus, NormalizedSourceGame, SyncRunSummary } from "@/lib/games-sync/types";
+import { fetchTexasArtworkIndex, getTexasArtwork } from "@/lib/games-sync/texas-artwork";
 
 interface GameSyncServiceOptions {
   repository: GameRepository;
@@ -43,7 +44,7 @@ export class GameSyncService {
   private repository: GameRepository;
 
   private async fetchSource(url: string): Promise<string> {
-    const res = await this.fetchImpl(url, { cache: "no-store" });
+    const res = await this.fetchImpl(url, { cache: "no-store", signal: AbortSignal.timeout(12_000) });
     if (!res.ok) {
       throw new Error(`Source request failed (${res.status}) for ${url}`);
     }
@@ -64,9 +65,10 @@ export class GameSyncService {
 
     const sourceFailures: SyncRunSummary["sourceFailures"] = [];
 
-    const [scratchResult, drawResult] = await Promise.allSettled([
+    const [scratchResult, drawResult, artworkResult] = await Promise.allSettled([
       this.fetchSource(texasScratchSourceUrl),
       this.fetchSource(texasDrawSourceUrl),
+      fetchTexasArtworkIndex(this.fetchImpl),
     ]);
 
     const normalized: NormalizedSourceGame[] = [];
@@ -87,6 +89,32 @@ export class GameSyncService {
         sourceType: "drawing_schedule",
         error: drawResult.reason instanceof Error ? drawResult.reason.message : String(drawResult.reason),
       });
+    }
+
+    if (artworkResult.status === "rejected") {
+      sourceFailures.push({
+        sourceType: "scratch_offs",
+        error: `Artwork catalog: ${artworkResult.reason instanceof Error ? artworkResult.reason.message : String(artworkResult.reason)}`,
+      });
+    }
+
+    let artworkFound = 0;
+    let artworkMissing = 0;
+    let artworkUnavailable = 0;
+    const scratchGames = normalized.filter(game => game.sourceType === "scratch_offs" && game.gameNumber);
+    // One catalog request plus at most six image verification requests in flight.
+    // HEAD verifies image MIME type without downloading ticket image binaries into the database.
+    for (let offset = 0; offset < scratchGames.length; offset += 6) {
+      await Promise.all(scratchGames.slice(offset, offset + 6).map(async game => {
+        const indexed = artworkResult.status === "fulfilled" ? artworkResult.value.get(game.gameNumber!)?.imageUrl : undefined;
+        game.imageUrl = await getTexasArtwork(game.gameNumber!, this.fetchImpl, indexed);
+        if (game.imageUrl) artworkFound += 1;
+        else if (game.imageUrl === null) artworkMissing += 1;
+        else artworkUnavailable += 1;
+      }));
+    }
+    if (artworkUnavailable > 0) {
+      sourceFailures.push({ sourceType: "scratch_offs", error: `Artwork verification temporarily unavailable for ${artworkUnavailable} game(s); previously verified images were retained.` });
     }
 
     let createdOrUpdated = 0;
@@ -114,6 +142,9 @@ export class GameSyncService {
       processed: normalized.length,
       createdOrUpdated,
       unknownCount,
+      artworkFound,
+      artworkMissing,
+      artworkUnavailable,
       sourceFailures,
     };
 
@@ -121,4 +152,3 @@ export class GameSyncService {
     return summary;
   }
 }
-

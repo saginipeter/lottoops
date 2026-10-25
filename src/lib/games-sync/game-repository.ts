@@ -37,6 +37,7 @@ export class PrismaGameRepository implements GameRepository {
         last_synced_at TIMESTAMPTZ NOT NULL,
         game_number TEXT,
         ticket_price DOUBLE PRECISION,
+        image_url TEXT,
         odds TEXT,
         top_prize TEXT,
         prizes_claimed INTEGER,
@@ -52,6 +53,11 @@ export class PrismaGameRepository implements GameRepository {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE(store_id, external_key)
       );
+    `);
+
+    await this.prismaClient.$executeRawUnsafe(`
+      ALTER TABLE IF EXISTS game_catalog
+      ADD COLUMN IF NOT EXISTS image_url TEXT;
     `);
 
     await this.prismaClient.$executeRawUnsafe(`
@@ -86,6 +92,8 @@ export class PrismaGameRepository implements GameRepository {
   async upsertGame(storeId: string, game: ClassifiedGame): Promise<void> {
     const normalizedName = normalizeName(game.name);
     const nowIso = new Date().toISOString();
+    const imageUrl = (game as ClassifiedGame & { imageUrl?: string | null }).imageUrl;
+    const hasImageUrl = imageUrl !== undefined;
 
     // All TIMESTAMPTZ columns need an explicit ::timestamptz cast when
     // passed as text parameters via $executeRawUnsafe — PostgreSQL does not
@@ -95,19 +103,19 @@ export class PrismaGameRepository implements GameRepository {
       INSERT INTO game_catalog (
         id, store_id, external_key, normalized_name, name, game_type, status,
         source_url, source_type, last_synced_at, game_number, ticket_price,
-        odds, top_prize, prizes_claimed, remaining_top_prizes, start_date, end_date,
+        image_url, odds, top_prize, prizes_claimed, remaining_top_prizes, start_date, end_date,
         draw_days, draw_times, sales_cutoff, broadcast_time, next_draw_at, updated_at
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,
         $10::timestamptz,
-        $11,$12,$13,$14,$15,$16,
-        $17::timestamptz,
+        $11,$12,$13,$14,$15,$16,$17,
         $18::timestamptz,
-        $19::jsonb,$20::jsonb,
-        $21,$22,
-        $23::timestamptz,
-        $24::timestamptz
+        $19::timestamptz,
+        $20::jsonb,$21::jsonb,
+        $22,$23,
+        $24::timestamptz,
+        $25::timestamptz
       )
       ON CONFLICT (store_id, external_key)
       DO UPDATE SET
@@ -120,6 +128,7 @@ export class PrismaGameRepository implements GameRepository {
         last_synced_at     = EXCLUDED.last_synced_at,
         game_number        = EXCLUDED.game_number,
         ticket_price       = EXCLUDED.ticket_price,
+        image_url          = CASE WHEN $26::boolean THEN EXCLUDED.image_url ELSE game_catalog.image_url END,
         odds               = EXCLUDED.odds,
         top_prize          = EXCLUDED.top_prize,
         prizes_claimed     = EXCLUDED.prizes_claimed,
@@ -145,23 +154,35 @@ export class PrismaGameRepository implements GameRepository {
       nowIso,                                 // $10  → ::timestamptz
       game.gameNumber ?? null,                // $11
       game.price ?? null,                     // $12
-      game.odds ?? null,                      // $13
-      game.topPrize ?? null,                  // $14
-      game.prizesClaimed ?? null,             // $15
-      game.remainingTopPrizes ?? null,        // $16
-      game.startDate?.toISOString() ?? null,  // $17  → ::timestamptz
-      game.endDate?.toISOString() ?? null,    // $18  → ::timestamptz
-      JSON.stringify(game.drawDays ?? []),    // $19  → ::jsonb
-      JSON.stringify(game.drawTimes ?? []),   // $20  → ::jsonb
-      game.salesCutoff ?? null,               // $21
-      game.broadcastTime ?? null,             // $22
-      game.nextDrawAt?.toISOString() ?? null, // $23  → ::timestamptz
-      nowIso                                  // $24  → ::timestamptz  (updated_at)
+      imageUrl ?? null,                       // $13
+      game.odds ?? null,                      // $14
+      game.topPrize ?? null,                  // $15
+      game.prizesClaimed ?? null,             // $16
+      game.remainingTopPrizes ?? null,        // $17
+      game.startDate?.toISOString() ?? null,  // $18  → ::timestamptz
+      game.endDate?.toISOString() ?? null,    // $19  → ::timestamptz
+      JSON.stringify(game.drawDays ?? []),    // $20  → ::jsonb
+      JSON.stringify(game.drawTimes ?? []),   // $21  → ::jsonb
+      game.salesCutoff ?? null,               // $22
+      game.broadcastTime ?? null,             // $23
+      game.nextDrawAt?.toISOString() ?? null, // $24  → ::timestamptz
+      nowIso,                                 // $25  → ::timestamptz  (updated_at)
+      hasImageUrl                             // $26 presence flag: undefined preserves existing artwork
     );
 
-    // Do NOT auto-upsert into prisma.game (store-scoped catalog).
-    // The sync only populates the game_catalog reference table.
-    // Store managers add games to their catalog explicitly from the Games page.
+    // Sync may refresh artwork for a game that already exists in this store,
+    // but must never create a store game or change any other game fields.
+    if (game.gameType === "scratch_off" && hasImageUrl && game.gameNumber) {
+      await this.prismaClient.game.updateMany({
+        where: {
+          storeId,
+          gameNumber: game.gameNumber,
+        },
+        data: {
+          imageUrl: imageUrl ?? null,
+        },
+      });
+    }
   }
 
   async enqueueManualReview(
@@ -219,7 +240,12 @@ export class InMemoryGameRepository implements GameRepository {
   async ensureSchema(): Promise<void> {}
 
   async upsertGame(storeId: string, game: ClassifiedGame): Promise<void> {
-    this.catalog.set(`${storeId}:${game.externalId}`, game);
+    const key = `${storeId}:${game.externalId}`;
+    const existing = this.catalog.get(key);
+    this.catalog.set(key, {
+      ...game,
+      imageUrl: game.imageUrl === undefined ? existing?.imageUrl : game.imageUrl,
+    });
   }
 
   async enqueueManualReview(
