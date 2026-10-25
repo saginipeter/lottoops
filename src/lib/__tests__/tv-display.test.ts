@@ -63,7 +63,8 @@ test("TV display shows every game together without slides", () => {
       } else {
         assert.match(html, /tv-board-stack/);
         assert.match(html, new RegExp(`Test game ${count} artwork`));
-        assert.match(html, /width:8cm;height:10cm;flex:0 0 8cm/);
+        assert.match(html, /width:8cm;height:10cm;flex:1 1 8cm/);
+        assert.doesNotMatch(html, /flex:0 0 8cm/);
         assert.equal((html.match(/class="tv-jackpot-board tv-jackpot-board-artwork"/g) ?? []).length, count);
       }
       assert.doesNotMatch(html, /aria-label="Display slides"|Previous slide|Next slide|Slide \d+ of \d+/);

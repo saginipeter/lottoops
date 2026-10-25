@@ -91,9 +91,9 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
       <style jsx global>{`
         .tv-delay-banner { display:flex; align-items:center; gap:8px; flex:none; border:1px solid rgba(252,211,77,.45); background:rgba(252,211,77,.1); padding:6px 10px; color:#fef3c7; font-size:11px; }
         .tv-empty-state { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:40px; text-align:center; }
-        .tv-board-stack { display:flex; min-height:0; flex:1; flex-wrap:wrap; align-content:flex-start; gap:4px; overflow:auto; background:#000; padding:8px; }
+        .tv-board-stack { display:flex; min-height:0; flex:1; flex-wrap:wrap; align-content:flex-start; gap:4px; overflow:auto; background:#000; padding:0; }
         .tv-board-stack-multiple { overflow:auto; }
-        .tv-jackpot-board { position:relative; display:block; width:8cm; height:10cm; flex:0 0 8cm; overflow:hidden; background:#000; }
+        .tv-jackpot-board { position:relative; display:block; width:8cm; min-width:0; height:10cm; flex:1 1 8cm; overflow:hidden; background:#000; }
         .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center; transform-origin:center; }
         .tv-jackpot-board-artwork::before { position:absolute; top:-10%; bottom:-10%; left:-50%; z-index:1; width:45%; background:linear-gradient(90deg,transparent,rgba(255,241,171,.2),rgba(255,255,255,.4),transparent); opacity:0; pointer-events:none; content:""; }
         .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:12px; background:#111827; color:#f9fafb; font-size:14px; font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
@@ -101,17 +101,17 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
         .tv-top-corner { position:absolute; top:5px; z-index:2; display:flex; min-width:30px; height:27px; align-items:center; justify-content:center; padding:0 4px; border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:18px; font-weight:900; line-height:1; }
         .tv-top-corner-left { left:5px; }
         .tv-top-corner-right { right:5px; }
-        .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; display:flex; height:39%; align-items:flex-end; justify-content:space-between; box-sizing:border-box; padding:4% 5% 3%; container-type:inline-size; background:transparent; pointer-events:none; }
-        .tv-ticket-badge { display:flex; min-width:0; flex-direction:column; align-items:center; gap:4cqi; }
-        .tv-ticket-badge-current { width:54%; }
-        .tv-ticket-badge-next { width:37%; }
-        .tv-ticket-circle { position:relative; display:grid; width:84%; aspect-ratio:1; box-sizing:border-box; padding:7%; border-radius:50%; background:linear-gradient(135deg,#fffbc0 0%,#ffdb3b 18%,#c47805 38%,#fff5b0 54%,#ffc600 73%,#fff9bb 100%); box-shadow:0 0 1cqi #ffe575,0 0 5cqi rgba(255,191,0,.65); transform-origin:center; }
+        .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; display:flex; height:39%; align-items:flex-end; justify-content:space-between; box-sizing:border-box; padding:min(4%,12px) min(5%,15px) min(3%,9px); container-type:inline-size; background:transparent; pointer-events:none; }
+        .tv-ticket-badge { display:flex; min-width:0; flex-direction:column; align-items:center; gap:min(4cqi,11px); }
+        .tv-ticket-badge-current { width:54%; max-width:147px; }
+        .tv-ticket-badge-next { width:37%; max-width:101px; }
+        .tv-ticket-circle { position:relative; display:grid; width:84%; aspect-ratio:1; box-sizing:border-box; padding:7%; border-radius:50%; background:linear-gradient(135deg,#fffbc0 0%,#ffdb3b 18%,#c47805 38%,#fff5b0 54%,#ffc600 73%,#fff9bb 100%); box-shadow:0 0 min(1cqi,3px) #ffe575,0 0 min(5cqi,14px) rgba(255,191,0,.65); transform-origin:center; }
         .tv-ticket-badge-next .tv-ticket-circle { width:80%; }
-        .tv-ticket-circle::before { position:absolute; inset:-14%; border-radius:50%; background:conic-gradient(from 26deg,transparent 0deg,#ffeb66 8deg,#ffd000 42deg,transparent 54deg,transparent 124deg,#ffd000 134deg,#fff6a4 164deg,transparent 180deg,transparent 304deg,#ffda24 320deg,#ffef83 340deg,transparent 352deg); mask:radial-gradient(farthest-side,transparent 89%,#000 91%); filter:drop-shadow(0 0 1cqi #ffd429); content:""; }
-        .tv-ticket-face { position:relative; display:grid; width:100%; height:100%; place-items:center; box-sizing:border-box; border:1.5cqi solid #100d06; border-radius:50%; background:radial-gradient(circle at 40% 30%,#fff 0%,#fff 60%,#eef0f3 100%); container-type:inline-size; }
+        .tv-ticket-circle::before { position:absolute; inset:-14%; border-radius:50%; background:conic-gradient(from 26deg,transparent 0deg,#ffeb66 8deg,#ffd000 42deg,transparent 54deg,transparent 124deg,#ffd000 134deg,#fff6a4 164deg,transparent 180deg,transparent 304deg,#ffda24 320deg,#ffef83 340deg,transparent 352deg); mask:radial-gradient(farthest-side,transparent 89%,#000 91%); filter:drop-shadow(0 0 min(1cqi,3px) #ffd429); content:""; }
+        .tv-ticket-face { position:relative; display:grid; width:100%; height:100%; place-items:center; box-sizing:border-box; border:min(1.5cqi,4.2px) solid #100d06; border-radius:50%; background:radial-gradient(circle at 40% 30%,#fff 0%,#fff 60%,#eef0f3 100%); container-type:inline-size; }
         .tv-ticket-number { display:block; max-width:100%; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc(100cqi / var(--ticket-digit-divisor,1.6)); font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:-.055em; line-height:1; text-align:center; white-space:nowrap; }
-        .tv-ticket-label { position:relative; display:block; width:100%; box-sizing:border-box; padding:1.5cqi .5cqi; border:1cqi solid #f9d342; border-radius:999px; background:#080806; box-shadow:0 0 2cqi rgba(255,196,0,.35); color:#fff08b; font-family:Arial,Helvetica,sans-serif; font-size:5.4cqi; font-weight:900; letter-spacing:-.02em; line-height:1; text-align:center; white-space:nowrap; }
-        .tv-ticket-badge-next .tv-ticket-label { font-size:5cqi; }
+        .tv-ticket-label { position:relative; display:block; width:100%; box-sizing:border-box; padding:min(1.5cqi,4.2px) min(.5cqi,1.5px); border:min(1cqi,3px) solid #f9d342; border-radius:999px; background:#080806; box-shadow:0 0 min(2cqi,6px) rgba(255,196,0,.35); color:#fff08b; font-family:Arial,Helvetica,sans-serif; font-size:min(5.4cqi,15px); font-weight:900; letter-spacing:-.02em; line-height:1; text-align:center; white-space:nowrap; }
+        .tv-ticket-badge-next .tv-ticket-label { font-size:min(5cqi,14px); }
         /* Deliberate, TV-only exception to globals.css's sharp-edge !important rule. */
         .tv-ticket-circle,.tv-ticket-face { border-radius:50% !important; }
         .tv-ticket-label { border-radius:999px !important; }
@@ -131,7 +131,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt }:
         [data-live-status="delayed"] .tv-jackpot-board::before,
         [data-live-status="delayed"] .tv-ticket-circle,
         [data-live-status="delayed"] .tv-ticket-circle::before { animation-play-state:paused; }
-        @media (max-width:900px) { .tv-board-stack { gap:3px; padding:5px; } }
+        @media (max-width:900px) { .tv-board-stack { gap:3px; } }
       `}</style>
     </div>
   );
@@ -141,7 +141,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasArtwork = Boolean(slot.gameImage) && !imageFailed;
 
-  return <article className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={{ width: "8cm", height: "10cm", flex: "0 0 8cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
+  return <article className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={{ width: "8cm", height: "10cm", flex: "1 1 8cm" }} aria-label={`${slot.gameName} display ${slot.slotNumber}`}>
     {hasArtwork ? (
       <Image
         className="tv-jackpot-art"

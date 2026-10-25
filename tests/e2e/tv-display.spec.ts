@@ -21,6 +21,18 @@ const TV_CARD_WIDTH_PX = 8 * 96 / 2.54;
 const TV_CARD_HEIGHT_PX = 10 * 96 / 2.54;
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
 
+type CardRect = { x: number; y: number; width: number; height: number };
+
+function groupCardRows<T extends { dimensions: CardRect }>(cards: T[]) {
+  const rows: T[][] = [];
+  for (const card of cards) {
+    const row = rows.find(candidate => Math.abs(candidate[0].dimensions.y - card.dimensions.y) < 1);
+    if (row) row.push(card);
+    else rows.push([card]);
+  }
+  return rows;
+}
+
 function slot(index: number, currentTicket = 21, nextTicket = 22, remaining = 130) {
   return {
     id: `display-${index}`, packId: `pack-${index}`, gameId: `game-${index}`, slotNumber: String(index + 1),
@@ -124,6 +136,16 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
       await showBoard(page, 40, kioskMode);
       const cards = page.locator("article");
       await expect(cards).toHaveCount(40);
+      const board = page.locator(".tv-board-stack");
+      const boardMetrics = await board.evaluate(element => {
+        const styles = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return {
+          left: rect.left,
+          clientWidth: element.clientWidth,
+          gap: parseFloat(styles.columnGap || styles.gap || "0"),
+        };
+      });
       if (kioskMode) {
         const pageFitsViewport = await page.evaluate(() => ({
           height: document.documentElement.scrollHeight <= window.innerHeight,
@@ -132,7 +154,6 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
         expect(pageFitsViewport.height).toBe(true);
         expect(pageFitsViewport.width).toBe(true);
 
-        const board = page.locator(".tv-board-stack");
         const scrollResult = await board.evaluate((element) => {
           const last = element.lastElementChild as HTMLElement;
           const boardRect = element.getBoundingClientRect();
@@ -140,7 +161,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
           const lastRect = last.getBoundingClientRect();
           return {
             scrollable: element.scrollHeight > element.clientHeight,
-            lastCardReached: lastRect.top >= boardRect.top && lastRect.bottom <= boardRect.bottom,
+            lastCardReached: lastRect.top >= boardRect.top - 1 && lastRect.bottom <= boardRect.bottom + 1,
           };
         });
         expect(scrollResult.scrollable).toBe(true);
@@ -164,8 +185,18 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 108
         return { dimensions: rect(card), badges, objectFit: getComputedStyle(artwork).objectFit,
           backgroundImage: getComputedStyle(card.querySelector(".tv-ticket-indicators")!).backgroundImage };
       }));
+      const rows = groupCardRows(snapshots);
+      const expectedColumns = Math.max(1, Math.floor((boardMetrics.clientWidth + boardMetrics.gap + 0.001) / (TV_CARD_WIDTH_PX + boardMetrics.gap)));
+      expect(rows.length).toBe(Math.ceil(40 / expectedColumns));
+      for (const row of rows) {
+        const expectedWidth = (boardMetrics.clientWidth - (row.length - 1) * boardMetrics.gap) / row.length;
+        expect(row.length).toBeLessThanOrEqual(expectedColumns);
+        expect(Math.abs(row[0].dimensions.x - boardMetrics.left)).toBeLessThan(1);
+        const last = row[row.length - 1].dimensions;
+        expect(Math.abs(last.x + last.width - (boardMetrics.left + boardMetrics.clientWidth))).toBeLessThan(1);
+        for (const { dimensions } of row) expect(dimensions.width).toBeCloseTo(expectedWidth, 0);
+      }
       for (const { dimensions, badges, objectFit, backgroundImage } of snapshots) {
-        expect(dimensions.width).toBeCloseTo(TV_CARD_WIDTH_PX, 0);
         expect(dimensions.height).toBeCloseTo(TV_CARD_HEIGHT_PX, 0);
         expect(badges[0].circle.width).toBeGreaterThan(badges[1].circle.width * 1.3);
         expect(badges[0].circle.x + badges[0].circle.width).toBeLessThan(badges[1].circle.x);
@@ -205,7 +236,7 @@ test("one-, two-, and three-digit numbers scale with their circle, including pul
     for (const scale of [1, 2]) {
       // Test-only resizing baseline is exactly 8cm x 10cm; production dimensions stay fixed.
       await page.locator("article").evaluate((el, scale) => {
-        el.style.width = `${8 * scale}cm`; el.style.height = `${10 * scale}cm`; el.style.flex = `0 0 ${8 * scale}cm`;
+        el.style.width = `${8 * scale}cm`; el.style.height = `${10 * scale}cm`; el.style.flex = "0 0 auto";
       }, scale);
       for (const phase of ["0s", "-1.2s"]) {
         await page.locator(".tv-ticket-circle").evaluateAll((els, phase) => els.forEach(el => {
@@ -224,6 +255,86 @@ test("one-, two-, and three-digit numbers scale with their circle, including pul
     }
   }
 });
+
+for (const viewport of [{ name: "desktop", width: 1280, height: 720 }, { name: "narrow", width: 390, height: 844 }]) {
+  test(`fluid rows fill the board without HUD clipping at ${viewport.name} width`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    for (const count of [1, 2, 5, 18]) {
+      await showBoard(page, count, true);
+      const snapshot = await page.locator(".tv-board-stack").evaluate((element, nominalWidth) => {
+        const rect = (node: Element) => {
+          const box = node.getBoundingClientRect();
+          return { x: box.x, y: box.y, width: box.width, height: box.height };
+        };
+        const boardRect = element.getBoundingClientRect();
+        const styles = getComputedStyle(element);
+        const cards = [...element.querySelectorAll("article")].map(card => ({
+          dimensions: rect(card),
+          badges: [...card.querySelectorAll(".tv-ticket-badge")].map(badge => {
+            const face = badge.querySelector(".tv-ticket-face")!;
+            const number = badge.querySelector(".tv-ticket-number")!;
+            const label = badge.querySelector(".tv-ticket-label")!;
+            return {
+              face: rect(face), number: rect(number), label: rect(label),
+              numberFits: number.scrollWidth <= number.clientWidth,
+              labelFits: label.scrollWidth <= label.clientWidth,
+            };
+          }),
+        }));
+        const rows: typeof cards[number][][] = [];
+        for (const card of cards) {
+          const row = rows.find(candidate => Math.abs(candidate[0].dimensions.y - card.dimensions.y) < 1);
+          if (row) row.push(card);
+          else rows.push([card]);
+        }
+        return {
+          board: {
+            left: boardRect.left,
+            clientWidth: element.clientWidth,
+            padding: [styles.paddingTop, styles.paddingRight, styles.paddingBottom, styles.paddingLeft].map(Number.parseFloat),
+          },
+          gap: parseFloat(styles.columnGap || styles.gap || "0"),
+          expectedColumns: Math.max(1, Math.floor((element.clientWidth + parseFloat(styles.columnGap || styles.gap || "0") + 0.001) / (nominalWidth + parseFloat(styles.columnGap || styles.gap || "0")))),
+          rows,
+        };
+      }, TV_CARD_WIDTH_PX);
+
+      expect(snapshot.board.padding).toEqual([0, 0, 0, 0]);
+      const expectedRows = Math.ceil(count / snapshot.expectedColumns);
+      expect(snapshot.rows).toHaveLength(expectedRows);
+      expect(snapshot.rows.map(row => row.length)).toEqual(Array.from({ length: expectedRows }, (_, index) =>
+        index === expectedRows - 1 ? count - snapshot.expectedColumns * (expectedRows - 1) : snapshot.expectedColumns));
+      for (const row of snapshot.rows) {
+        const expectedWidth = (snapshot.board.clientWidth - (row.length - 1) * snapshot.gap) / row.length;
+        expect(Math.abs(row[0].dimensions.x - snapshot.board.left)).toBeLessThan(1);
+        const last = row[row.length - 1].dimensions;
+        expect(Math.abs(last.x + last.width - (snapshot.board.left + snapshot.board.clientWidth))).toBeLessThan(1);
+        for (const card of row) {
+          expect(card.dimensions.width).toBeCloseTo(expectedWidth, 0);
+          expect(card.dimensions.height).toBeCloseTo(TV_CARD_HEIGHT_PX, 0);
+          for (const badge of card.badges) {
+            expect(badge.numberFits).toBe(true);
+            expect(badge.labelFits).toBe(true);
+            expect(badge.number.width).toBeGreaterThan(0);
+            expect(badge.number.height).toBeGreaterThan(0);
+            expect(badge.label.width).toBeGreaterThan(0);
+            expect(badge.label.height).toBeGreaterThan(0);
+            expect(badge.number.y).toBeGreaterThanOrEqual(card.dimensions.y - 0.5);
+            expect(badge.number.y + badge.number.height).toBeLessThanOrEqual(card.dimensions.y + card.dimensions.height + 0.5);
+            expect(badge.label.y).toBeGreaterThanOrEqual(card.dimensions.y - 0.5);
+            expect(badge.label.y + badge.label.height).toBeLessThanOrEqual(card.dimensions.y + card.dimensions.height + 0.5);
+          }
+        }
+      }
+      const pageOverflow = await page.evaluate(() => ({
+        document: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        body: document.body.scrollWidth <= document.body.clientWidth,
+      }));
+      expect(pageOverflow.document).toBe(true);
+      expect(pageOverflow.body).toBe(true);
+    }
+  });
+}
 
 test("artwork, shine, sun-orbit, and ticket-change animations honor motion preferences", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
