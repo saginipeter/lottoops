@@ -2,6 +2,7 @@ import { getSession } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { TvDisplayBoard } from "@/components/settings/tv-display-board";
 import { getPlanAccess } from "@/lib/plan-access";
+import { redirect } from "next/navigation";
 import {
   calculateTicketProgress,
   getDisplayRemainingTicketCount,
@@ -9,6 +10,7 @@ import {
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
 import { verifyTvKioskToken } from "@/lib/tv-kiosk";
+import { signTvKioskToken } from "@/lib/tv-kiosk";
 import { parseTvScreenNumber } from "@/lib/tv-screens";
 
 interface TvDisplayKioskPageProps {
@@ -50,6 +52,28 @@ export default async function TvDisplayKioskPage({
         </div>
       </div>
     );
+  }
+
+  const parsedInterval = Number(resolvedSearchParams.interval ?? 15);
+  const refreshSeconds = Number.isFinite(parsedInterval)
+    ? Math.min(Math.max(parsedInterval, 5), 120)
+    : 15;
+
+  // A staff-authenticated launch becomes a signed kiosk launch before the TV can
+  // depend on the staff cookie. This keeps the customer board alive when that
+  // staff member logs out or their terminal session expires.
+  if (session && !kioskToken) {
+    const token = await signTvKioskToken(
+      { storeId: session.storeId, storeName: session.storeName },
+      30 * 24 * 60 * 60,
+    );
+    const params = new URLSearchParams({
+      token,
+      kiosk: "1",
+      screen: String(screenNumber),
+      interval: String(refreshSeconds),
+    });
+    redirect(`/tv-display?${params.toString()}`);
   }
 
   const storeId = kioskToken?.storeId ?? session?.storeId;
@@ -113,11 +137,6 @@ export default async function TvDisplayKioskPage({
         quantity,
       }];
     });
-
-  const parsedInterval = Number(resolvedSearchParams.interval ?? 15);
-  const refreshSeconds = Number.isFinite(parsedInterval)
-    ? Math.min(Math.max(parsedInterval, 5), 120)
-    : 15;
 
   // eslint-disable-next-line react-hooks/purity -- Async server response metadata, stamped after the database read.
   const verifiedAt = Date.now();

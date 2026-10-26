@@ -2,6 +2,7 @@ export const TV_SCREEN_COLUMNS = 10;
 export const TV_SCREEN_ROWS = 4;
 export const TV_SCREEN_CAPACITY = TV_SCREEN_COLUMNS * TV_SCREEN_ROWS;
 export const TV_SCREEN_MAX_NUMBER = 10_000;
+export const TV_SCREEN_ROTATION_SECONDS = 15;
 
 /** A fixed TV link never silently switches to another screen when inventory shrinks. */
 export function parseTvScreenNumber(value: unknown): number {

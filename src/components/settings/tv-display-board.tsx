@@ -4,7 +4,7 @@ import Image from "next/image";
 import { type CSSProperties, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
-import { parseTvScreenNumber, splitTvScreens, TV_SCREEN_CAPACITY } from "@/lib/tv-screens";
+import { parseTvScreenNumber, splitTvScreens, TV_SCREEN_CAPACITY, TV_SCREEN_ROTATION_SECONDS } from "@/lib/tv-screens";
 
 type TvDisplaySlot = {
   id: string;
@@ -44,6 +44,12 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
   const selectedScreen = parseTvScreenNumber(screenNumber);
   const visibleSlots = screens[selectedScreen - 1] ?? [];
 
+  const screenHref = useCallback((screen: number) => {
+    const params = new URLSearchParams({ screen: String(screen), interval: String(refreshSeconds) });
+    if (kioskToken) params.set("token", kioskToken);
+    return `${kioskMode ? "/tv-display" : "/settings/tv-display"}?${params.toString()}`;
+  }, [kioskMode, kioskToken, refreshSeconds]);
+
   useEffect(() => {
     refreshLock.current = isRefreshing;
   }, [isRefreshing]);
@@ -72,15 +78,18 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
   }, [refreshBoard, refreshSeconds]);
 
   useEffect(() => {
+    if (!kioskMode || screens.length <= 1) return;
+    const rotate = window.setInterval(() => {
+      const nextScreen = selectedScreen >= screens.length ? 1 : selectedScreen + 1;
+      router.replace(screenHref(nextScreen), { scroll: false });
+    }, TV_SCREEN_ROTATION_SECONDS * 1000);
+    return () => window.clearInterval(rotate);
+  }, [kioskMode, router, screens.length, selectedScreen, screenHref]);
+
+  useEffect(() => {
     const watchdog = setInterval(() => setStale(Date.now() - lastVerified.current > refreshSeconds * 2000), 1000);
     return () => clearInterval(watchdog);
   }, [refreshSeconds]);
-
-  function screenHref(screen: number) {
-    const params = new URLSearchParams({ screen: String(screen), interval: String(refreshSeconds) });
-    if (kioskToken) params.set("token", kioskToken);
-    return `${kioskMode ? "/tv-display" : "/settings/tv-display"}?${params.toString()}`;
-  }
 
   const shellClass = kioskMode
     ? "tv-screen-shell flex h-screen min-h-0 flex-col overflow-hidden bg-black text-white"
@@ -93,7 +102,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
       {visibleSlots.length === 0 ? (
         <div className="tv-empty-state"><RefreshCw size={26} className="mx-auto mb-4 text-[#f4c542]" /><p className="text-xl font-bold">{selectedScreen === 1 && slots.length === 0 ? "No games on display" : `No games on Screen ${selectedScreen}`}</p><p className="mt-2 text-sm text-white/60">{selectedScreen > 1 ? "This screen will populate automatically when more active displays are available." : "Assign active packs to displays to populate this board."}</p></div>
       ) : (
-        <div className="tv-board-stack" aria-label={`Screen ${selectedScreen}: ${visibleSlots.length} of ${TV_SCREEN_CAPACITY} displays`}>
+        <div key={selectedScreen} className="tv-board-stack" aria-label={`Screen ${selectedScreen}: ${visibleSlots.length} of ${TV_SCREEN_CAPACITY} displays`}>
           {visibleSlots.map((slot) => <DisplayBoard key={`${slot.id}-${slot.gameId}-${slot.gameImage ?? "missing"}`} slot={slot} />)}
         </div>
       )}
@@ -118,19 +127,15 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
         .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:min(5cqi,12px); background:#111827; color:#f9fafb; font-size:min(8cqi,14px); font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
         .tv-jackpot-board::after { position:absolute; inset:0; border:1px solid rgba(255,255,255,.55); content:""; pointer-events:none; }
         .tv-top-corner { position:absolute; top:min(2cqi,5px); z-index:2; display:flex; min-width:min(18cqi,30px); height:min(13cqi,27px); align-items:center; justify-content:center; padding:0 min(2cqi,4px); border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:min(9cqi,18px); font-weight:900; line-height:1; }
-        .tv-top-corner-left { left:min(2cqi,5px); }
-        .tv-top-corner-right { right:min(2cqi,5px); }
+        .tv-top-corner-center { left:50%; transform:translateX(-50%); }
         .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; display:flex; height:39%; align-items:flex-end; justify-content:space-between; box-sizing:border-box; padding:min(4%,12px) min(5%,15px) min(3%,9px); container-type:inline-size; background:transparent; pointer-events:none; }
         .tv-ticket-badge { display:flex; min-width:0; flex-direction:column; align-items:center; gap:min(4cqi,11px); }
-        .tv-ticket-badge-current { width:54%; max-width:147px; }
-        .tv-ticket-badge-next { width:37%; max-width:101px; }
-        .tv-ticket-circle { position:relative; display:grid; width:84%; aspect-ratio:1; box-sizing:border-box; padding:7%; border-radius:50%; background:linear-gradient(135deg,#fffbc0 0%,#ffdb3b 18%,#c47805 38%,#fff5b0 54%,#ffc600 73%,#fff9bb 100%); box-shadow:0 0 min(1cqi,3px) #ffe575,0 0 min(5cqi,14px) rgba(255,191,0,.65); transform-origin:center; }
-        .tv-ticket-badge-next .tv-ticket-circle { width:80%; }
-        .tv-ticket-circle::before { position:absolute; inset:-14%; border-radius:50%; background:conic-gradient(from 26deg,transparent 0deg,#ffeb66 8deg,#ffd000 42deg,transparent 54deg,transparent 124deg,#ffd000 134deg,#fff6a4 164deg,transparent 180deg,transparent 304deg,#ffda24 320deg,#ffef83 340deg,transparent 352deg); mask:radial-gradient(farthest-side,transparent 89%,#000 91%); filter:drop-shadow(0 0 min(1cqi,3px) #ffd429); content:""; }
+        .tv-ticket-badge-current,.tv-ticket-badge-next { width:43%; max-width:118px; }
+        .tv-ticket-circle { position:relative; display:grid; width:80%; aspect-ratio:1; box-sizing:border-box; padding:7%; border-radius:50%; background:linear-gradient(135deg,#ff9a9a 0%,#ef4444 26%,#991b1b 50%,#ff6b6b 73%,#b91c1c 100%); box-shadow:0 0 min(1cqi,3px) #ff9a9a,0 0 min(5cqi,14px) rgba(239,68,68,.7); transform-origin:center; }
+        .tv-ticket-circle::before { position:absolute; inset:-14%; border-radius:50%; background:conic-gradient(from 26deg,transparent 0deg,#fecaca 8deg,#ef4444 42deg,transparent 54deg,transparent 124deg,#f87171 134deg,#fee2e2 164deg,transparent 180deg,transparent 304deg,#dc2626 320deg,#fecaca 340deg,transparent 352deg); mask:radial-gradient(farthest-side,transparent 89%,#000 91%); filter:drop-shadow(0 0 min(1cqi,3px) #ef4444); content:""; }
         .tv-ticket-face { position:relative; display:grid; width:100%; height:100%; place-items:center; box-sizing:border-box; border:min(1.5cqi,4.2px) solid #100d06; border-radius:50%; background:radial-gradient(circle at 40% 30%,#fff 0%,#fff 60%,#eef0f3 100%); container-type:inline-size; }
         .tv-ticket-number { display:block; max-width:100%; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc(100cqi / var(--ticket-digit-divisor,1.6)); font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:-.055em; line-height:1; text-align:center; white-space:nowrap; }
-        .tv-ticket-label { position:relative; display:block; width:100%; box-sizing:border-box; padding:min(1.5cqi,4.2px) min(.5cqi,1.5px); border:min(1cqi,3px) solid #f9d342; border-radius:999px; background:#080806; box-shadow:0 0 min(2cqi,6px) rgba(255,196,0,.35); color:#fff08b; font-family:Arial,Helvetica,sans-serif; font-size:min(5.4cqi,15px); font-weight:900; letter-spacing:-.02em; line-height:1; text-align:center; white-space:nowrap; }
-        .tv-ticket-badge-next .tv-ticket-label { font-size:min(5cqi,14px); }
+        .tv-ticket-label { position:relative; display:block; width:100%; box-sizing:border-box; padding:min(1.5cqi,4.2px) min(.5cqi,1.5px); border:min(1cqi,3px) solid #fecaca; border-radius:999px; background:#450a0a; box-shadow:0 0 min(2cqi,6px) rgba(239,68,68,.5); color:#fee2e2; font-family:Arial,Helvetica,sans-serif; font-size:min(4.2cqi,15px); font-weight:900; letter-spacing:-.04em; line-height:1; text-align:center; white-space:nowrap; }
         /* Deliberate, TV-only exception to globals.css's sharp-edge !important rule. */
         .tv-ticket-circle,.tv-ticket-face { border-radius:50% !important; }
         .tv-ticket-label { border-radius:999px !important; }
@@ -150,9 +155,11 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
           .tv-jackpot-board-artwork .tv-jackpot-art { animation:tv-artwork-drift 14s ease-in-out infinite; }
           .tv-jackpot-board-artwork::before { animation:tv-artwork-shine 8s ease-in-out infinite; }
           .tv-ticket-circle::before { animation:tv-sun-orbit 14s linear infinite; }
-          .tv-ticket-badge-current .tv-ticket-circle { animation:tv-ticket-pulse 2.4s ease-in-out infinite; }
+          .tv-ticket-circle { animation:tv-ticket-pulse 2.4s ease-in-out infinite; }
           .tv-ticket-number { animation:tv-ticket-change .45s ease-out both; transform-origin:center; }
+          .tv-board-stack { animation:tv-screen-enter .45s ease-out both; }
         }
+        @keyframes tv-screen-enter { from { opacity:.4; transform:scale(.985); } to { opacity:1; transform:scale(1); } }
         [data-live-status="delayed"] .tv-jackpot-art,
         [data-live-status="delayed"] .tv-jackpot-board::before,
         [data-live-status="delayed"] .tv-ticket-circle,
@@ -185,8 +192,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
         Image not available
       </div>
     )}
-    <div className="tv-top-corner tv-top-corner-left" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
-    <div className="tv-top-corner tv-top-corner-right" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>${slot.ticketPrice.toFixed(0)}</div>
+    <div className="tv-top-corner tv-top-corner-center" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
     <div className="tv-ticket-indicators" role="group" aria-label="Live ticket availability">
       <TicketIndicator kind="current" ticket={slot.remaining > 0 ? slot.currentTicket : null} />
       <TicketIndicator kind="next" ticket={slot.remaining > 1 ? slot.nextTicket : null} />

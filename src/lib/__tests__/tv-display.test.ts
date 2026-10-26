@@ -10,7 +10,7 @@ import {
   getDisplayedTicketNumber,
   getNextDisplayedTicket,
 } from "@/lib/tv-display";
-import { parseTvScreenNumber, splitTvScreens, TV_SCREEN_CAPACITY } from "@/lib/tv-screens";
+import { parseTvScreenNumber, splitTvScreens, TV_SCREEN_CAPACITY, TV_SCREEN_ROTATION_SECONDS } from "@/lib/tv-screens";
 import { remainingTicketsAfterDirectionChange, remainingTicketsFromPhysicalTicket } from "@/lib/core-validation";
 
 test("TV slot HUDs show current and next ticket numbers in preview and kiosk modes", () => {
@@ -34,12 +34,20 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.equal((html.match(/class="tv-ticket-number"/g) ?? []).length, 4);
     assert.match(html, /tv-ticket-badge-current/);
     assert.match(html, /tv-ticket-badge-next/);
+    assert.equal((html.match(/tv-ticket-badge-current tv-ticket-badge-next/g) ?? []).length, 0);
+    assert.match(html, /tv-top-corner-center/);
+    assert.doesNotMatch(html, /Ticket price|>\$1</);
+    assert.match(html, /background:linear-gradient\(135deg,#ff9a9a/);
+    assert.match(html, /\.tv-ticket-badge-current,\.tv-ticket-badge-next \{ width:43%;/);
+    assert.match(html, /\.tv-ticket-circle \{ position:relative; display:grid; width:80%;/);
     assert.doesNotMatch(html, /ticket-indicator-reference\.jpg/);
     assert.match(html, /data-live-status="live"/);
     assert.match(html, /@keyframes tv-artwork-drift/);
     assert.match(html, /@keyframes tv-artwork-shine/);
     assert.match(html, /@keyframes tv-sun-orbit/);
     assert.match(html, /@keyframes tv-ticket-change/);
+    assert.match(html, /@keyframes tv-screen-enter/);
+    assert.equal(TV_SCREEN_ROTATION_SECONDS, 15);
     assert.match(html, /prefers-reduced-motion:no-preference/);
   }
 });

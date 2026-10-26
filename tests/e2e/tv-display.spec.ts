@@ -147,7 +147,7 @@ async function gridSnapshot(page: Page) {
 }
 
 async function displayedSlotNumbers(page: Page): Promise<number[]> {
-  return page.locator(".tv-top-corner-left").evaluateAll((elements) =>
+  return page.locator(".tv-top-corner-center").evaluateAll((elements) =>
     elements.map((element) => Number(element.textContent?.trim())).filter(Number.isFinite),
   );
 }
@@ -187,13 +187,13 @@ test.beforeAll(async () => {
         import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
         import { TvDisplayBoard } from "./src/components/settings/tv-display-board";
         import { getDisplayedTicketNumber, getNextDisplayedTicket } from "./src/lib/tv-display";
-        let remote = { remaining: 130, direction: "FIRST", packId: "pack-first", gameId: "game-first" };
+        let remote = { remaining: 130, direction: "FIRST", packId: "pack-first", gameId: "game-first", inventoryCount: 1 };
         let delay = false;
         let fail = false;
         let pending;
         let setData;
         let stamp = Date.now();
-        const initial = { ...remote, verifiedAt: stamp };
+        const initial = { ...remote, screenNumber: 1, verifiedAt: stamp };
         const initialData = Promise.resolve(initial);
         window.__tvTest = {
           refreshCalls: 0,
@@ -204,7 +204,11 @@ test.beforeAll(async () => {
           load(value) { remote = { ...remote, ...value }; flushSync(() => setData(Promise.resolve({ ...remote, verifiedAt: ++stamp }))); }
         };
         const router = {
-          back() {}, forward() {}, push() {}, replace() {}, prefetch() {},
+          back() {}, forward() {}, push() {}, prefetch() {},
+          replace(path) {
+            const screenNumber = Number(new URL(path, "http://tv.test").searchParams.get("screen") || 1);
+            flushSync(() => setData(Promise.resolve({ ...remote, screenNumber, verifiedAt: ++stamp })));
+          },
           refresh() {
             window.__tvTest.refreshCalls++;
             if (fail) return;
@@ -216,16 +220,16 @@ test.beforeAll(async () => {
           const [data, update] = useState(initialData);
           setData = update;
           const snapshot = use(data);
-          const slots = snapshot.remaining < 0 ? [] : [{
-            id: "display", packId: snapshot.packId, gameId: snapshot.gameId, slotNumber: "1",
+          const slots = snapshot.remaining < 0 ? [] : Array.from({ length: snapshot.inventoryCount }, (_, index) => ({
+            id: "display-" + (index + 1), packId: snapshot.packId, gameId: snapshot.gameId + "-" + (index + 1), slotNumber: String(index + 1),
             gameName: "Test inventory", gameNumber: "1234", gameImage: "https://tv.test/artwork.jpg", ticketPrice: 5,
             sellDirection: snapshot.direction, firstTicket: 1, quantity: 150,
             remaining: snapshot.remaining, sold: 150 - snapshot.remaining,
             currentTicket: getDisplayedTicketNumber(1, snapshot.remaining, 150, snapshot.direction),
             nextTicket: getNextDisplayedTicket(1, snapshot.remaining, 150, snapshot.direction),
-          }];
+          }));
           return <AppRouterContext.Provider value={router}><TvDisplayBoard
-            slots={slots} kioskMode refreshSeconds={5} verifiedAt={snapshot.verifiedAt}
+            slots={slots} kioskMode refreshSeconds={5} screenNumber={snapshot.screenNumber} kioskToken="signed-kiosk-token" verifiedAt={snapshot.verifiedAt}
           /></AppRouterContext.Provider>;
         }
         createRoot(document.getElementById("root")).render(<Harness />);
@@ -299,6 +303,27 @@ for (const viewport of [
       }
     }
 
+    const visual = await page.locator("article").first().evaluate((card) => {
+      const current = card.querySelector(".tv-ticket-badge-current .tv-ticket-circle")!;
+      const next = card.querySelector(".tv-ticket-badge-next .tv-ticket-circle")!;
+      const displayNumber = card.querySelector(".tv-top-corner-center")!;
+      const cardRect = card.getBoundingClientRect();
+      const displayRect = displayNumber.getBoundingClientRect();
+      return {
+        currentWidth: current.getBoundingClientRect().width,
+        nextWidth: next.getBoundingClientRect().width,
+        currentBackground: getComputedStyle(current).backgroundImage,
+        nextBackground: getComputedStyle(next).backgroundImage,
+        displayNumberCentered: Math.abs(displayRect.x + displayRect.width / 2 - (cardRect.x + cardRect.width / 2)) < 1.5,
+        priceBadgeCount: card.querySelectorAll(".tv-top-corner-right, [aria-label^=\"Ticket price\"]").length,
+      };
+    });
+    expect(Math.abs(visual.currentWidth - visual.nextWidth)).toBeLessThan(1.5);
+    expect(visual.currentBackground).toContain("rgb(255, 154, 154)");
+    expect(visual.nextBackground).toContain("rgb(255, 154, 154)");
+    expect(visual.displayNumberCentered).toBe(true);
+    expect(visual.priceBadgeCount).toBe(0);
+
     const overflow = await pageOverflow(page);
     expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1);
     expect(overflow.documentHeight).toBeLessThanOrEqual(overflow.viewportHeight + 1);
@@ -345,6 +370,27 @@ test("responsive ticket numbers 1, 21, and 150 stay centered and contained witho
   expect(measurements[1].fontSize).toBeGreaterThanOrEqual(measurements[2].fontSize);
   expect(measurements[0].numberWidth).toBeLessThanOrEqual(measurements[1].numberWidth);
   expect(measurements[1].numberWidth).toBeLessThan(measurements[2].numberWidth);
+});
+
+test("kiosk automatically rotates to the next physical screen and fades the new board in", async ({ page }) => {
+  await page.clock.install();
+  await page.setContent('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body><div id="root"></div></body></html>');
+  await page.addStyleTag({ content: css });
+  await page.addScriptTag({ content: browserHarness });
+  await expect(page.locator(".tv-ticket-badge-current .tv-ticket-number")).toHaveText("21");
+  await page.evaluate(() => (window as any).__tvTest.load({ inventoryCount: 41 }));
+  await expect(page.locator(".tv-screen-count")).toContainText("Screen 1 of 2");
+  await expect.poll(async () => displayedSlotNumbers(page)).toHaveLength(40);
+  await expect(page.locator("[data-screen-number]")).toHaveAttribute("data-screen-number", "1");
+  await page.clock.fastForward(15_000);
+  await expect.poll(async () => page.locator("[data-screen-number]").getAttribute("data-screen-number")).toBe("2");
+  await expect(page.locator(".tv-screen-count")).toContainText("Screen 2 of 2");
+  await expect.poll(async () => displayedSlotNumbers(page)).toEqual([41]);
+  const previousHref = await hrefQuery(page, "Previous screen");
+  expect(previousHref.searchParams.get("token")).toBe("signed-kiosk-token");
+  expect(previousHref.searchParams.get("screen")).toBe("1");
+  const screenAnimation = await page.locator(".tv-board-stack").evaluate((element) => getComputedStyle(element).animationName);
+  expect(screenAnimation).toBe("tv-screen-enter");
 });
 
 test.describe("40-entry TV screen splitting", () => {
@@ -430,7 +476,7 @@ test("a selected screen remains empty after inventory shrinks instead of switchi
   const token = "signed-kiosk-token";
   await showBoard(page, 41, true, 2, token, 15);
   await expect(page.locator("article")).toHaveCount(1);
-  await expect(page.locator(".tv-top-corner-left")).toHaveText("41");
+  await expect(page.locator(".tv-top-corner-center")).toHaveText("41");
 
   await showBoard(page, 40, true, 2, token, 15);
   await expect(page.locator("article")).toHaveCount(0);
