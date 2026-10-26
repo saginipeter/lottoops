@@ -122,7 +122,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
         .tv-empty-state { display:flex; min-height:0; flex:1; flex-direction:column; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:20px; text-align:center; }
         .tv-board-stack { display:grid; min-height:0; min-width:0; flex:1; grid-template-columns:repeat(10,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); gap:8px; overflow:hidden; background:#000; padding:0; }
         .tv-jackpot-board { position:relative; display:block; min-width:0; min-height:0; width:100%; height:100%; overflow:hidden; background:#000; container-type:size; }
-        .tv-artwork-crop { position:absolute; inset:-12% 0 0; z-index:0; overflow:hidden; }
+        .tv-artwork-crop { position:absolute; inset:-18% 0 0; z-index:0; overflow:hidden; }
         .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center bottom; transform-origin:center bottom; }
         .tv-jackpot-board-artwork::before { position:absolute; top:-10%; bottom:-10%; left:-50%; z-index:1; width:45%; background:linear-gradient(90deg,transparent,rgba(255,241,171,.2),rgba(255,255,255,.4),transparent); opacity:0; pointer-events:none; content:""; }
         .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:min(5cqi,12px); background:#111827; color:#f9fafb; font-size:min(8cqi,14px); font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
