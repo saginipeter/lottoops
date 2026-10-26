@@ -57,7 +57,7 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, /@keyframes tv-sun-orbit/);
     assert.match(html, /@keyframes tv-ticket-change/);
     assert.match(html, /@keyframes tv-screen-enter/);
-    assert.equal(TV_SCREEN_ROTATION_SECONDS, 15);
+    assert.equal(TV_SCREEN_ROTATION_SECONDS, 30);
     assert.match(html, /prefers-reduced-motion:no-preference/);
   }
 });
