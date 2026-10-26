@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { isManagerOrAbove } from "@/lib/permissions";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
 let schemaReady = false;
 
@@ -69,7 +70,7 @@ function serializeReports(rows: TicketReportRow[]) {
   }));
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -82,6 +83,8 @@ export async function GET() {
   if (!prisma) {
     return NextResponse.json({ error: "Database not connected" }, { status: 503 });
   }
+  const range = parseReportDateRange(req.nextUrl.searchParams);
+  if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
 
   try {
     await ensureActivitySchema();
@@ -105,10 +108,14 @@ export async function GET() {
         WHERE logs.action = 'TICKET_REPORTED'
           AND COALESCE(logs.resolved, FALSE) = FALSE
           AND stores."ownerUserId" = $1
+          AND logs.created_at >= $2
+          AND logs.created_at <= $3
         ORDER BY logs.created_at DESC
         LIMIT 50
         `,
-        session.userId
+        session.userId,
+        range.fromDate,
+        range.toDate
       )) as TicketReportRow[];
 
       return NextResponse.json({ reports: serializeReports(reports) });
@@ -132,10 +139,14 @@ export async function GET() {
       WHERE logs.action = 'TICKET_REPORTED'
         AND COALESCE(logs.resolved, FALSE) = FALSE
         AND logs.store_id = $1
+        AND logs.created_at >= $2
+        AND logs.created_at <= $3
       ORDER BY logs.created_at DESC
       LIMIT 50
       `,
-      session.storeId
+      session.storeId,
+      range.fromDate,
+      range.toDate
     )) as TicketReportRow[];
 
     return NextResponse.json({ reports: serializeReports(reports) });

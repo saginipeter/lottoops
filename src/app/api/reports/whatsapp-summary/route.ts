@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { isManagerOrAbove } from "@/lib/permissions";
 import { isStoreFeatureEnabled } from "@/lib/feature-flags";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!isManagerOrAbove(session)) return NextResponse.json({ error: "Manager access required." }, { status: 403 });
@@ -15,17 +16,22 @@ export async function POST() {
   const recipient = process.env.WHATSAPP_SUMMARY_RECIPIENT;
   if (!token || !phoneNumberId || !recipient) return NextResponse.json({ error: "WhatsApp delivery is not configured. Set WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, and WHATSAPP_SUMMARY_RECIPIENT." }, { status: 503 });
 
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const body = await req.json().catch(() => ({}));
+  const params = new URLSearchParams();
+  if (typeof body?.from === "string") params.set("from", body.from);
+  if (typeof body?.to === "string") params.set("to", body.to);
+  const range = parseReportDateRange(params);
+  if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
   try {
     const [store, shifts, lockedPacks, auditVariances] = await Promise.all([
       prisma.store.findUnique({ where: { id: session.storeId }, select: { name: true } }),
-      prisma.shift.findMany({ where: { storeId: session.storeId, openedAt: { gte: today } }, select: { lines: { select: { ticketsSold: true, salesAmount: true } } } }),
-      prisma.pack.count({ where: { storeId: session.storeId, sequenceLocked: true } }),
-      prisma.inventoryAuditLine.count({ where: { audit: { storeId: session.storeId, endedAt: { gte: today } }, variance: { not: 0 } } }),
+      prisma.shift.findMany({ where: { storeId: session.storeId, openedAt: { gte: range.fromDate, lte: range.toDate } }, select: { lines: { select: { ticketsSold: true, salesAmount: true } } } }),
+      prisma.pack.count({ where: { storeId: session.storeId, sequenceLocked: true, sequenceLockedAt: { gte: range.fromDate, lte: range.toDate } } }),
+      prisma.inventoryAuditLine.count({ where: { audit: { storeId: session.storeId, endedAt: { gte: range.fromDate, lte: range.toDate } }, variance: { not: 0 } } }),
     ]);
     const tickets = shifts.reduce((sum: number, shift: { lines: Array<{ ticketsSold: number | null }> }) => sum + shift.lines.reduce((lineSum, line) => lineSum + Number(line.ticketsSold ?? 0), 0), 0);
     const sales = shifts.reduce((sum: number, shift: { lines: Array<{ salesAmount: unknown }> }) => sum + shift.lines.reduce((lineSum, line) => lineSum + Number(line.salesAmount ?? 0), 0), 0);
-    const message = `${store?.name ?? "LottoOps store"} daily summary\nShifts: ${shifts.length}\nTickets sold: ${tickets}\nSales: $${sales.toFixed(2)}\nAudit variances: ${auditVariances}\nOpen sequence locks: ${lockedPacks}`;
+    const message = `${store?.name ?? "LottoOps store"} summary (${range.from} through ${range.to})\nShifts: ${shifts.length}\nTickets sold: ${tickets}\nSales: $${sales.toFixed(2)}\nAudit variances: ${auditVariances}\nSequence locks: ${lockedPacks}`;
     const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", to: recipient, type: "text", text: { body: message } }) });
     if (!response.ok) { const detail = await response.text(); console.error("[WhatsApp summary]", detail); return NextResponse.json({ error: "WhatsApp rejected the summary delivery." }, { status: 502 }); }
     return NextResponse.json({ success: true, message });

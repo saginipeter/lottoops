@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Clock3, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { ReportActions } from "./report-actions";
 import { buildShipmentOverridesDocument } from "@/lib/workspace-detail-report-documents";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 
 interface OverrideNotification {
   id: string | number;
@@ -15,16 +16,16 @@ interface OverrideNotification {
   createdAt: string;
 }
 
-export function ShipmentOverrideNotifications() {
+export function ShipmentOverrideNotifications({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [notifications, setNotifications] = useState<OverrideNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const response = await fetch("/api/notifications/overrides", { cache: "no-store" });
+      const response = await fetch(`/api/notifications/overrides?from=${dateRange.from}&to=${dateRange.to}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load shipment overrides.");
       setNotifications(data.notifications ?? []);
@@ -33,9 +34,9 @@ export function ShipmentOverrideNotifications() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [dateRange.from, dateRange.to]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   return (
     <Panel className="p-5">

@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
   } else if (type === "inventory") {
     // Current inventory snapshot
     const packs = await prisma.pack.findMany({
-      where: { storeId: session.storeId },
+      where: { storeId: session.storeId, receivedAt: { gte: fromDate, lte: toDate } },
       include: { game: { select: { name: true, gameNumber: true, price: true } } },
       orderBy: { receivedAt: "desc" },
     });
@@ -214,7 +214,7 @@ export async function GET(req: NextRequest) {
       p.receivedAt.toISOString(),
     ]);
     csv = buildCSV(headers, rows);
-    filename = `inventory_${new Date().toISOString().slice(0, 10)}.csv`;
+    filename = `inventory_${fromDate.toISOString().slice(0, 10)}_${toDate.toISOString().slice(0, 10)}.csv`;
   } else if (type === "activity") {
     const logs = await queryInventoryActivity(session.storeId, {
       from: fromDate,

@@ -17,6 +17,7 @@ import { TicketReturnRequestsPanel } from "@/components/reports/ticket-return-re
 import { ShipmentOverrideNotifications } from "@/components/reports/shipment-override-notifications";
 import { ReceivingShipmentsReport } from "@/components/reports/receiving-shipments-report";
 import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
+import { ReportDateFilter, type ReportDateRangeValue } from "@/components/reports/report-date-filter";
 
 type Role = "OWNER" | "MANAGER" | "EMPLOYEE" | "SHIFT_LEAD" | "PLATFORM_ADMIN" | "AUDITOR";
 type ReportKey = "shift-sales" | "activity" | "inventory" | "inventory-aging" | "discrepancies" | "corrections" | "lifecycle" | "exceptions" | "ai-review" | "whatsapp" | "ticket-reports" | "returns" | "shipment-overrides" | "receiving-shipments" | "state-uploads";
@@ -58,6 +59,12 @@ export function ReportsWorkspace({ role }: { role: Role }) {
   const available = useMemo(() => reportOptions.filter((option) => canSee(option, role)), [role]);
   const [selected, setSelected] = useState<ReportKey>("shift-sales");
   const [favorites, setFavorites] = useState<ReportKey[]>([]);
+  const [dateRange, setDateRange] = useState<ReportDateRangeValue>(() => {
+    const to = new Date();
+    const from = new Date(to);
+    from.setDate(from.getDate() - 30);
+    return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  });
 
   useEffect(() => {
     try {
@@ -84,20 +91,20 @@ export function ReportsWorkspace({ role }: { role: Role }) {
 
   function renderReport() {
     switch (current.key) {
-      case "shift-sales": return <FinancialReports />;
-      case "activity": return <ActivityReport />;
-      case "inventory": return <InventoryStatusReport />;
-      case "inventory-aging": return <InventoryAgingReport />;
-      case "discrepancies": return <DiscrepancyReport />;
-      case "corrections": return <CorrectionReport />;
-      case "lifecycle": return <LifecycleAnalyticsReport />;
-      case "exceptions": return <ExceptionTrendsReport />;
-      case "ai-review": return <AiDiscrepancyAnalysis />;
-      case "whatsapp": return <WhatsAppSummaryCard />;
-      case "ticket-reports": return <TicketReportsPanel title="Employee Ticket Reports" />;
-      case "returns": return <TicketReturnRequestsPanel title="Ticket Return Requests" />;
-      case "shipment-overrides": return <ShipmentOverrideNotifications />;
-      case "receiving-shipments": return <ReceivingShipmentsReport />;
+      case "shift-sales": return <FinancialReports dateRange={dateRange} />;
+      case "activity": return <ActivityReport dateRange={dateRange} />;
+      case "inventory": return <InventoryStatusReport dateRange={dateRange} />;
+      case "inventory-aging": return <InventoryAgingReport dateRange={dateRange} />;
+      case "discrepancies": return <DiscrepancyReport dateRange={dateRange} />;
+      case "corrections": return <CorrectionReport dateRange={dateRange} />;
+      case "lifecycle": return <LifecycleAnalyticsReport dateRange={dateRange} />;
+      case "exceptions": return <ExceptionTrendsReport dateRange={dateRange} />;
+      case "ai-review": return <AiDiscrepancyAnalysis dateRange={dateRange} />;
+      case "whatsapp": return <WhatsAppSummaryCard dateRange={dateRange} />;
+      case "ticket-reports": return <TicketReportsPanel title="Employee Ticket Reports" dateRange={dateRange} />;
+      case "returns": return <TicketReturnRequestsPanel title="Ticket Return Requests" dateRange={dateRange} />;
+      case "shipment-overrides": return <ShipmentOverrideNotifications dateRange={dateRange} />;
+      case "receiving-shipments": return <ReceivingShipmentsReport dateRange={dateRange} />;
       case "state-uploads": return <StateReportsUploader />;
     }
   }
@@ -127,6 +134,7 @@ export function ReportsWorkspace({ role }: { role: Role }) {
         </div>
         {favorites.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Quick access</span>{favorites.map((key) => { const option = available.find((item) => item.key === key); return option ? <button key={key} type="button" onClick={() => setSelected(key)} className={`border px-3 py-2 text-xs font-bold ${selected === key ? "border-[#087da8] bg-[#e0f6fc] text-[#087da8]" : "border-slate-200 text-slate-600 hover:border-[#087da8]"}`}>{option.label}</button> : null; })}</div>}
       </section>
+      <ReportDateFilter value={dateRange} onChange={setDateRange} />
       <section aria-labelledby="selected-report-title">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-l-4 border-[#087da8] bg-[#17233f] px-4 py-3 text-white sm:items-center">
           <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#087da8] text-white"><Icon size={18} /></span><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8be2ff]">{current.group}</p><h2 id="selected-report-title" className="truncate text-lg font-black">{current.label}</h2></div></div>

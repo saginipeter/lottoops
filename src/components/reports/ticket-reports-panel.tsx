@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Clock3, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { ReportActions } from "./report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildTicketReportsDocument } from "@/lib/workspace-detail-report-documents";
 
 interface TicketReport {
@@ -58,8 +59,10 @@ function formatRelativeTime(createdAt: string): string {
 
 export function TicketReportsPanel({
   title = "Employee Ticket Reports",
+  dateRange,
 }: {
   title?: string;
+  dateRange: ReportDateRangeValue;
 }) {
   const [reports, setReports] = useState<TicketReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +73,8 @@ export function TicketReportsPanel({
     if (!silent) setLoading(true);
     if (!silent) setError("");
     try {
-      const res = await fetch("/api/tickets/reports", { cache: "no-store" });
+      const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
+      const res = await fetch(`/api/tickets/reports?${params.toString()}`, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setError((data && typeof data.error === "string" && data.error) || "Unable to load reports.");
@@ -84,7 +88,7 @@ export function TicketReportsPanel({
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [dateRange.from, dateRange.to]);
 
   useEffect(() => {
     loadReports();

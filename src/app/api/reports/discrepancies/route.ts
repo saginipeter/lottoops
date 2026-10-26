@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { canAccessReports } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getResolutionMap } from "@/lib/discrepancy-resolution";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
 interface LockedPackReport {
   id: string;
@@ -33,20 +34,22 @@ interface AuditVarianceReport {
   };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!canAccessReports(session)) return NextResponse.json({ error: "Reports access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
+  const range = parseReportDateRange(req.nextUrl.searchParams);
+  if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
 
   try {
     const lockedPacks = await prisma.pack.findMany({
-      where: { storeId: session.storeId, sequenceLocked: true },
+      where: { storeId: session.storeId, sequenceLocked: true, sequenceLockedAt: { gte: range.fromDate, lte: range.toDate } },
       include: { game: { select: { name: true } }, slot: { select: { slotNumber: true } } },
       orderBy: { sequenceLockedAt: "asc" },
     });
     const auditLines = (await prisma.inventoryAuditLine.findMany({
-      where: { audit: { storeId: session.storeId }, variance: { not: 0 } },
+      where: { audit: { storeId: session.storeId, OR: [{ endedAt: { gte: range.fromDate, lte: range.toDate } }, { endedAt: null, begunAt: { gte: range.fromDate, lte: range.toDate } }] }, variance: { not: 0 } },
       include: { pack: { select: { serialNumber: true, game: { select: { name: true } } } }, audit: { select: { status: true, begunAt: true, endedAt: true, begunBy: { select: { name: true } }, endedBy: { select: { name: true } } } } },
       orderBy: { id: "desc" },
     })) as AuditVarianceReport[];

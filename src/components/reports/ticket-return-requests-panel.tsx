@@ -5,6 +5,7 @@ import { Clock3, PackageCheck, RefreshCw, XCircle } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { ReportActions } from "./report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildTicketReturnRequestsDocument } from "@/lib/workspace-detail-report-documents";
 
 interface ReturnRequest {
@@ -42,8 +43,10 @@ function formatRelativeTime(createdAt: string): string {
 
 export function TicketReturnRequestsPanel({
   title = "Ticket Return Requests",
+  dateRange,
 }: {
   title?: string;
+  dateRange: ReportDateRangeValue;
 }) {
   const [requests, setRequests] = useState<ReturnRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +57,8 @@ export function TicketReturnRequestsPanel({
     if (!silent) setLoading(true);
     if (!silent) setError("");
     try {
-      const res = await fetch("/api/tickets/return-requests", { cache: "no-store" });
+      const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
+      const res = await fetch(`/api/tickets/return-requests?${params.toString()}`, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setError((data && typeof data.error === "string" && data.error) || "Unable to load return requests.");
@@ -67,7 +71,7 @@ export function TicketReturnRequestsPanel({
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [dateRange.from, dateRange.to]);
 
   useEffect(() => {
     loadRequests();

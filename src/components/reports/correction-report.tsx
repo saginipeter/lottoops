@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { History, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "./report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildCorrectionDocument } from "@/lib/workspace-detail-report-documents";
 
 interface Correction {
@@ -19,16 +20,16 @@ interface Correction {
   createdAt: string;
 }
 
-export function CorrectionReport() {
+export function CorrectionReport({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [corrections, setCorrections] = useState<Correction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/reports/corrections", { cache: "no-store" });
+      const response = await fetch(`/api/reports/corrections?from=${dateRange.from}&to=${dateRange.to}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load correction history.");
       setCorrections(data.corrections ?? []);
@@ -37,12 +38,12 @@ export function CorrectionReport() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [dateRange.from, dateRange.to]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [load]);
 
   return (
     <Panel className="p-4 sm:p-5">

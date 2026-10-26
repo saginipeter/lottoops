@@ -5,6 +5,7 @@ import { isManagerOrAbove } from "@/lib/permissions";
 import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
 import { canReturnLatestTicket } from "@/lib/ticket-return";
 import { Prisma } from "@prisma/client";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
 let schemaReady = false;
 
@@ -189,7 +190,7 @@ export async function POST(req: NextRequest) {
 }
 
 /** Manager/owner view of returned tickets awaiting review and legacy requests awaiting approval. */
-export async function GET() {
+export async function GET(req?: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!isManagerOrAbove(session)) {
@@ -198,6 +199,10 @@ export async function GET() {
   if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
   try {
     await ensureSchema();
+    const hasDateFilter = Boolean(req?.nextUrl.searchParams.get("from") || req?.nextUrl.searchParams.get("to"));
+    const range = hasDateFilter ? parseReportDateRange(req!.nextUrl.searchParams) : null;
+    if (range && "error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
+    const dateSql = range && !("error" in range) ? " AND r.created_at >= $2 AND r.created_at <= $3" : "";
     const baseSelect = `
       SELECT r.id, r.status, r.store_id AS "storeId", stores.name AS "storeName",
         r.shift_id AS "shiftId", r.pack_id AS "packId", r.ticket_barcode AS "ticketBarcode",
@@ -207,11 +212,11 @@ export async function GET() {
       JOIN packs p ON p.id = r.pack_id
       JOIN games g ON g.id = p."gameId"
       JOIN stores ON stores.id = r.store_id
-      WHERE r.status IN ('PENDING', 'RETURNED_PENDING_REVIEW')
+      WHERE r.status IN ('PENDING', 'RETURNED_PENDING_REVIEW')${dateSql}
     `;
     const rows = session.role === "OWNER"
-      ? await prisma.$queryRawUnsafe(`${baseSelect} AND stores."ownerUserId" = $1 ORDER BY r.created_at DESC LIMIT 50`, session.userId)
-      : await prisma.$queryRawUnsafe(`${baseSelect} AND r.store_id = $1 ORDER BY r.created_at DESC LIMIT 50`, session.storeId);
+      ? await prisma.$queryRawUnsafe(`${baseSelect} AND stores."ownerUserId" = $1 ORDER BY r.created_at DESC LIMIT 50`, session.userId, ...(range && !("error" in range) ? [range.fromDate, range.toDate] : []))
+      : await prisma.$queryRawUnsafe(`${baseSelect} AND r.store_id = $1 ORDER BY r.created_at DESC LIMIT 50`, session.storeId, ...(range && !("error" in range) ? [range.fromDate, range.toDate] : []));
     return NextResponse.json({ requests: rows });
   } catch (error) {
     console.error("[GET /api/tickets/return-requests]", error);

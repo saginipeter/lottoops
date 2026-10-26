@@ -4,19 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "@/components/reports/report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { createInventoryStatusReportDocument, type InventoryReportRow as PackRow, type PackStatus } from "@/lib/activity-inventory-report-documents";
 
 const EMPTY_ROWS: PackRow[] = [];
 const EMPTY_COUNTS: Record<string, number> = {};
 
-export function InventoryStatusReport() {
+export function InventoryStatusReport({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [status, setStatus] = useState<PackStatus>("ALL");
   const [q, setQ] = useState("");
-  const [snapshot, setSnapshot] = useState<{ status: PackStatus; q: string; rows: PackRow[]; counts: Record<string, number> } | null>(null);
+  const [snapshot, setSnapshot] = useState<{ status: PackStatus; q: string; from: string; to: string; rows: PackRow[]; counts: Record<string, number> } | null>(null);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const search = q.trim();
-  const currentSnapshot = snapshot?.status === status && snapshot.q === search ? snapshot : null;
+  const currentSnapshot = snapshot?.status === status && snapshot.q === search && snapshot.from === dateRange.from && snapshot.to === dateRange.to ? snapshot : null;
   const loading = fetching || (!currentSnapshot && !error);
   const rows = currentSnapshot?.rows ?? EMPTY_ROWS;
   const counts = currentSnapshot?.counts ?? EMPTY_COUNTS;
@@ -29,13 +30,13 @@ export function InventoryStatusReport() {
       setSnapshot(null);
       setError("");
       try {
-        const params = new URLSearchParams({ status });
+        const params = new URLSearchParams({ status, from: dateRange.from, to: dateRange.to });
         if (search) params.set("q", search);
         const res = await fetch(`/api/reports/inventory-status?${params.toString()}`, { signal: controller.signal });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Unable to load inventory status.");
         if (!active) return;
-        setSnapshot({ status, q: search, rows: data.packs ?? [], counts: data.counts ?? {} });
+        setSnapshot({ status, q: search, from: dateRange.from, to: dateRange.to, rows: data.packs ?? [], counts: data.counts ?? {} });
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason.message : "Unable to load inventory status.");
       } finally {
@@ -47,7 +48,7 @@ export function InventoryStatusReport() {
       active = false;
       controller.abort();
     };
-  }, [status, search]);
+  }, [status, search, dateRange.from, dateRange.to]);
 
   const totalRetail = useMemo(
     () => rows.reduce((sum, row) => sum + Number(row.retailValue ?? 0), 0),
@@ -85,7 +86,7 @@ export function InventoryStatusReport() {
             placeholder="Search game, pack, serial..."
             className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
           />
-          <Button variant="outline" onClick={() => window.open("/api/reports/export?type=inventory", "_blank")}>
+          <Button variant="outline" onClick={() => window.open(`/api/reports/export?type=inventory&from=${dateRange.from}&to=${dateRange.to}`, "_blank")}>
             Export CSV
           </Button>
           <ReportActions document={reportDocument} disabled={loading || !!error} />

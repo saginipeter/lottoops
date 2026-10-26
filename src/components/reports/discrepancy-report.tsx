@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "./report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildDiscrepancyDocument } from "@/lib/workspace-detail-report-documents";
 
 interface DiscrepancyRow {
@@ -23,18 +24,18 @@ interface DiscrepancyRow {
   resolvedBy?: string | null;
 }
 
-export function DiscrepancyReport() {
+export function DiscrepancyReport({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [rows, setRows] = useState<DiscrepancyRow[]>([]);
   const [filter, setFilter] = useState<"ALL" | "UNRESOLVED" | "RESOLVED">("ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resolving, setResolving] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/reports/discrepancies");
+      const response = await fetch(`/api/reports/discrepancies?from=${dateRange.from}&to=${dateRange.to}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load discrepancies.");
       setRows([...(data.unresolved ?? []), ...(data.auditVariances ?? [])]);
@@ -43,12 +44,12 @@ export function DiscrepancyReport() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [dateRange.from, dateRange.to]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [load]);
 
   const visibleRows = useMemo(
     () => filter === "ALL" ? rows : rows.filter((row) => row.status === filter),

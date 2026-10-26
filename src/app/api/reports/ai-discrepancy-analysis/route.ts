@@ -1,19 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { isManagerOrAbove } from "@/lib/permissions";
 import { isStoreFeatureEnabled } from "@/lib/feature-flags";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!isManagerOrAbove(session)) return NextResponse.json({ error: "Manager access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
   if (!(await isStoreFeatureEnabled(session.storeId, "AI_DISCREPANCY_ANALYSIS"))) return NextResponse.json({ error: "AI discrepancy analysis is disabled for this store." }, { status: 403 });
+  const range = parseReportDateRange(req.nextUrl.searchParams);
+  if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
   try {
     const [auditVariances, locks] = await Promise.all([
-      prisma.inventoryAuditLine.findMany({ where: { audit: { storeId: session.storeId }, variance: { not: 0 } }, select: { id: true, variance: true, audit: { select: { begunBy: { select: { name: true } }, endedBy: { select: { name: true } } } } }, take: 200 }),
-      prisma.pack.findMany({ where: { storeId: session.storeId, sequenceLocked: true }, select: { id: true, serialNumber: true, sequenceLockExpectedTicket: true, sequenceLockScannedTicket: true } }),
+      prisma.inventoryAuditLine.findMany({ where: { audit: { storeId: session.storeId, OR: [{ endedAt: { gte: range.fromDate, lte: range.toDate } }, { endedAt: null, begunAt: { gte: range.fromDate, lte: range.toDate } }] }, variance: { not: 0 } }, select: { id: true, variance: true, audit: { select: { begunBy: { select: { name: true } }, endedBy: { select: { name: true } } } } }, take: 200 }),
+      prisma.pack.findMany({ where: { storeId: session.storeId, sequenceLocked: true, sequenceLockedAt: { gte: range.fromDate, lte: range.toDate } }, select: { id: true, serialNumber: true, sequenceLockExpectedTicket: true, sequenceLockScannedTicket: true } }),
     ]);
     const varianceTotal = auditVariances.reduce((sum: number, item: { variance: number | null }) => sum + Math.abs(Number(item.variance ?? 0)), 0);
     const actors = new Map<string, number>();

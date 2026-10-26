@@ -187,6 +187,10 @@ function StoreCard({ store }: { store: StoreKPI }) {
 }
 
 export function OwnerDashboard({ view = "overview", currentStoreId }: { view?: "overview" | "stores"; currentStoreId?: string }) {
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - 30);
+  const dateRange = { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
   const [stores, setStores] = useState<StoreKPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -389,9 +393,9 @@ export function OwnerDashboard({ view = "overview", currentStoreId }: { view?: "
         </Panel>
       )}
 
-      <TicketReturnRequestsPanel title="Ticket Return Requests Across Stores" />
-      <ShipmentOverrideNotifications />
-      <TicketReportsPanel title="Employee Ticket Reports Across Stores" />
+      <TicketReturnRequestsPanel title="Ticket Return Requests Across Stores" dateRange={dateRange} />
+      <ShipmentOverrideNotifications dateRange={dateRange} />
+      <TicketReportsPanel title="Employee Ticket Reports Across Stores" dateRange={dateRange} />
 
     </div>
   );

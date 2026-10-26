@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Activity, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "./report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildLifecycleAnalyticsDocument } from "@/lib/workspace-detail-report-documents";
 
 interface AnalyticsData {
@@ -24,16 +25,16 @@ function currency(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export function LifecycleAnalyticsReport() {
+export function LifecycleAnalyticsReport({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/reports/analytics", { cache: "no-store" });
+      const response = await fetch(`/api/reports/analytics?from=${dateRange.from}&to=${dateRange.to}`, { cache: "no-store" });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Unable to load lifecycle analytics.");
       setData(payload);
@@ -42,12 +43,12 @@ export function LifecycleAnalyticsReport() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [dateRange.from, dateRange.to]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [load]);
 
   return (
     <Panel className="p-4 sm:p-5">

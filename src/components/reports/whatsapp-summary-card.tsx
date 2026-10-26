@@ -6,15 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "./report-actions";
 import { buildWhatsAppSummaryDocument } from "@/lib/workspace-detail-report-documents";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 
-export function WhatsAppSummaryCard() {
+export function WhatsAppSummaryCard({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState<{ text: string; sentAt: string } | null>(null);
   async function send() {
     setSending(true); setMessage(""); setSummary(null);
     try {
-      const response = await fetch("/api/reports/whatsapp-summary", { method: "POST" });
+      const response = await fetch("/api/reports/whatsapp-summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dateRange) });
       const data = await response.json();
       setMessage(response.ok ? "Daily summary sent to WhatsApp." : data.error || "Unable to send summary.");
       if (response.ok && typeof data.message === "string" && data.message.trim()) {

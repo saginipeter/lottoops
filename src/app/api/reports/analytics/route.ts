@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { canAccessReports } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
 interface PackAnalyticsRow {
   status: string;
@@ -19,15 +20,17 @@ function daysBetween(start: Date, end: Date) {
   return Math.max((end.getTime() - start.getTime()) / 86400000, 0);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!canAccessReports(session)) return NextResponse.json({ error: "Reports access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const range = parseReportDateRange(req.nextUrl.searchParams);
+  if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
 
   try {
     const packs = await prisma.pack.findMany({
-      where: { storeId: session.storeId },
+      where: { storeId: session.storeId, receivedAt: { gte: range.fromDate, lte: range.toDate } },
       select: {
         status: true,
         receivedAt: true,

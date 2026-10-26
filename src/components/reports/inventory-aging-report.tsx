@@ -1,31 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Clock3, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "./report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildInventoryAgingDocument } from "@/lib/workspace-detail-report-documents";
 
 interface AgingPack { id: string; serialNumber: string; game: string; gameNumber: string; status: string; display: string | null; receivedAt: string; activatedAt: string | null; ageDays: number; }
 
-export function InventoryAgingReport() {
+export function InventoryAgingReport({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [packs, setPacks] = useState<AgingPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const response = await fetch("/api/reports/aging", { cache: "no-store" });
+      const response = await fetch(`/api/reports/aging?from=${dateRange.from}&to=${dateRange.to}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load inventory aging.");
       setPacks(data.packs ?? []);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load inventory aging."); }
     finally { setLoading(false); }
-  }
+  }, [dateRange.from, dateRange.to]);
 
-  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, []);
+  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
 
   const reportDocument = buildInventoryAgingDocument(packs);
 

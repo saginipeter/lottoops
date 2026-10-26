@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "./report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildExceptionTrendsDocument } from "@/lib/workspace-detail-report-documents";
 
 interface Day { date: string; auditVariances: number; sequenceLocks: number; resolved: number }
 interface Data { since?: string; totals: Day[]; summary: { auditVariances: number; openSequenceLocks: number; resolved: number } }
 
-export function ExceptionTrendsReport() {
+export function ExceptionTrendsReport({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [data, setData] = useState<Data | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
-  async function load() { setLoading(true); setError(""); try { const response = await fetch("/api/reports/exception-trends", { cache: "no-store" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Unable to load exception trends."); setData(payload); } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load exception trends."); } finally { setLoading(false); } }
-  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, []);
+  const load = useCallback(async () => { setLoading(true); setError(""); try { const response = await fetch(`/api/reports/exception-trends?from=${dateRange.from}&to=${dateRange.to}`, { cache: "no-store" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Unable to load exception trends."); setData(payload); } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load exception trends."); } finally { setLoading(false); } }, [dateRange.from, dateRange.to]);
+  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
   const max = Math.max(...(data?.totals.map((day) => day.auditVariances + day.sequenceLocks) ?? [1]), 1);
   return <Panel className="p-4 sm:p-5"><div className="flex items-start justify-between gap-3"><div className="flex items-start gap-2"><AlertTriangle size={18} className="mt-0.5 text-orange-600" /><div><p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Exception analytics</p><h2 className="text-base font-semibold text-text">Exception Trends</h2><p className="mt-1 text-sm text-text-secondary">Audit mismatches, sequence locks, and resolutions over the last 30 days.</p></div></div><Button size="sm" variant="outline" onClick={() => { void load(); }} disabled={loading}><RefreshCw size={13} className={loading ? "animate-spin" : ""} />Refresh</Button></div>
     <ReportActions document={data ? buildExceptionTrendsDocument(data) : undefined} disabled={loading || !!error || !data} />

@@ -14,6 +14,10 @@ export default async function AlertsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (!isManagerOrAbove(session)) redirect("/");
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - 30);
+  const dateRange = { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -31,11 +35,13 @@ export default async function AlertsPage() {
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 space-y-5">
         <AlertsCenter returns={<TicketReturnRequestsPanel
           title={session.role === "OWNER" ? "Ticket Return Requests Across Stores" : "Ticket Return Requests"}
+          dateRange={dateRange}
         />}
-          shipments={<ShipmentOverrideNotifications />}
-          discrepancies={<DiscrepancyReport />}
+          shipments={<ShipmentOverrideNotifications dateRange={dateRange} />}
+          discrepancies={<DiscrepancyReport dateRange={dateRange} />}
           tickets={<TicketReportsPanel
           title={session.role === "OWNER" ? "Employee Ticket Reports Across Stores" : "Employee Ticket Reports"}
+          dateRange={dateRange}
         />} />
       </div>
 

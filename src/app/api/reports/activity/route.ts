@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { queryInventoryActivity } from "@/lib/activity-log";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
+  const range = parseReportDateRange(searchParams);
+  if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
 
   const logs = await queryInventoryActivity(session.storeId, {
-    from: from ? new Date(from + "T00:00:00") : undefined,
-    to: to ? new Date(to + "T23:59:59") : undefined,
+    from: range.fromDate,
+    to: range.toDate,
     limit: 1000,
   });
 

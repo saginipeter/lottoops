@@ -1,17 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { canAccessReports } from "@/lib/permissions";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!canAccessReports(session)) return NextResponse.json({ error: "Reports access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const range = parseReportDateRange(req.nextUrl.searchParams);
+  if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
 
   try {
     const packs = await prisma.pack.findMany({
-      where: { storeId: session.storeId, status: { in: ["BACK_STOCK", "ACTIVE"] } },
+      where: { storeId: session.storeId, status: { in: ["BACK_STOCK", "ACTIVE"] }, receivedAt: { gte: range.fromDate, lte: range.toDate } },
       select: { id: true, serialNumber: true, status: true, receivedAt: true, activatedAt: true, game: { select: { name: true, gameNumber: true } }, slot: { select: { slotNumber: true } } },
       orderBy: { receivedAt: "asc" },
       take: 250,

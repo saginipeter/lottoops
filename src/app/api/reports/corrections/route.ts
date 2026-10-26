@@ -1,13 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { isManagerOrAbove } from "@/lib/permissions";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!isManagerOrAbove(session)) return NextResponse.json({ error: "Manager access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const range = parseReportDateRange(req.nextUrl.searchParams);
+  if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
 
   try {
     const rows = await prisma.$queryRawUnsafe(`
@@ -17,9 +20,11 @@ export async function GET() {
              created_at AS "createdAt"
       FROM inventory_correction_logs
       WHERE store_id = $1
+        AND created_at >= $2
+        AND created_at <= $3
       ORDER BY created_at DESC
       LIMIT 200
-    `, session.storeId);
+    `, session.storeId, range.fromDate, range.toDate);
     return NextResponse.json({ corrections: rows });
   } catch (error) {
     console.error("[GET /api/reports/corrections]", error);

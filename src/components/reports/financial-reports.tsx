@@ -5,6 +5,7 @@ import { Download, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronDown, C
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "@/components/reports/report-actions";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildEndOfShiftReportDocument, type ShiftGameSummary, type ShiftReportData } from "@/lib/shift-report";
 
 interface GameRow extends ShiftGameSummary { netMargin: number; marginPct: number; }
@@ -62,13 +63,8 @@ function MarginBar({ pct }: { pct: number }) {
   );
 }
 
-export function FinancialReports() {
-  const [from, setFrom] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return date.toISOString().slice(0, 10);
-  });
-  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValue }) {
+  const { from, to } = dateRange;
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,50 +98,10 @@ export function FinancialReports() {
     window.open(`/api/reports/export?type=${type}&format=pdf&from=${from}&to=${to}`, "_blank");
   }
 
-  const presets = [
-    { label: "Today", days: 0 },
-    { label: "7 days", days: 7 },
-    { label: "30 days", days: 30 },
-    { label: "90 days", days: 90 },
-  ];
-
-  function applyPreset(days: number) {
-    const t = new Date().toISOString().slice(0, 10);
-    const f = days === 0
-      ? t
-      : (() => {
-        const date = new Date();
-        date.setDate(date.getDate() - days);
-        return date.toISOString().slice(0, 10);
-      })();
-    setFrom(f);
-    setTo(t);
-  }
-
   return (
     <div className="space-y-5">
-      {/* Date Filter */}
       <Panel className="p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1">From</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-              className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1">To</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-              className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent" />
-          </div>
-          <div className="flex gap-1.5">
-            {presets.map((p) => (
-              <button key={p.label} onClick={() => applyPreset(p.days)}
-                className="rounded-md border border-border px-2.5 py-1.5 text-xs text-text-secondary hover:bg-surface-soft transition-colors">
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div className="ml-auto flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" onClick={loadReport} disabled={loading}>
               <RefreshCw size={13} className={`mr-1 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -175,7 +131,6 @@ export function FinancialReports() {
                 <button onClick={() => downloadPDF("activity")} className="block w-full px-3 py-2 text-left text-sm text-text hover:bg-surface-soft">Shift Log PDF</button>
               </div>
             </div>
-          </div>
         </div>
       </Panel>
 

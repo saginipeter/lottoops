@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { canReceiveShipments, canManageBackstock } from "@/lib/permissions";
 import { shipmentMetadataInput } from "@/lib/shipment-input";
+import { parseReportDateRange } from "@/lib/report-date-range";
 
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
@@ -14,12 +15,16 @@ export async function GET(req: NextRequest) {
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const status = req.nextUrl.searchParams.get("status")?.trim();
+  const hasDateFilter = Boolean(req.nextUrl.searchParams.get("from") || req.nextUrl.searchParams.get("to"));
+  const range = hasDateFilter ? parseReportDateRange(req.nextUrl.searchParams) : null;
+  if (range && "error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
   const requestedPage = Number(req.nextUrl.searchParams.get("page") ?? 1);
   const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const pageSize = 100;
   const where = {
     storeId: session.storeId,
     ...(status === "IN_PROGRESS" || status === "RECEIVED" ? { status } : {}),
+    ...(range && !("error" in range) ? { createdAt: { gte: range.fromDate, lte: range.toDate } } : {}),
   };
   const [shipments, total] = await Promise.all([
     prisma.shipment.findMany({

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "@/components/reports/report-actions";
 import { loadShipmentReport } from "@/lib/shipment-report";
+import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 
 interface ShipmentRecord {
   id: string;
@@ -28,7 +29,7 @@ interface ShipmentPage {
   totalPages: number;
 }
 
-export function ReceivingShipmentsReport() {
+export function ReceivingShipmentsReport({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [result, setResult] = useState<ShipmentPage | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,8 @@ export function ReceivingShipmentsReport() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/shipments?page=${requestedPage}`, { cache: "no-store" });
+      const params = new URLSearchParams({ page: String(requestedPage), from: dateRange.from, to: dateRange.to });
+      const response = await fetch(`/api/shipments?${params.toString()}`, { cache: "no-store" });
       const data = await response.json() as ShipmentPage & { error?: string };
       if (!response.ok) throw new Error(data.error || "Unable to load shipment records.");
       setResult(data);
@@ -48,7 +50,7 @@ export function ReceivingShipmentsReport() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateRange.from, dateRange.to]);
 
   useEffect(() => { void load(1); }, [load]);
 
