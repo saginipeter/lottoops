@@ -2,7 +2,7 @@
 
 import { ReactNode, useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database } from "lucide-react";
+import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
@@ -95,6 +95,8 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingArtwork, setUploadingArtwork] = useState(false);
+  const [artworkFile, setArtworkFile] = useState<File | null>(null);
   const [addingKey, setAddingKey] = useState<string | null>(null);
   const [addingAll, setAddingAll] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -105,6 +107,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   const [form, setForm] = useState<FormState>(initialForm);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogType, setCatalogType] = useState("all");
+  const editingGame = editingId ? games.find((game) => game.id === editingId) ?? null : null;
 
   const visibleGames = useMemo(
     () => (showInactive ? games : games.filter((g) => g.active)),
@@ -137,6 +140,20 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   function resetForm() {
     setForm(initialForm);
     setEditingId(null);
+    setArtworkFile(null);
+    setLookupResult(null);
+  }
+
+  function beginEdit(game: GameItem) {
+    setEditingId(game.id);
+    setForm({
+      gameNumber: game.gameNumber,
+      name: game.name,
+      price: String(game.price),
+      ticketsPerPack: String(game.ticketsPerPack),
+      active: game.active,
+    });
+    setArtworkFile(null);
     setLookupResult(null);
   }
 
@@ -232,6 +249,31 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
       notify(game.active ? "Game deactivated." : "Game activated.");
     } catch { notify("Unable to update status.", "err"); }
     finally { setLoading(false); }
+  }
+
+  async function uploadArtwork() {
+    if (!canManage || !editingId || !artworkFile) return;
+    try {
+      setUploadingArtwork(true);
+      const body = new FormData();
+      body.append("file", artworkFile);
+      const res = await fetch(`/api/games/${encodeURIComponent(editingId)}/artwork`, {
+        method: "POST",
+        body,
+      });
+      const data = await res.json() as { error?: string; message?: string };
+      if (!res.ok) {
+        notify(data.error || "Unable to replace game artwork.", "err");
+        return;
+      }
+      setArtworkFile(null);
+      await refreshGames(true);
+      notify(data.message || "Game artwork replaced.");
+    } catch {
+      notify("Unable to replace game artwork.", "err");
+    } finally {
+      setUploadingArtwork(false);
+    }
   }
 
   async function syncTexasGames() {
@@ -408,8 +450,12 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                       <td className="py-2 text-right">
                         <div className="flex justify-end gap-1">
                           <Button size="sm" variant="outline" disabled={!canManage}
-                            onClick={() => { setEditingId(game.id); setForm({ gameNumber: game.gameNumber, name: game.name, price: String(game.price), ticketsPerPack: String(game.ticketsPerPack), active: game.active }); setLookupResult(null); }}>
+                            onClick={() => beginEdit(game)}>
                             Edit
+                          </Button>
+                          <Button size="sm" variant="ghost" disabled={!canManage}
+                            onClick={() => beginEdit(game)}>
+                            <ImagePlus size={13} className="mr-1" />Artwork
                           </Button>
                           <Button size="sm" variant={game.active ? "destructive" : "secondary"} onClick={() => toggleActive(game)} disabled={!canManage || loading}>
                             {game.active ? "Deactivate" : "Activate"}
@@ -431,7 +477,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
           </Panel>
 
           <Panel className="p-4">
-            <h3 className="text-base font-semibold text-text">{editingId ? "Edit Game" : "Add Game Manually"}</h3>
+            <h3 className="text-base font-semibold text-text">{editingId ? "Edit Game & Artwork" : "Add Game Manually"}</h3>
             <p className="mt-1 text-xs text-text-secondary">Look up by game # to auto-fill from the Lottery Scratch_off Management System catalog.</p>
             <div className="mt-4 space-y-3">
               <Field label="Game Number">
@@ -465,6 +511,35 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                 </Button>
                 <Button variant="ghost" onClick={resetForm} disabled={saving}>Reset</Button>
               </div>
+              {editingId && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <Field label="Game Artwork">
+                    <div className="flex items-center gap-3">
+                      <GameArtworkThumbnail gameName={editingGame?.name ?? form.name} imageUrl={editingGame?.imageUrl} />
+                      <label className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-soft ${uploadingArtwork ? "pointer-events-none opacity-60" : ""}`}>
+                        <ImagePlus size={14} />
+                        Choose image
+                        <input
+                          type="file"
+                          className="sr-only"
+                          accept="image/jpeg,image/png,image/webp"
+                          disabled={!canManage || uploadingArtwork}
+                          onChange={(event) => setArtworkFile(event.target.files?.[0] ?? null)}
+                        />
+                      </label>
+                    </div>
+                    <p className="mt-1 text-[11px] text-text-tertiary">JPEG, PNG, or WebP · maximum 10 MB.</p>
+                  </Field>
+                  {artworkFile && (
+                    <div className="mt-2 flex items-center justify-between gap-2 bg-surface-soft px-2.5 py-2 text-xs text-text">
+                      <span className="min-w-0 truncate">{artworkFile.name}</span>
+                      <Button size="sm" onClick={uploadArtwork} disabled={uploadingArtwork}>
+                        {uploadingArtwork ? <><Loader2 size={12} className="mr-1 animate-spin" />Uploading…</> : "Replace artwork"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {lookupResult && (
               <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
@@ -616,7 +691,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function GameArtworkThumbnail({ gameName, imageUrl }: { gameName: string; imageUrl?: string | null }) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
-  const imageAvailable = Boolean(imageUrl && isOfficialTexasArtwork(imageUrl)) && failedImageUrl !== imageUrl;
+  const isOfficial = Boolean(imageUrl && isOfficialTexasArtwork(imageUrl));
+  const isCustomUpload = Boolean(imageUrl && isTrustedArtworkUpload(imageUrl));
+  const imageAvailable = Boolean(imageUrl && (isOfficial || isCustomUpload)) && failedImageUrl !== imageUrl;
 
   return (
     <div className="flex items-center gap-2">
@@ -624,7 +701,7 @@ function GameArtworkThumbnail({ gameName, imageUrl }: { gameName: string; imageU
         {imageAvailable ? (
           <Image
             src={imageUrl!}
-            alt={`${gameName} Texas Lottery artwork`}
+            alt={`${gameName} ${isOfficial ? "Texas Lottery" : "custom"} artwork`}
             width={40}
             height={40}
             unoptimized
@@ -636,8 +713,17 @@ function GameArtworkThumbnail({ gameName, imageUrl }: { gameName: string; imageU
         )}
       </div>
       <span className={`text-[11px] ${imageAvailable ? "text-text-secondary" : "text-text-tertiary"}`}>
-        {imageAvailable ? "Texas Lottery" : "Image not available"}
+        {imageAvailable ? (isOfficial ? "Texas Lottery" : "Custom artwork") : "Image not available"}
       </span>
     </div>
   );
+}
+
+function isTrustedArtworkUpload(imageUrl: string): boolean {
+  try {
+    const url = new URL(imageUrl);
+    return url.protocol === "https:" && url.hostname.endsWith(".public.blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
 }

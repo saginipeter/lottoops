@@ -31,12 +31,38 @@ test.beforeEach(async ({ page }) => {
   await page.addScriptTag({ content: bundle });
 });
 
-test("Games has read-only artwork status and no manual file/upload/replace controls", async ({ page }) => {
+test("Games shows artwork replacement actions without opening upload controls by default", async ({ page }) => {
   await page.evaluate(games => (window as any).mountGames(games), games);
   await expect(page.getByText("Image not available", { exact: true })).toHaveCount(2);
   await expect(page.locator('input[type="file"]')).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /upload|replace/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Artwork", exact: true })).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Edit", exact: true })).toHaveCount(2);
+});
+
+test("Managers can select and replace a game artwork from the game editor", async ({ page }) => {
+  const customImage = "https://store-1.public.blob.vercel-storage.com/stores/store-1/games/g1/artwork/custom.png";
+  const updatedGames = [{ ...games[0], imageUrl: customImage }, games[1]];
+  const { readFile } = await import("node:fs/promises");
+  const image = await readFile(resolve(__dirname, "../../public/brand/lottoops-logo-new.png"));
+
+  await page.route("https://lottoops.test/api/games/g1/artwork", route => route.fulfill({ json: {
+    success: true,
+    message: "Crossword artwork replaced successfully.",
+    game: { id: "g1", imageUrl: customImage },
+  } }));
+  await page.route("https://lottoops.test/api/games?includeInactive=true", route => route.fulfill({ json: { games: updatedGames } }));
+  await page.route("https://store-1.public.blob.vercel-storage.com/**", route => route.fulfill({ contentType: "image/png", body: image }));
+  await page.evaluate(games => (window as any).mountGames(games), games);
+
+  await page.getByRole("button", { name: "Artwork", exact: true }).first().click();
+  await expect(page.getByText("Edit Game & Artwork", { exact: true })).toBeVisible();
+  const fileInput = page.locator('input[type="file"]');
+  await expect(fileInput).toHaveCount(1);
+  await fileInput.setInputFiles({ name: "custom-artwork.png", mimeType: "image/png", buffer: Buffer.from("fake-image") });
+  await expect(page.getByText("custom-artwork.png", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Replace artwork", exact: true }).click();
+  await expect(page.getByText("Crossword artwork replaced successfully.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Custom artwork", { exact: true }).first()).toBeVisible();
 });
 
 test("legacy uploads are not presented as official Texas Lottery artwork", async ({ page }) => {
