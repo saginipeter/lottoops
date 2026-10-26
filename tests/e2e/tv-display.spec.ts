@@ -147,7 +147,7 @@ async function gridSnapshot(page: Page) {
 }
 
 async function displayedSlotNumbers(page: Page): Promise<number[]> {
-  return page.locator(".tv-top-corner-center").evaluateAll((elements) =>
+  return page.locator(".tv-display-number").evaluateAll((elements) =>
     elements.map((element) => Number(element.textContent?.trim())).filter(Number.isFinite),
   );
 }
@@ -306,23 +306,32 @@ for (const viewport of [
     const visual = await page.locator("article").first().evaluate((card) => {
       const current = card.querySelector(".tv-ticket-badge-current .tv-ticket-circle")!;
       const next = card.querySelector(".tv-ticket-badge-next .tv-ticket-circle")!;
-      const displayNumber = card.querySelector(".tv-top-corner-center")!;
+      const displayNumber = card.querySelector(".tv-display-number")!;
+      const priceBadge = card.querySelector(".tv-price-badge")!;
+      const artwork = card.querySelector(".tv-artwork-crop") as HTMLElement | null;
       const cardRect = card.getBoundingClientRect();
       const displayRect = displayNumber.getBoundingClientRect();
+      const priceRect = priceBadge.getBoundingClientRect();
+      const artworkStyle = artwork ? getComputedStyle(artwork) : null;
       return {
         currentWidth: current.getBoundingClientRect().width,
         nextWidth: next.getBoundingClientRect().width,
         currentBackground: getComputedStyle(current).backgroundImage,
         nextBackground: getComputedStyle(next).backgroundImage,
-        displayNumberCentered: Math.abs(displayRect.x + displayRect.width / 2 - (cardRect.x + cardRect.width / 2)) < 1.5,
-        priceBadgeCount: card.querySelectorAll(".tv-top-corner-right, [aria-label^=\"Ticket price\"]").length,
+        displayNumberInHeader: displayRect.top >= cardRect.top && displayRect.bottom <= cardRect.top + cardRect.height * .28,
+        priceOnLeft: priceRect.x < displayRect.x,
+        artworkCropped: Boolean(artworkStyle && artworkStyle.top.startsWith("-") && artworkStyle.overflow === "hidden"),
+        priceBadgeCount: card.querySelectorAll(".tv-price-badge").length,
       };
     });
     expect(Math.abs(visual.currentWidth - visual.nextWidth)).toBeLessThan(1.5);
     expect(visual.currentBackground).toContain("rgb(255, 154, 154)");
     expect(visual.nextBackground).toContain("rgb(255, 154, 154)");
-    expect(visual.displayNumberCentered).toBe(true);
-    expect(visual.priceBadgeCount).toBe(0);
+    expect(visual.displayNumberInHeader).toBe(true);
+    expect(visual.priceOnLeft).toBe(true);
+    expect(visual.artworkCropped).toBe(true);
+    expect(visual.priceBadgeCount).toBe(1);
+    await expect(page.locator(".tv-price-value").first()).toHaveText("$5");
 
     const overflow = await pageOverflow(page);
     expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1);
@@ -476,7 +485,7 @@ test("a selected screen remains empty after inventory shrinks instead of switchi
   const token = "signed-kiosk-token";
   await showBoard(page, 41, true, 2, token, 15);
   await expect(page.locator("article")).toHaveCount(1);
-  await expect(page.locator(".tv-top-corner-center")).toHaveText("41");
+  await expect(page.locator(".tv-display-number")).toHaveText("41");
 
   await showBoard(page, 40, true, 2, token, 15);
   await expect(page.locator("article")).toHaveCount(0);

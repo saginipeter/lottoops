@@ -122,12 +122,18 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
         .tv-empty-state { display:flex; min-height:0; flex:1; flex-direction:column; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:20px; text-align:center; }
         .tv-board-stack { display:grid; min-height:0; min-width:0; flex:1; grid-template-columns:repeat(10,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); gap:8px; overflow:hidden; background:#000; padding:0; }
         .tv-jackpot-board { position:relative; display:block; min-width:0; min-height:0; width:100%; height:100%; overflow:hidden; background:#000; container-type:size; }
-        .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center; transform-origin:center; }
+        .tv-artwork-crop { position:absolute; inset:-12% 0 0; z-index:0; overflow:hidden; }
+        .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center bottom; transform-origin:center bottom; }
         .tv-jackpot-board-artwork::before { position:absolute; top:-10%; bottom:-10%; left:-50%; z-index:1; width:45%; background:linear-gradient(90deg,transparent,rgba(255,241,171,.2),rgba(255,255,255,.4),transparent); opacity:0; pointer-events:none; content:""; }
         .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:min(5cqi,12px); background:#111827; color:#f9fafb; font-size:min(8cqi,14px); font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
         .tv-jackpot-board::after { position:absolute; inset:0; border:1px solid rgba(255,255,255,.55); content:""; pointer-events:none; }
-        .tv-top-corner { position:absolute; top:min(2cqi,5px); z-index:2; display:flex; min-width:min(18cqi,30px); height:min(13cqi,27px); align-items:center; justify-content:center; padding:0 min(2cqi,4px); border:1px solid #111; border-radius:2px; background:#fff; color:#050505; font-size:min(9cqi,18px); font-weight:900; line-height:1; }
-        .tv-top-corner-center { left:50%; transform:translateX(-50%); }
+        .tv-card-meta { position:absolute; top:min(2cqi,6px); right:min(2cqi,6px); left:min(2cqi,6px); z-index:2; display:flex; align-items:flex-start; justify-content:space-between; gap:min(2cqi,6px); pointer-events:none; }
+        .tv-price-badge,.tv-display-badge { display:flex; min-width:0; flex-direction:column; border:1px solid rgba(17,17,17,.85); box-shadow:0 2px 0 rgba(0,0,0,.3),0 0 min(2cqi,6px) rgba(0,0,0,.35); line-height:1; text-transform:uppercase; }
+        .tv-price-badge { align-items:flex-start; border-color:#fecaca; border-radius:3px; background:#7f1d1d; color:#fff; padding:min(1.5cqi,4px) min(2cqi,6px) min(1.7cqi,5px); }
+        .tv-price-kicker,.tv-display-kicker { font-size:min(3.2cqi,9px); font-weight:900; letter-spacing:.14em; opacity:.82; }
+        .tv-price-value { margin-top:min(.8cqi,2px); font-size:min(9cqi,20px); font-weight:950; letter-spacing:-.06em; }
+        .tv-display-badge { align-items:flex-end; border-color:rgba(255,255,255,.85); border-radius:3px; background:rgba(3,7,18,.9); color:#fff; padding:min(1.5cqi,4px) min(2cqi,6px) min(1.7cqi,5px); }
+        .tv-display-number { margin-top:min(.8cqi,2px); color:#fecaca; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:min(9cqi,20px); font-weight:950; letter-spacing:-.04em; }
         .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; display:flex; height:39%; align-items:flex-end; justify-content:space-between; box-sizing:border-box; padding:min(4%,12px) min(5%,15px) min(3%,9px); container-type:inline-size; background:transparent; pointer-events:none; }
         .tv-ticket-badge { display:flex; min-width:0; flex-direction:column; align-items:center; gap:min(4cqi,11px); }
         .tv-ticket-badge-current,.tv-ticket-badge-next { width:43%; max-width:118px; }
@@ -176,23 +182,34 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
 
   return <article className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} aria-label={`${slot.gameName} display ${slot.slotNumber}`} data-display-id={slot.id}>
     {hasArtwork ? (
-      <Image
-        className="tv-jackpot-art"
-        style={{ objectFit: "cover", objectPosition: "center" }}
-        src={slot.gameImage as string}
-        alt={`${slot.gameName} artwork`}
-        fill
-        sizes="10vw"
-        unoptimized
-        priority
-        onError={() => setImageFailed(true)}
-      />
+      <div className="tv-artwork-crop">
+        <Image
+          className="tv-jackpot-art"
+          style={{ objectFit: "cover", objectPosition: "center bottom" }}
+          src={slot.gameImage as string}
+          alt={`${slot.gameName} artwork`}
+          fill
+          sizes="10vw"
+          unoptimized
+          priority
+          onError={() => setImageFailed(true)}
+        />
+      </div>
     ) : (
       <div className="tv-image-unavailable" role="img" aria-label={`${slot.gameName} image not available`}>
         Image not available
       </div>
     )}
-    <div className="tv-top-corner tv-top-corner-center" aria-label={`Display ${slot.slotNumber}`}>{slot.slotNumber}</div>
+    <div className="tv-card-meta" aria-label={`Display ${slot.slotNumber}, ticket price $${slot.ticketPrice.toFixed(0)}`}>
+      <div className="tv-price-badge" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>
+        <span className="tv-price-kicker">Price</span>
+        <strong className="tv-price-value">${slot.ticketPrice.toFixed(0)}</strong>
+      </div>
+      <div className="tv-display-badge" aria-label={`Display ${slot.slotNumber}`}>
+        <span className="tv-display-kicker">Display</span>
+        <strong className="tv-display-number">{slot.slotNumber}</strong>
+      </div>
+    </div>
     <div className="tv-ticket-indicators" role="group" aria-label="Live ticket availability">
       <TicketIndicator kind="current" ticket={slot.remaining > 0 ? slot.currentTicket : null} />
       <TicketIndicator kind="next" ticket={slot.remaining > 1 ? slot.nextTicket : null} />
