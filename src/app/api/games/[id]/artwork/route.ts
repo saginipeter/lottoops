@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
+import { resolveGameArtwork } from "@/lib/games-sync/texas-artwork";
 import { canManageGames } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -106,5 +107,44 @@ export async function POST(
       },
       { status: storageError ? 502 : 500 },
     );
+  }
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await getApiSession();
+    if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!canManageGames(session)) {
+      return NextResponse.json({ error: "You don't have permission to restore game artwork." }, { status: 403 });
+    }
+    if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
+
+    const { id } = await params;
+    const game = await prisma.game.findFirst({
+      where: { id: String(id), storeId: session.storeId },
+      select: { id: true, name: true, gameNumber: true },
+    });
+    if (!game) return NextResponse.json({ error: "Game not found for this store." }, { status: 404 });
+
+    const defaultArtwork = await resolveGameArtwork(prisma, session.storeId, game.gameNumber);
+    const updated = await prisma.game.update({
+      where: { id: game.id },
+      data: { imageUrl: defaultArtwork },
+      select: { id: true, imageUrl: true, updatedAt: true },
+    });
+
+    return NextResponse.json({
+      success: true,
+      game: updated,
+      message: defaultArtwork
+        ? `${game.name} default Texas Lottery artwork restored.`
+        : `${game.name} has no verified default artwork available right now.`,
+    });
+  } catch (error) {
+    console.error("[DELETE /api/games/:id/artwork]", error);
+    return NextResponse.json({ error: "Unable to restore the default game artwork." }, { status: 500 });
   }
 }

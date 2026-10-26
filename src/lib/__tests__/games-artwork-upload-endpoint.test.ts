@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 const PNG_HEADER = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
+const OFFICIAL_IMAGE = "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2753_200X200.gif";
 
 test("game artwork upload validates the image, scopes the game, and saves the Blob URL", async () => {
   const require = createRequire(import.meta.url);
@@ -21,12 +22,13 @@ test("game artwork upload validates the image, scopes the game, and saves the Bl
   let session: any = { userId: "manager", storeId: "store-1", role: "MANAGER" };
   const fakePrisma = {
     game: {
-      async findFirst() { return { id: "game-1", name: "Crossword" }; },
+      async findFirst() { return { id: "game-1", name: "Crossword", gameNumber: "2753" }; },
       async update({ data }: any) {
         updates.push(data);
         return { id: "game-1", imageUrl: data.imageUrl, updatedAt: new Date("2026-10-26T12:00:00Z") };
       },
     },
+    async $queryRawUnsafe() { return [{ image_url: OFFICIAL_IMAGE }]; },
   };
 
   require.cache[sessionPath] = {
@@ -71,6 +73,14 @@ test("game artwork upload validates the image, scopes the game, and saves the Bl
     assert.equal(uploaded.length, 1);
     assert.match(String((uploaded[0] as unknown[])[0]), /^stores\/store-1\/games\/game-1\/artwork\//);
     assert.deepEqual(updates, [{ imageUrl: "https://store-1.public.blob.vercel-storage.com/custom-artwork.png" }]);
+
+    const restoredResponse = await artwork.DELETE(
+      new NextRequest("https://lottoops.test/api/games/game-1/artwork", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "game-1" }) },
+    );
+    assert.equal(restoredResponse.status, 200);
+    assert.equal((await restoredResponse.json()).game.imageUrl, OFFICIAL_IMAGE);
+    assert.deepEqual(updates.at(-1), { imageUrl: OFFICIAL_IMAGE });
 
     const invalidResponse = await artwork.POST(
       request(new File([Buffer.from("not-an-image")], "custom.png", { type: "image/png" })),

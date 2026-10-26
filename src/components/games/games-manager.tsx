@@ -2,7 +2,7 @@
 
 import { ReactNode, useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database, ImagePlus } from "lucide-react";
+import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database, ImagePlus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
@@ -96,6 +96,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingArtwork, setUploadingArtwork] = useState(false);
+  const [restoringArtwork, setRestoringArtwork] = useState(false);
   const [artworkFile, setArtworkFile] = useState<File | null>(null);
   const [addingKey, setAddingKey] = useState<string | null>(null);
   const [addingAll, setAddingAll] = useState(false);
@@ -273,6 +274,27 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
       notify("Unable to replace game artwork.", "err");
     } finally {
       setUploadingArtwork(false);
+    }
+  }
+
+  async function restoreDefaultArtwork() {
+    if (!canManage || !editingId || restoringArtwork) return;
+    if (!window.confirm("Restore the verified Texas Lottery artwork for this game?")) return;
+    try {
+      setRestoringArtwork(true);
+      const res = await fetch(`/api/games/${encodeURIComponent(editingId)}/artwork`, { method: "DELETE" });
+      const data = await res.json() as { error?: string; message?: string };
+      if (!res.ok) {
+        notify(data.error || "Unable to restore the default artwork.", "err");
+        return;
+      }
+      setArtworkFile(null);
+      await refreshGames(true);
+      notify(data.message || "Default artwork restored.");
+    } catch {
+      notify("Unable to restore the default artwork.", "err");
+    } finally {
+      setRestoringArtwork(false);
     }
   }
 
@@ -516,17 +538,21 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
                   <Field label="Game Artwork">
                     <div className="flex items-center gap-3">
                       <GameArtworkThumbnail gameName={editingGame?.name ?? form.name} imageUrl={editingGame?.imageUrl} />
-                      <label className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-soft ${uploadingArtwork ? "pointer-events-none opacity-60" : ""}`}>
+                      <label className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-soft ${uploadingArtwork || restoringArtwork ? "pointer-events-none opacity-60" : ""}`}>
                         <ImagePlus size={14} />
                         Choose image
                         <input
                           type="file"
                           className="sr-only"
                           accept="image/jpeg,image/png,image/webp"
-                          disabled={!canManage || uploadingArtwork}
+                          disabled={!canManage || uploadingArtwork || restoringArtwork}
                           onChange={(event) => setArtworkFile(event.target.files?.[0] ?? null)}
                         />
                       </label>
+                      <Button size="sm" variant="ghost" onClick={restoreDefaultArtwork} disabled={!canManage || uploadingArtwork || restoringArtwork}>
+                        {restoringArtwork ? <Loader2 size={13} className="mr-1 animate-spin" /> : <RotateCcw size={13} className="mr-1" />}
+                        Restore default
+                      </Button>
                     </div>
                     <p className="mt-1 text-[11px] text-text-tertiary">JPEG, PNG, or WebP · maximum 10 MB.</p>
                   </Field>

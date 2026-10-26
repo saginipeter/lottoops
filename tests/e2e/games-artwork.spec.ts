@@ -5,7 +5,17 @@ import { resolve } from "node:path";
 const esbuild = createRequire(require.resolve("tsx/cli"))("esbuild");
 let bundle: string;
 const imageBase = "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/";
-const games = [
+type GameFixture = {
+  id: string;
+  gameNumber: string;
+  name: string;
+  imageUrl: string | null;
+  price: number;
+  ticketsPerPack: number;
+  active: boolean;
+  updatedAt: string;
+};
+const games: GameFixture[] = [
   { id: "g1", gameNumber: "2753", name: "Crossword", imageUrl: null, price: 20, ticketsPerPack: 25, active: true, updatedAt: "2026-10-25" },
   { id: "g2", gameNumber: "2769", name: "Lucky 7 Doubler", imageUrl: null, price: 10, ticketsPerPack: 50, active: true, updatedAt: "2026-10-25" },
 ];
@@ -41,17 +51,32 @@ test("Games shows artwork replacement actions without opening upload controls by
 
 test("Managers can select and replace a game artwork from the game editor", async ({ page }) => {
   const customImage = "https://store-1.public.blob.vercel-storage.com/stores/store-1/games/g1/artwork/custom.png";
-  const updatedGames = [{ ...games[0], imageUrl: customImage }, games[1]];
+  const defaultImage = `${imageBase}2753_200X200.gif`;
+  const customGames = [{ ...games[0], imageUrl: customImage }, games[1]];
+  const defaultGames = [{ ...games[0], imageUrl: defaultImage }, games[1]];
+  let latestGames = games;
   const { readFile } = await import("node:fs/promises");
   const image = await readFile(resolve(__dirname, "../../public/brand/lottoops-logo-new.png"));
 
-  await page.route("https://lottoops.test/api/games/g1/artwork", route => route.fulfill({ json: {
-    success: true,
-    message: "Crossword artwork replaced successfully.",
-    game: { id: "g1", imageUrl: customImage },
-  } }));
-  await page.route("https://lottoops.test/api/games?includeInactive=true", route => route.fulfill({ json: { games: updatedGames } }));
+  await page.route("https://lottoops.test/api/games/g1/artwork", async route => {
+    if (route.request().method() === "DELETE") {
+      latestGames = defaultGames;
+      return route.fulfill({ json: {
+        success: true,
+        message: "Crossword default Texas Lottery artwork restored.",
+        game: { id: "g1", imageUrl: defaultImage },
+      } });
+    }
+    latestGames = customGames;
+    return route.fulfill({ json: {
+      success: true,
+      message: "Crossword artwork replaced successfully.",
+      game: { id: "g1", imageUrl: customImage },
+    } });
+  });
+  await page.route("https://lottoops.test/api/games?includeInactive=true", route => route.fulfill({ json: { games: latestGames } }));
   await page.route("https://store-1.public.blob.vercel-storage.com/**", route => route.fulfill({ contentType: "image/png", body: image }));
+  await page.route(`${imageBase}**`, route => route.fulfill({ contentType: "image/png", body: image }));
   await page.evaluate(games => (window as any).mountGames(games), games);
 
   await page.getByRole("button", { name: "Artwork", exact: true }).first().click();
@@ -63,6 +88,11 @@ test("Managers can select and replace a game artwork from the game editor", asyn
   await page.getByRole("button", { name: "Replace artwork", exact: true }).click();
   await expect(page.getByText("Crossword artwork replaced successfully.", { exact: true })).toBeVisible();
   await expect(page.getByText("Custom artwork", { exact: true }).first()).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Restore default", exact: true }).click();
+  await expect(page.getByText("Crossword default Texas Lottery artwork restored.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Texas Lottery", { exact: true }).first()).toBeVisible();
 });
 
 test("legacy uploads are not presented as official Texas Lottery artwork", async ({ page }) => {
