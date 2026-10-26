@@ -308,6 +308,8 @@ for (const viewport of [
       const next = card.querySelector(".tv-ticket-badge-next .tv-ticket-circle")!;
       const displayNumber = card.querySelector(".tv-display-number")!;
       const priceBadge = card.querySelector(".tv-price-badge")!;
+      const displayBadge = card.querySelector(".tv-display-badge")!;
+      const ticketFace = card.querySelector(".tv-ticket-face")!;
       const artwork = card.querySelector(".tv-artwork-crop") as HTMLElement | null;
       const cardRect = card.getBoundingClientRect();
       const displayRect = displayNumber.getBoundingClientRect();
@@ -322,6 +324,13 @@ for (const viewport of [
         priceOnLeft: priceRect.x < displayRect.x,
         artworkCropped: Boolean(artworkStyle && artworkStyle.top.startsWith("-") && artworkStyle.overflow === "hidden"),
         priceBadgeCount: card.querySelectorAll(".tv-price-badge").length,
+        priceBackground: getComputedStyle(priceBadge).backgroundColor,
+        displayBackground: getComputedStyle(displayBadge).backgroundColor,
+        priceBorder: getComputedStyle(priceBadge).borderTopColor,
+        displayBorder: getComputedStyle(displayBadge).borderTopColor,
+        displayText: getComputedStyle(displayBadge).color,
+        ticketFaceBackground: getComputedStyle(ticketFace).backgroundColor,
+        ticketFaceBorder: getComputedStyle(ticketFace).borderTopColor,
       };
     });
     expect(Math.abs(visual.currentWidth - visual.nextWidth)).toBeLessThan(1.5);
@@ -331,6 +340,13 @@ for (const viewport of [
     expect(visual.priceOnLeft).toBe(true);
     expect(visual.artworkCropped).toBe(true);
     expect(visual.priceBadgeCount).toBe(1);
+    expect(visual.priceBackground).toBe("rgb(255, 255, 255)");
+    expect(visual.displayBackground).toBe("rgb(255, 255, 255)");
+    expect(visual.priceBorder).toBe("rgb(255, 255, 255)");
+    expect(visual.displayBorder).toBe("rgb(255, 255, 255)");
+    expect(visual.displayText).toBe("rgb(5, 5, 5)");
+    expect(visual.ticketFaceBackground).toBe("rgb(255, 255, 255)");
+    expect(visual.ticketFaceBorder).toBe("rgb(255, 255, 255)");
     await expect(page.locator(".tv-price-value").first()).toHaveText("$5");
 
     const overflow = await pageOverflow(page);
