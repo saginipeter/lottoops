@@ -60,6 +60,146 @@ class ReturnError extends Error {
   }
 }
 
+type BatchReturnItem = {
+  packId: string;
+  shiftId: string;
+  ticketBarcode: string;
+  saleId: string;
+};
+
+async function processBatchReturn({
+  body,
+  session,
+  database,
+}: {
+  body: Record<string, unknown>;
+  session: { userId: string; storeId: string; name: string; role: string };
+  database: NonNullable<typeof prisma>;
+}) {
+  const tickets = Array.isArray(body.tickets) ? body.tickets as BatchReturnItem[] : [];
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+  if (tickets.length < 2 || tickets.length > 20) {
+    return NextResponse.json({ error: "Select between 2 and 20 sold tickets for a batch return." }, { status: 400 });
+  }
+  if (reason.length < 6) {
+    return NextResponse.json({ error: "A structured return reason is required for a batch return." }, { status: 400 });
+  }
+  if (tickets.some((ticket) => !ticket || !ticket.packId || !ticket.shiftId || !ticket.ticketBarcode || !ticket.saleId)) {
+    return NextResponse.json({ error: "Each selected ticket must include its pack, shift, barcode, and sale ID." }, { status: 400 });
+  }
+  const shiftIds = new Set(tickets.map((ticket) => ticket.shiftId));
+  if (shiftIds.size !== 1) return NextResponse.json({ error: "Batch returns must belong to one open shift." }, { status: 409 });
+  const uniqueSaleIds = new Set(tickets.map((ticket) => ticket.saleId));
+  if (uniqueSaleIds.size !== tickets.length) return NextResponse.json({ error: "A ticket cannot be selected twice." }, { status: 400 });
+  const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+  try {
+    const result = await database.$transaction(async (tx: Prisma.TransactionClient) => {
+      const shiftId = tickets[0].shiftId;
+      const lockedShift = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM shifts WHERE id = $1 AND "storeId" = $2 AND status = 'OPEN' FOR UPDATE`,
+        shiftId,
+        session.storeId,
+      );
+      if (lockedShift.length !== 1) throw new ReturnError("Tickets can only be returned during an open shift.", 409);
+
+      const byPack = new Map<string, BatchReturnItem[]>();
+      for (const ticket of tickets) byPack.set(ticket.packId, [...(byPack.get(ticket.packId) ?? []), ticket]);
+      const returned: Array<{ saleId: string; ticketBarcode: string; packId: string }> = [];
+
+      for (const [packId, packTickets] of byPack) {
+        const latestEvents = await tx.$queryRawUnsafe<Array<{ id: string; ticketBarcode: string }>>(
+          `SELECT id, ticket_barcode AS "ticketBarcode"
+             FROM live_scan_events
+            WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3
+            ORDER BY scanned_at DESC, id DESC`,
+          session.storeId,
+          shiftId,
+          packId,
+        );
+        const selectedIds = new Set(packTickets.map((ticket) => ticket.saleId));
+        const latestSelected = latestEvents.slice(0, packTickets.length);
+        if (latestSelected.length !== packTickets.length || latestSelected.some((event) => !selectedIds.has(event.id))) {
+          throw new ReturnError("Only the most recently sold tickets for each pack can be returned together.", 409);
+        }
+        for (const ticket of packTickets) {
+          const event = latestEvents.find((item) => item.id === ticket.saleId);
+          if (!event || event.ticketBarcode !== ticket.ticketBarcode) throw new ReturnError("One selected ticket no longer matches its sale record.", 409);
+        }
+
+        const pack = await tx.pack.findFirst({
+          where: { id: packId, storeId: session.storeId },
+          select: {
+            id: true, serialNumber: true, status: true, currentTicketNumber: true,
+            firstTicket: true, ticketQuantity: true, ticketPrice: true,
+            game: { select: { price: true } },
+          },
+        });
+        if (!pack || (pack.status !== "ACTIVE" && pack.status !== "SOLD_OUT")) throw new ReturnError("A selected pack is no longer available for return.", 409);
+        const line = await tx.shiftLine.findFirst({ where: { shiftId, packId }, take: 1 });
+        if (!line) throw new ReturnError("A selected ticket has no shift sales line.", 409);
+        const beginning = getSafeCurrentTicket({ currentTicketNumber: Number(line.beginningTicket ?? 0), firstTicket: pack.firstTicket, ticketQuantity: pack.ticketQuantity });
+        const current = Number(pack.currentTicketNumber ?? beginning);
+        const restoredCurrent = current + packTickets.length;
+        if (!Number.isInteger(current) || current < 0 || restoredCurrent > beginning) throw new ReturnError("The selected tickets exceed the pack's recorded sales.", 409);
+        const ticketsSold = Math.max(beginning - restoredCurrent, 0);
+        const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
+        const updatedPack = await tx.pack.updateMany({
+          where: { id: pack.id, storeId: session.storeId, status: { in: ["ACTIVE", "SOLD_OUT"] }, currentTicketNumber: pack.currentTicketNumber },
+          data: { status: "ACTIVE", currentTicketNumber: restoredCurrent, completedAt: null },
+        });
+        if (updatedPack.count !== 1) throw new ReturnError("The pack changed while the batch return was being processed. Refresh and try again.", 409);
+
+        const slot = await tx.displaySlot.findFirst({ where: { storeId: session.storeId, slotNumber: line.slotNumber }, select: { id: true, packId: true } });
+        if (!slot || (slot.packId && slot.packId !== pack.id)) throw new ReturnError("The original display is unavailable or occupied.", 409);
+        const updatedSlot = await tx.displaySlot.updateMany({ where: { id: slot.id, storeId: session.storeId, packId: slot.packId }, data: { packId: pack.id } });
+        if (updatedSlot.count !== 1) throw new ReturnError("The original display changed while the batch return was being processed.", 409);
+
+        await tx.shiftLine.update({ where: { id: line.id }, data: { beginningTicket: beginning, endingTicket: restoredCurrent, ticketsSold, salesAmount } });
+        for (const ticket of packTickets) {
+          const deleted = await tx.$executeRawUnsafe(
+            `DELETE FROM live_scan_events WHERE id = $1 AND store_id = $2 AND shift_id = $3 AND pack_id = $4`,
+            ticket.saleId, session.storeId, shiftId, packId,
+          );
+          if (deleted !== 1) throw new ReturnError("A selected ticket was already returned or changed.", 409);
+          const requestId = `trr_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+          await tx.$executeRawUnsafe(
+            `INSERT INTO ticket_return_requests
+              (id, store_id, shift_id, pack_id, ticket_barcode, status, reason, requested_by_id, requested_by_name, sale_event_id)
+             VALUES ($1, $2, $3, $4, $5, 'RETURNED_PENDING_REVIEW', $6, $7, $8, $9)`,
+            requestId, session.storeId, shiftId, packId, ticket.ticketBarcode, reason, session.userId, session.name, ticket.saleId,
+          );
+          returned.push({ saleId: ticket.saleId, ticketBarcode: ticket.ticketBarcode, packId });
+        }
+        await tx.scanLogEntry.create({
+          data: {
+            storeId: session.storeId, action: "RETURNED", packId: pack.id, performedById: session.userId,
+            detail: `Batch returned ${packTickets.length} ticket(s) for pack ${pack.serialNumber}. Reason: ${reason}`,
+          },
+        });
+      }
+      await tx.$executeRawUnsafe(
+        `INSERT INTO inventory_notifications
+          (id, store_id, notification_type, entity_id, title, detail, severity)
+         VALUES ($1, $2, 'TICKET_RETURN_REVIEW', $3, $4, $5, 'MEDIUM')
+         ON CONFLICT (store_id, notification_type, entity_id) DO NOTHING`,
+        `notification_${batchId}`,
+        session.storeId,
+        batchId,
+        "Batch ticket return needs manager review",
+        `${session.name} returned ${returned.length} tickets in one batch. Reason: ${reason}`,
+      );
+      return { returned };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return NextResponse.json({ success: true, mode: "batch-returned-pending-review", status: "RETURNED_PENDING_REVIEW", count: result.returned.length, returned: result.returned });
+  } catch (error) {
+    if (error instanceof ReturnError) return NextResponse.json({ error: error.message }, { status: error.status });
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") return NextResponse.json({ error: "Ticket or shift changed. Refresh before trying again." }, { status: 409 });
+    console.error("[POST /api/tickets/return-requests batch]", error);
+    return NextResponse.json({ error: "Unable to return the selected tickets." }, { status: 500 });
+  }
+}
+
 /** Restore the latest sold ticket immediately and queue a manager review. */
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -71,6 +211,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
+    if (Array.isArray(body?.tickets)) {
+      await ensureSchema();
+      return processBatchReturn({ body, session, database: prisma });
+    }
     const packId = typeof body?.packId === "string" ? body.packId.trim() : "";
     const shiftId = typeof body?.shiftId === "string" ? body.shiftId.trim() : "";
     const ticketBarcode = typeof body?.ticketBarcode === "string" ? body.ticketBarcode.trim() : "";

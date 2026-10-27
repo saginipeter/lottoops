@@ -6,6 +6,7 @@ import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanne
 
 interface PosProps { storeId: string; employeeName: string; storeName: string; terminalId: string; }
 interface SaleResult { error?: string; code?: string; id?: string; shiftId?: string; saleId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
+interface ReturnableSale { packId: string; shiftId: string; saleId: string; ticketBarcode: string; gameName: string; serialNumber: string; slotNumber: string; salesAmount: number; }
 interface QueueEntry { id: string; barcode: string; queuedAt: string; attempts: number; state?: "PENDING" | "CONFLICT"; conflictReason?: string; }
 interface StockAlert { id: string; severity: string; title: string; detail: string; }
 
@@ -39,6 +40,8 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
   const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
   const [inventoryUpdatedAt, setInventoryUpdatedAt] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<SaleResult | null>(null);
+  const [sessionSales, setSessionSales] = useState<ReturnableSale[]>([]);
+  const [selectedReturnSaleIds, setSelectedReturnSaleIds] = useState<string[]>([]);
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [returning, setReturning] = useState(false);
@@ -94,7 +97,7 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
     try {
       const response = await fetch("/api/packs/check-serial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, expectedStoreId: storeId }) });
       const data = (await response.json()) as SaleResult;
-      if (response.ok) { if (!isReplay) { setResult(data); setLastSale(data); setReturnMessage(null); setShowSuccess(true); } return "synced"; }
+      if (response.ok) { if (!isReplay) { setResult(data); setLastSale(data); if (data.id && data.shiftId && data.saleId && data.ticketBarcode) setSessionSales((current) => [{ packId: data.id as string, shiftId: data.shiftId as string, saleId: data.saleId as string, ticketBarcode: data.ticketBarcode as string, gameName: data.gameName ?? "Lottery ticket", serialNumber: data.serialNumber ?? "", slotNumber: data.slot?.slotNumber ?? "—", salesAmount: Number(data.salesAmount ?? data.ticketPrice ?? 0) }, ...current.filter((sale) => sale.saleId !== data.saleId)].slice(0, 20)); setReturnMessage(null); setShowSuccess(true); } return "synced"; }
       if (data.code === "STORE_CHANGED") {
         if (!isReplay) setError({ message: data.error ?? "The signed-in store changed." });
         return "store-changed";
@@ -173,21 +176,26 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
   function resetForNextScan() { setShowSuccess(false); setError(null); setBarcode(""); focusInput(); }
 
   async function submitReturn() {
-    if (!lastSale?.id || !lastSale.shiftId || !lastSale.saleId || !returnReason || returning) return;
+    if (!returnReason || returning) return;
+    const selected = sessionSales.filter((sale) => selectedReturnSaleIds.includes(sale.saleId));
+    const singleSale = selected.length === 1 ? selected[0] : lastSale?.id && lastSale.shiftId && lastSale.saleId && lastSale.ticketBarcode ? { packId: lastSale.id, shiftId: lastSale.shiftId, saleId: lastSale.saleId, ticketBarcode: lastSale.ticketBarcode } : null;
+    if (!singleSale) return;
     setReturning(true); setReturnMessage(null);
     try {
+      const body = selected.length > 1
+        ? { tickets: selected, reason: returnReason }
+        : { packId: singleSale.packId, shiftId: singleSale.shiftId, saleId: singleSale.saleId, ticketBarcode: singleSale.ticketBarcode, reason: returnReason };
       const response = await fetch("/api/tickets/return-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId: lastSale.id, shiftId: lastSale.shiftId, saleId: lastSale.saleId, ticketBarcode: lastSale.ticketBarcode, reason: returnReason }),
+        body: JSON.stringify(body),
       });
       const data = await response.json().catch(() => null) as { error?: string; mode?: string } | null;
       if (!response.ok) { setReturnMessage({ type: "error", text: data?.error ?? "Unable to return this ticket." }); return; }
-      setReturnMessage({
-        type: "success",
-        text: "Ticket returned and available for sale immediately. Removed from sales; manager notified for review.",
-      });
-      setLastSale(null); setResult(null); setReturnOpen(false); setReturnReason("");
+      setReturnMessage({ type: "success", text: `${selected.length > 1 ? `${selected.length} tickets returned` : "Ticket returned"} and available for sale immediately. Inventory updated; manager notified for review.` });
+      const returnedIds = new Set(selected.length > 0 ? selected.map((sale) => sale.saleId) : [singleSale.saleId]);
+      setSessionSales((current) => current.filter((sale) => !returnedIds.has(sale.saleId)));
+      setSelectedReturnSaleIds([]); setLastSale(null); setResult(null); setReturnOpen(false); setReturnReason("");
       void refreshInventory();
     } catch {
       setReturnMessage({ type: "error", text: "Unable to reach LottoOps. Try the return again when online." });
@@ -203,19 +211,30 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
     {stockAlerts.length > 0 && <div className="mb-4 border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><div className="flex items-center justify-between gap-3"><p className="font-black">Inventory attention required</p><span className="text-[10px] font-bold uppercase tracking-wide">Live stock</span></div><div className="mt-2 grid gap-1 sm:grid-cols-2">{stockAlerts.slice(0, 4).map((alert) => <p key={alert.id} className={alert.severity === "URGENT" ? "font-black text-red-700" : "font-semibold text-amber-800"}>{alert.detail}</p>)}</div><p className="mt-2 text-[10px] text-amber-700">Updated {inventoryUpdatedAt ? new Date(inventoryUpdatedAt).toLocaleTimeString() : "just now"}. The terminal refreshes automatically.</p></div>}
     <section className="grid flex-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]"><div className="flex flex-col justify-center border-2 border-[#087da8] bg-white p-5 shadow-[0_8px_0_rgba(8,125,168,0.12)] sm:p-8"><div className="mx-auto w-full max-w-2xl text-center"><div className="mx-auto flex h-20 w-20 items-center justify-center bg-[#087da8] text-white shadow-lg"><ScanLine size={44} /></div><h2 className="mt-5 text-3xl font-black sm:text-4xl">Scan a ticket</h2><p className="mx-auto mt-2 max-w-md text-sm text-slate-500 sm:text-base">Use the hardware scanner, phone camera, or enter the complete 14-digit barcode. Each scan is validated by the server.</p><div className="mt-7 flex gap-3"><input ref={inputRef} value={barcode} onChange={(event) => setBarcode(event.target.value.replace(/\D/g, "").slice(0, 14))} onPaste={(event) => { const value = event.clipboardData.getData("text").replace(/\D/g, ""); setBarcode(value.slice(0, 14)); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void submitScan(); } }} inputMode="numeric" autoComplete="off" autoFocus placeholder="Scan or enter 14 digits" disabled={scanning} className="min-h-16 min-w-0 flex-1 border-2 border-slate-200 bg-white px-4 font-mono text-lg tracking-wider outline-none focus:border-[#087da8] disabled:bg-slate-100 sm:text-2xl" /><button type="button" onClick={() => { void submitScan(); }} disabled={scanning || barcode.length !== 14} className="min-h-16 min-w-28 bg-[#087da8] px-4 text-base font-black text-white hover:bg-[#066989] disabled:cursor-not-allowed disabled:bg-slate-300">{scanning ? "Checking" : "Sell"}</button></div><PhoneBarcodeScanner onScan={(value) => { setBarcode(value); void submitScan(value); }} disabled={scanning} /><div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-slate-500"><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><Keyboard size={14} /> Hardware scanner supported</span><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><LockKeyhole size={14} /> Opening Audit protected</span></div>{!online && <p className="mt-5 border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-bold text-amber-900">Connection lost. Scans will be held on this terminal and synchronized automatically when the connection returns.</p>}{conflictCount > 0 && <p className="mt-3 border border-red-200 bg-red-50 px-3 py-3 text-sm font-bold text-red-800">{conflictCount} queued sale{conflictCount === 1 ? "" : "s"} is blocked pending manager reconciliation. New scans remain paused behind it.</p>}</div></div>
       <aside className="flex flex-col border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center gap-3 border-b border-slate-200 pb-4"><span className="flex h-11 w-11 items-center justify-center bg-blue-50 text-[#087da8]"><Ticket size={23} /></span><div><h2 className="text-xl font-black">Latest scan</h2><p className="text-xs text-slate-500">Server-confirmed sale or sync status</p></div></div>{result?.status === "queued" ? <div className="mt-5 border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-amber-700">Waiting for connection</p><p className="mt-1 font-mono text-sm text-amber-900">{result.ticketBarcode}</p><p className="mt-2 text-sm text-amber-800">This scan is queued locally and is not marked as sold until LottoOps confirms synchronization.</p></div> : !result ? <div className="flex flex-1 flex-col items-center justify-center py-12 text-center text-slate-400"><ScanLine size={42} strokeWidth={1.5} /><p className="mt-4 font-bold">Waiting for a ticket</p><p className="mt-1 text-xs">Keep the scanner ready for the next customer.</p></div> : <div className="mt-5 space-y-4"><div className="bg-emerald-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Sale recorded</p><p className="mt-1 text-xl font-black text-emerald-900">{result.gameName ?? "Lottery ticket"}</p><p className="mt-1 font-mono text-xs text-emerald-800">{result.ticketBarcode ?? result.serialNumber}</p></div><div className="grid grid-cols-2 gap-3"><Detail label="Amount" value={`$${Number(result.salesAmount ?? result.ticketPrice ?? 0).toFixed(2)}`} /><Detail label="Next ticket" value={result.nextTicketNumber == null ? "Sold out" : String(result.nextTicketNumber)} /><Detail label="Display" value={result.slot?.slotNumber ?? "—"} /><Detail label="Pack status" value={result.packStatus ?? "ACTIVE"} /></div><button type="button" onClick={resetForNextScan} className="min-h-14 w-full bg-[#087da8] text-lg font-black text-white hover:bg-[#066989]">Scan next ticket</button></div>}</aside></section>
-    <section className="mt-5 border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Return ticket">
+    <section className="mt-5 border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Return tickets">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center bg-amber-50 text-amber-700"><RotateCcw size={20} /></span><div><h2 className="text-lg font-black">Return ticket</h2><p className="text-xs text-slate-500">{lastSale?.id ? `Last sale: ${lastSale.gameName ?? "Lottery ticket"} · ${lastSale.ticketBarcode ?? ""}` : "Sell a ticket first. Only the most recent sale can be returned."}</p></div></div>
-        {!returnOpen && <button type="button" onClick={() => { setReturnOpen(true); setReturnMessage(null); }} disabled={!lastSale?.id || !lastSale.shiftId || !lastSale.saleId} className="min-h-12 bg-amber-600 px-5 font-black text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300">Return Ticket</button>}
+        <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center bg-amber-50 text-amber-700"><RotateCcw size={20} /></span><div><h2 className="text-lg font-black">Return tickets</h2><p className="text-xs text-slate-500">Select one or multiple recent sales from this terminal session. Batch returns are limited to the most recently sold tickets for each pack.</p></div></div>
+        {!returnOpen && <button type="button" onClick={() => { setReturnOpen(true); setReturnMessage(null); }} disabled={sessionSales.length === 0 && !(lastSale?.id && lastSale.shiftId && lastSale.saleId)} className="min-h-12 bg-amber-600 px-5 font-black text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300">Return Ticket(s)</button>}
       </div>
-      {returnOpen && lastSale?.id && <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-        <label className="sr-only" htmlFor="return-reason">Return reason</label>
-        <select id="return-reason" value={returnReason} onChange={(event) => setReturnReason(event.target.value)} className="min-h-12 border-2 border-slate-200 bg-white px-3 font-semibold outline-none focus:border-amber-600">
-          <option value="">Select a reason…</option>
-          {RETURN_REASONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
-        </select>
-        <button type="button" onClick={() => { void submitReturn(); }} disabled={!returnReason || returning} className="min-h-12 bg-amber-600 px-5 font-black text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300">{returning ? "Returning..." : "Confirm Return"}</button>
-        <button type="button" onClick={() => { setReturnOpen(false); setReturnReason(""); }} disabled={returning} className="min-h-12 border border-slate-300 px-5 font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+      {returnOpen && <div className="mt-4 space-y-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          {sessionSales.length === 0 ? <p className="border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">No recent sale is available for return.</p> : sessionSales.map((sale) => {
+            const selected = selectedReturnSaleIds.includes(sale.saleId);
+            return <label key={sale.saleId} className={`flex cursor-pointer items-center gap-3 border-2 p-3 ${selected ? "border-amber-600 bg-amber-50" : "border-slate-200 bg-white"}`}>
+              <input type="checkbox" checked={selected} onChange={() => setSelectedReturnSaleIds((current) => selected ? current.filter((id) => id !== sale.saleId) : [...current, sale.saleId])} className="h-5 w-5 accent-amber-600" />
+              <span className="min-w-0"><span className="block truncate text-sm font-black">{sale.gameName} · {sale.ticketBarcode}</span><span className="block text-xs text-slate-500">Display {sale.slotNumber} · Pack {sale.serialNumber} · ${sale.salesAmount.toFixed(2)}</span></span>
+            </label>;
+          })}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+          <label className="sr-only" htmlFor="return-reason">Return reason</label>
+          <select id="return-reason" value={returnReason} onChange={(event) => setReturnReason(event.target.value)} className="min-h-12 border-2 border-slate-200 bg-white px-3 font-semibold outline-none focus:border-amber-600">
+            <option value="">Select a structured reason…</option>
+            {RETURN_REASONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
+          </select>
+          <button type="button" onClick={() => { void submitReturn(); }} disabled={!returnReason || returning || (selectedReturnSaleIds.length === 0 && !lastSale?.saleId)} className="min-h-12 bg-amber-600 px-5 font-black text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300">{returning ? "Returning..." : `Confirm ${selectedReturnSaleIds.length > 1 ? `${selectedReturnSaleIds.length} Returns` : "Return"}`}</button>
+          <button type="button" onClick={() => { setReturnOpen(false); setReturnReason(""); setSelectedReturnSaleIds([]); }} disabled={returning} className="min-h-12 border border-slate-300 px-5 font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+        </div>
       </div>}
       {returnMessage && <p role="status" className={`mt-3 text-sm font-semibold ${returnMessage.type === "success" ? "text-emerald-700" : "text-red-700"}`}>{returnMessage.text}</p>}
     </section>

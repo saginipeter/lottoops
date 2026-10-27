@@ -333,7 +333,8 @@ for (const viewport of [
         ticketFaceBorder: getComputedStyle(ticketFace).borderTopColor,
       };
     });
-    expect(Math.abs(visual.currentWidth - visual.nextWidth)).toBeLessThan(1.5);
+    expect(visual.currentWidth).toBeGreaterThan(visual.nextWidth);
+    expect(Math.abs(visual.currentWidth - visual.nextWidth)).toBeGreaterThan(1.5);
     expect(visual.currentBackground).toContain("rgb(255, 154, 154)");
     expect(visual.nextBackground).toContain("rgb(255, 154, 154)");
     expect(visual.displayNumberInHeader).toBe(true);
@@ -407,7 +408,7 @@ test("kiosk automatically rotates to the next physical screen and fades the new 
   await expect(page.locator(".tv-screen-count")).toContainText("Screen 1 of 2");
   await expect.poll(async () => displayedSlotNumbers(page)).toHaveLength(40);
   await expect(page.locator("[data-screen-number]")).toHaveAttribute("data-screen-number", "1");
-  await page.clock.fastForward(15_000);
+  await page.clock.fastForward(30_000);
   await expect.poll(async () => page.locator("[data-screen-number]").getAttribute("data-screen-number")).toBe("2");
   await expect(page.locator(".tv-screen-count")).toContainText("Screen 2 of 2");
   await expect.poll(async () => displayedSlotNumbers(page)).toEqual([41]);

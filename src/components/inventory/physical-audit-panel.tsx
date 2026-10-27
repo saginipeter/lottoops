@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -23,6 +23,24 @@ interface AuditState {
   id: string;
   status: string;
   lines: AuditLine[];
+}
+
+interface LiveAuditPack {
+  packId: string;
+  slotNumber: string;
+  serialNumber: string;
+  gameName: string;
+  currentTicketNumber: number | null;
+  firstTicket: number | null;
+  ticketQuantity: number | null;
+  firstOrLastTicket: string | null;
+  ticketsPerPack: number | null;
+  lineId: string | null;
+  expectedTicket: number;
+  endingExpectedTicket: number | null;
+  beginningPhysicalTicket: number | null;
+  endingPhysicalTicket: number | null;
+  variance: number | null;
 }
 
 interface InventoryLine {
@@ -48,13 +66,57 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [localLines, setLocalLines] = useState<AuditLine[]>(audit?.lines ?? []);
+  const [livePacks, setLivePacks] = useState<LiveAuditPack[]>([]);
+  const [liveLoaded, setLiveLoaded] = useState(false);
+  const [liveUpdatedAt, setLiveUpdatedAt] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => setLocalLines(audit?.lines ?? []), [audit]);
-  const lines = useMemo(() => localLines, [localLines]);
+  const loadLiveAudit = useCallback(async () => {
+    if (!audit?.id || audit.status !== "OPEN") return;
+    try {
+      const response = await fetch(`/api/inventory-audits/${encodeURIComponent(audit.id)}`, { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json() as { activePacks?: LiveAuditPack[]; updatedAt?: string };
+      setLivePacks(data.activePacks ?? []);
+      setLiveLoaded(true);
+      setLiveUpdatedAt(data.updatedAt ?? new Date().toISOString());
+    } catch {
+      // Keep the last confirmed checklist visible during a short network interruption.
+    }
+  }, [audit]);
+  useEffect(() => {
+    setLiveLoaded(false);
+    setLivePacks([]);
+    setLiveUpdatedAt(null);
+  }, [audit?.id]);
+  useEffect(() => {
+    if (!audit || audit.status !== "OPEN") return;
+    void loadLiveAudit();
+    const timer = window.setInterval(() => { void loadLiveAudit(); }, 5000);
+    return () => window.clearInterval(timer);
+  }, [audit, loadLiveAudit]);
+  const lines = useMemo(() => {
+    if (!liveLoaded) return localLines;
+    return livePacks.map((pack) => {
+      const existing = localLines.find((line) => line.packId === pack.packId);
+      return existing ?? {
+        id: pack.lineId ?? `pending-${pack.packId}`,
+        packId: pack.packId,
+        slotNumber: pack.slotNumber,
+        expectedTicket: pack.expectedTicket,
+        endingExpectedTicket: pack.endingExpectedTicket,
+        variance: pack.variance,
+        beginningPhysicalTicket: pack.beginningPhysicalTicket,
+        endingPhysicalTicket: pack.endingPhysicalTicket,
+        pack: { serialNumber: pack.serialNumber, game: { name: pack.gameName } },
+      } satisfies AuditLine;
+    });
+  }, [liveLoaded, livePacks, localLines]);
+  const activeCount = liveLoaded ? livePacks.length : activeDisplayPackCount;
   const scanned = useMemo(() => lines.filter((line) => phase === "beginning" ? line.beginningPhysicalTicket !== null : line.endingPhysicalTicket !== null).length, [lines, phase]);
   // An empty display has nothing to reconcile. Treat 0/0 as complete so the
   // shift can move directly to closing without requiring a phantom scan.
-  const beginningComplete = activeDisplayPackCount === 0 || lines.filter((line) => line.beginningPhysicalTicket !== null).length >= activeDisplayPackCount;
+  const beginningComplete = activeCount === 0 || lines.filter((line) => line.beginningPhysicalTicket !== null).length >= activeCount;
   const varianceLines = lines.filter((line) => line.endingPhysicalTicket !== null && Number(line.variance ?? 0) !== 0);
   const shortCount = varianceLines.reduce((sum, line) => sum + Math.max(-Number(line.variance ?? 0), 0), 0);
   const overCount = varianceLines.reduce((sum, line) => sum + Math.max(Number(line.variance ?? 0), 0), 0);
@@ -77,8 +139,9 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
       setLocalLines((current) => {
         const index = current.findIndex((line) => line.id === data.id);
         if (index === -1) return [...current, data];
-        return current.map((line) => line.id === data.id ? data : line);
+        return current.map((line) => line.id === data.id || line.packId === data.packId ? data : line);
       });
+      setLivePacks((current) => current.map((pack) => pack.packId === data.packId ? { ...pack, ...data, lineId: data.id } : pack));
       setBarcode("");
       router.refresh();
     }
@@ -100,18 +163,29 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
       {!audit && <Button onClick={beginAudit}>Begin Opening Audit</Button>}
       </div>
       {audit && audit.status === "OPEN" && <>
-        <div className="mt-3 flex items-center gap-2"><Button size="sm" variant={phase === "beginning" ? "secondary" : "ghost"} onClick={() => setPhase("beginning")}>Opening Audit</Button><Button size="sm" variant={phase === "ending" ? "secondary" : "ghost"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeDisplayPackCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeDisplayPackCount} Scanned{scanned === activeDisplayPackCount ? " (Complete)" : ""}</span></div>
+        <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant={phase === "beginning" ? "secondary" : "ghost"} onClick={() => setPhase("beginning")}>Opening Audit</Button><Button size="sm" variant={phase === "ending" ? "secondary" : "ghost"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>
         {!beginningComplete && <p className="mt-2 text-xs font-medium text-amber-700">Complete the Opening Audit first. The Closing Audit becomes available afterward.</p>}
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]"><input ref={inputRef} autoFocus value={barcode} inputMode="numeric" onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void scan(); } }} placeholder={phase === "beginning" ? "Scan the current ticket for the Opening Audit" : "Scan the current ticket for the Closing Audit"} className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono text-lg tracking-wider" /><Button onClick={() => { void scan(); }} disabled={!barcode.trim()}>Record {phase === "beginning" ? "Opening" : "Closing"} Scan</Button></div>
         <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before sales begin." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
         <PhoneBarcodeScanner key={`${audit.id}-${phase}`} onScan={(value) => { setBarcode(value); void scan(value); }} />
-        <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned < activeDisplayPackCount} onClick={completeAudit}>Complete Closing Audit</Button>
+        <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned < activeCount} onClick={completeAudit}>Complete Closing Audit</Button>
       </>}
       {lines.length > 0 && <div className="mt-4 overflow-x-auto">
         <table className="w-full text-left text-xs" aria-label="Physical audit inventory counts">
-          <thead><tr><th className="p-2">Display</th><th className="p-2">Beginning tickets</th><th className="p-2">Sales</th><th className="p-2">Expected ending</th><th className="p-2">Unsold remaining</th><th className="p-2">Ticket variance</th></tr></thead>
+          <thead><tr><th className="p-2">Display / Pack</th><th className="p-2">Beginning tickets</th><th className="p-2">Sales</th><th className="p-2">Expected ending</th><th className="p-2">Unsold remaining</th><th className="p-2">Ticket variance</th><th className="p-2">Scan status</th></tr></thead>
           <tbody>{lines.map((line) => {
-            const stock = inventoryLines.find((item) => item.packId === line.packId);
+            const livePack = livePacks.find((item) => item.packId === line.packId);
+            const stock = inventoryLines.find((item) => item.packId === line.packId) ?? (livePack ? {
+              packId: livePack.packId,
+              beginningTicket: livePack.currentTicketNumber ?? livePack.firstTicket ?? 0,
+              pack: {
+                currentTicketNumber: livePack.currentTicketNumber,
+                firstTicket: livePack.firstTicket,
+                ticketQuantity: livePack.ticketQuantity,
+                firstOrLastTicket: livePack.firstOrLastTicket,
+                game: { ticketsPerPack: livePack.ticketsPerPack ?? livePack.ticketQuantity ?? 0 },
+              },
+            } : null);
             if (!stock) return null;
             const beginning = stock.beginningTicket;
             const opening = phase === "beginning" && audit?.status !== "COMPLETED";
@@ -121,11 +195,12 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
               stock.pack.firstTicket ?? 1, stock.pack.ticketQuantity ?? stock.pack.game.ticketsPerPack,
               expected, observed, stock.pack.firstOrLastTicket,
             );
-            return <tr key={line.id} className="border-t border-border">
-              <td className="p-2">{line.slotNumber}</td><td className="p-2">{beginning}</td>
+            const scannedInPhase = phase === "beginning" ? line.beginningPhysicalTicket !== null : line.endingPhysicalTicket !== null;
+            return <tr key={line.id} className={`border-t border-border ${scannedInPhase ? "" : "bg-amber-50/60"}`}>
+              <td className="p-2"><span className="font-semibold">Display {line.slotNumber}</span><span className="ml-2 text-text-tertiary">{line.pack?.serialNumber ?? line.packId}</span></td><td className="p-2">{beginning}</td>
               <td className="p-2">{Math.max(beginning - expected, 0)}</td><td className="p-2">{expected}</td>
               <td className="p-2">{result?.remaining ?? "Not scanned"}</td>
-              <td className="p-2">{result ? `${result.variance > 0 ? "+" : ""}${result.variance}` : "Not scanned"}</td>
+              <td className="p-2">{result ? `${result.variance > 0 ? "+" : ""}${result.variance}` : "Not scanned"}</td><td className={`p-2 font-semibold ${scannedInPhase ? "text-emerald-700" : "text-amber-700"}`}>{scannedInPhase ? "Scanned" : `Needs ${phase === "beginning" ? "opening" : "closing"} scan`}</td>
             </tr>;
           })}</tbody>
         </table>
