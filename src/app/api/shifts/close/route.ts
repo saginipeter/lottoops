@@ -64,7 +64,13 @@ export async function POST(req: NextRequest) {
         where: { shiftId: shift.id },
         select: {
           id: true, status: true,
-          lines: { select: { beginningPhysicalTicket: true, endingPhysicalTicket: true } },
+          // Only packs still active on a display belong to the closing-audit
+          // scope. Packs sold out or removed after opening can retain
+          // historical lines without blocking shift close.
+          lines: {
+            where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
+            select: { beginningPhysicalTicket: true, endingPhysicalTicket: true },
+          },
         },
       });
       const activeDisplayPackCount = await tx.pack.count({

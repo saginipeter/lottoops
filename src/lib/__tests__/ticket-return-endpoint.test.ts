@@ -21,7 +21,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     requests: [] as Array<{ id: string; storeId: string; shiftId: string; packId: string; status: string; saleEventId?: string }>,
     notifications: [] as Array<{ id: string; entityId: string; title: string; detail: string; severity: string; createdAt: Date }>,
     cash: { expectedCash: 0, countedCash: 0, cashVariance: 0 },
-    audit: { id: "audit", status: "COMPLETED", lines: [{ beginningPhysicalTicket: 1 as number | null, endingPhysicalTicket: 2 as number | null }] },
+    audit: { id: "audit", status: "COMPLETED", lines: [{ beginningPhysicalTicket: 1 as number | null, endingPhysicalTicket: 2 as number | null, active: true }] },
   });
   let state = initial();
   let fail = "";
@@ -32,7 +32,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   let onTransactionStart: (() => void) | null = null;
   let pauseTransaction: Promise<void> | null = null;
   const reset = () => { state = initial(); session = { ...staff }; fail = ""; calls = []; locks = []; };
-  type Query = { where: Record<string, unknown>; data?: Record<string, unknown>; include?: Record<string, unknown> };
+  type Query = { where: Record<string, unknown>; data?: Record<string, unknown>; include?: Record<string, unknown>; select?: Record<string, unknown> };
   const fakePrisma = {
     pack: {
       findMany: async () => [],
@@ -87,7 +87,14 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         Object.assign(state.shift.lines[0], data);
       },
     },
-    inventoryAudit: { findUnique: async () => state.audit },
+    inventoryAudit: {
+      findUnique: async ({ select }: Query) => {
+        if (select?.lines && typeof select.lines === "object" && "where" in select.lines) {
+          return { ...state.audit, lines: state.audit.lines.filter((line: { active?: boolean }) => line.active !== false) };
+        }
+        return state.audit;
+      },
+    },
     displaySlot: {
       findFirst: async ({ where }: Query) => {
         calls.push("slot.read");
@@ -562,5 +569,9 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal((await closeShift(closeRequest({ countedCash: 150 }))).status, 200);
     assert.equal(state.cash.expectedCash, 150);
     assert.equal(state.shift.lines[0].ticketsSold, 10);
+
+    reset();
+    state.audit.lines.push({ beginningPhysicalTicket: 1, endingPhysicalTicket: null, active: false });
+    assert.equal((await closeShift(closeRequest())).status, 200);
   });
 });
