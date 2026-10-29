@@ -116,7 +116,10 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
   const scanned = useMemo(() => lines.filter((line) => phase === "beginning" ? line.beginningPhysicalTicket !== null : line.endingPhysicalTicket !== null).length, [lines, phase]);
   // An empty display has nothing to reconcile. Treat 0/0 as complete so the
   // shift can move directly to closing without requiring a phantom scan.
-  const beginningComplete = activeCount === 0 || lines.filter((line) => line.beginningPhysicalTicket !== null).length >= activeCount;
+  const beginningScanned = lines.filter((line) => line.beginningPhysicalTicket !== null).length;
+  const closingScanned = lines.filter((line) => line.endingPhysicalTicket !== null).length;
+  const beginningComplete = activeCount === 0 || beginningScanned >= activeCount;
+  const closingComplete = audit?.status === "COMPLETED" || activeCount === 0 || closingScanned >= activeCount;
   const varianceLines = lines.filter((line) => line.endingPhysicalTicket !== null && Number(line.variance ?? 0) !== 0);
   const shortCount = varianceLines.reduce((sum, line) => sum + Math.max(-Number(line.variance ?? 0), 0), 0);
   const overCount = varianceLines.reduce((sum, line) => sum + Math.max(Number(line.variance ?? 0), 0), 0);
@@ -163,12 +166,11 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
       {!audit && <Button onClick={beginAudit}>Begin Opening Audit</Button>}
       </div>
       {audit && audit.status === "OPEN" && <>
-        <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant={phase === "beginning" ? "secondary" : "ghost"} onClick={() => setPhase("beginning")}>Opening Audit</Button><Button size="sm" variant={phase === "ending" ? "secondary" : "ghost"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>
+        <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" className={beginningComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} onClick={() => setPhase("beginning")}>Opening Audit · {beginningComplete ? "Complete" : "Required"}</Button><Button size="sm" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit · {closingComplete ? "Complete" : "Required"}</Button><Button size="sm" aria-label="Complete Closing Audit" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={phase !== "ending" || closingScanned < activeCount} onClick={completeAudit}>Complete Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>
         {!beginningComplete && <p className="mt-2 text-xs font-medium text-amber-700">Complete the Opening Audit first. The Closing Audit becomes available afterward.</p>}
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]"><input ref={inputRef} autoFocus value={barcode} inputMode="numeric" onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void scan(); } }} placeholder={phase === "beginning" ? "Scan the current ticket for the Opening Audit" : "Scan the current ticket for the Closing Audit"} className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono text-lg tracking-wider" /><Button onClick={() => { void scan(); }} disabled={!barcode.trim()}>Record {phase === "beginning" ? "Opening" : "Closing"} Scan</Button></div>
         <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before sales begin." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
         <PhoneBarcodeScanner key={`${audit.id}-${phase}`} onScan={(value) => { setBarcode(value); void scan(value); }} />
-        <Button className="mt-3" variant="outline" disabled={phase !== "ending" || scanned < activeCount} onClick={completeAudit}>Complete Closing Audit</Button>
       </>}
       {lines.length > 0 && <div className="mt-4 overflow-x-auto">
         <table className="w-full text-left text-xs" aria-label="Physical audit inventory counts">
@@ -235,7 +237,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
         </div>
         {varianceLines.length > 0 && <p className="mt-3 text-xs font-medium text-amber-800">Review each flagged pack before resolving the variance. Variance equals observed physical ticket minus system-expected physical ticket.</p>}
       </section>}
-      {message && <p role="status" className={`mt-2 text-sm ${messageType === "success" ? "text-emerald-700" : "text-red-700"}`}>{message}</p>}
+      {message && <p role={messageType === "error" ? "alert" : "status"} aria-live={messageType === "error" ? "assertive" : "polite"} className={`mt-2 text-base font-black ${messageType === "success" ? "text-emerald-700" : "text-red-700"}`}>{message}</p>}
     </Panel>
   );
 }

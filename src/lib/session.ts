@@ -8,8 +8,16 @@ export interface SessionPayload {
   email: string;
   role: "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE" | "AUDITOR";
   grantedPermissions: string[];
+  rememberMe?: boolean;
   impersonatedBy?: { userId: string; name: string; email: string };
   supportAccessId?: string;
+}
+
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
+export const REMEMBERED_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+
+export function getSessionMaxAge(rememberMe = false) {
+  return rememberMe ? REMEMBERED_SESSION_MAX_AGE_SECONDS : SESSION_MAX_AGE_SECONDS;
 }
 
 function getSecret() {
@@ -22,7 +30,7 @@ export async function signSession(payload: SessionPayload): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(payload.impersonatedBy ? "30m" : "8h")
+    .setExpirationTime(payload.impersonatedBy ? "30m" : payload.rememberMe ? "30d" : "8h")
     .sign(getSecret());
 }
 
@@ -42,19 +50,19 @@ export async function verifySession(
   }
 }
 
-export async function signMfaChallenge(userId: string): Promise<string> {
-  return new SignJWT({ type: "MFA_CHALLENGE", userId })
+export async function signMfaChallenge(userId: string, rememberMe = false): Promise<string> {
+  return new SignJWT({ type: "MFA_CHALLENGE", userId, rememberMe })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("5m")
     .sign(getSecret());
 }
 
-export async function verifyMfaChallenge(token: string): Promise<{ userId: string } | null> {
+export async function verifyMfaChallenge(token: string): Promise<{ userId: string; rememberMe: boolean } | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     if (payload.type !== "MFA_CHALLENGE" || typeof payload.userId !== "string") return null;
-    return { userId: payload.userId };
+    return { userId: payload.userId, rememberMe: payload.rememberMe === true };
   } catch {
     return null;
   }

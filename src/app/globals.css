@@ -202,6 +202,19 @@ body {
   letter-spacing: 0;
 }
 
+/* High-visibility operator feedback for scan and validation failures. */
+[role="alert"],
+[role="alertdialog"] {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+[role="alert"] p,
+[role="alertdialog"] p {
+  font-weight: 700;
+}
+
 /* Professional operations shell: square geometry and compact enterprise typography. */
 .dashboard-shell {
   font-family: var(--font-body);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { signSession, verifyMfaChallenge, SESSION_COOKIE } from "@/lib/session";
+import { getSessionMaxAge, signSession, verifyMfaChallenge, SESSION_COOKIE } from "@/lib/session";
 import { verifyMfaCode } from "@/lib/mfa";
 
 export async function POST(request: NextRequest) {
@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
 
   const user = await prisma.user.findFirst({ where: { id: challenge.userId, active: true }, include: { store: true } });
   if (!user) return NextResponse.json({ error: "Account is inactive." }, { status: 401 });
-  const token = await signSession({ userId: user.id, storeId: user.storeId, storeName: user.store.name, name: user.name, email: user.email, role: user.role, grantedPermissions: user.grantedPermissions ?? [] });
+  const token = await signSession({ userId: user.id, storeId: user.storeId, storeName: user.store.name, name: user.name, email: user.email, role: user.role, grantedPermissions: user.grantedPermissions ?? [], rememberMe: challenge.rememberMe });
   const response = NextResponse.json({ ok: true, user: { name: user.name, email: user.email, role: user.role, storeName: user.store.name } });
-  response.cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 60 * 8, path: "/" });
+  response.cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: getSessionMaxAge(challenge.rememberMe), path: "/" });
   response.cookies.delete("lottoops_mfa_challenge");
   return response;
 }

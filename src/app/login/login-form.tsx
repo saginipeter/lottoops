@@ -13,6 +13,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
   const [mfaRequired, setMfaRequired] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,7 +31,7 @@ export function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mfaRequired ? { code: mfaCode } : { email, password }),
+        body: JSON.stringify(mfaRequired ? { code: mfaCode } : { email, password, rememberMe }),
       });
 
       const data = await res.json();
@@ -68,7 +69,7 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger-soft-text">
+        <div role="alert" aria-live="assertive" className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-base font-bold leading-6 text-danger-soft-text">
           {error}
         </div>
       )}
@@ -121,6 +122,10 @@ export function LoginForm() {
           </button>
         </div>
       </div>}
+      {!mfaRequired && <label htmlFor="remember-me" className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-text-secondary">
+        <input id="remember-me" type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} className="h-4 w-4 accent-[#0d82a6]" />
+        Keep me logged in
+      </label>}
       {mfaRequired && (
         <div>
           <label htmlFor="mfa-code" className="mb-1.5 block text-xs font-medium text-text-secondary">Authenticator code</label>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { signSession, signMfaChallenge, SESSION_COOKIE } from "@/lib/session";
+import { getSessionMaxAge, signSession, signMfaChallenge, SESSION_COOKIE } from "@/lib/session";
 import { isMfaRequired } from "@/lib/mfa";
 import { findMockUser } from "@/lib/mock-users";
 
@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
     }
-    const { email, password } = body as { email?: unknown; password?: unknown };
+    const { email, password, rememberMe: requestedRememberMe } = body as { email?: unknown; password?: unknown; rememberMe?: unknown };
+    const rememberMe = requestedRememberMe === true;
 
     if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
       return NextResponse.json(
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
 
     if (prisma && await isMfaRequired(authResult.userId)) {
       const response = NextResponse.json({ mfaRequired: true }, { status: 202 });
-      response.cookies.set("lottoops_mfa_challenge", await signMfaChallenge(authResult.userId), {
+      response.cookies.set("lottoops_mfa_challenge", await signMfaChallenge(authResult.userId, rememberMe), {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
       email: authResult.email,
       role: authResult.role,
       grantedPermissions: authResult.grantedPermissions,
+      rememberMe,
     });
 
     const response = NextResponse.json({
@@ -153,7 +155,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 8, // 8 hours, matching JWT expiry
+      maxAge: getSessionMaxAge(rememberMe),
       path: "/",
     });
 
