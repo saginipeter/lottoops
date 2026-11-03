@@ -51,7 +51,7 @@ export default async function DashboardLayout({
   return (
     <div className="dashboard-shell flex h-screen min-w-0 flex-col overflow-hidden bg-bg">
       <ConsoleTopBar user={user} />
-      {session && <InactivityGuard role={session.role} />}
+      {session && <InactivityGuard role={session.role} rememberMe={session.rememberMe === true} />}
       <AccessProvider user={user}>
         <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           {session?.impersonatedBy && <ImpersonationBanner adminName={session.impersonatedBy.name} />}

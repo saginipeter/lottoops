@@ -15,7 +15,7 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await page.route("**/api/packs/check-serial", async (route) => {
     sales++;
     if (sales === 2) {
-      await route.fulfill({ status: 409, json: { error: "Unexpected ticket" } });
+      await route.fulfill({ status: 409, json: { code: "SEQUENCE_LOCKED", error: "Out-of-sequence scan. Expected ticket 50, but scanned ticket 1. Pack locked pending manager review." } });
       return;
     }
     await route.fulfill({ json: {
@@ -47,11 +47,14 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await expect(latest.getByText("First game", { exact: true })).toBeVisible();
   await input.fill("12341234567002");
   await input.press("Enter");
-  await expect(page.getByText("Unexpected ticket", { exact: true })).toBeVisible();
   const error = page.getByRole("alert").filter({ hasText: "Scan blocked" });
+  await expect(error).toContainText("Scan blocked · no sale recorded");
+  await expect(error).toContainText("No ticket was sold");
+  await expect(error).toContainText("expects ticket 50, but ticket 1 was scanned");
+  await expect(error).toContainText("Please ask a manager");
   const bounds = await error.boundingBox();
   expect(bounds?.y).toBe(16);
-  await page.clock.runFor(2999);
+  await page.clock.runFor(5999);
   await expect(error).toBeVisible();
   await page.clock.runFor(1);
   await expect(error).toHaveCount(0);
@@ -69,7 +72,27 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await input.press("Enter");
   await page.clock.runFor(2000);
   await expect(error).toBeVisible();
-  await page.clock.runFor(1000);
+  await page.clock.runFor(4000);
   await expect(error).toHaveCount(0);
   expect(sales).toBe(3);
+});
+
+test("remembered manager stays signed in beyond the short inactivity cutoff", async ({ context, page, baseURL }) => {
+  test.skip(!process.env.E2E_REPORT_SECRET, "Requires a test JWT secret for the local offline-auth session.");
+  const token = await new SignJWT({
+    userId: "pos-operator", storeId: "pos-store", storeName: "POS Store",
+    name: "POS Operator", email: "pos@example.test", role: "MANAGER", grantedPermissions: [], rememberMe: true,
+  }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("30d")
+    .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
+  await context.addCookies([{ name: "lottoops_session", value: token, url: baseURL! }]);
+  await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
+  await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
+  const now = new Date();
+  await page.clock.install({ time: now });
+  await page.goto("/pos");
+  await expect(page.getByRole("heading", { name: "Sell Tickets" })).toBeVisible();
+  await page.clock.runFor(11 * 60 * 1000);
+  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page.getByRole("heading", { name: "Sell Tickets" })).toBeVisible();
+  await expect(page.getByRole("alertdialog", { name: "Inactivity warning" })).toHaveCount(0);
 });
