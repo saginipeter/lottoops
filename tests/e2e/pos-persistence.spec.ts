@@ -47,8 +47,8 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await expect(latest.getByText("First game", { exact: true })).toBeVisible();
   await input.fill("12341234567002");
   await input.press("Enter");
-  const error = page.getByRole("alert").filter({ hasText: "Scan blocked" });
-  await expect(error).toContainText("Scan blocked · no sale recorded");
+  const error = page.getByRole("alert").filter({ hasText: "Ticket scan error" });
+  await expect(error).toContainText("Ticket scan error · no sale recorded");
   await expect(error).toContainText("No ticket was sold");
   await expect(error).toContainText("expects ticket 50, but ticket 1 was scanned");
   await expect(error).toContainText("Please ask a manager");
