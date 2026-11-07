@@ -315,6 +315,8 @@ for (const viewport of [
       const current = card.querySelector(".tv-ticket-badge-current .tv-ticket-circle")!;
       const next = card.querySelector(".tv-ticket-badge-next .tv-ticket-circle")!;
       const displayNumber = card.querySelector(".tv-display-number")!;
+      const priceKicker = card.querySelector(".tv-price-kicker")!;
+      const displayKicker = card.querySelector(".tv-display-kicker")!;
       const priceBadge = card.querySelector(".tv-price-badge")!;
       const displayBadge = card.querySelector(".tv-display-badge")!;
       const ticketFace = card.querySelector(".tv-ticket-face")!;
@@ -337,6 +339,8 @@ for (const viewport of [
         priceBorder: getComputedStyle(priceBadge).borderTopColor,
         displayBorder: getComputedStyle(displayBadge).borderTopColor,
         displayText: getComputedStyle(displayBadge).color,
+        priceKickerFontSize: parseFloat(getComputedStyle(priceKicker).fontSize),
+        displayKickerFontSize: parseFloat(getComputedStyle(displayKicker).fontSize),
         ticketFaceBackground: getComputedStyle(ticketFace).backgroundColor,
         ticketFaceBorder: getComputedStyle(ticketFace).borderTopColor,
       };
@@ -354,6 +358,7 @@ for (const viewport of [
     expect(visual.priceBorder).toBe("rgb(255, 255, 255)");
     expect(visual.displayBorder).toBe("rgb(255, 255, 255)");
     expect(visual.displayText).toBe("rgb(5, 5, 5)");
+    expect(visual.displayKickerFontSize).toBeGreaterThan(visual.priceKickerFontSize);
     expect(visual.ticketFaceBackground).toBe("rgb(255, 255, 255)");
     expect(visual.ticketFaceBorder).toBe("rgb(255, 255, 255)");
     await expect(page.locator(".tv-price-value").first()).toHaveText("$5");

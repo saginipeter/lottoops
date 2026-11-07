@@ -131,6 +131,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
         .tv-price-badge,.tv-display-badge { display:flex; min-width:0; flex-direction:column; border:1px solid #fff; box-shadow:0 0 min(2cqi,6px) rgba(255,255,255,.28); color:#050505; line-height:1; text-transform:uppercase; }
         .tv-price-badge { align-items:flex-start; border-color:#fff; border-radius:3px; background:#fff; color:#050505; padding:min(1.5cqi,4px) min(2cqi,6px) min(1.7cqi,5px); }
         .tv-price-kicker,.tv-display-kicker { font-size:min(3.2cqi,9px); font-weight:900; letter-spacing:.14em; opacity:.82; }
+        .tv-display-kicker { font-size:min(5cqi,12px); }
         .tv-price-value { margin-top:min(.8cqi,2px); font-size:min(9cqi,20px); font-weight:950; letter-spacing:-.06em; }
         .tv-display-badge { align-items:flex-end; border-color:#fff; border-radius:3px; background:#fff; color:#050505; padding:min(1.5cqi,4px) min(2cqi,6px) min(1.7cqi,5px); }
         /* The sizing box mirrors the current ticket face content width at every board size. */
