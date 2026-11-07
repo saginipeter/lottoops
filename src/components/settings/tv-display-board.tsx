@@ -184,6 +184,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
 function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasArtwork = Boolean(slot.gameImage) && !imageFailed;
+  const displayNumber = formatDisplayNumber(slot.slotNumber);
   const cardRef = useRef<HTMLElement>(null);
   const currentTicketValue = getTicketDisplayValue(slot.remaining > 0 ? slot.currentTicket : null);
   const displayNumberStyle = {
@@ -205,7 +206,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
     return () => observer?.disconnect();
   }, [currentTicketValue]);
 
-  return <article ref={cardRef} className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={displayNumberStyle} aria-label={`${slot.gameName} display ${slot.slotNumber}`} data-display-id={slot.id}>
+  return <article ref={cardRef} className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={displayNumberStyle} aria-label={`${slot.gameName} display ${displayNumber}`} data-display-id={slot.id}>
     {hasArtwork ? (
       <div className="tv-artwork-crop">
         <Image
@@ -225,14 +226,14 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
         Image not available
       </div>
     )}
-    <div className="tv-card-meta" aria-label={`Display ${slot.slotNumber}, ticket price $${slot.ticketPrice.toFixed(0)}`}>
+    <div className="tv-card-meta" aria-label={`Display ${displayNumber}, ticket price $${slot.ticketPrice.toFixed(0)}`}>
       <div className="tv-price-badge" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>
         <span className="tv-price-kicker">Price</span>
         <strong className="tv-price-value">${slot.ticketPrice.toFixed(0)}</strong>
       </div>
-      <div className="tv-display-badge" aria-label={`Display ${slot.slotNumber}`}>
+      <div className="tv-display-badge" aria-label={`Display ${displayNumber}`}>
         <span className="tv-display-kicker">Display</span>
-        <strong className="tv-display-number">{slot.slotNumber}</strong>
+        <strong className="tv-display-number">{displayNumber}</strong>
       </div>
     </div>
     <div className="tv-ticket-indicators" role="group" aria-label="Live ticket availability">
@@ -240,6 +241,15 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
       <TicketIndicator kind="next" ticket={slot.remaining > 1 ? slot.nextTicket : null} />
     </div>
   </article>;
+}
+
+function formatDisplayNumber(slotNumber: string): string {
+  const trimmed = slotNumber.trim();
+  const numericSlot = Number(trimmed);
+  if (trimmed && Number.isSafeInteger(numericSlot) && numericSlot >= 0) {
+    return `#${String(numericSlot).padStart(3, "0")}`;
+  }
+  return `#${trimmed}`;
 }
 
 function TicketIndicator({ kind, ticket }: { kind: "current" | "next"; ticket: number | null }) {

@@ -40,6 +40,8 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, /tv-price-value/);
     assert.match(html, /tv-display-badge/);
     assert.match(html, /tv-display-number/);
+    assert.match(html, /class="tv-display-number">#001<\/strong>/);
+    assert.match(html, /class="tv-display-number">#002<\/strong>/);
     assert.match(html, /--current-ticket-digit-divisor:1\.6/);
     assert.match(html, /\.tv-display-number \{ display:block; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc\(\(min\(25\.542cqi,77\.88px\) - 2px\) \/ var\(--current-ticket-digit-divisor,1\.6\)\);/);
     assert.match(html, />\$1</);

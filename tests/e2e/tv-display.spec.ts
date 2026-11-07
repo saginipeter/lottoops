@@ -148,7 +148,7 @@ async function gridSnapshot(page: Page) {
 
 async function displayedSlotNumbers(page: Page): Promise<number[]> {
   return page.locator(".tv-display-number").evaluateAll((elements) =>
-    elements.map((element) => Number(element.textContent?.trim())).filter(Number.isFinite),
+    elements.map((element) => Number(element.textContent?.trim().replace(/^#/, ""))).filter(Number.isFinite),
   );
 }
 
@@ -510,7 +510,7 @@ test("a selected screen remains empty after inventory shrinks instead of switchi
   const token = "signed-kiosk-token";
   await showBoard(page, 41, true, 2, token, 15);
   await expect(page.locator("article")).toHaveCount(1);
-  await expect(page.locator(".tv-display-number")).toHaveText("41");
+  await expect(page.locator(".tv-display-number")).toHaveText("#041");
 
   await showBoard(page, 40, true, 2, token, 15);
   await expect(page.locator("article")).toHaveCount(0);
