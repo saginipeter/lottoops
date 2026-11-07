@@ -1,104 +1,135 @@
-#  LottoOps
+# LottoOps
 
-**Scratch-Off Lottery Display & Inventory Management System**
+**Lottery retail operations and inventory management**
 
----
+LottoOps helps lottery retailers manage scratch-ticket inventory, sales shifts, audits, reports, and customer-facing ticket displays from one store-scoped application.
 
-## Overview
+- **Production application:** [lottoops.vercel.app](https://lottoops.vercel.app)
+- **Marketing domain:** `lottoops.com` is registered separately from this application repository. Connect it to the marketing-site hosting project when that site is ready to launch.
 
-LottoOps is a web-based application designed for convenience stores, gas stations, and retail businesses to manage scratch-off lottery tickets digitally. The system replaces manual tracking with a digital display board, inventory tracking, slot management, and shift closeout tools.
+## Product areas
 
----
+### Store operations
 
-##  How LottoOps Works
+- Receive shipments and maintain active and back-stock inventory.
+- Manage games, packs, display positions, ticket direction, and artwork.
+- Scan tickets and reconcile opening and closing physical audits.
+- Open and close shifts, record cash reconciliation, and review ticket returns.
 
-LottoOps has two main parts: an **Admin Dashboard** for store staff and a **TV Display Board** for customers. Here is the end-to-end workflow:
+### Customer TV display
 
-1. **Receive Inventory** – Staff receives new packs from the supplier. The system checks for duplicate serial numbers and saves the pack as Back Stock.
+- Show up to **40 displays per screen** in a responsive 10-column by 4-row layout.
+- Automatically rotate between screens every **30 seconds** when additional screens are needed.
+- Show game-specific artwork, ticket price, animated current/next ticket indicators, and a three-digit display label such as **`#040`**.
+- Use a signed kiosk link for a customer-facing screen without requiring a staff login.
 
-2. **Activate to Display** – Manager selects an empty or sold-out (000) display slot, chooses a Back Stock pack, enters the starting ticket number, and activates it. The pack status changes to Active.
+### Reports
 
-3. **TV Display Board** – Customers see all active tickets on a TV screen with game numbers, prices, remaining tickets, and sold-out badges. The board auto-refreshes every 15 seconds.
+Reports provide store activity, sales, shift, inventory, and audit information. The report workspace supports date filtering; report documents can be previewed, printed, or saved as PDF through the browser’s print dialog.
 
-4. **Open Shift** – Staff opens a shift at the start of the day. The system automatically creates shift lines for all active displays, pulling current ticket numbers as beginning tickets.
+### Game artwork
 
-5. **Close Shift** – At closing time, staff enters ending ticket numbers. The system automatically calculates tickets sold and sales amount. If Ending Ticket = 000, the pack is marked Sold Out.
+The Games area can synchronize game artwork from the Texas Lottery catalog. Authorized staff can replace a game’s artwork and restore its default artwork. Image uploads require Vercel Blob storage configuration.
 
-6. **Reports** – Managers can view daily summaries, scan logs, and activity history to track sales and inventory movement.
+## Access roles
 
----
+LottoOps uses store-scoped permissions and the following application roles:
 
-##  Key Features
+| Role | Typical access |
+| --- | --- |
+| **Platform Admin** | SaaS-level platform and tenant administration |
+| **Owner** | Store oversight and owner-level management |
+| **Manager** | Store management and operational controls |
+| **Shift Lead** | Shift and scan duties, with any additional permissions explicitly granted |
+| **Employee** | Shift opening/closing and live scanning |
+| **Auditor** | Read-only reports and documents |
 
-| Feature | Description |
-| :--- | :--- |
-|  **TV Display Board** | Customer-facing screen showing available tickets with auto-refresh |
-|  **Inventory Management** | Receive packs, track back stock, activate to displays |
-|  **Shift Reconciliation** | Open/close shifts with automatic ticket and sales calculations |
-|  **Reporting** | Daily summaries, sales tracking, activity logs |
-|  **Role-Based Access** | Manager, Clerk, and Viewer permissions |
-|  **Sold-Out Logic** | Supports 000 as valid sold-out value |
-|  **Profit Tracking** | Track pack cost, retail value, and potential profit per pack |
-|  **Audit Trail** | Every action logged in Scan Log for accountability |
+Exact access is enforced by the application’s role and permission checks; this table is a high-level guide.
 
-### Report preview and printing
+## Technology
 
-Use the separate **View Report** and **Print Report** actions on a report or
-individual shift/shipment. View opens an isolated document preview; Print sends
-the same data-only document to the browser's print dialog, where it can also be
-saved as PDF. Dashboard navigation, filters, and action controls are not included.
-Print templates use A4 by default and support an 80 mm receipt layout.
+- Next.js App Router, React, and TypeScript
+- PostgreSQL with Prisma
+- Tailwind CSS
+- Vercel deployment and Vercel Blob for uploaded artwork
+- Stripe billing integration is optional and must be explicitly configured
 
-Receiving records are available after confirmation and from each shipment in the
-Reports archive. Supplier information entered during receiving is retained for
-these documents. Historical or unsupported values, including untracked payment
-methods, returns, and voids, are labeled **Not recorded**, not assumed to be zero.
-Deploy the shipment supplier/details migration with `npm run db:deploy` before
-running this version against an existing database.
+## Local development
 
----
+### Requirements
 
-##  Tech Stack
+- Node.js (current LTS recommended)
+- pnpm
+- A PostgreSQL database
 
-### Owner-approved store assistance
+### Setup
 
-Platform admins request store assistance from **Store Access Controls**. Delivery is
-**in-app only**: the actual store owner opens **Support** (`/support`), reviews the
-requesting admin, and explicitly approves and generates a single-use link. There
-is no email delivery. The owner must copy and share that link directly with the
-requesting admin; it is displayed once and cannot be retrieved by admins.
+```bash
+git clone https://github.com/saginipeter/lottoops.git
+cd lottoops
+pnpm install
+cp .env.example .env.local
+```
 
-The link expires after **15 minutes** and can only be redeemed by that exact
-authenticated requesting admin. Opening the shared link while signed in automatically
-redeems it via POST; the paste field in Store Access Controls is a fallback.
-Redemption is POST-only and starts a **30-minute**, store-scoped support
-session. Only a token hash is stored; URL fragments keep tokens out of request
-URLs. Owners can decline requests or revoke access from Support. Suspension,
-owner changes, inactive accounts, access/requester-session revocation, and expiration block access.
-Requests, approvals, redemptions, and revocations are audited without link tokens.
-The existing **Exit support** action restores the admin session.
+Set the required local values in `.env.local`:
 
-| Layer | Technology |
-| :--- | :--- |
-| **Frontend** | React with TypeScript |
-| **Framework** | Next.js |
-| **Backend** | Node.js with Express |
-| **Database** | PostgreSQL |
-| **ORM** | Prisma |
-| **Authentication** | JWT (JSON Web Tokens) |
+- `DATABASE_URL` — PostgreSQL connection string.
+- `JWT_SECRET` — a long, random secret used to sign sessions.
 
+Set `BLOB_READ_WRITE_TOKEN` if you need to test artwork uploads locally; it is required in production for that feature.
 
----
-##  Progress
-https://lottoops.vercel.app/
+Apply pending migrations and start the development server:
 
-Dev credentials 
+```bash
+pnpm db:deploy
+pnpm dev
+```
 
-ManagerLogins
-manager@lottoops.test
-Clerk
-clerk@lottoops.test
-Viewer
-viewer@lottoops.test
-Password (all)
-password123
+The local application is then available at `http://localhost:3000`.
+
+### Environment configuration
+
+See [`.env.example`](.env.example) for the supported variable names. Optional integrations include Stripe billing, WhatsApp report delivery, scheduled report email, and setup provisioning. Keep production secrets in the deployment provider’s environment-variable manager—never commit `.env.local`, tokens, passwords, or webhook secrets.
+
+Keep `ALLOW_OFFLINE_AUTH` disabled in production. Keep billing disabled until the correct live Stripe keys, price IDs, and webhook endpoint have been configured and verified. Restrict first-run setup to a controlled provisioning window.
+
+## Useful commands
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Start the local Next.js development server |
+| `pnpm build` | Create a production build |
+| `pnpm start` | Serve the production build locally |
+| `pnpm test` | Run the unit test suite |
+| `pnpm test:e2e` | Run Playwright end-to-end tests |
+| `pnpm lint` | Run ESLint |
+| `pnpm db:migrate` | Create/apply migrations during development |
+| `pnpm db:deploy` | Apply checked-in migrations to a deployment database |
+| `pnpm db:studio` | Open Prisma Studio |
+
+Before a release, run at least:
+
+```bash
+pnpm exec tsc --noEmit
+pnpm lint
+pnpm test
+pnpm build
+```
+
+Run end-to-end checks against a dedicated test database/environment, not production.
+
+## Deployment notes
+
+LottoOps is deployed on Vercel. Configure environment variables separately for the required deployment environments, verify the PostgreSQL connection and Blob token, and apply pending migrations with `pnpm db:deploy` as part of a controlled release. Do not assume that `pnpm build` applies database migrations.
+
+The LottoOps app and public marketing website can use separate subdomains of the same registered domain—for example, `app.lottoops.com` for the application and `lottoops.com` for the marketing site. A subdomain does not require buying another domain; configure its DNS records at the domain registrar and add it to the appropriate Vercel project.
+
+## Repository layout
+
+```text
+src/app/       Next.js pages, layouts, and API routes
+src/components Shared and feature-specific UI
+src/lib/       Application services, permissions, and utilities
+prisma/        Database schema, migrations, and development seed
+public/        Small static assets
+```
