@@ -113,15 +113,18 @@ async function gridSnapshot(page: Page) {
     const cards = [...element.querySelectorAll("article")].map((card) => ({
       dimensions: rect(card),
       badges: [...card.querySelectorAll(".tv-ticket-badge")].map((badge) => {
+        const badgeWidth = badge.getBoundingClientRect().width;
         const circle = badge.querySelector(".tv-ticket-circle")!;
         const face = badge.querySelector(".tv-ticket-face")!;
         const number = badge.querySelector(".tv-ticket-number")!;
         const label = badge.querySelector(".tv-ticket-label")!;
         return {
           circle: rect(circle),
+          circleRatio: circle.getBoundingClientRect().width / badgeWidth,
           face: rect(face),
           number: rect(number),
           label: rect(label),
+          labelText: label.textContent?.trim(),
           numberFits: number.scrollWidth <= number.clientWidth + 1,
           labelFits: label.scrollWidth <= label.clientWidth + 1,
           circleRadius: getComputedStyle(circle).borderRadius,
@@ -294,8 +297,9 @@ for (const viewport of [
       for (const badge of card.badges) {
         expect(badge.circleRadius).toBe("50%");
         expect(badge.faceRadius).toBe("50%");
-        expect(Math.abs(badge.circle.width - badge.circle.height)).toBeLessThan(1.5);
-        expect(Math.abs(badge.face.width - badge.face.height)).toBeLessThan(1.5);
+      expect(Math.abs(badge.circle.width - badge.circle.height)).toBeLessThan(1.5);
+      expect(Math.abs(badge.face.width - badge.face.height)).toBeLessThan(1.5);
+      expect(badge.circleRatio).toBeCloseTo(badge.labelText === "CURRENT" ? 0.7 : 0.62, 1);
         expect(badge.numberFits).toBe(true);
         expect(badge.labelFits).toBe(true);
         expect(Math.abs(
@@ -314,6 +318,8 @@ for (const viewport of [
     const visual = await page.locator("article").first().evaluate((card) => {
       const current = card.querySelector(".tv-ticket-badge-current .tv-ticket-circle")!;
       const next = card.querySelector(".tv-ticket-badge-next .tv-ticket-circle")!;
+      const currentBadge = card.querySelector(".tv-ticket-badge-current")!;
+      const nextBadge = card.querySelector(".tv-ticket-badge-next")!;
       const displayNumber = card.querySelector(".tv-display-number")!;
       const priceKicker = card.querySelector(".tv-price-kicker")!;
       const displayKicker = card.querySelector(".tv-display-kicker")!;
@@ -329,6 +335,8 @@ for (const viewport of [
       return {
         currentWidth: current.getBoundingClientRect().width,
         nextWidth: next.getBoundingClientRect().width,
+        currentBadgeWidth: currentBadge.getBoundingClientRect().width,
+        nextBadgeWidth: nextBadge.getBoundingClientRect().width,
         currentBackground: getComputedStyle(current).backgroundImage,
         nextBackground: getComputedStyle(next).backgroundImage,
         displayNumberInHeader: displayRect.top >= cardRect.top && displayRect.bottom <= cardRect.top + cardRect.height * .28,
@@ -349,6 +357,8 @@ for (const viewport of [
     });
     expect(visual.currentWidth).toBeGreaterThan(visual.nextWidth);
     expect(Math.abs(visual.currentWidth - visual.nextWidth)).toBeGreaterThan(1.5);
+    expect(visual.currentWidth / visual.currentBadgeWidth).toBeCloseTo(0.7, 1);
+    expect(visual.nextWidth / visual.nextBadgeWidth).toBeCloseTo(0.62, 1);
     expect(visual.currentBackground).toContain("rgb(255, 154, 154)");
     expect(visual.nextBackground).toContain("rgb(255, 154, 154)");
     expect(visual.displayNumberInHeader).toBe(true);
@@ -364,6 +374,10 @@ for (const viewport of [
     expect(visual.ticketLabelFontSize).toBeGreaterThan(visual.priceKickerFontSize);
     expect(visual.ticketFaceBackground).toBe("rgb(255, 255, 255)");
     expect(visual.ticketFaceBorder).toBe("rgb(255, 255, 255)");
+    await expect(page.locator(".tv-ticket-label").nth(0)).toHaveText("CURRENT");
+    await expect(page.locator(".tv-ticket-label").nth(1)).toHaveText("NEXT");
+    await expect(page.locator(".tv-ticket-badge-current").first()).toHaveAttribute("aria-label", "CURRENT TICKET: 21");
+    await expect(page.locator(".tv-ticket-badge-next").first()).toHaveAttribute("aria-label", "NEXT TICKET: 22");
     await expect(page.locator(".tv-price-value").first()).toHaveText("$5");
 
     const overflow = await pageOverflow(page);

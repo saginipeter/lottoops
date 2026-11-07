@@ -25,8 +25,12 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, {
       value: router,
     }, createElement(TvDisplayBoard, { slots, kioskMode, refreshSeconds: 30 })));
-    assert.equal((html.match(/>CURRENT TICKET</g) ?? []).length, 2);
-    assert.equal((html.match(/>NEXT TICKET</g) ?? []).length, 2);
+    assert.equal((html.match(/>CURRENT</g) ?? []).length, 2);
+    assert.equal((html.match(/>NEXT</g) ?? []).length, 2);
+    assert.equal((html.match(/aria-label="CURRENT TICKET:/g) ?? []).length, 2);
+    assert.equal((html.match(/aria-label="NEXT TICKET:/g) ?? []).length, 2);
+    assert.doesNotMatch(html, />CURRENT TICKET</);
+    assert.doesNotMatch(html, />NEXT TICKET</);
     assert.equal((html.match(/>12</g) ?? []).length, 1);
     assert.match(html, />13</);
     assert.match(html, />—</);
@@ -44,10 +48,10 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, /class="tv-display-number">#001<\/strong>/);
     assert.match(html, /class="tv-display-number">#002<\/strong>/);
     assert.match(html, /--current-ticket-digit-divisor:1\.6/);
-    assert.match(html, /\.tv-display-number \{ display:block; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc\(\(min\(21\.7107cqi,66\.198px\) - 1\.7px\) \/ var\(--current-ticket-digit-divisor,1\.6\)\);/);
+    assert.match(html, /\.tv-display-number \{ display:block; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc\(\(min\(18\.9969cqi,57\.9233px\) - 1\.7px\) \/ var\(--current-ticket-digit-divisor,1\.6\)\);/);
     assert.match(html, /\.tv-ticket-number \{ display:block; max-width:100%; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc\(85cqi \/ var\(--ticket-digit-divisor,1\.6\)\);/);
     assert.match(html, /\.tv-ticket-badge-next \.tv-ticket-number \{ font-size:calc\(85cqi \/ var\(--ticket-digit-divisor,1\.8\)\); \}/);
-    assert.match(html, /\.tv-ticket-label \{[^}]*font-size:min\(4\.8cqi,18px\);[^}]*letter-spacing:-\.06em;/);
+    assert.match(html, /\.tv-ticket-label \{[^}]*font-size:min\(7cqi,21px\);[^}]*letter-spacing:-\.06em;/);
     assert.match(html, />\$1</);
     assert.match(html, /\.tv-price-badge \{ align-items:flex-start; border-color:#fff; border-radius:3px; background:#fff; color:#050505;/);
     assert.match(html, /\.tv-display-badge \{ align-items:flex-end; border-color:#fff; border-radius:3px; background:#fff; color:#050505;/);
@@ -58,8 +62,8 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, /background:linear-gradient\(135deg,#ff9a9a/);
     assert.match(html, /\.tv-ticket-badge-current \{ width:43%;/);
     assert.match(html, /\.tv-ticket-badge-next \{ width:37%;/);
-    assert.match(html, /\.tv-ticket-circle \{ position:relative; display:grid; width:80%;/);
-    assert.match(html, /\.tv-ticket-badge-next \.tv-ticket-circle \{ width:72%;/);
+    assert.match(html, /\.tv-ticket-circle \{ position:relative; display:grid; width:70%;/);
+    assert.match(html, /\.tv-ticket-badge-next \.tv-ticket-circle \{ width:62%;/);
     assert.doesNotMatch(html, /ticket-indicator-reference\.jpg/);
     assert.match(html, /data-live-status="live"/);
     assert.match(html, /@keyframes tv-artwork-drift/);
