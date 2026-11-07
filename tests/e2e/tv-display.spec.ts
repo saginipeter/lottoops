@@ -152,6 +152,14 @@ async function displayedSlotNumbers(page: Page): Promise<number[]> {
   );
 }
 
+async function expectCurrentAndDisplayFontSizesToMatch(page: Page) {
+  await expect.poll(() => page.locator("article").first().evaluate((card) => {
+    const display = card.querySelector(".tv-display-number")!;
+    const current = card.querySelector(".tv-ticket-badge-current .tv-ticket-number")!;
+    return Math.abs(parseFloat(getComputedStyle(display).fontSize) - parseFloat(getComputedStyle(current).fontSize));
+  })).toBeLessThan(0.25);
+}
+
 async function pageOverflow(page: Page) {
   return page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,
@@ -358,7 +366,7 @@ for (const viewport of [
   });
 }
 
-test("responsive ticket numbers 1, 21, and 150 stay centered and contained without fixed card resizing", async ({ page }) => {
+test("responsive ticket numbers 1, 21, and 150 stay centered and contained", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   const measurements: Array<{ numberWidth: number; faceWidth: number; fontSize: number; cardWidth: number; cardHeight: number }> = [];
 
@@ -373,8 +381,8 @@ test("responsive ticket numbers 1, 21, and 150 stay centered and contained witho
       return {
         numberWidth: numberRect.width,
         faceWidth: faceRect.width,
-        fontSize: parseFloat(getComputedStyle(number).fontSize),
         cardWidth: cardRect.width,
+        fontSize: parseFloat(getComputedStyle(number).fontSize),
         cardHeight: cardRect.height,
         numberCenterX: numberRect.x + numberRect.width / 2,
         numberCenterY: numberRect.y + numberRect.height / 2,
@@ -572,6 +580,11 @@ test("polling loads confirmed FIRST/LAST sales, pack transitions, and sold-out s
   await page.addStyleTag({ content: css });
   await page.addScriptTag({ content: browserHarness });
   await expect(page.locator(".tv-ticket-badge-current .tv-ticket-number")).toHaveText("21");
+  await expectCurrentAndDisplayFontSizesToMatch(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await expectCurrentAndDisplayFontSizesToMatch(page);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expectCurrentAndDisplayFontSizesToMatch(page);
 
   const current = page.locator(".tv-ticket-badge-current .tv-ticket-number");
   const next = page.locator(".tv-ticket-badge-next .tv-ticket-number");
@@ -585,24 +598,29 @@ test("polling loads confirmed FIRST/LAST sales, pack transitions, and sold-out s
   await page.clock.fastForward(5000);
   await expect(current).toHaveText("22");
   await expect(next).toHaveText("23");
+  await expectCurrentAndDisplayFontSizesToMatch(page);
   expect(await current.evaluate((element, initial) => element === initial, initialCurrentNode)).toBe(false);
 
   await page.evaluate(() => (window as any).__tvTest.setRemote({ remaining: 150, direction: "LAST", packId: "pack-last", gameId: "game-last" }));
   await page.clock.fastForward(5000);
   await expect(current).toHaveText("150");
   await expect(next).toHaveText("149");
+  await expectCurrentAndDisplayFontSizesToMatch(page);
   await page.evaluate(() => (window as any).__tvTest.setRemote({ remaining: 149 }));
   await page.clock.fastForward(5000);
   await expect(current).toHaveText("149");
   await expect(next).toHaveText("148");
+  await expectCurrentAndDisplayFontSizesToMatch(page);
   await page.evaluate(() => (window as any).__tvTest.setRemote({ remaining: 1 }));
   await page.clock.fastForward(5000);
   await expect(current).toHaveText("1");
   await expect(next).toHaveText("—");
+  await expectCurrentAndDisplayFontSizesToMatch(page);
   await page.evaluate(() => (window as any).__tvTest.setRemote({ remaining: 0 }));
   await page.clock.fastForward(5000);
   await expect(current).toHaveText("—");
   await expect(next).toHaveText("—");
+  await expectCurrentAndDisplayFontSizesToMatch(page);
   await page.evaluate(() => (window as any).__tvTest.setRemote({ remaining: -1 }));
   await page.clock.fastForward(5000);
   await expect(page.getByText("No games on display", { exact: true })).toBeVisible();

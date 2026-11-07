@@ -133,7 +133,9 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
         .tv-price-kicker,.tv-display-kicker { font-size:min(3.2cqi,9px); font-weight:900; letter-spacing:.14em; opacity:.82; }
         .tv-price-value { margin-top:min(.8cqi,2px); font-size:min(9cqi,20px); font-weight:950; letter-spacing:-.06em; }
         .tv-display-badge { align-items:flex-end; border-color:#fff; border-radius:3px; background:#fff; color:#050505; padding:min(1.5cqi,4px) min(2cqi,6px) min(1.7cqi,5px); }
-        .tv-display-number { margin-top:min(.8cqi,2px); color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:min(9cqi,20px); font-weight:950; letter-spacing:-.04em; }
+        /* The sizing box mirrors the current ticket face content width at every board size. */
+        /* Responsive server-rendered fallback; hydration mirrors the exact live Current Ticket font size. */
+        .tv-display-number { display:block; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc((min(25.542cqi,77.88px) - 2px) / var(--current-ticket-digit-divisor,1.6)); font-weight:950; letter-spacing:-.04em; line-height:1; white-space:nowrap; }
         .tv-ticket-indicators { position:absolute; right:0; bottom:0; left:0; z-index:3; display:flex; height:39%; align-items:flex-end; justify-content:space-between; box-sizing:border-box; padding:min(4%,12px) min(5%,15px) min(3%,9px); container-type:inline-size; background:transparent; pointer-events:none; }
         .tv-ticket-badge { display:flex; min-width:0; flex-direction:column; align-items:center; gap:min(4cqi,11px); }
         .tv-ticket-badge-current { width:43%; max-width:118px; }
@@ -182,8 +184,28 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
 function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasArtwork = Boolean(slot.gameImage) && !imageFailed;
+  const cardRef = useRef<HTMLElement>(null);
+  const currentTicketValue = getTicketDisplayValue(slot.remaining > 0 ? slot.currentTicket : null);
+  const displayNumberStyle = {
+    "--current-ticket-digit-divisor": getTicketDigitDivisor(currentTicketValue),
+  } as CSSProperties;
 
-  return <article className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} aria-label={`${slot.gameName} display ${slot.slotNumber}`} data-display-id={slot.id}>
+  useEffect(() => {
+    const card = cardRef.current;
+    const currentNumber = card?.querySelector<HTMLElement>(".tv-ticket-badge-current .tv-ticket-number");
+    const displayNumber = card?.querySelector<HTMLElement>(".tv-display-number");
+    if (!card || !currentNumber || !displayNumber) return;
+
+    const mirrorFontSize = () => {
+      displayNumber.style.fontSize = window.getComputedStyle(currentNumber).fontSize;
+    };
+    mirrorFontSize();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(mirrorFontSize);
+    observer?.observe(card);
+    return () => observer?.disconnect();
+  }, [currentTicketValue]);
+
+  return <article ref={cardRef} className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={displayNumberStyle} aria-label={`${slot.gameName} display ${slot.slotNumber}`} data-display-id={slot.id}>
     {hasArtwork ? (
       <div className="tv-artwork-crop">
         <Image
@@ -221,9 +243,9 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
 }
 
 function TicketIndicator({ kind, ticket }: { kind: "current" | "next"; ticket: number | null }) {
-  const value = ticket !== null && Number.isSafeInteger(ticket) && ticket > 0 ? String(ticket) : "—";
+  const value = getTicketDisplayValue(ticket);
   // Sizing belongs to the face, not the viewport. Digits scale and pulse with their ring.
-  const numberStyle = { "--ticket-digit-divisor": Math.max(1.6, value.length * .74 + .1) } as CSSProperties;
+  const numberStyle = { "--ticket-digit-divisor": getTicketDigitDivisor(value) } as CSSProperties;
   const label = kind === "current" ? "CURRENT TICKET" : "NEXT TICKET";
 
   return <div className={`tv-ticket-badge tv-ticket-badge-${kind}`} aria-label={`${label}: ${value === "—" ? "unavailable" : value}`}>
@@ -232,4 +254,12 @@ function TicketIndicator({ kind, ticket }: { kind: "current" | "next"; ticket: n
     </div>
     <span className="tv-ticket-label">{label}</span>
   </div>;
+}
+
+function getTicketDisplayValue(ticket: number | null): string {
+  return ticket !== null && Number.isSafeInteger(ticket) && ticket > 0 ? String(ticket) : "—";
+}
+
+function getTicketDigitDivisor(value: string): number {
+  return Math.max(1.6, value.length * .74 + .1);
 }
