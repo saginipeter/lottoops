@@ -34,6 +34,7 @@ export async function GET(
 ) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (session.role === "AUDITOR") return NextResponse.json({ error: "Auditor accounts can access finalized reports only." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
 
   const { auditId } = await params;
@@ -52,6 +53,9 @@ export async function GET(
       },
     }) as { id: string; status: string; shiftId: string; lines: AuditLineRecord[] } | null;
     if (!audit) return NextResponse.json({ error: "Audit not found." }, { status: 404 });
+    if ((session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD") && session.shiftId !== audit.shiftId) {
+      return NextResponse.json({ error: "You can only view the audit for your assigned numbered shift." }, { status: 403 });
+    }
 
     const displaySlots = await prisma.displaySlot.findMany({
       where: { storeId: session.storeId, pack: { status: "ACTIVE" } },

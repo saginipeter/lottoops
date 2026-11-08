@@ -73,7 +73,7 @@ async function processBatchReturn({
   database,
 }: {
   body: Record<string, unknown>;
-  session: { userId: string; storeId: string; name: string; role: string };
+  session: { userId: string; storeId: string; name: string; role: string; shiftId?: string };
   database: NonNullable<typeof prisma>;
 }) {
   const tickets = Array.isArray(body.tickets) ? body.tickets as BatchReturnItem[] : [];
@@ -89,6 +89,9 @@ async function processBatchReturn({
   }
   const shiftIds = new Set(tickets.map((ticket) => ticket.shiftId));
   if (shiftIds.size !== 1) return NextResponse.json({ error: "Batch returns must belong to one open shift." }, { status: 409 });
+  if ((session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD") && session.shiftId !== tickets[0].shiftId) {
+    return NextResponse.json({ error: "These tickets do not belong to your assigned shift." }, { status: 403 });
+  }
   const uniqueSaleIds = new Set(tickets.map((ticket) => ticket.saleId));
   if (uniqueSaleIds.size !== tickets.length) return NextResponse.json({ error: "A ticket cannot be selected twice." }, { status: 400 });
   const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -111,10 +114,9 @@ async function processBatchReturn({
         const latestEvents = await tx.$queryRawUnsafe<Array<{ id: string; ticketBarcode: string }>>(
           `SELECT id, ticket_barcode AS "ticketBarcode"
              FROM live_scan_events
-            WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3
+            WHERE store_id = $1 AND pack_id = $2
             ORDER BY scanned_at DESC, id DESC`,
           session.storeId,
-          shiftId,
           packId,
         );
         const selectedIds = new Set(packTickets.map((ticket) => ticket.saleId));
@@ -142,8 +144,6 @@ async function processBatchReturn({
         const current = Number(pack.currentTicketNumber ?? beginning);
         const restoredCurrent = current + packTickets.length;
         if (!Number.isInteger(current) || current < 0 || restoredCurrent > beginning) throw new ReturnError("The selected tickets exceed the pack's recorded sales.", 409);
-        const ticketsSold = Math.max(beginning - restoredCurrent, 0);
-        const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
         const updatedPack = await tx.pack.updateMany({
           where: { id: pack.id, storeId: session.storeId, status: { in: ["ACTIVE", "SOLD_OUT"] }, currentTicketNumber: pack.currentTicketNumber },
           data: { status: "ACTIVE", currentTicketNumber: restoredCurrent, completedAt: null },
@@ -155,7 +155,6 @@ async function processBatchReturn({
         const updatedSlot = await tx.displaySlot.updateMany({ where: { id: slot.id, storeId: session.storeId, packId: slot.packId }, data: { packId: pack.id } });
         if (updatedSlot.count !== 1) throw new ReturnError("The original display changed while the batch return was being processed.", 409);
 
-        await tx.shiftLine.update({ where: { id: line.id }, data: { beginningTicket: beginning, endingTicket: restoredCurrent, ticketsSold, salesAmount } });
         for (const ticket of packTickets) {
           const deleted = await tx.$executeRawUnsafe(
             `DELETE FROM live_scan_events WHERE id = $1 AND store_id = $2 AND shift_id = $3 AND pack_id = $4`,
@@ -171,6 +170,13 @@ async function processBatchReturn({
           );
           returned.push({ saleId: ticket.saleId, ticketBarcode: ticket.ticketBarcode, packId });
         }
+        const remainingShiftRows = await tx.$queryRawUnsafe<Array<{ ticketsSold: number | bigint }>>(
+          `SELECT COUNT(*)::int AS "ticketsSold" FROM live_scan_events WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3`,
+          session.storeId, shiftId, packId,
+        );
+        const ticketsSold = Number(remainingShiftRows[0]?.ticketsSold ?? 0);
+        const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
+        await tx.shiftLine.update({ where: { id: line.id }, data: { endingTicket: Math.max(beginning - ticketsSold, 0), ticketsSold, salesAmount } });
         await tx.scanLogEntry.create({
           data: {
             storeId: session.storeId, action: "RETURNED", packId: pack.id, performedById: session.userId,
@@ -223,6 +229,9 @@ export async function POST(req: NextRequest) {
     if (!packId || !shiftId || !ticketBarcode || !saleId) {
       return NextResponse.json({ error: "packId, shiftId, ticketBarcode, and saleId are required." }, { status: 400 });
     }
+    if ((session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD") && session.shiftId !== shiftId) {
+      return NextResponse.json({ error: "This sale does not belong to your assigned shift." }, { status: 403 });
+    }
     if (reason.length < 6) {
       return NextResponse.json({ error: "A return reason of at least 6 characters is required." }, { status: 400 });
     }
@@ -255,9 +264,9 @@ export async function POST(req: NextRequest) {
       if (priorReturns.length > 0) throw new ReturnError("This sale has already been returned. Refresh before trying again.", 409);
       const latestScans = await tx.$queryRawUnsafe<Array<{ id: string; ticketBarcode: string }>>(`
         SELECT id, ticket_barcode AS "ticketBarcode" FROM live_scan_events
-        WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3
+        WHERE store_id = $1 AND pack_id = $2
         ORDER BY scanned_at DESC, id DESC LIMIT 1
-      `, session.storeId, shiftId, packId);
+      `, session.storeId, packId);
       const latestScan = latestScans[0];
       if (!latestScan || latestScan.id !== saleId || !canReturnLatestTicket({
         role: session.role, requestedBarcode: ticketBarcode, latestBarcode: latestScan.ticketBarcode,
@@ -280,8 +289,6 @@ export async function POST(req: NextRequest) {
         throw new ReturnError("The original display slot is unavailable or occupied.", 409);
       }
       const restoredCurrent = current + 1;
-      const ticketsSold = beginning - restoredCurrent;
-      const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
       const updated = await tx.pack.updateMany({
         where: { id: pack.id, storeId: session.storeId, status: { in: ["ACTIVE", "SOLD_OUT"] }, currentTicketNumber: pack.currentTicketNumber },
         data: { status: "ACTIVE", currentTicketNumber: restoredCurrent, completedAt: null },
@@ -292,15 +299,18 @@ export async function POST(req: NextRequest) {
         latestScan.id, session.storeId, shiftId, packId,
       );
       if (deleted !== 1) throw new ReturnError("Ticket already returned or changed.", 409);
-      await tx.shiftLine.update({
-        where: { id: line.id },
-        data: { beginningTicket: beginning, endingTicket: restoredCurrent, ticketsSold, salesAmount },
-      });
       const updatedSlot = await tx.displaySlot.updateMany({
         where: { id: slot.id, storeId: session.storeId, packId: slot.packId },
         data: { packId: pack.id },
       });
       if (updatedSlot.count !== 1) throw new ReturnError("The display slot changed. Refresh before trying again.", 409);
+      const remainingShiftRows = await tx.$queryRawUnsafe<Array<{ ticketsSold: number | bigint }>>(
+        `SELECT COUNT(*)::int AS "ticketsSold" FROM live_scan_events WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3`,
+        session.storeId, shiftId, packId,
+      );
+      const ticketsSold = Number(remainingShiftRows[0]?.ticketsSold ?? 0);
+      const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
+      await tx.shiftLine.update({ where: { id: line.id }, data: { endingTicket: Math.max(beginning - ticketsSold, 0), ticketsSold, salesAmount } });
       await tx.$executeRawUnsafe(`
         INSERT INTO ticket_return_requests
           (id, store_id, shift_id, pack_id, ticket_barcode, status, reason, requested_by_id, requested_by_name, sale_event_id)

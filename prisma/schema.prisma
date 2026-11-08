@@ -283,13 +283,21 @@ model DisplaySlot {
 }
 
 model Shift {
-  id         String      @id @default(cuid())
-  storeId    String
-  status     ShiftStatus @default(OPEN)
-  openedAt   DateTime    @default(now())
-  openedById String
-  closedAt   DateTime?
-  closedById String?
+  id                 String      @id @default(cuid())
+  storeId            String
+  shiftNumber        Int?        @map("shift_number")
+  terminalId         String?
+  openingCash        Decimal     @default(0) @db.Decimal(12, 2)
+  expectedCash       Decimal?    @db.Decimal(12, 2)
+  countedCash        Decimal?    @db.Decimal(12, 2)
+  cashVariance       Decimal?    @db.Decimal(12, 2)
+  cashReconciledAt   DateTime?   @db.Timestamptz(6)
+  cashReconciledById String?
+  status             ShiftStatus @default(OPEN)
+  openedAt           DateTime    @default(now())
+  openedById         String
+  closedAt           DateTime?
+  closedById         String?
   lines      ShiftLine[]
   inventoryAudit InventoryAudit?
   closedBy   User?       @relation("ShiftsClosedBy", fields: [closedById], references: [id])
@@ -297,6 +305,7 @@ model Shift {
   store      Store       @relation(fields: [storeId], references: [id])
 
   @@index([storeId, status])
+  @@index([storeId, shiftNumber, status])
   @@map("shifts")
 }
 

@@ -10,6 +10,8 @@ interface RequestRow {
   shiftId: string;
   packId: string;
   status: string;
+  saleEventId: string | null;
+  ticketBarcode: string;
 }
 
 /**
@@ -38,7 +40,8 @@ export async function POST(
       session.role === "OWNER"
         ? ((await prisma.$queryRawUnsafe(
             `
-            SELECT r.id, r.status, r.store_id AS "storeId", r.shift_id AS "shiftId", r.pack_id AS "packId"
+            SELECT r.id, r.status, r.store_id AS "storeId", r.shift_id AS "shiftId", r.pack_id AS "packId",
+              r.sale_event_id AS "saleEventId", r.ticket_barcode AS "ticketBarcode"
             FROM ticket_return_requests r
             JOIN stores ON stores.id = r.store_id
             WHERE r.id = $1 AND r.status IN ('PENDING', 'RETURNED_PENDING_REVIEW') AND stores."ownerUserId" = $2
@@ -49,7 +52,8 @@ export async function POST(
           )) as RequestRow[])
         : ((await prisma.$queryRawUnsafe(
             `
-            SELECT id, status, store_id AS "storeId", shift_id AS "shiftId", pack_id AS "packId"
+            SELECT id, status, store_id AS "storeId", shift_id AS "shiftId", pack_id AS "packId",
+              sale_event_id AS "saleEventId", ticket_barcode AS "ticketBarcode"
             FROM ticket_return_requests
             WHERE id = $1 AND store_id = $2 AND status IN ('PENDING', 'RETURNED_PENDING_REVIEW')
             LIMIT 1
@@ -120,7 +124,6 @@ export async function POST(
     }
 
     const restoredCurrent = Math.min(current + 1, beginning);
-    const ticketsSold = Math.max(beginning - restoredCurrent, 0);
 
     const slot = await prisma.displaySlot.findFirst({
       where: { storeId: request.storeId, slotNumber: line.slotNumber },
@@ -140,8 +143,6 @@ export async function POST(
       );
     }
 
-    const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
-
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const openShifts = await tx.$queryRawUnsafe<Array<{ id: string }>>(`
         SELECT id FROM shifts
@@ -149,6 +150,19 @@ export async function POST(
         FOR UPDATE
       `, shift.id, request.storeId);
       if (openShifts.length !== 1) throw new Error("RETURN_CONFLICT");
+      const lockedPacks = await tx.$queryRawUnsafe<Array<{ id: string }>>(`
+        SELECT id FROM packs WHERE id = $1 AND "storeId" = $2 FOR UPDATE
+      `, pack.id, request.storeId);
+      if (lockedPacks.length !== 1) throw new Error("RETURN_CONFLICT");
+      if (!request.saleEventId) throw new Error("RETURN_CONFLICT");
+      const latestEvents = await tx.$queryRawUnsafe<Array<{ id: string; ticketBarcode: string }>>(`
+        SELECT id, ticket_barcode AS "ticketBarcode" FROM live_scan_events
+        WHERE store_id = $1 AND pack_id = $2
+        ORDER BY scanned_at DESC, id DESC LIMIT 1
+      `, request.storeId, pack.id);
+      if (latestEvents[0]?.id !== request.saleEventId || latestEvents[0]?.ticketBarcode !== request.ticketBarcode) {
+        throw new Error("RETURN_CONFLICT");
+      }
       const claimed = await tx.$executeRawUnsafe(`
         UPDATE ticket_return_requests
         SET status = 'APPROVED', resolved_at = NOW(), resolved_by_id = $2, resolved_by_name = $3
@@ -164,27 +178,21 @@ export async function POST(
         },
       });
       if (updated.count !== 1) throw new Error("RETURN_CONFLICT");
-      await tx.$executeRawUnsafe(
-        `
-        DELETE FROM live_scan_events
-        WHERE id IN (
-          SELECT id
-          FROM live_scan_events
-          WHERE store_id = $1
-            AND shift_id = $2
-            AND pack_id = $3
-          ORDER BY scanned_at DESC
-          LIMIT 1
-        )
-        `,
-        request.storeId,
-        shift.id,
-        pack.id
+      const deleted = await tx.$executeRawUnsafe(
+        `DELETE FROM live_scan_events WHERE id = $1 AND store_id = $2 AND shift_id = $3 AND pack_id = $4`,
+        request.saleEventId, request.storeId, shift.id, pack.id,
       );
+      if (deleted !== 1) throw new Error("RETURN_CONFLICT");
+      const remainingSales = await tx.$queryRawUnsafe<Array<{ ticketsSold: number | bigint }>>(
+        `SELECT COUNT(*)::int AS "ticketsSold" FROM live_scan_events WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3`,
+        request.storeId, shift.id, pack.id,
+      );
+      const ticketsSold = Number(remainingSales[0]?.ticketsSold ?? 0);
+      const salesAmount = ticketsSold * Number(pack.ticketPrice ?? pack.game.price);
       await tx.shiftLine.update({
         where: { id: line.id },
         data: {
-          endingTicket: restoredCurrent,
+          endingTicket: Math.max(beginning - ticketsSold, 0),
           ticketsSold,
           salesAmount,
         },

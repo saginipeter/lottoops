@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { getSessionMaxAge, signSession, signMfaChallenge, SESSION_COOKIE } from "@/lib/session";
+import { getSessionMaxAge, signMfaChallenge, signSession, MFA_CHALLENGE_COOKIE, SESSION_COOKIE } from "@/lib/session";
 import { isMfaRequired } from "@/lib/mfa";
 import { findMockUser } from "@/lib/mock-users";
+import { parseShiftNumber } from "@/lib/shift-number";
+import { clearAuthenticationCookies } from "@/lib/auth-cookies";
 
 // Tries the real database first. If there's no live connection (prisma is
 // null, or the query throws — e.g. DATABASE_URL not set, Neon unreachable,
@@ -16,7 +18,7 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
     }
-    const { email, password, rememberMe: requestedRememberMe } = body as { email?: unknown; password?: unknown; rememberMe?: unknown };
+    const { email, password, rememberMe: requestedRememberMe, shiftNumber: requestedShiftNumber } = body as { email?: unknown; password?: unknown; rememberMe?: unknown; shiftNumber?: unknown };
     const rememberMe = requestedRememberMe === true;
 
     if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
@@ -118,9 +120,28 @@ export async function POST(req: NextRequest) {
       };
     }
 
+    let shiftAssignment: { shiftId: string; shiftNumber: 1 | 2 | 3 } | undefined;
+    if (authResult.role === "EMPLOYEE" || authResult.role === "SHIFT_LEAD") {
+      const shiftNumber = parseShiftNumber(requestedShiftNumber);
+      if (!shiftNumber) {
+        return NextResponse.json({ code: "SHIFT_SELECTION_REQUIRED", error: "Select Shift 1, Shift 2, or Shift 3 before signing in." }, { status: 400 });
+      }
+      if (!prisma) {
+        return NextResponse.json({ error: "Shift login requires a live store connection. Please try again when the system is online." }, { status: 503 });
+      }
+      const openShift = await prisma.shift.findFirst({
+        where: { storeId: authResult.storeId, status: "OPEN", shiftNumber },
+        select: { id: true },
+      });
+      if (!openShift) {
+        return NextResponse.json({ code: "SHIFT_NOT_OPEN", error: `Shift ${shiftNumber} is not open yet. Please ask your manager to open it.` }, { status: 409 });
+      }
+      shiftAssignment = { shiftId: openShift.id, shiftNumber };
+    }
+
     if (prisma && await isMfaRequired(authResult.userId)) {
-      const response = NextResponse.json({ mfaRequired: true }, { status: 202 });
-      response.cookies.set("lottoops_mfa_challenge", await signMfaChallenge(authResult.userId, rememberMe), {
+      const response = clearAuthenticationCookies(NextResponse.json({ mfaRequired: true }, { status: 202 }));
+      response.cookies.set(MFA_CHALLENGE_COOKIE, await signMfaChallenge(authResult.userId, rememberMe, shiftAssignment), {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
@@ -139,17 +160,19 @@ export async function POST(req: NextRequest) {
       role: authResult.role,
       grantedPermissions: authResult.grantedPermissions,
       rememberMe,
+      ...shiftAssignment,
     });
 
-    const response = NextResponse.json({
+    const response = clearAuthenticationCookies(NextResponse.json({
       ok: true,
       user: {
         name: authResult.name,
         email: authResult.email,
         role: authResult.role,
         storeName: authResult.storeName,
+        shiftNumber: shiftAssignment?.shiftNumber ?? null,
       },
-    });
+    }));
 
     response.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,

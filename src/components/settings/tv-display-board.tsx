@@ -143,10 +143,9 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
         .tv-ticket-badge-next { width:37%; max-width:104px; }
         .tv-ticket-circle { position:relative; display:grid; width:70%; aspect-ratio:1; box-sizing:border-box; padding:7%; border-radius:50%; background:linear-gradient(135deg,#ff9a9a 0%,#ef4444 26%,#991b1b 50%,#ff6b6b 73%,#b91c1c 100%); box-shadow:0 0 min(1cqi,3px) #ff9a9a,0 0 min(5cqi,14px) rgba(239,68,68,.7); transform-origin:center; }
         .tv-ticket-circle::before { position:absolute; inset:-14%; border-radius:50%; background:conic-gradient(from 26deg,transparent 0deg,#fecaca 8deg,#ef4444 42deg,transparent 54deg,transparent 124deg,#f87171 134deg,#fee2e2 164deg,transparent 180deg,transparent 304deg,#dc2626 320deg,#fecaca 340deg,transparent 352deg); mask:radial-gradient(farthest-side,transparent 89%,#000 91%); filter:drop-shadow(0 0 min(1cqi,3px) #ef4444); content:""; }
-        .tv-ticket-face { position:relative; display:grid; width:100%; height:100%; place-items:center; box-sizing:border-box; border:min(1.5cqi,4.2px) solid #fff; border-radius:50%; background:#fff; container-type:inline-size; }
-        .tv-ticket-number { display:block; max-width:100%; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc(85cqi / var(--ticket-digit-divisor,1.6)); font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:-.055em; line-height:1; text-align:center; white-space:nowrap; }
+        .tv-ticket-face { position:relative; display:grid; width:100%; height:100%; place-items:center; box-sizing:border-box; border:min(1.5cqi,4.2px) solid #fff; border-radius:50%; background:#fff; }
+        .tv-ticket-number { display:block; max-width:100%; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc(19.499cqi / var(--ticket-digit-divisor,1.6)); font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:-.055em; line-height:1; text-align:center; white-space:nowrap; }
         .tv-ticket-badge-next .tv-ticket-circle { width:62%; }
-        .tv-ticket-badge-next .tv-ticket-number { font-size:calc(85cqi / var(--ticket-digit-divisor,1.8)); }
         .tv-ticket-label { position:relative; display:block; width:100%; box-sizing:border-box; padding:min(1.5cqi,4.2px) min(.5cqi,1.5px); border:min(1cqi,3px) solid #fecaca; border-radius:999px; background:#450a0a; box-shadow:0 0 min(2cqi,6px) rgba(239,68,68,.5); color:#fee2e2; font-family:Arial,Helvetica,sans-serif; font-size:min(7cqi,21px); font-weight:900; letter-spacing:-.06em; line-height:1; text-align:center; white-space:nowrap; }
         /* Deliberate, TV-only exception to globals.css's sharp-edge !important rule. */
         .tv-ticket-circle,.tv-ticket-face { border-radius:50% !important; }
@@ -188,24 +187,42 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
   const displayNumber = formatDisplayNumber(slot.slotNumber);
   const cardRef = useRef<HTMLElement>(null);
   const currentTicketValue = getTicketDisplayValue(slot.remaining > 0 ? slot.currentTicket : null);
+  const nextTicketValue = getTicketDisplayValue(slot.remaining > 1 ? slot.nextTicket : null);
+  const sharedTicketDigitDivisor = Math.max(
+    getTicketDigitDivisor(currentTicketValue),
+    getTicketDigitDivisor(nextTicketValue),
+  );
   const displayNumberStyle = {
     "--current-ticket-digit-divisor": getTicketDigitDivisor(currentTicketValue),
+    "--ticket-digit-divisor": sharedTicketDigitDivisor,
   } as CSSProperties;
 
+  // Share the smaller live numeral size between current, next, and display labels.
   useEffect(() => {
     const card = cardRef.current;
     const currentNumber = card?.querySelector<HTMLElement>(".tv-ticket-badge-current .tv-ticket-number");
+    const nextNumber = card?.querySelector<HTMLElement>(".tv-ticket-badge-next .tv-ticket-number");
     const displayNumber = card?.querySelector<HTMLElement>(".tv-display-number");
-    if (!card || !currentNumber || !displayNumber) return;
+    if (!card || !currentNumber || !nextNumber || !displayNumber) return;
 
     const mirrorFontSize = () => {
-      displayNumber.style.fontSize = window.getComputedStyle(currentNumber).fontSize;
+      currentNumber.style.removeProperty("font-size");
+      nextNumber.style.removeProperty("font-size");
+      const sharedFontSize = Math.min(
+        Number.parseFloat(window.getComputedStyle(currentNumber).fontSize),
+        Number.parseFloat(window.getComputedStyle(nextNumber).fontSize),
+      );
+      if (Number.isFinite(sharedFontSize) && sharedFontSize > 0) {
+        currentNumber.style.fontSize = `${sharedFontSize}px`;
+        nextNumber.style.fontSize = `${sharedFontSize}px`;
+        displayNumber.style.fontSize = `${sharedFontSize}px`;
+      }
     };
     mirrorFontSize();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(mirrorFontSize);
     observer?.observe(card);
     return () => observer?.disconnect();
-  }, [currentTicketValue]);
+  }, [currentTicketValue, nextTicketValue]);
 
   return <article ref={cardRef} className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={displayNumberStyle} aria-label={`${slot.gameName} display ${displayNumber}`} data-display-id={slot.id}>
     {hasArtwork ? (
@@ -255,14 +272,13 @@ function formatDisplayNumber(slotNumber: string): string {
 
 function TicketIndicator({ kind, ticket }: { kind: "current" | "next"; ticket: number | null }) {
   const value = getTicketDisplayValue(ticket);
-  // Sizing belongs to the face, not the viewport. Digits scale and pulse with their ring.
-  const numberStyle = { "--ticket-digit-divisor": getTicketDigitDivisor(value) } as CSSProperties;
+  // The card's shared divisor keeps both values identical before hydration.
   const label = kind === "current" ? "CURRENT" : "NEXT";
   const accessibleLabel = kind === "current" ? "CURRENT TICKET" : "NEXT TICKET";
 
   return <div className={`tv-ticket-badge tv-ticket-badge-${kind}`} aria-label={`${accessibleLabel}: ${value === "—" ? "unavailable" : value}`}>
     <div className="tv-ticket-circle">
-      <div className="tv-ticket-face"><span key={value} className="tv-ticket-number" style={numberStyle}>{value}</span></div>
+      <div className="tv-ticket-face"><span key={value} className="tv-ticket-number">{value}</span></div>
     </div>
     <span className="tv-ticket-label">{label}</span>
   </div>;
@@ -273,5 +289,5 @@ function getTicketDisplayValue(ticket: number | null): string {
 }
 
 function getTicketDigitDivisor(value: string): number {
-  return Math.max(1.6, value.length * .74 + .1);
+  return Math.max(1.6, value.length * .68 + .1);
 }

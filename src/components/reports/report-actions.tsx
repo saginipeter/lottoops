@@ -4,12 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { Eye, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { resolveReportActionDocument } from "@/lib/report-action-document";
 import { renderReportDocument, type ReportDocument } from "@/lib/report-document";
 
-export function ReportActions({ document: report, loadDocument, disabled = false }: {
+export function ReportActions({ document: report, loadDocument, disabled = false, refreshOnNewAction = false, viewLabel = "View Report", printLabel = "Print Report" }: {
   document?: ReportDocument;
   loadDocument?: () => Promise<ReportDocument>;
   disabled?: boolean;
+  refreshOnNewAction?: boolean;
+  viewLabel?: string;
+  printLabel?: string;
 }) {
   const [preview, setPreview] = useState<ReportDocument | null>(null);
   const [printing, setPrinting] = useState<ReportDocument | null>(null);
@@ -30,8 +34,14 @@ export function ReportActions({ document: report, loadDocument, disabled = false
     setBusy(true);
     setError("");
     try {
-      const result = report ?? loadedSnapshot.current ?? (loadDocument ? await loadDocument() : undefined);
-      if (!result) throw new Error("Report data is unavailable.");
+      const result = await resolveReportActionDocument({
+        report,
+        loadDocument,
+        refreshOnNewAction,
+        action,
+        preview,
+        loadedSnapshot: loadedSnapshot.current,
+      });
       loadedSnapshot.current = result;
       if (action === "view") setPreview(result);
       else setPrinting(result);
@@ -86,8 +96,8 @@ export function ReportActions({ document: report, loadDocument, disabled = false
   }
 
   return <div className="inline-flex flex-wrap items-center gap-2">
-    <Button size="sm" variant="outline" disabled={disabled || busy || !!printing} onClick={() => { void prepare("view"); }}><Eye size={14} />View Report</Button>
-    <Button size="sm" variant="secondary" disabled={disabled || busy || !!printing} onClick={() => { void prepare("print"); }}><Printer size={14} />Print Report</Button>
+    <Button size="sm" variant="outline" disabled={disabled || busy || !!printing} onClick={() => { void prepare("view"); }}><Eye size={14} />{viewLabel}</Button>
+    <Button size="sm" variant="secondary" disabled={disabled || busy || !!printing} onClick={() => { void prepare("print"); }}><Printer size={14} />{printLabel}</Button>
     {error && <span role="alert" className="text-xs text-red-700">{error}</span>}
     <Dialog open={!!preview} onOpenChange={(open) => { if (!open) setPreview(null); }}>
       <DialogContent className="h-[85vh] max-w-[calc(100%-2rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-5xl" aria-describedby={undefined}>

@@ -3,10 +3,12 @@ import { ShiftPos } from "@/components/shifts/shift-pos";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { getShiftParticipants } from "@/lib/shift-participants";
+import { redirect } from "next/navigation";
 
 interface ShiftsPageProps {
   searchParams?: Promise<{
     terminal?: string;
+    shiftId?: string;
   }>;
 }
 
@@ -25,6 +27,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       </div>
     );
   }
+  if (session.role === "AUDITOR") redirect("/reports");
 
   const resolvedSearchParams = (await searchParams) ?? {};
   const terminalId =
@@ -32,43 +35,26 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       ? resolvedSearchParams.terminal.trim().toUpperCase()
       : "T1";
 
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE shifts
-    ADD COLUMN IF NOT EXISTS "terminalId" TEXT
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE shifts
-    ADD COLUMN IF NOT EXISTS "openingCash" DECIMAL(12,2) NOT NULL DEFAULT 0
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE shifts
-    ADD COLUMN IF NOT EXISTS "expectedCash" DECIMAL(12,2)
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE shifts
-    ADD COLUMN IF NOT EXISTS "countedCash" DECIMAL(12,2)
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE shifts
-    ADD COLUMN IF NOT EXISTS "cashVariance" DECIMAL(12,2)
-  `);
-
-
-  const openShiftRows = (await prisma.$queryRawUnsafe(
-    `
-    SELECT id
-    FROM shifts
-    WHERE "storeId" = $1
-      AND status = 'OPEN'
-    ORDER BY "openedAt" DESC
-    LIMIT 1
-    `,
-    session.storeId
-  )) as { id: string }[];
-
-  const openShift = openShiftRows[0]
+  const openShiftRows: Array<{ id: string; shiftNumber: number | null; openedAt: Date }> = await prisma.shift.findMany({
+    where: {
+      storeId: session.storeId,
+      status: "OPEN",
+      ...(session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"
+        ? { id: session.shiftId ?? "__employee_has_no_selected_shift__" }
+        : {}),
+    },
+    select: { id: true, shiftNumber: true, openedAt: true },
+    orderBy: [{ shiftNumber: "asc" }, { openedAt: "asc" }],
+  });
+  const requestedShiftId = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"
+    ? session.shiftId
+    : typeof resolvedSearchParams.shiftId === "string" ? resolvedSearchParams.shiftId : undefined;
+  const selectedShift = requestedShiftId
+    ? openShiftRows.find((row) => row.id === requestedShiftId)
+    : openShiftRows.length === 1 ? openShiftRows[0] : null;
+  const openShift = selectedShift
     ? await prisma.shift.findUnique({
-        where: { id: openShiftRows[0].id },
+        where: { id: selectedShift.id },
         include: {
           openedBy: {
             select: {
@@ -130,9 +116,8 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
           timestamp: {
             gte: openShift.openedAt,
           },
-          action: {
-            in: ["SHIFT_OPEN", "ACTIVATED", "RETURNED", "SOLD_OUT", "SHIFT_CLOSE"],
-          },
+          action: { in: ["SHIFT_OPEN", "SHIFT_CLOSE"] },
+          detail: { contains: `Shift ${openShift.shiftNumber ?? "Unnumbered"}` },
         },
         include: {
           performedBy: {
@@ -193,6 +178,10 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       shift={hydratedShiftData}
       recentClosedShift={recentClosedShift ? JSON.parse(JSON.stringify(recentClosedShift)) : null}
       terminalId={terminalId}
+      openShifts={openShiftRows.map((row) => ({ id: row.id, shiftNumber: row.shiftNumber, openedAt: row.openedAt.toISOString() }))}
+      selectedShiftId={openShift?.id ?? null}
+      canManageShifts={session.role === "OWNER" || session.role === "MANAGER"}
+      isEmployee={session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"}
       activeDisplayPackCount={activePackCount}
       shiftEvents={eventData}
       participants={JSON.parse(JSON.stringify(participants))}

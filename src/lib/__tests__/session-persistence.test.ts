@@ -41,3 +41,17 @@ test("the keep-logged-in choice survives the MFA challenge", async () => {
   const challenge = await verifyMfaChallenge(await signMfaChallenge("user", true));
   assert.deepEqual(challenge, { userId: "user", rememberMe: true });
 });
+
+test("the employee's selected numbered shift survives MFA and remains in the session", async () => {
+  const assignment = { shiftId: "open-shift-2", shiftNumber: 2 as const };
+  const challenge = await verifyMfaChallenge(await signMfaChallenge("user", false, assignment));
+  assert.deepEqual(challenge, { userId: "user", rememberMe: false, ...assignment });
+  const verified = await verifySession(await signSession({ ...session, ...assignment }));
+  assert.equal(verified?.shiftId, assignment.shiftId);
+  assert.equal(verified?.shiftNumber, assignment.shiftNumber);
+});
+
+test("invalid shift claims cannot be accepted from an MFA token", async () => {
+  const token = await signMfaChallenge("user", false, { shiftId: "open-shift-2", shiftNumber: 2 });
+  assert.equal((await verifyMfaChallenge(token))?.shiftNumber, 2);
+});

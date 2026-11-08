@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
-import { signSession, SESSION_COOKIE } from "@/lib/session";
+import { signSession, PLATFORM_SESSION_BACKUP_COOKIE, SESSION_COOKIE } from "@/lib/session";
 import { logPlatformActivity } from "@/lib/platform-audit";
 import { consumeSupportAccess, isSameOriginMutation, SupportAccessError } from "@/lib/support-access";
-
-const BACKUP_COOKIE = "lottoops_platform_session_backup";
 
 export async function POST(request: NextRequest) {
   if (!isSameOriginMutation(request)) return NextResponse.json({ error: "Same-origin request required." }, { status: 403 });
@@ -27,7 +25,7 @@ export async function POST(request: NextRequest) {
   const token = await signSession(supportSession);
   const response = NextResponse.json({ success: true, store: { id: store.id, name: store.name }, user: { name: target.name, role: supportSession.role } }, { headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   await logPlatformActivity({ action: "SUPPORT_ACCESS_REDEEMED", entityType: "STORE", entityId: store.id, detail: `Owner-approved support session started for request ${access.id}.`, performedById: session.userId, performedByName: session.name });
-  response.cookies.set(BACKUP_COOKIE, await signSession(session), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 30, path: "/" });
+  response.cookies.set(PLATFORM_SESSION_BACKUP_COOKIE, await signSession(session), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 30, path: "/" });
   response.cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 30, path: "/" });
   return response;
 }

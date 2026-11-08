@@ -16,7 +16,7 @@ interface GamePerformance {
 }
 type Numeric = number | string | { toString(): string };
 interface ReportShiftRecord {
-  id: string; openedAt: Date; closedAt: Date | null;
+  id: string; shiftNumber: number | null; openedAt: Date; closedAt: Date | null;
   openedBy: { name: string }; closedBy: { name: string } | null;
   lines: Array<{
     packId: string; slotNumber: string; beginningTicket: number;
@@ -48,7 +48,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
-  const shiftId = searchParams.get("shiftId");
+  const requestedShiftId = searchParams.get("shiftId");
+  const shiftBoundRole = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+  if (shiftBoundRole && (!session.shiftId || (requestedShiftId && requestedShiftId !== session.shiftId))) {
+    return NextResponse.json({ error: "You can only access reports for your assigned numbered shift." }, { status: 403 });
+  }
+  const shiftId = shiftBoundRole ? session.shiftId! : requestedShiftId;
   if (shiftId !== null && !shiftId.trim()) {
     return NextResponse.json({ error: "Shift ID is required." }, { status: 400 });
   }
@@ -139,6 +144,7 @@ export async function GET(req: NextRequest) {
 
     return {
       id: shift.id,
+      shiftNumber: shift.shiftNumber,
       storeName: session.storeName,
       ...readShiftCashRecord(cashByShift.get(shift.id)),
       openedAt: shift.openedAt,

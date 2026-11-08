@@ -48,9 +48,10 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, /class="tv-display-number">#001<\/strong>/);
     assert.match(html, /class="tv-display-number">#002<\/strong>/);
     assert.match(html, /--current-ticket-digit-divisor:1\.6/);
+    assert.match(html, /--ticket-digit-divisor:1\.6/);
     assert.match(html, /\.tv-display-number \{ display:block; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc\(\(min\(18\.9969cqi,57\.9233px\) - 1\.7px\) \/ var\(--current-ticket-digit-divisor,1\.6\)\);/);
-    assert.match(html, /\.tv-ticket-number \{ display:block; max-width:100%; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc\(85cqi \/ var\(--ticket-digit-divisor,1\.6\)\);/);
-    assert.match(html, /\.tv-ticket-badge-next \.tv-ticket-number \{ font-size:calc\(85cqi \/ var\(--ticket-digit-divisor,1\.8\)\); \}/);
+    assert.match(html, /\.tv-ticket-number \{ display:block; max-width:100%; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc\(19\.499cqi \/ var\(--ticket-digit-divisor,1\.6\)\);/);
+    assert.doesNotMatch(html, /\.tv-ticket-badge-next \.tv-ticket-number \{/);
     assert.match(html, /\.tv-ticket-label \{[^}]*font-size:min\(7cqi,21px\);[^}]*letter-spacing:-\.06em;/);
     assert.match(html, />\$1</);
     assert.match(html, /\.tv-price-badge \{ align-items:flex-start; border-color:#fff; border-radius:3px; background:#fff; color:#050505;/);

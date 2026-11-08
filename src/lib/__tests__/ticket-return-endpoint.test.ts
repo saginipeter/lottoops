@@ -10,18 +10,18 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   const sessionPath = require.resolve("../api-session");
   const prismaPath = require.resolve("../prisma");
   const originals = [require.cache[sessionPath], require.cache[prismaPath]];
-  const staff = { userId: "staff", storeId: "store", name: "Staff", role: "EMPLOYEE" };
+  const staff = { userId: "staff", storeId: "store", name: "Staff", role: "EMPLOYEE", shiftId: "shift", shiftNumber: 1 };
   let session: typeof staff | null = staff;
   const initial = () => ({
     pack: { id: "pack", storeId: "store", serialNumber: "P1", status: "ACTIVE", currentTicketNumber: 9, firstTicket: 1, ticketQuantity: 10, ticketPrice: null as number | null, game: { price: 5 }, completedAt: null },
     shift: { id: "shift", storeId: "store", status: "OPEN", lines: [{ id: "line", packId: "pack", slotNumber: "1", beginningTicket: 10, endingTicket: 9, ticketsSold: 1, salesAmount: 5 }] },
     slot: { id: "slot", storeId: "store", packId: "pack" as string | null },
     // Deliberately older than two minutes and sold by somebody else.
-    events: [{ id: "sale", ticketBarcode: "barcode", scannedAt: new Date("2020-01-01"), scannedById: "other-staff" }],
-    requests: [] as Array<{ id: string; storeId: string; shiftId: string; packId: string; status: string; saleEventId?: string }>,
+    events: [{ id: "sale", ticketBarcode: "barcode", scannedAt: new Date("2020-01-01"), scannedById: "other-staff" }] as Array<{ id: string; ticketBarcode: string; scannedAt: Date; scannedById: string; clientRequestId?: string | null }>,
+    requests: [] as Array<{ id: string; storeId: string; shiftId: string; packId: string; status: string; saleEventId?: string; ticketBarcode?: string }>,
     notifications: [] as Array<{ id: string; entityId: string; title: string; detail: string; severity: string; createdAt: Date }>,
     cash: { expectedCash: 0, countedCash: 0, cashVariance: 0 },
-    audit: { id: "audit", status: "COMPLETED", lines: [{ beginningPhysicalTicket: 1 as number | null, endingPhysicalTicket: 2 as number | null, active: true }] },
+    audit: { id: "audit", status: "COMPLETED", lines: [{ packId: "pack", beginningPhysicalTicket: 1 as number | null, endingPhysicalTicket: 2 as number | null, active: true }] },
   });
   let state = initial();
   let fail = "";
@@ -35,13 +35,17 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   type Query = { where: Record<string, unknown>; data?: Record<string, unknown>; include?: Record<string, unknown>; select?: Record<string, unknown> };
   const fakePrisma = {
     pack: {
-      findMany: async () => [],
+      findMany: async ({ select }: Query) => select?.id && Object.keys(select).length === 1
+        ? state.pack.status === "ACTIVE" && state.slot.packId === state.pack.id ? [{ id: state.pack.id }] : []
+        : [],
       findFirst: async ({ where }: Query) => {
         calls.push("pack.read");
         if (where.serialNumber && where.storeId === "store") {
           return { ...state.pack, slot: { slotNumber: "1" }, sequenceLocked: false, firstOrLastTicket: "FIRST", gameNumber: "1234", game: { ...state.pack.game, name: "Game", gameNumber: "1234" } };
         }
-        return where.id === state.pack.id && where.storeId === state.pack.storeId ? state.pack : null;
+        return where.id === state.pack.id && where.storeId === state.pack.storeId
+          ? { ...state.pack, sequenceLocked: false, firstOrLastTicket: "FIRST", gameNumber: "1234", slot: { slotNumber: "1" }, game: { ...state.pack.game, name: "Game", gameNumber: "1234", ticketsPerPack: 10 } }
+          : null;
       },
       count: async () => {
         assert.equal(insideTransaction, true);
@@ -61,7 +65,9 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       },
     },
     shift: {
-      findMany: async () => [],
+      findMany: async ({ select }: Query) => select?.shiftNumber
+        ? state.shift.status === "OPEN" ? [{ id: state.shift.id, shiftNumber: 1 }] : []
+        : [{ ...state.shift, openedBy: { name: "Manager" }, openedAt: new Date(), inventoryAudit: state.audit }],
       findUnique: async ({ where, include }: Query) => {
         if (include) {
           assert.equal(insideTransaction, true, "close must not read inventory outside its transaction");
@@ -82,6 +88,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     shipment: { findMany: async () => [] },
     shiftLine: {
       findFirst: async () => state.shift.lines[0],
+      findUnique: async () => state.shift.lines[0],
       update: async ({ data }: Query) => {
         calls.push("line.write");
         Object.assign(state.shift.lines[0], data);
@@ -124,15 +131,35 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         locks.push(sql.includes("FROM shifts") ? "shift" : sql.includes("JOIN shift_lines") ? "packs" : "pack");
         if (sql.includes("status = 'OPEN'")) {
           assert.match(sql, /FROM shifts/);
-          return state.shift.status === "OPEN" && fail !== "close-race" ? [{ id: state.shift.id }] : [];
+            return state.shift.status === "OPEN" && fail !== "close-race" ? [{ id: state.shift.id, shiftNumber: 1 }] : [];
         }
         return [{ id: values[0] }];
       }
       if (sql.includes("FROM live_scan_events")) {
+        if (sql.includes("client_request_id = $4")) {
+          assert.deepEqual(values, [1, session?.storeId, session?.userId, "pos-request-1"]);
+          return state.events.filter((event) => event.clientRequestId === values[3] && event.scannedById === values[2]).map((event) => ({
+            id: event.id, shiftId: "shift", shiftNumber: 1, packId: "pack", ticketBarcode: event.ticketBarcode,
+          }));
+        }
+        if (sql.includes("client_request_id = $3")) {
+          assert.deepEqual(values, [session?.storeId, session?.userId, "pos-request-1"]);
+          return state.events.filter((event) => event.clientRequestId === values[2] && event.scannedById === values[1]).map((event) => ({
+            id: event.id, shiftId: "shift", shiftNumber: 1, packId: "pack", ticketBarcode: event.ticketBarcode,
+          }));
+        }
         if (sql.includes("ticket_barcode = $3")) {
           return state.events.filter((event) => event.ticketBarcode === values[2]);
         }
-        assert.deepEqual(values, [session?.storeId, "shift", "pack"]);
+        if (sql.includes("GROUP BY pack_id")) {
+          assert.deepEqual(values, [session?.storeId, "shift"]);
+          return state.events.length ? [{ packId: "pack", ticketsSold: state.events.length }] : [];
+        }
+        if (sql.includes("COUNT(*)")) {
+          assert.deepEqual(values, [session?.storeId, "shift", "pack"]);
+          return [{ ticketsSold: state.events.length }];
+        }
+        assert.deepEqual(values, [session?.storeId, "pack"]);
         assert.match(sql, /ORDER BY scanned_at DESC, id DESC/);
         return state.events.slice(-1);
       }
@@ -177,7 +204,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         return 1;
       }
       if (sql.includes("INSERT INTO live_scan_events")) {
-        state.events.push({ id: String(values[0]), ticketBarcode: String(values[4]), scannedAt: new Date(), scannedById: String(values[5]) });
+        state.events.push({ id: String(values[0]), ticketBarcode: String(values[4]), scannedAt: new Date(), clientRequestId: values[5] == null ? null : String(values[5]), scannedById: String(values[6]) });
         return 1;
       }
       if (sql.includes("INSERT INTO inventory_notifications")) {
@@ -192,7 +219,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       if (sql.includes("INSERT INTO ticket_return_requests")) {
         assert.match(sql, /'RETURNED_PENDING_REVIEW'/);
         assert.equal(state.requests.some((row) => row.storeId === values[1] && row.saleEventId === values[8]), false);
-        state.requests.push({ id: String(values[0]), storeId: String(values[1]), shiftId: String(values[2]), packId: String(values[3]), status: "RETURNED_PENDING_REVIEW", saleEventId: String(values[8]) });
+        state.requests.push({ id: String(values[0]), storeId: String(values[1]), shiftId: String(values[2]), packId: String(values[3]), status: "RETURNED_PENDING_REVIEW", saleEventId: String(values[8]), ticketBarcode: String(values[4]) });
         return 1;
       }
       if (sql.includes("DELETE FROM live_scan_events")) {
@@ -308,6 +335,8 @@ test("ticket return endpoints restore immediately and resolve reviews without re
 
   await context.test("sold-out packs restore into an empty original slot with consistent counts", async () => {
     reset(); state.pack.status = "SOLD_OUT"; state.pack.currentTicketNumber = 0; state.slot.packId = null;
+    state.events = Array.from({ length: 9 }, (_, index) => ({ id: `prior-${index}`, ticketBarcode: `prior-barcode-${index}`, scannedAt: new Date(index), scannedById: "other-staff" }));
+    state.events.push({ id: "sale", ticketBarcode: "barcode", scannedAt: new Date(), scannedById: "staff" });
     assert.equal((await POST(request())).status, 200);
     assert.equal(state.pack.status, "ACTIVE");
     assert.equal(state.pack.currentTicketNumber, 1);
@@ -335,6 +364,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
 
   await context.test("sales totals use the same pack-specific price as the sell endpoint", async () => {
     reset(); state.pack.currentTicketNumber = 8; state.pack.ticketPrice = 10;
+    state.events.unshift({ id: "prior-sale", ticketBarcode: "older-barcode", scannedAt: new Date(0), scannedById: "other-staff" });
     const response = await POST(request());
     assert.equal(response.status, 200);
     assert.equal((await response.json()).salesAmount, 10);
@@ -356,7 +386,8 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       if (scenario === "missing-slot") fail = scenario;
       const overrides = scenario === "foreign-pack" ? { packId: "foreign" } : scenario === "foreign-shift" ? { shiftId: "foreign" } : scenario === "wrong-barcode" ? { ticketBarcode: "older" } : {};
       const response = await POST(request(overrides));
-      assert.equal(response.status, scenario.startsWith("foreign-") ? 404 : 409, scenario);
+      const expectedStatus = scenario === "foreign-shift" ? 403 : scenario.startsWith("foreign-") ? 404 : 409;
+      assert.equal(response.status, expectedStatus, scenario);
       assert.equal(state.requests.length, 0, scenario);
       assert.equal(state.notifications.length, 0, scenario);
       assert.ok(!calls.includes("pack.write"), scenario);
@@ -444,7 +475,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   await context.test("legacy PENDING approval still restores once, denial leaves its sale intact", async () => {
     for (const action of [approve, deny]) {
       reset(); session = { ...staff, role: "MANAGER" };
-      state.requests.push({ id: "legacy", storeId: "store", shiftId: "shift", packId: "pack", status: "PENDING" });
+      state.requests.push({ id: "legacy", storeId: "store", shiftId: "shift", packId: "pack", status: "PENDING", saleEventId: "sale", ticketBarcode: "barcode" });
       assert.equal((await resolve(action)).status, 200);
       assert.equal(state.requests[0].status, action === approve ? "APPROVED" : "DENIED");
       assert.equal(state.pack.currentTicketNumber, action === approve ? 10 : 9);
@@ -456,7 +487,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   await context.test("legacy approval rejects closed shifts and rolls back concurrent close or slot occupation", async () => {
     for (const scenario of ["closed", "close-race", "slot"]) {
       reset(); session = { ...staff, role: "MANAGER" };
-      state.requests.push({ id: "legacy", storeId: "store", shiftId: "shift", packId: "pack", status: "PENDING" });
+      state.requests.push({ id: "legacy", storeId: "store", shiftId: "shift", packId: "pack", status: "PENDING", saleEventId: "sale", ticketBarcode: "barcode" });
       if (scenario === "closed") state.shift.status = "CLOSED";
       else fail = scenario;
       const before = structuredClone(state);
@@ -468,11 +499,13 @@ test("ticket return endpoints restore immediately and resolve reviews without re
 
   await context.test("sale responses expose the persisted event ID and concurrent close rejects a sale before inventory writes", async (subcontext) => {
     subcontext.mock.method(console, "error", () => {});
-    const saleRequest = () => new NextRequest("http://localhost/api/packs/check-serial", {
+    const saleRequest = (clientRequestId?: string, serialNumber = "12340000001002") => new NextRequest("http://localhost/api/packs/check-serial", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serialNumber: "12340000001002", liveScan: true, terminalId: "T1" }),
+      body: JSON.stringify({ serialNumber, liveScan: true, terminalId: "T1", shiftId: "shift", ...(clientRequestId ? { clientRequestId } : {}) }),
     });
     reset();
+    state.audit.status = "OPEN";
+    state.events = [];
     const response = await sellTicket(saleRequest());
     assert.equal(response.status, 200);
     const sale = await response.json();
@@ -481,6 +514,24 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal(sale.shiftId, "shift");
     assert.equal(state.pack.currentTicketNumber, 8);
     assert.equal(locks[0], "shift");
+
+    reset();
+    state.audit.status = "OPEN";
+    state.events = [];
+    const committedResponse = await sellTicket(saleRequest("pos-request-1"));
+    assert.equal(committedResponse.status, 200);
+    const committedSale = await committedResponse.json();
+    const eventCount = state.events.length;
+    const packPosition = state.pack.currentTicketNumber;
+    const replayResponse = await sellTicket(saleRequest("pos-request-1"));
+    assert.equal(replayResponse.status, 200);
+    const replayedSale = await replayResponse.json();
+    assert.equal(replayedSale.idempotentReplay, true);
+    assert.equal(replayedSale.saleId, committedSale.saleId);
+    assert.equal(state.events.length, eventCount);
+    assert.equal(state.pack.currentTicketNumber, packPosition);
+    assert.equal((await sellTicket(saleRequest("pos-request-1", "12340000001003"))).status, 409);
+    assert.equal(state.events.length, eventCount, "a request ID cannot acknowledge a different ticket barcode");
 
     reset(); fail = "close-race";
     const before = structuredClone(state);
@@ -567,11 +618,11 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     reset(); state.pack.status = "SOLD_OUT"; state.pack.currentTicketNumber = 0; state.slot.packId = null;
     state.audit.status = "OPEN"; state.audit.lines = [];
     assert.equal((await closeShift(closeRequest({ countedCash: 150 }))).status, 200);
-    assert.equal(state.cash.expectedCash, 150);
-    assert.equal(state.shift.lines[0].ticketsSold, 10);
+    assert.equal(state.cash.expectedCash, 105, "only this shift's single recorded sale contributes to cash expectations");
+    assert.equal(state.shift.lines[0].ticketsSold, 1, "global stock may be depleted by sales on another concurrent shift");
 
     reset();
-    state.audit.lines.push({ beginningPhysicalTicket: 1, endingPhysicalTicket: null, active: false });
+    state.audit.lines.push({ packId: "retired-pack", beginningPhysicalTicket: 1, endingPhysicalTicket: null, active: false });
     assert.equal((await closeShift(closeRequest())).status, 200);
   });
 });

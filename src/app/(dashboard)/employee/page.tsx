@@ -39,7 +39,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     typeof resolvedSearchParams.terminal === "string" && /^T[1-4]$/i.test(resolvedSearchParams.terminal)
       ? resolvedSearchParams.terminal.toUpperCase()
       : "T1";
-  let openShift: { id: string } | null = null;
+  let openShift: { id: string; shiftNumber: number | null } | null = null;
   let audit: {
     status: string;
     lines: Array<{ beginningPhysicalTicket: number | null; endingPhysicalTicket: number | null }>;
@@ -47,17 +47,14 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
 
   if (prisma) {
     try {
-      const openShiftRows = await prisma.$queryRawUnsafe(
-        `SELECT id FROM shifts WHERE "storeId" = $1 AND status = 'OPEN' ORDER BY "openedAt" DESC LIMIT 1`,
-        session.storeId,
-      ) as Array<{ id: string }>;
-      openShift = openShiftRows[0] ?? null;
+      openShift = session.shiftId
+        ? await prisma.shift.findFirst({
+            where: { id: session.shiftId, storeId: session.storeId, status: "OPEN", shiftNumber: session.shiftNumber },
+            select: { id: true, shiftNumber: true },
+          })
+        : null;
     } catch {
-      openShift = await prisma.shift.findFirst({
-        where: { storeId: session.storeId, status: "OPEN" },
-        orderBy: { openedAt: "desc" },
-        select: { id: true },
-      });
+      openShift = null;
     }
 
     if (openShift) {
@@ -92,35 +89,35 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     {
       label: "Open shift",
       description: "Start the terminal shift and snapshot active display packs.",
-      href: `/shifts?terminal=${terminalId}`,
+      href: `/shifts?terminal=${terminalId}&shiftId=${openShift?.id ?? ""}`,
       state: shiftOpen ? "complete" : "ready",
       action: shiftOpen ? "Open" : "Start",
     },
     {
       label: "Opening physical audit",
       description: "Scan each display pack and record its starting ticket before sales.",
-      href: `/shifts?terminal=${terminalId}#physical-audit`,
+      href: `/shifts?terminal=${terminalId}&shiftId=${openShift?.id ?? ""}#physical-audit`,
       state: beginningAuditComplete ? "complete" : shiftOpen ? "ready" : "locked",
       action: beginningAuditComplete ? "Done" : "Audit",
     },
     {
       label: "Sell tickets",
       description: "Scan and record lottery ticket sales.",
-      href: "/pos",
+      href: openShift ? `/pos?shiftId=${encodeURIComponent(openShift.id)}` : "/shifts",
       state: shiftOpen ? "ready" : "locked",
       action: "Scan",
     },
     {
       label: "Closing physical audit",
       description: "Verify remaining tickets before closing the shift.",
-      href: `/shifts?terminal=${terminalId}#physical-audit`,
+      href: `/shifts?terminal=${terminalId}&shiftId=${openShift?.id ?? ""}#physical-audit`,
       state: auditComplete || endingAuditComplete ? "complete" : beginningAuditComplete ? "ready" : "locked",
       action: auditComplete || endingAuditComplete ? "Done" : "Audit",
     },
     {
       label: "Close shift",
       description: "Finalize sales and hand off any unresolved variance.",
-      href: `/shifts?terminal=${terminalId}`,
+      href: `/shifts?terminal=${terminalId}&shiftId=${openShift?.id ?? ""}`,
       state: auditComplete ? "ready" : "locked",
       action: "Close",
     },
@@ -138,7 +135,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Employee terminal</p>
                 <h1 className="mt-2 text-2xl font-bold tracking-tight">Welcome, {session.name.split(" ")[0]}</h1>
-                <p className="mt-1 text-sm text-text-secondary">{session.storeName ?? "Your store"} <span className="px-1 text-text-tertiary">·</span> Terminal {terminalId}</p>
+                <p className="mt-1 text-sm text-text-secondary">{session.storeName ?? "Your store"} <span className="px-1 text-text-tertiary">·</span> Terminal {terminalId}{openShift ? ` · Shift ${openShift.shiftNumber ?? "—"}` : ""}</p>
               </div>
               <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-accent/30 bg-accent-soft text-accent"><ShieldCheck size={21} /></div>
             </div>
@@ -180,7 +177,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
           </section>
 
           <section className="mt-4" aria-label="Employee tools">
-            <Link href="/pos" className="group flex min-h-28 items-center gap-4 bg-[#17233f] p-4 text-white shadow-[0_6px_0_#0d1528] active:translate-y-0.5">
+            <Link href={openShift ? `/pos?shiftId=${encodeURIComponent(openShift.id)}` : "/shifts"} className="group flex min-h-28 items-center gap-4 bg-[#17233f] p-4 text-white shadow-[0_6px_0_#0d1528] active:translate-y-0.5">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-white/25 bg-white/10"><ShoppingCart size={21} /></div>
               <div className="min-w-0 flex-1"><h2 className="text-base font-semibold">Sell tickets</h2><p className="mt-1 text-xs text-white/70">Scan sales and return the most recent ticket with a reason.</p></div>
               <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />

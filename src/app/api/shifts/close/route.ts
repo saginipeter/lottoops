@@ -23,17 +23,12 @@ export async function POST(req: NextRequest) {
     const shiftId = typeof body?.shiftId === "string" ? body.shiftId.trim() : "";
     const countedCash = Number(body?.countedCash);
     if (!shiftId) return NextResponse.json({ error: "Shift ID is required." }, { status: 400 });
+    if ((session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD") && session.shiftId !== shiftId) {
+      return NextResponse.json({ error: "You can only close the numbered shift assigned to your current session." }, { status: 403 });
+    }
     if (!Number.isFinite(countedCash) || countedCash < 0) {
       return NextResponse.json({ error: "Count the cash drawer before closing this shift." }, { status: 409 });
     }
-    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "terminalId" TEXT`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "openingCash" DECIMAL(12,2) NOT NULL DEFAULT 0`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "expectedCash" DECIMAL(12,2)`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "countedCash" DECIMAL(12,2)`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashVariance" DECIMAL(12,2)`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashReconciledAt" TIMESTAMPTZ`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS "cashReconciledById" TEXT`);
-
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Returns and sales lock the shift before packs. Read inventory only after both locks.
       await tx.$queryRawUnsafe(
@@ -85,29 +80,39 @@ export async function POST(req: NextRequest) {
         throw new CloseError("Complete the Closing Audit before closing this shift.", 409);
       }
 
+      const salesByPackRows = await tx.$queryRawUnsafe<Array<{ packId: string; ticketsSold: number | bigint }>>(
+        `SELECT pack_id AS "packId", COUNT(*)::int AS "ticketsSold" FROM live_scan_events WHERE store_id = $1 AND shift_id = $2 GROUP BY pack_id`,
+        session.storeId, shift.id,
+      );
+      const salesByPack = new Map(salesByPackRows.map((row) => [row.packId, Number(row.ticketsSold)]));
+
       let totalSales = 0;
       let totalTickets = 0;
       for (const line of shift.lines) {
         const beginning = line.beginningTicket;
-        const ending = Number(line.pack.currentTicketNumber ?? beginning);
+        const ticketsSold = salesByPack.get(line.packId) ?? 0;
+        const sharedCurrent = Number(line.pack.currentTicketNumber ?? 0);
+        const firstTicket = Number(line.pack.firstTicket ?? 1);
+        const ticketQuantity = Number(line.pack.ticketQuantity ?? line.pack.game.ticketsPerPack ?? 0);
+        const maximumRemaining = Math.max(ticketQuantity - firstTicket + 1, 0);
+        if (!Number.isInteger(sharedCurrent) || sharedCurrent < 0 || sharedCurrent > maximumRemaining ||
+            (line.pack.status === "ACTIVE" && sharedCurrent === 0) || (line.pack.status === "SOLD_OUT" && sharedCurrent !== 0)) {
+          throw new CloseError(`The shared ticket position for pack ${line.pack.serialNumber} needs manager correction before closing.`, 409);
+        }
+        if (!Number.isInteger(beginning) || beginning < 0 || !Number.isInteger(ticketsSold) || ticketsSold < 0 || ticketsSold > beginning) {
+          throw new CloseError(`The recorded sales count for pack ${line.pack.serialNumber} exceeds this shift's opening balance.`, 409);
+        }
+        const ending = beginning - ticketsSold;
         const ticketError = validateEndingTicket(beginning, ending);
         if (ticketError) {
-          throw new CloseError(`Invalid ending ticket for pack ${line.pack.serialNumber}. ${ticketError}`, 409);
+          throw new CloseError(`Invalid shift-local ending ticket for pack ${line.pack.serialNumber}. ${ticketError}`, 409);
         }
-        const ticketsSold = Math.max(beginning - ending, 0);
         const sales = ticketsSold * Number(line.pack.ticketPrice ?? line.pack.game.price ?? 0);
         totalTickets += ticketsSold;
         totalSales += sales;
         await tx.shiftLine.update({
           where: { id: line.id }, data: { endingTicket: ending, ticketsSold, salesAmount: sales },
         });
-        await tx.pack.update({
-          where: { id: line.pack.id },
-          data: ending <= 0 ? { status: "SOLD_OUT", currentTicketNumber: 0 } : { currentTicketNumber: ending },
-        });
-        if (ending <= 0) {
-          await tx.displaySlot.updateMany({ where: { packId: line.pack.id }, data: { packId: null } });
-        }
       }
       const expectedCash = openingCash + totalSales;
       const cashVariance = countedCash - expectedCash;
@@ -120,7 +125,7 @@ export async function POST(req: NextRequest) {
         data: { status: "CLOSED", closedAt: new Date(), closedById: session.userId },
       });
       await tx.scanLogEntry.create({
-        data: { storeId: session.storeId, action: "SHIFT_CLOSE", performedById: session.userId, detail: "Shift closed successfully." },
+        data: { storeId: session.storeId, action: "SHIFT_CLOSE", performedById: session.userId, detail: `Shift ${shift.shiftNumber ?? "Unnumbered"} closed successfully.` },
       });
       return { terminalId, totalTickets, totalSales, openingCash, expectedCash, countedCash, cashVariance };
     });

@@ -3,19 +3,6 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 
-async function ensureApprovalPinSchema() {
-  if (!prisma) throw new Error("Database not connected");
-
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS store_security_settings (
-      store_id TEXT PRIMARY KEY REFERENCES stores(id) ON DELETE CASCADE,
-      approval_pin_hash TEXT NOT NULL,
-      updated_by_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-}
-
 export async function GET() {
   const session = await getApiSession();
   if (!session) {
@@ -29,8 +16,6 @@ export async function GET() {
   }
 
   try {
-    await ensureApprovalPinSchema();
-
     const rows = (await prisma.$queryRawUnsafe(
       `
       SELECT updated_at
@@ -79,7 +64,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "PIN confirmation does not match." }, { status: 400 });
     }
 
-    await ensureApprovalPinSchema();
     const pinHash = await bcrypt.hash(pin, 12);
     await prisma.$executeRawUnsafe(
       `
@@ -102,4 +86,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unable to save approval PIN." }, { status: 500 });
   }
 }
-

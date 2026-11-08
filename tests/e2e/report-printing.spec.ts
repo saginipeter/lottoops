@@ -114,18 +114,22 @@ test.describe("Data-only report documents", () => {
       json: {
         summary: { totalGross: 10, totalCogs: 9.5, totalNet: 0.5, totalTickets: 10, avgMarginPct: 5, shiftCount: 1 },
         shifts: [{
-          id: "closed-shift", storeName: "Report Store", terminalId: "Terminal A",
+          id: "closed-shift", shiftNumber: 1, storeName: "Report Store", terminalId: "Terminal A",
           openedAt: "2026-10-14T08:00:00Z", closedAt: "2026-10-14T12:00:00Z",
           openedBy: "Opening Operator", closedBy: "Closing Operator",
           grossSales: 10, cogs: 9.5, netMargin: 0.5, marginPct: 5, ticketsSold: 10,
           gameBreakdown: [{ name: "Game A", tickets: 10, sales: 10, cost: 9.5 }],
-          packSales: [{ pack: "pack-A", game: "Game A", display: "1", beginning: 100, ending: 90, tickets: 10, sales: 10 }],
+          packSales: [
+            { pack: "pack-ten", game: "Game A", display: "10", beginning: 50, ending: 49, tickets: 1, sales: 1 },
+            { pack: "pack-two", game: "Game A", display: "2", beginning: 50, ending: 49, tickets: 1, sales: 1 },
+            { pack: "pack-A", game: "Game A", display: "1", beginning: 100, ending: 90, tickets: 10, sales: 10 },
+          ],
           audit: [{ pack: "pack-A", display: "1", direction: "FIRST", beginningExpected: 1, beginning: 1, expected: 11, ending: 12 }],
           auditOpenedBy: "Opening Operator", auditClosedBy: "Closing Operator",
           auditOpenedAt: "2026-10-14T08:00:00Z", auditClosedAt: "2026-10-14T12:00:00Z",
           cash: { openingCash: 100, expectedCash: 110, countedCash: 108, cashVariance: -2, reconciledAt: "2026-10-14T12:00:00Z", reconciledBy: "Closing Operator" },
         }, {
-          id: "other-shift", storeName: "Report Store", terminalId: "Terminal B",
+          id: "other-shift", shiftNumber: 2, storeName: "Report Store", terminalId: "Terminal B",
           openedAt: "2026-10-14T13:00:00Z", closedAt: "2026-10-14T17:00:00Z",
           openedBy: "Other Operator", closedBy: "Other Operator",
           grossSales: 999, cogs: 0, netMargin: 999, marginPct: 100, ticketsSold: 999,
@@ -138,14 +142,27 @@ test.describe("Data-only report documents", () => {
     }));
     await page.goto("/admin/reports");
     const selected = page.getByRole("row").filter({ has: page.getByText("Opening Operator", { exact: true }) }).first();
+    await expect(selected.getByText("Shift 1", { exact: true })).toBeVisible();
+    await selected.click();
+    await expect(page.getByText("Pack Sales by Display", { exact: true })).toBeVisible();
+    const displayRows = page.locator("table").last().locator("tbody tr");
+    await expect(displayRows).toHaveCount(3);
+    await expect(displayRows.nth(0).locator("td").first()).toHaveText("1");
+    await expect(displayRows.nth(1).locator("td").first()).toHaveText("2");
+    await expect(displayRows.nth(2).locator("td").first()).toHaveText("10");
     await selected.getByRole("button", { name: "View Report", exact: true }).click();
     const preview = page.frameLocator('iframe[title$=" preview"]');
     await expect(preview.getByText("closed-shift", { exact: true })).toBeVisible();
     await expect(preview.getByText("Opening Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByText("Closing Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByRole("heading", { name: "End of Shift Report" })).toBeVisible();
-    await expect(preview.getByRole("row").filter({ hasText: "Tickets sold" })).toContainText("10");
+    await expect(preview.getByRole("row", { name: "Tickets sold 10" })).toBeVisible();
     await expect(preview.getByRole("row").filter({ hasText: "Recorded cash variance" })).toContainText("-$2.00");
+    const printedPackRows = preview.locator("section").filter({ has: preview.getByRole("heading", { name: "Pack Sales by Display" }) }).locator("tbody tr");
+    await expect(printedPackRows).toHaveCount(3);
+    await expect(printedPackRows.nth(0).locator("td").first()).toHaveText("1");
+    await expect(printedPackRows.nth(1).locator("td").first()).toHaveText("2");
+    await expect(printedPackRows.nth(2).locator("td").first()).toHaveText("10");
     await expect(preview.getByRole("row").filter({ hasText: "1 / pack-A" })).toHaveText("1 / pack-A11121");
     expect(await preview.locator("nav, aside, button, input, script").count()).toBe(0);
     const previewHtml = await preview.locator("body").innerHTML();

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanner";
 import { calculatePhysicalAuditInventory } from "@/lib/core-validation";
+import { ReportActions } from "@/components/reports/report-actions";
+import { loadMidShiftAuditSnapshotDocument } from "@/lib/mid-shift-audit-report";
 
 interface AuditLine {
   id: string;
@@ -164,6 +166,13 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="text-base font-semibold">Physical Inventory Audit</h3><p className="text-xs text-text-tertiary">Scan each display pack. Audit scans do not record sales.</p></div>
       {!audit && <Button onClick={beginAudit}>Begin Opening Audit</Button>}
+      {audit && <ReportActions
+        key={audit.id}
+        loadDocument={() => loadMidShiftAuditSnapshotDocument(audit.id)}
+        refreshOnNewAction
+        viewLabel="Preview audit snapshot"
+        printLabel="Print audit snapshot"
+      />}
       </div>
       {audit && audit.status === "OPEN" && <>
         <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" className={beginningComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} onClick={() => setPhase("beginning")}>Opening Audit · {beginningComplete ? "Complete" : "Required"}</Button><Button size="sm" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit · {closingComplete ? "Complete" : "Required"}</Button><Button size="sm" aria-label="Complete Closing Audit" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={phase !== "ending" || closingScanned < activeCount} onClick={completeAudit}>Complete Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>

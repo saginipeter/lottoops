@@ -1,5 +1,6 @@
 import type { ReportDocument } from "./report-document";
 import { calculatePhysicalAuditVariance } from "./core-validation";
+import { compareDisplayNumberLabels, formatDisplayNumberLabel } from "./display-number-order";
 
 export interface ShiftGameSummary {
   id?: string;
@@ -14,6 +15,7 @@ export interface ShiftGameSummary {
 
 export interface ShiftReportData {
   id: string;
+  shiftNumber?: number | null;
   storeName: string;
   terminalId: string | null;
   openedAt: string;
@@ -53,6 +55,18 @@ const timestamp = (value: string | null) => value
   ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
   : NOT_RECORDED;
 
+function orderedPackSales(lines: ShiftReportData["packSales"]) {
+  return [...lines].sort((left, right) =>
+    compareDisplayNumberLabels(left.display, right.display) || left.pack.localeCompare(right.pack, undefined, { numeric: true }),
+  );
+}
+
+function orderedAudit(lines: ShiftReportData["audit"]) {
+  return [...lines].sort((left, right) =>
+    compareDisplayNumberLabels(left.display, right.display) || left.pack.localeCompare(right.pack, undefined, { numeric: true }),
+  );
+}
+
 function salesSummary(shift: ShiftReportData): ReportDocument["sections"][number] {
   const sumCount = (field: "totalTickets" | "activeStock") =>
     shift.gameBreakdown.some((game) => game[field] == null)
@@ -79,6 +93,7 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
     subtitle: shift.storeName,
     paper: "A4",
     metadata: [
+      { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
       { label: "Shift ID", value: shift.id },
       { label: "Terminal", value: shift.terminalId ?? NOT_RECORDED },
       { label: "Opened", value: timestamp(shift.openedAt) },
@@ -94,8 +109,8 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
       salesSummary(shift),
       {
         title: "Pack Ticket Counts",
-        columns: ["Display", "Pack / Game", "Opening remaining", "Closing remaining", "Tickets sold", "Sales"],
-        rows: shift.packSales.map((line) => [
+        columns: ["Display #", "Pack / Game", "Opening remaining", "Closing remaining", "Tickets sold", "Sales"],
+        rows: orderedPackSales(shift.packSales).map((line) => [
           line.display, `${line.pack} / ${line.game}`, line.beginning,
           line.ending ?? NOT_RECORDED, line.tickets ?? NOT_RECORDED, money(line.sales),
         ]),
@@ -119,8 +134,8 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
       },
       {
         title: "Physical Ticket Audit",
-        columns: ["Display / Pack", "Direction", "Opening expected", "Opening physical", "Closing expected", "Closing physical", "Ticket variance"],
-        rows: shift.audit.map((line) => [
+        columns: ["Display # / Pack", "Direction", "Opening expected", "Opening physical", "Closing expected", "Closing physical", "Ticket variance"],
+        rows: orderedAudit(shift.audit).map((line) => [
           `${line.display ?? NOT_RECORDED} / ${line.pack}`, line.direction ?? NOT_RECORDED,
           line.beginningExpected ?? NOT_RECORDED, line.beginning ?? NOT_RECORDED,
           line.expected ?? NOT_RECORDED, line.ending ?? NOT_RECORDED,
@@ -131,8 +146,8 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
       },
       {
         title: "Physical Audit Inventory Counts",
-        columns: ["Display / Pack", "Beginning tickets", "Sales", "Expected ending", "Unsold remaining"],
-        rows: shift.audit.map((line) => [
+        columns: ["Display # / Pack", "Beginning tickets", "Sales", "Expected ending", "Unsold remaining"],
+        rows: orderedAudit(shift.audit).map((line) => [
           `${line.display ?? NOT_RECORDED} / ${line.pack}`,
           line.beginningTickets ?? NOT_RECORDED, line.salesTickets ?? NOT_RECORDED,
           line.expectedEndingTickets ?? NOT_RECORDED, line.endingTickets ?? NOT_RECORDED,
@@ -150,7 +165,7 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
 }
 
 export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDocument {
-  const audits = shift.audit.map((line) => ({
+  const audits = orderedAudit(shift.audit).map((line) => ({
     ...line,
     variance: line.expected == null || line.ending == null
       ? null : calculatePhysicalAuditVariance(line.expected, line.ending),
@@ -161,6 +176,7 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
     subtitle: shift.storeName,
     paper: "A4",
     metadata: [
+      { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
       { label: "Shift ID", value: shift.id },
       { label: "Report date (UTC)", value: shift.closedAt?.slice(0, 10) ?? NOT_RECORDED },
       { label: "Opened", value: timestamp(shift.openedAt) },
@@ -188,10 +204,19 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
         ],
       },
       {
+        title: "Pack Sales by Display",
+        columns: ["Display #", "Pack", "Game", "Beginning", "Ending", "Tickets Sold", "Gross Sales", "Cost (95%)"],
+        rows: orderedPackSales(shift.packSales).map((line) => [
+          formatDisplayNumberLabel(line.display), line.pack, line.game, line.beginning,
+          line.ending ?? NOT_RECORDED, line.tickets ?? NOT_RECORDED,
+          money(line.sales), line.sales == null ? NOT_RECORDED : money(Math.round((line.sales * 0.95 + Number.EPSILON) * 100) / 100),
+        ]),
+      },
+      {
         title: "Ticket Variances",
-        columns: ["Display / Pack", "Expected ticket", "Counted ticket", "Variance"],
+        columns: ["Display # / Pack", "Expected ticket", "Counted ticket", "Variance"],
         rows: exceptions.map((line) => [
-          `${line.display ?? NOT_RECORDED} / ${line.pack}`, line.expected, line.ending, line.variance,
+          `${formatDisplayNumberLabel(line.display)} / ${line.pack}`, line.expected, line.ending, line.variance,
         ]),
       },
       salesSummary(shift),

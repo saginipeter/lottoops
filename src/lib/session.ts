@@ -9,6 +9,8 @@ export interface SessionPayload {
   role: "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE" | "AUDITOR";
   grantedPermissions: string[];
   rememberMe?: boolean;
+  shiftId?: string;
+  shiftNumber?: 1 | 2 | 3;
   impersonatedBy?: { userId: string; name: string; email: string };
   supportAccessId?: string;
 }
@@ -50,22 +52,41 @@ export async function verifySession(
   }
 }
 
-export async function signMfaChallenge(userId: string, rememberMe = false): Promise<string> {
-  return new SignJWT({ type: "MFA_CHALLENGE", userId, rememberMe })
+export async function signMfaChallenge(
+  userId: string,
+  rememberMe = false,
+  shiftAssignment?: { shiftId: string; shiftNumber: 1 | 2 | 3 },
+): Promise<string> {
+  return new SignJWT({ type: "MFA_CHALLENGE", userId, rememberMe, ...shiftAssignment })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("5m")
     .sign(getSecret());
 }
 
-export async function verifyMfaChallenge(token: string): Promise<{ userId: string; rememberMe: boolean } | null> {
+export async function verifyMfaChallenge(token: string): Promise<{
+  userId: string;
+  rememberMe: boolean;
+  shiftId?: string;
+  shiftNumber?: 1 | 2 | 3;
+} | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     if (payload.type !== "MFA_CHALLENGE" || typeof payload.userId !== "string") return null;
-    return { userId: payload.userId, rememberMe: payload.rememberMe === true };
+    const shiftNumber = payload.shiftNumber;
+    const hasValidShiftNumber = shiftNumber === 1 || shiftNumber === 2 || shiftNumber === 3;
+    if ((payload.shiftId !== undefined && typeof payload.shiftId !== "string") || (shiftNumber !== undefined && !hasValidShiftNumber)) return null;
+    return {
+      userId: payload.userId,
+      rememberMe: payload.rememberMe === true,
+      ...(typeof payload.shiftId === "string" ? { shiftId: payload.shiftId } : {}),
+      ...(hasValidShiftNumber ? { shiftNumber } : {}),
+    };
   } catch {
     return null;
   }
 }
 
 export const SESSION_COOKIE = "lottoops_session";
+export const MFA_CHALLENGE_COOKIE = "lottoops_mfa_challenge";
+export const PLATFORM_SESSION_BACKUP_COOKIE = "lottoops_platform_session_backup";

@@ -7,7 +7,7 @@ test("audit scans retain signed variances and never increase remaining inventory
   const require = createRequire(import.meta.url);
   const paths = ["../api-session", "../prisma", "../activity-log", "../shift-participants"].map((path) => require.resolve(path));
   const originals = paths.map((path) => require.cache[path]);
-  let session: { userId: string; storeId: string; name: string } | null = { userId: "staff", storeId: "store", name: "Staff" };
+  let session: { userId: string; storeId: string; name: string; role?: string; shiftId?: string } | null = { userId: "staff", storeId: "store", name: "Staff", role: "MANAGER" };
   const pack = {
     id: "pack", currentTicketNumber: 141, firstTicket: 1, ticketQuantity: 150,
     firstOrLastTicket: "FIRST", slot: { slotNumber: "1" }, game: { ticketsPerPack: 150 },
@@ -18,9 +18,14 @@ test("audit scans retain signed variances and never increase remaining inventory
     inventoryAudit: {
       findFirst: async ({ where }: { where: Record<string, unknown> }) => {
         assert.equal(where.storeId, "store");
-        return { id: "audit", shiftId: "shift", lines: [line] };
+        return { id: "audit", shiftId: "shift" };
       },
     },
+    $transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback(tx),
+  };
+  const tx = {
+    $queryRawUnsafe: async () => [{ id: "shift" }],
+    inventoryAudit: { findFirst: async () => ({ id: "audit", shiftId: "shift", lines: [line] }) },
     pack: {
       findFirst: async ({ where }: { where: Record<string, unknown> }) => {
         assert.equal(where.storeId, "store");
@@ -30,8 +35,14 @@ test("audit scans retain signed variances and never increase remaining inventory
       },
     },
     inventoryAuditLine: {
-      update: async ({ data }: { data: Record<string, unknown> }) => { writes++; return { ...line, ...data }; },
+      create: async ({ data }: { data: Record<string, unknown> }) => { writes++; return { ...line, ...data }; },
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        writes++;
+        Object.assign(line, data);
+        return { ...line, pack: { serialNumber: "12341234567", game: { name: "Game" } } };
+      },
     },
+    shiftLine: { upsert: async () => { writes++; return {}; } },
   };
   const exports = [
     { getApiSession: async () => session }, { prisma },
@@ -48,6 +59,13 @@ test("audit scans retain signed variances and never increase remaining inventory
   const scan = (ticket: number, phase = "ending") => POST(new NextRequest("http://localhost/api/inventory-audits/scan", {
     method: "POST", body: JSON.stringify({ auditId: "audit", serialNumber: `12341234567${String(ticket).padStart(3, "0")}`, phase }),
   }));
+  session = { userId: "staff", storeId: "store", name: "Staff", role: "EMPLOYEE", shiftId: "different-shift" };
+  assert.equal((await scan(11)).status, 403, "staff cannot write audit scans to another shift");
+  assert.equal(writes, 0, "unauthorized shift scans make no audit writes");
+  session = { userId: "auditor", storeId: "store", name: "Auditor", role: "AUDITOR" };
+  assert.equal((await scan(11)).status, 403, "read-only auditors cannot write physical audit scans");
+  assert.equal(writes, 0, "auditor audit-scan attempts make no writes");
+  session = { userId: "staff", storeId: "store", name: "Staff", role: "EMPLOYEE", shiftId: "shift" };
   for (const [ticket, variance, remaining, sold] of [[11, 1, 140, false], [9, -1, 141, true]] as const) {
     const response = await scan(ticket);
     assert.equal(response.status, 200);

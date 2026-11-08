@@ -6,7 +6,7 @@ import { shiftReportWhere } from "../shift-report-query";
 
 function fixture(): ShiftReportData {
   return {
-    id: "shift-old", storeName: "Store", terminalId: "T2",
+    id: "shift-old", shiftNumber: 2, storeName: "Store", terminalId: "T2",
     openedAt: "2025-01-01T08:00:00Z", closedAt: "2025-01-01T16:00:00Z",
     openedBy: "Opener", closedBy: "Closer",
     grossSales: 60, ticketsSold: 12,
@@ -24,6 +24,7 @@ test("shift template uses finalized sales, counts, operators, and signed audit v
   assert.deepEqual(document.sections[0].totals, ["TOTAL SHIFT SUMMARY", "Not recorded", 12, "Not recorded", "$60.00", "$57.00"]);
   assert.deepEqual(document.sections[1].rows[0], ["1", "P1 / Game", 50, 38, 12, "$60.00"]);
   assert.deepEqual(document.sections[4].rows[0], ["1 / P1", "FIRST", 1, 1, 13, 15, 2]);
+  assert.equal(document.metadata?.find((field) => field.label === "Shift")?.value, "Shift 2");
   assert.equal(document.metadata?.find((field) => field.label === "Shift ID")?.value, "shift-old");
   assert.equal(document.metadata?.find((field) => field.label === "Opening audit operator")?.value, "Auditor");
   assert.equal(document.metadata?.find((field) => field.label === "Closed")?.value, "2025-01-01 16:00:00 UTC");
@@ -125,7 +126,8 @@ test("simple end-of-shift report shows selected shift statistics and signed vari
       ["Tickets sold", 12], ["Total sales", "$60.00"],
     ]);
     assert.deepEqual(document.sections[1].rows.at(-1), ["Recorded cash variance", "-$5.00"]);
-    assert.deepEqual(document.sections[2].rows, [["1 / P1", 13, 15, 2]]);
+    assert.deepEqual(document.sections[2].rows[0], ["1", "P1", "Game", 50, 38, 12, "$60.00", "$57.00"]);
+    assert.deepEqual(document.sections[3].rows, [["1 / P1", 13, 15, 2]]);
     assert.match(document.notes![0], /selected shift only/);
   });
 
@@ -137,14 +139,14 @@ test("simple end-of-shift report shows selected shift statistics and signed vari
     shift.packSales[0].ending = 0;
     shift.audit[0].ending = shift.audit[0].expected;
     let document = buildEndOfShiftReportDocument(shift);
-    assert.deepEqual(document.sections[2].rows, []);
+    assert.deepEqual(document.sections[3].rows, []);
     assert.match(document.notes![1], /1 of 1 audited packs match/);
     assert.deepEqual(document.sections[0].rows[1], ["Total sales", "$0.00"]);
     assert.deepEqual(document.sections[1].rows.at(-1), ["Recorded cash variance", "$0.00"]);
     shift.audit[0].ending = null;
     shift.packSales[0].ending = null;
     document = buildEndOfShiftReportDocument(shift);
-    assert.deepEqual(document.sections[2].rows, [["1 / P1", 13, null, null]]);
+    assert.deepEqual(document.sections[3].rows, [["1 / P1", 13, null, null]]);
     assert.equal(document.sections[1].rows[0][1], "Not recorded");
   });
 
@@ -176,7 +178,7 @@ test("scoped lazy loader encodes the ID and builds only the requested shift", as
     return Response.json({ shifts: [shift] });
   });
   const document = await loadShiftReportDocument(shift.id);
-  assert.equal(document.metadata?.[0].value, shift.id);
+  assert.equal(document.metadata?.find((field) => field.label === "Shift ID")?.value, shift.id);
   assert.equal(fetchMock.mock.callCount(), 1);
 });
 
@@ -185,4 +187,32 @@ test("lazy loader rejects failed, inaccessible, or missing closed shift reports"
   await assert.rejects(loadShiftReportDocument("missing"), /Unable to load/);
   fetchMock.mock.mockImplementation(async () => Response.json({ shifts: [fixture()] }));
   await assert.rejects(loadShiftReportDocument("other-store-id"), /not found/);
+});
+
+test("printed pack and audit tables use natural Display # order without renumbering labels", () => {
+  const shift = fixture();
+  shift.packSales = [
+    { pack: "P10", game: "Game", display: "10", beginning: 50, ending: 40, tickets: 10, sales: 50 },
+    { pack: "P2", game: "Game", display: "2", beginning: 50, ending: 45, tickets: 5, sales: 25 },
+    { pack: "P01", game: "Game", display: "01", beginning: 50, ending: 48, tickets: 2, sales: 10 },
+    { pack: "Backstock", game: "Game", display: "", beginning: 50, ending: null, tickets: null, sales: null },
+  ];
+  shift.audit = [
+    { pack: "P10", display: "10", direction: "FIRST", beginningExpected: 1, beginning: 1, expected: 11, ending: 12 },
+    { pack: "P2", display: "2", direction: "FIRST", beginningExpected: 1, beginning: 1, expected: 6, ending: 7 },
+    { pack: "P01", display: "01", direction: "FIRST", beginningExpected: 1, beginning: 1, expected: 3, ending: 4 },
+  ];
+
+  const full = buildShiftReportDocument(shift);
+  assert.equal(full.sections[1].columns[0], "Display #");
+  assert.equal(full.sections[4].columns[0], "Display # / Pack");
+  assert.deepEqual(full.sections[1].rows.map((row) => row[0]), ["01", "2", "10", ""]);
+  assert.deepEqual(full.sections[4].rows.map((row) => row[0]), ["01 / P01", "2 / P2", "10 / P10"]);
+  assert.deepEqual(full.sections[5].rows.map((row) => row[0]), ["01 / P01", "2 / P2", "10 / P10"]);
+
+  const closing = buildEndOfShiftReportDocument(shift);
+  assert.equal(closing.sections[2].columns[0], "Display #");
+  assert.deepEqual(closing.sections[2].rows.map((row) => row[0]), ["01", "2", "10", "Backstock"]);
+  assert.equal(closing.sections[3].columns[0], "Display # / Pack");
+  assert.deepEqual(closing.sections[3].rows.map((row) => row[0]), ["01 / P01", "2 / P2", "10 / P10"]);
 });

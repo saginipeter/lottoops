@@ -9,7 +9,7 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 
-export default async function SalesPage() {
+export default async function SalesPage({ searchParams }: { searchParams?: Promise<{ shiftId?: string }> }) {
   const session = await getSession();
 
   if (!session) {
@@ -38,12 +38,18 @@ export default async function SalesPage() {
     );
   }
 
+  const params = searchParams ? await searchParams : {};
+  const openShifts: Array<{ id: string; shiftNumber: number | null }> = await prisma.shift.findMany({
+    where: { storeId: session.storeId, status: "OPEN" },
+    select: { id: true, shiftNumber: true },
+    orderBy: { shiftNumber: "asc" },
+  });
+  const shiftBoundRole = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+  const requestedShiftId = shiftBoundRole ? session.shiftId : params.shiftId;
+  const selectedShiftId = requestedShiftId ?? (openShifts.length === 1 ? openShifts[0].id : null);
   const [openShift, recentClosedShifts, activePacks] = await Promise.all([
-    prisma.shift.findFirst({
-      where: {
-        storeId: session.storeId,
-        status: "OPEN",
-      },
+    selectedShiftId ? prisma.shift.findFirst({
+      where: { id: selectedShiftId, storeId: session.storeId, status: "OPEN" },
       include: {
         lines: {
           include: {
@@ -58,10 +64,7 @@ export default async function SalesPage() {
           },
         },
       },
-      orderBy: {
-        openedAt: "desc",
-      },
-    }),
+    }) : Promise.resolve(null),
     prisma.shift.findMany({
       where: {
         storeId: session.storeId,
@@ -115,13 +118,13 @@ export default async function SalesPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <LivePageRefresh intervalMs={3000} />
-      <Header
+        <Header
         title="Sales"
         subtitle="Operational sales center for current shift and reconciliation"
       />
 
       <PageToolbar
-        left={<span className="text-xs text-text-secondary">Current Shift: {openShift ? "Open" : "Closed"}</span>}
+        left={<span className="text-xs text-text-secondary">Shift {openShift?.shiftNumber ?? "—"}: {openShift ? "Open" : openShifts.length > 0 ? "Select a shift" : "Closed"}</span>}
         center={<span>Ctrl+P Print | Ctrl+F Search</span>}
         right={<span className="text-xs text-text-tertiary">Active Packs: {activePacks}</span>}
       />
@@ -158,7 +161,8 @@ export default async function SalesPage() {
 
           <Panel className="p-4">
             <div className="flex flex-wrap gap-2">
-              <QuickLink href="/pos" label="Sell Tickets" />
+              {openShifts.length > 1 && !shiftBoundRole && openShifts.map((item) => <QuickLink key={item.id} href={`/sales?shiftId=${encodeURIComponent(item.id)}`} label={`${item.shiftNumber === openShift?.shiftNumber ? "✓ " : ""}Shift ${item.shiftNumber ?? "—"}`} />)}
+              <QuickLink href={openShift ? `/pos?shiftId=${encodeURIComponent(openShift.id)}` : "/pos"} label="Sell Tickets" />
               <QuickLink href="/reports" label="Open Reports" />
             </div>
           </Panel>
@@ -250,7 +254,7 @@ export default async function SalesPage() {
                           {shift.closedAt ? formatDateTime(shift.closedAt) : "Not closed"}
                         </p>
                         <p className="mt-1 text-sm font-semibold text-text">
-                          {formatCurrency(shiftSales)}
+                          Shift {shift.shiftNumber ?? "—"} · {formatCurrency(shiftSales)}
                         </p>
                         <p className="text-xs text-text-secondary">
                           {shiftTickets} tickets

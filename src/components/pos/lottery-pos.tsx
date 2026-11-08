@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Cloud, CloudOff, Keyboard, LockKeyhole, RefreshCw, RotateCcw, ScanLine, Ticket, Wifi, X } from "lucide-react";
 import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanner";
+import { nextPendingPosQueueEntry, parsePosOfflineQueue, type PosQueueEntry } from "@/lib/pos-offline-queue";
 import { formatTicketScanBlockedMessage } from "@/lib/pos-scan-message";
 
-interface PosProps { storeId: string; employeeName: string; storeName: string; terminalId: string; }
+interface PosProps { storeId: string; operatorId: string; employeeName: string; storeName: string; terminalId: string; shiftId: string; shiftNumber: number | null; }
 interface SaleResult { error?: string; code?: string; id?: string; shiftId?: string; saleId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
 interface ReturnableSale { packId: string; shiftId: string; saleId: string; ticketBarcode: string; gameName: string; serialNumber: string; slotNumber: string; salesAmount: number; }
-interface QueueEntry { id: string; barcode: string; queuedAt: string; attempts: number; state?: "PENDING" | "CONFLICT"; conflictReason?: string; }
+type QueueEntry = PosQueueEntry;
 interface StockAlert { id: string; severity: string; title: string; detail: string; }
 
 const QUEUE_PREFIX = "lottoops:pos-offline-queue:";
@@ -20,21 +21,28 @@ const RETURN_REASONS = [
   "Duplicate scan",
 ];
 
-function queueKey(storeId: string, terminalId: string) { return `${QUEUE_PREFIX}${encodeURIComponent(storeId)}:${encodeURIComponent(terminalId)}`; }
+function queueKey(storeId: string, terminalId: string, shiftId: string, operatorId: string) { return `${QUEUE_PREFIX}${encodeURIComponent(storeId)}:${encodeURIComponent(terminalId)}:${encodeURIComponent(shiftId)}:${encodeURIComponent(operatorId)}`; }
 function makeId() { return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `offline-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
-function readQueue(storeId: string, terminalId: string): QueueEntry[] { try { const value = window.localStorage.getItem(queueKey(storeId, terminalId)); return value ? JSON.parse(value) as QueueEntry[] : []; } catch { return []; } }
-function writeQueue(storeId: string, terminalId: string, queue: QueueEntry[]) { window.localStorage.setItem(queueKey(storeId, terminalId), JSON.stringify(queue)); }
-
-export function LotteryPos(props: PosProps) {
-  return <StoreLotteryPos key={JSON.stringify([props.storeId, props.terminalId])} {...props} />;
+function readQueue(storeId: string, terminalId: string, shiftId: string, operatorId: string): QueueEntry[] { return parsePosOfflineQueue(window.localStorage.getItem(queueKey(storeId, terminalId, shiftId, operatorId))); }
+function writeQueue(storeId: string, terminalId: string, shiftId: string, operatorId: string, queue: QueueEntry[]) {
+  try {
+    window.localStorage.setItem(queueKey(storeId, terminalId, shiftId, operatorId), JSON.stringify(queue));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosProps) {
+export function LotteryPos(props: PosProps) {
+  return <StoreLotteryPos key={JSON.stringify([props.storeId, props.operatorId, props.terminalId, props.shiftId])} {...props} />;
+}
+
+function StoreLotteryPos({ storeId, operatorId, employeeName, storeName, terminalId, shiftId, shiftNumber }: PosProps) {
   const [barcode, setBarcode] = useState("");
   const [result, setResult] = useState<SaleResult | null>(null);
   const [error, setError] = useState<{ message: string; status?: number } | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [pendingScanCount, setPendingScanCount] = useState(0);
   const [online, setOnline] = useState(true);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -50,6 +58,9 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
   const inputRef = useRef<HTMLInputElement>(null);
   const replayingRef = useRef(false);
   const activeRef = useRef(false);
+  const syncRequestedWhileRunningRef = useRef(false);
+  const syncQueueRef = useRef<() => void>(() => {});
+  const volatileConflictIdsRef = useRef(new Set<string>());
   const replayReasonRef = useRef("Server rejected the queued sale. Manager review is required before retrying.");
 
   useEffect(() => {
@@ -57,19 +68,28 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
     return () => { activeRef.current = false; };
   }, []);
 
-  const refreshQueue = useCallback(() => setQueue(readQueue(storeId, terminalId)), [storeId, terminalId]);
+  const refreshQueue = useCallback(() => {
+    try {
+      const current = readQueue(storeId, terminalId, shiftId, operatorId);
+      setQueue(current);
+      setPendingScanCount(current.length);
+    } catch (queueError) {
+      setError({ message: queueError instanceof Error ? queueError.message : "Saved scan queue data is invalid. Contact a manager before scanning again.", status: 503 });
+    }
+  }, [operatorId, storeId, terminalId, shiftId]);
   const focusInput = useCallback(() => window.setTimeout(() => inputRef.current?.focus(), 80), []);
   useEffect(() => {
-    if (!showSuccess) return;
-    const timer = window.setTimeout(() => { setShowSuccess(false); focusInput(); }, 2500);
-    return () => window.clearTimeout(timer);
-  }, [showSuccess, focusInput]);
-
-  useEffect(() => {
     if (!error) return;
+    setSuccessNotice(null);
     const timer = window.setTimeout(() => setError(null), 6000);
     return () => window.clearTimeout(timer);
   }, [error]);
+
+  useEffect(() => {
+    if (!successNotice) return;
+    const timer = window.setTimeout(() => setSuccessNotice(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [successNotice]);
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -80,68 +100,135 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
     } catch { /* The last known stock status remains visible while offline. */ }
   }, []);
 
-  useEffect(() => {
-    setOnline(navigator.onLine);
-    refreshQueue();
-    const onOnline = () => { setOnline(true); refreshQueue(); };
-    const onOffline = () => setOnline(false);
-    window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline);
-    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
-  }, [refreshQueue]);
-
   const enqueue = useCallback((value: string) => {
-    const next = [...readQueue(storeId, terminalId), { id: makeId(), barcode: value, queuedAt: new Date().toISOString(), attempts: 0, state: "PENDING" as const }];
-    writeQueue(storeId, terminalId, next); setQueue(next); setResult({ status: "queued", ticketBarcode: value }); setError(null); setShowSuccess(false);
-  }, [storeId, terminalId]);
-
-  const sendSale = useCallback(async (value: string, isReplay = false): Promise<"synced" | "retry" | "conflict" | "store-changed"> => {
     try {
-      const response = await fetch("/api/packs/check-serial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, expectedStoreId: storeId }) });
+      const next = [...readQueue(storeId, terminalId, shiftId, operatorId), { id: makeId(), barcode: value, shiftId, queuedAt: new Date().toISOString(), attempts: 0, state: "PENDING" as const }];
+      if (!writeQueue(storeId, terminalId, shiftId, operatorId, next)) {
+        setError({ message: "This terminal could not save the scan locally. No ticket was sold. Restore storage or the connection and scan again.", status: 503 });
+        return false;
+      }
+      setQueue(next); setPendingScanCount(next.length); setResult({ status: "queued", ticketBarcode: value }); setError(null);
+      if (navigator.onLine && replayingRef.current) syncRequestedWhileRunningRef.current = true;
+      return true;
+    } catch (queueError) {
+      setError({ message: queueError instanceof Error ? queueError.message : "Saved scan queue data is invalid. Preserve it and contact a manager before scanning again.", status: 503 });
+      return false;
+    }
+  }, [operatorId, storeId, terminalId, shiftId]);
+
+  const sendSale = useCallback(async (value: string, isReplay = false, targetShiftId = shiftId, clientRequestId = ""): Promise<"synced" | "retry" | "conflict" | "store-changed"> => {
+    try {
+      const response = await fetch("/api/packs/check-serial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, expectedStoreId: storeId, shiftId: targetShiftId, clientRequestId }) });
       const data = (await response.json()) as SaleResult;
-      if (response.ok) { if (!isReplay) { setResult(data); setLastSale(data); if (data.id && data.shiftId && data.saleId && data.ticketBarcode) setSessionSales((current) => [{ packId: data.id as string, shiftId: data.shiftId as string, saleId: data.saleId as string, ticketBarcode: data.ticketBarcode as string, gameName: data.gameName ?? "Lottery ticket", serialNumber: data.serialNumber ?? "", slotNumber: data.slot?.slotNumber ?? "—", salesAmount: Number(data.salesAmount ?? data.ticketPrice ?? 0) }, ...current.filter((sale) => sale.saleId !== data.saleId)].slice(0, 20)); setReturnMessage(null); setShowSuccess(true); } return "synced"; }
+      if (response.ok) {
+        setError(null);
+        setSuccessNotice(`${data.gameName ?? "Lottery ticket"} sold successfully.`);
+        setResult(data);
+        setLastSale(data);
+        if (data.id && data.shiftId && data.saleId && data.ticketBarcode) {
+          setSessionSales((current) => [{ packId: data.id as string, shiftId: data.shiftId as string, saleId: data.saleId as string, ticketBarcode: data.ticketBarcode as string, gameName: data.gameName ?? "Lottery ticket", serialNumber: data.serialNumber ?? "", slotNumber: data.slot?.slotNumber ?? "—", salesAmount: Number(data.salesAmount ?? data.ticketPrice ?? 0) }, ...current.filter((sale) => sale.saleId !== data.saleId)].slice(0, 20));
+        }
+        setReturnMessage(null);
+        return "synced";
+      }
       if (data.code === "STORE_CHANGED") {
-        if (!isReplay) setError({ message: formatTicketScanBlockedMessage({ code: data.code, error: data.error, status: response.status }), status: response.status });
+        const rejectionReason = formatTicketScanBlockedMessage({ code: data.code, error: data.error, status: response.status });
+        if (isReplay) replayReasonRef.current = rejectionReason;
+        setError({ message: rejectionReason, status: response.status });
+        setResult(lastSale);
         return "store-changed";
       }
-      // If a response was lost after the server committed, the API's duplicate guard
-      // means this replay is already accounted for and must leave the queue.
-      if (isReplay && response.status === 409 && /already scanned|duplicate/i.test(data.error ?? "")) return "synced";
       const rejectionReason = formatTicketScanBlockedMessage({ code: data.code, error: data.error, status: response.status });
       if (isReplay) replayReasonRef.current = rejectionReason;
-      if (!isReplay) setError({ message: rejectionReason, status: response.status });
+      setError({ message: rejectionReason, status: response.status });
+      setResult(lastSale);
       return isReplay && response.status >= 500 ? "retry" : isReplay ? "conflict" : "synced";
     } catch {
-      if (!isReplay) enqueue(value);
       return "retry";
     }
-  }, [enqueue, storeId, terminalId]);
+  }, [lastSale, shiftId, storeId, terminalId]);
 
   const syncQueue = useCallback(async () => {
     if (!navigator.onLine || replayingRef.current) return;
-    const pending = readQueue(storeId, terminalId);
-    if (pending.length === 0) { setQueue([]); return; }
     replayingRef.current = true; setSyncing(true);
-    let remaining = [...pending];
-    for (const entry of pending) {
-      if (!activeRef.current) break;
-      if (entry.state === "CONFLICT") {
-        try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, expectedStoreId: storeId, barcode: entry.barcode, reason: entry.conflictReason ?? "Server rejected the queued sale. Manager review is required before retrying.", attempts: entry.attempts }) }); } catch { /* Retry publishing the conflict on the next sync cycle. */ }
+    try {
+      const pending = readQueue(storeId, terminalId, shiftId, operatorId);
+      if (pending.length === 0) { setQueue([]); setPendingScanCount(0); return; }
+      while (activeRef.current && navigator.onLine) {
+        const remaining = readQueue(storeId, terminalId, shiftId, operatorId);
+        const entry = nextPendingPosQueueEntry(remaining, volatileConflictIdsRef.current);
+        if (!entry) {
+          for (const conflict of remaining.filter((item) => item.state === "CONFLICT" || volatileConflictIdsRef.current.has(item.id))) {
+            try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: conflict.id, terminalId, expectedStoreId: storeId, barcode: conflict.barcode, shiftId: conflict.shiftId ?? shiftId, reason: conflict.conflictReason ?? "Server rejected the queued sale. Manager review is required before retrying.", attempts: conflict.attempts }) }); } catch { /* Retry publishing the conflict on the next sync cycle. */ }
+          }
+          break;
+        }
+        const outcome = await sendSale(entry.barcode, true, entry.shiftId ?? shiftId, entry.id);
+        if (!activeRef.current) break;
+        const current = readQueue(storeId, terminalId, shiftId, operatorId);
+        if (outcome === "synced") {
+          const next = current.filter((item) => item.id !== entry.id);
+          if (!writeQueue(storeId, terminalId, shiftId, operatorId, next)) {
+            setError({ message: "A confirmed ticket sale could not update the local sync queue. Contact a manager before retrying this barcode.", status: 503 });
+            break;
+          }
+          setQueue(next);
+          setPendingScanCount(next.length);
+          void refreshInventory();
+          continue;
+        }
+        if (outcome === "conflict" || outcome === "store-changed") {
+          const reason = replayReasonRef.current;
+          const next = current.map((item) => item.id === entry.id ? { ...item, state: "CONFLICT" as const, conflictReason: reason, attempts: item.attempts + 1 } : item);
+          if (writeQueue(storeId, terminalId, shiftId, operatorId, next)) {
+            volatileConflictIdsRef.current.delete(entry.id);
+            setQueue(next);
+          } else {
+            volatileConflictIdsRef.current.add(entry.id);
+            setQueue(current.map((item) => item.id === entry.id ? { ...item, state: "CONFLICT", conflictReason: reason, attempts: item.attempts + 1 } : item));
+            setError({ message: "A rejected offline scan could not be marked in local storage. It will be skipped for now; restore storage before leaving this screen.", status: 503 });
+          }
+          try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, expectedStoreId: storeId, barcode: entry.barcode, shiftId: entry.shiftId ?? shiftId, reason, attempts: entry.attempts + 1 }) }); } catch { /* The local conflict remains visible until the API is reachable. */ }
+          continue;
+        }
+        const next = current.map((item) => item.id === entry.id ? { ...item, attempts: item.attempts + 1 } : item);
+        if (writeQueue(storeId, terminalId, shiftId, operatorId, next)) setQueue(next);
         break;
       }
-      const outcome = await sendSale(entry.barcode, true);
-      if (outcome === "synced") remaining = remaining.filter((item) => item.id !== entry.id);
-      if (!activeRef.current || outcome === "store-changed") break;
-      if (outcome === "conflict") {
-        const reason = replayReasonRef.current;
-        remaining = remaining.map((item) => item.id === entry.id ? { ...item, state: "CONFLICT" as const, conflictReason: reason, attempts: item.attempts + 1 } : item);
-        try { await fetch("/api/pos/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queueId: entry.id, terminalId, expectedStoreId: storeId, barcode: entry.barcode, reason, attempts: entry.attempts + 1 }) }); } catch { /* The local conflict remains visible until the API is reachable. */ }
-        writeQueue(storeId, terminalId, remaining); setQueue([...remaining]); break;
+    } catch (queueError) {
+      setError({ message: queueError instanceof Error ? queueError.message : "Unable to read or synchronize the local scan queue. No additional tickets were sent.", status: 503 });
+    } finally {
+      let finalQueue: QueueEntry[] = [];
+      try {
+        finalQueue = readQueue(storeId, terminalId, shiftId, operatorId);
+        setQueue(finalQueue.map((entry) => volatileConflictIdsRef.current.has(entry.id)
+          ? { ...entry, state: "CONFLICT", conflictReason: entry.conflictReason ?? "Server rejected this queued sale; local conflict state could not be saved." }
+          : entry));
+        setPendingScanCount(finalQueue.length);
+      } catch (queueError) {
+        setError({ message: queueError instanceof Error ? queueError.message : "Saved scan queue data is invalid. Preserve it and contact a manager.", status: 503 });
       }
-      else if (outcome === "retry") { remaining = remaining.map((item) => item.id === entry.id ? { ...item, attempts: item.attempts + 1 } : item); break; }
-      writeQueue(storeId, terminalId, remaining); setQueue([...remaining]);
+      setSyncing(false);
+      replayingRef.current = false;
+      focusInput();
+      const shouldDrain = activeRef.current && navigator.onLine && syncRequestedWhileRunningRef.current &&
+        nextPendingPosQueueEntry(finalQueue, volatileConflictIdsRef.current) !== undefined;
+      syncRequestedWhileRunningRef.current = false;
+      if (shouldDrain) window.setTimeout(() => syncQueueRef.current(), 0);
     }
-    writeQueue(storeId, terminalId, remaining); setQueue(remaining); setSyncing(false); replayingRef.current = false;
-  }, [sendSale, storeId, terminalId]);
+  }, [focusInput, operatorId, refreshInventory, sendSale, shiftId, storeId, terminalId]);
+
+  useEffect(() => { syncQueueRef.current = () => { void syncQueue(); }; }, [syncQueue]);
+
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    refreshQueue();
+    const onOnline = () => { setOnline(true); refreshQueue(); void syncQueue(); };
+    const onOffline = () => setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
+  }, [refreshQueue, syncQueue]);
 
   const reconcileDecisions = useCallback(async () => {
     if (!navigator.onLine) return;
@@ -150,31 +237,37 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
       if (!response.ok) return;
       const data = await response.json() as { items?: Array<{ queueId: string; status: string }> };
       const decisions = new Map((data.items ?? []).map((item) => [item.queueId, item.status]));
-      const current = readQueue(storeId, terminalId);
+      const current = readQueue(storeId, terminalId, shiftId, operatorId);
       const updated = current.flatMap((entry) => {
         const decision = decisions.get(entry.id);
+        if (decision === "DISCARDED" || decision === "RETRY") volatileConflictIdsRef.current.delete(entry.id);
         if (decision === "DISCARDED") return [];
         if (decision === "RETRY") return [{ ...entry, state: "PENDING" as const, conflictReason: undefined }];
         return [entry];
       });
-      if (JSON.stringify(updated) !== JSON.stringify(current)) { writeQueue(storeId, terminalId, updated); setQueue(updated); }
-    } catch { /* Offline terminals keep their local queue until the next poll. */ }
-  }, [storeId, terminalId]);
+      if (JSON.stringify(updated) !== JSON.stringify(current)) {
+        if (writeQueue(storeId, terminalId, shiftId, operatorId, updated)) {
+          setQueue(updated);
+          setPendingScanCount(updated.length);
+        } else {
+          setError({ message: "Unable to save the manager's reconciliation decision locally. Retry when storage is available.", status: 503 });
+        }
+      }
+    } catch (queueError) { setError({ message: queueError instanceof Error ? queueError.message : "Saved scan queue data is invalid. Preserve it and contact a manager.", status: 503 }); }
+  }, [operatorId, shiftId, storeId, terminalId]);
 
   useEffect(() => { void refreshInventory(); void reconcileDecisions(); void syncQueue(); const timer = window.setInterval(() => { void refreshInventory(); void reconcileDecisions(); void syncQueue(); }, 5000); return () => window.clearInterval(timer); }, [refreshInventory, reconcileDecisions, syncQueue]);
 
-  async function submitScan(value = barcode) {
+  function submitScan(value = barcode) {
     const normalized = value.replace(/\D/g, "");
-    if (!normalized || scanning) return;
-    setShowSuccess(false);
-    if (normalized.length !== 14) { setError({ message: "Please scan or enter the complete 14-digit ticket barcode. No ticket was sold.", status: 400 }); focusInput(); return; }
-    setScanning(true); setError(null); setBarcode("");
-    if (!navigator.onLine) { enqueue(normalized); setScanning(false); focusInput(); return; }
-    await sendSale(normalized); void refreshInventory();
-    setScanning(false); focusInput();
+    if (!normalized) return;
+    if (normalized.length !== 14) { setError({ message: "Please scan or enter the complete 14-digit ticket barcode. No ticket was sold.", status: 400 }); setBarcode(""); focusInput(); return; }
+    setError(null); setBarcode("");
+    if (enqueue(normalized) && navigator.onLine) void syncQueue();
+    focusInput();
   }
 
-  function resetForNextScan() { setShowSuccess(false); setError(null); setBarcode(""); focusInput(); }
+  function resetForNextScan() { setError(null); setBarcode(""); focusInput(); }
 
   async function submitReturn() {
     if (!returnReason || returning) return;
@@ -208,9 +301,9 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
   const pendingLabel = conflictCount > 0 ? `${conflictCount} conflict${conflictCount === 1 ? "" : "s"} needs review` : queue.length === 1 ? "1 sale waiting to sync" : `${queue.length} sales waiting to sync`;
 
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]"><main className="mx-auto flex min-h-[calc(100vh-58px)] max-w-[1240px] flex-col px-4 py-4 sm:px-8 sm:py-6 lg:py-8">
-    <header className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#087da8]">{storeName} · {terminalId}</p><h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Sell Tickets</h1><p className="mt-1 text-sm text-slate-500">{employeeName} · scan-first POS terminal</p></div><div className="flex flex-wrap items-center justify-end gap-2 text-xs font-bold">{online ? <span className="inline-flex items-center gap-2 bg-emerald-50 px-3 py-2 text-emerald-700"><Wifi size={14} /> Online</span> : <span className="inline-flex items-center gap-2 bg-amber-50 px-3 py-2 text-amber-800"><CloudOff size={14} /> Offline mode</span>}{queue.length > 0 && <button type="button" onClick={() => { void syncQueue(); }} disabled={!online || syncing} className="inline-flex items-center gap-2 bg-[#17233f] px-3 py-2 text-white disabled:opacity-60">{syncing ? <RefreshCw size={14} className="animate-spin" /> : <Cloud size={14} />} {syncing ? "Syncing..." : pendingLabel}</button>}</div></header>
+    <header className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#087da8]">{storeName} · {terminalId} · Shift {shiftNumber ?? "—"}</p><h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Sell Tickets</h1><p className="mt-1 text-sm text-slate-500">{employeeName} · scan-first POS terminal · Shift {shiftNumber ?? "—"}</p></div><div className="flex flex-wrap items-center justify-end gap-2 text-xs font-bold">{online ? <span className="inline-flex items-center gap-2 bg-emerald-50 px-3 py-2 text-emerald-700"><Wifi size={14} /> Online</span> : <span className="inline-flex items-center gap-2 bg-amber-50 px-3 py-2 text-amber-800"><CloudOff size={14} /> Offline mode</span>}{queue.length > 0 && <button type="button" onClick={() => { void syncQueue(); }} disabled={!online || syncing} className="inline-flex items-center gap-2 bg-[#17233f] px-3 py-2 text-white disabled:opacity-60">{syncing ? <RefreshCw size={14} className="animate-spin" /> : <Cloud size={14} />} {syncing ? "Syncing..." : pendingLabel}</button>}</div></header>
     {stockAlerts.length > 0 && <div className="mb-4 border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><div className="flex items-center justify-between gap-3"><p className="font-black">Inventory attention required</p><span className="text-[10px] font-bold uppercase tracking-wide">Live stock</span></div><div className="mt-2 grid gap-1 sm:grid-cols-2">{stockAlerts.slice(0, 4).map((alert) => <p key={alert.id} className={alert.severity === "URGENT" ? "font-black text-red-700" : "font-semibold text-amber-800"}>{alert.detail}</p>)}</div><p className="mt-2 text-[10px] text-amber-700">Updated {inventoryUpdatedAt ? new Date(inventoryUpdatedAt).toLocaleTimeString() : "just now"}. The terminal refreshes automatically.</p></div>}
-    <section className="grid flex-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]"><div className="flex flex-col justify-center border-2 border-[#087da8] bg-white p-5 shadow-[0_8px_0_rgba(8,125,168,0.12)] sm:p-8"><div className="mx-auto w-full max-w-2xl text-center"><div className="mx-auto flex h-20 w-20 items-center justify-center bg-[#087da8] text-white shadow-lg"><ScanLine size={44} /></div><h2 className="mt-5 text-3xl font-black sm:text-4xl">Scan a ticket</h2><p className="mx-auto mt-2 max-w-md text-sm text-slate-500 sm:text-base">Use the hardware scanner, phone camera, or enter the complete 14-digit barcode. Each scan is validated by the server.</p><div className="mt-7 flex gap-3"><input ref={inputRef} value={barcode} onChange={(event) => setBarcode(event.target.value.replace(/\D/g, "").slice(0, 14))} onPaste={(event) => { const value = event.clipboardData.getData("text").replace(/\D/g, ""); setBarcode(value.slice(0, 14)); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void submitScan(); } }} inputMode="numeric" autoComplete="off" autoFocus placeholder="Scan or enter 14 digits" disabled={scanning} className="min-h-16 min-w-0 flex-1 border-2 border-slate-200 bg-white px-4 font-mono text-lg tracking-wider outline-none focus:border-[#087da8] disabled:bg-slate-100 sm:text-2xl" /><button type="button" onClick={() => { void submitScan(); }} disabled={scanning || barcode.length !== 14} className="min-h-16 min-w-28 bg-[#087da8] px-4 text-base font-black text-white hover:bg-[#066989] disabled:cursor-not-allowed disabled:bg-slate-300">{scanning ? "Checking" : "Sell"}</button></div><PhoneBarcodeScanner onScan={(value) => { setBarcode(value); void submitScan(value); }} disabled={scanning} /><div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-slate-500"><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><Keyboard size={14} /> Hardware scanner supported</span><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><LockKeyhole size={14} /> Opening Audit protected</span></div>{!online && <p className="mt-5 border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-bold text-amber-900">Connection lost. Scans will be held on this terminal and synchronized automatically when the connection returns.</p>}{conflictCount > 0 && <p className="mt-3 border border-red-200 bg-red-50 px-3 py-3 text-sm font-bold text-red-800">{conflictCount} queued sale{conflictCount === 1 ? "" : "s"} is blocked pending manager reconciliation. New scans remain paused behind it.</p>}</div></div>
+    <section className="grid flex-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]"><div className="flex flex-col justify-center border-2 border-[#087da8] bg-white p-5 shadow-[0_8px_0_rgba(8,125,168,0.12)] sm:p-8"><div className="mx-auto w-full max-w-2xl text-center"><div className="mx-auto flex h-20 w-20 items-center justify-center bg-[#087da8] text-white shadow-lg"><ScanLine size={44} /></div><h2 className="mt-5 text-3xl font-black sm:text-4xl">Scan a ticket</h2><p className="mx-auto mt-2 max-w-md text-sm text-slate-500 sm:text-base">Use the hardware scanner, phone camera, or enter the complete 14-digit barcode. Each scan is validated by the server.</p><div className="mt-7 flex gap-3"><input ref={inputRef} value={barcode} onChange={(event) => setBarcode(event.target.value.replace(/\D/g, "").slice(0, 14))} onPaste={(event) => { const value = event.clipboardData.getData("text").replace(/\D/g, ""); setBarcode(value.slice(0, 14)); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void submitScan(); } }} inputMode="numeric" autoComplete="off" autoFocus placeholder="Scan or enter 14 digits" className="min-h-16 min-w-0 flex-1 border-2 border-slate-200 bg-white px-4 font-mono text-lg tracking-wider outline-none focus:border-[#087da8] disabled:bg-slate-100 sm:text-2xl" /><button type="button" onClick={() => { void submitScan(); }} disabled={barcode.length !== 14} className="min-h-16 min-w-28 bg-[#087da8] px-4 text-base font-black text-white hover:bg-[#066989] disabled:cursor-not-allowed disabled:bg-slate-300">{syncing ? `Checking · ${pendingScanCount} queued` : "Sell"}</button></div><PhoneBarcodeScanner onScan={(value) => { setBarcode(value); void submitScan(value); }} /><div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-slate-500"><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><Keyboard size={14} /> Hardware scanner supported</span><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><LockKeyhole size={14} /> Opening Audit protected</span></div>{!online && <p className="mt-5 border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-bold text-amber-900">Connection lost. Scans will be held on this terminal and synchronized automatically when the connection returns.</p>}{conflictCount > 0 && <p className="mt-3 border border-red-200 bg-red-50 px-3 py-3 text-sm font-bold text-red-800">{conflictCount} queued sale{conflictCount === 1 ? "" : "s"} is blocked pending manager reconciliation. New scans can continue; conflicted offline sales remain blocked until manager review.</p>}</div></div>
       <aside className="flex flex-col border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center gap-3 border-b border-slate-200 pb-4"><span className="flex h-11 w-11 items-center justify-center bg-blue-50 text-[#087da8]"><Ticket size={23} /></span><div><h2 className="text-xl font-black">Latest scan</h2><p className="text-xs text-slate-500">Server-confirmed sale or sync status</p></div></div>{result?.status === "queued" ? <div className="mt-5 border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-amber-700">Waiting for connection</p><p className="mt-1 font-mono text-sm text-amber-900">{result.ticketBarcode}</p><p className="mt-2 text-sm text-amber-800">This scan is queued locally and is not marked as sold until LottoOps confirms synchronization.</p></div> : !result ? <div className="flex flex-1 flex-col items-center justify-center py-12 text-center text-slate-400"><ScanLine size={42} strokeWidth={1.5} /><p className="mt-4 font-bold">Waiting for a ticket</p><p className="mt-1 text-xs">Keep the scanner ready for the next customer.</p></div> : <div className="mt-5 space-y-4"><div className="bg-emerald-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Sale recorded</p><p className="mt-1 text-xl font-black text-emerald-900">{result.gameName ?? "Lottery ticket"}</p><p className="mt-1 font-mono text-xs text-emerald-800">{result.ticketBarcode ?? result.serialNumber}</p></div><div className="grid grid-cols-2 gap-3"><Detail label="Amount" value={`$${Number(result.salesAmount ?? result.ticketPrice ?? 0).toFixed(2)}`} /><Detail label="Next ticket" value={result.nextTicketNumber == null ? "Sold out" : String(result.nextTicketNumber)} /><Detail label="Display" value={result.slot?.slotNumber ?? "—"} /><Detail label="Pack status" value={result.packStatus ?? "ACTIVE"} /></div><button type="button" onClick={resetForNextScan} className="min-h-14 w-full bg-[#087da8] text-lg font-black text-white hover:bg-[#066989]">Scan next ticket</button></div>}</aside></section>
     <section className="mt-5 border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Return tickets">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -239,8 +332,8 @@ function StoreLotteryPos({ storeId, employeeName, storeName, terminalId }: PosPr
       </div>}
       {returnMessage && <p role="status" className={`mt-3 text-sm font-semibold ${returnMessage.type === "success" ? "text-emerald-700" : "text-red-700"}`}>{returnMessage.text}</p>}
     </section>
-    {error && <div className="fixed inset-x-4 top-4 z-[60] mx-auto flex max-w-2xl items-start gap-3 border-2 border-red-600 bg-red-50 px-5 py-5 text-base font-bold leading-6 text-red-900 shadow-2xl sm:text-lg" role="alert" aria-live="assertive"><AlertTriangle className="mt-0.5 shrink-0" size={26} /><div><p className="text-lg font-black sm:text-xl">{error.status && error.status >= 500 ? "Ticket scan error · check status before retrying" : "Ticket scan error · no sale recorded"}</p><p className="mt-1 font-bold">{error.message}</p></div><button type="button" onClick={() => setError(null)} className="ml-auto p-1 hover:bg-red-100" aria-label="Dismiss error"><X size={22} /></button></div>}
-  </main>{showSuccess && result && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Sale complete"><div className="w-full max-w-md bg-white p-7 text-center shadow-2xl"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 size={38} /></div><p className="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Sale complete</p><h2 className="mt-1 text-3xl font-black">Ticket recorded</h2><p className="mt-2 text-slate-500">${Number(result.salesAmount ?? result.ticketPrice ?? 0).toFixed(2)} · {result.gameName ?? "Lottery ticket"}</p><button type="button" onClick={resetForNextScan} className="mt-6 min-h-14 w-full bg-[#087da8] text-lg font-black text-white">Scan next ticket</button></div></div>}</div>;
+    {successNotice && !error && <div className="pointer-events-none fixed inset-x-4 top-4 z-[59] mx-auto max-w-2xl border-2 border-emerald-600 bg-emerald-50 px-5 py-4 text-base font-black text-emerald-900 shadow-xl" role="status" aria-live="polite"><div className="flex items-center gap-3"><CheckCircle2 size={24} className="shrink-0 text-emerald-700" /><p>{successNotice}</p></div></div>}{error && <div className="pointer-events-none fixed inset-x-4 top-4 z-[60] mx-auto flex max-w-2xl items-start gap-3 border-2 border-red-600 bg-red-50 px-5 py-5 text-base font-bold leading-6 text-red-900 shadow-2xl sm:text-lg" role="alert" aria-live="assertive"><AlertTriangle className="mt-0.5 shrink-0" size={26} /><div><p className="text-lg font-black sm:text-xl">{error.status && error.status >= 500 ? "Ticket scan error · check status before retrying" : "Ticket scan error · no sale recorded"}</p><p className="mt-1 font-bold">{error.message}</p></div><button type="button" onClick={() => setError(null)} className="pointer-events-auto ml-auto p-1 hover:bg-red-100" aria-label="Dismiss error"><X size={22} /></button></div>}
+  </main></div>;
 }
 
 function Detail({ label, value }: { label: string; value: string }) { return <div className="bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 truncate font-black">{value}</p></div>; }

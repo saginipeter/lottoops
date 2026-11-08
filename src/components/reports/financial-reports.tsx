@@ -7,6 +7,7 @@ import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "@/components/reports/report-actions";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildEndOfShiftReportDocument, type ShiftGameSummary, type ShiftReportData } from "@/lib/shift-report";
+import { compareDisplayNumberLabels, formatDisplayNumberLabel } from "@/lib/display-number-order";
 
 interface GameRow extends ShiftGameSummary { netMargin: number; marginPct: number; }
 interface ShiftRow extends ShiftReportData {
@@ -174,6 +175,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
                         <th className="py-2 pr-2 w-4"></th>
                         <th className="py-2 pr-4">Date / Time</th>
+                        <th className="py-2 pr-4">Shift</th>
                         <th className="py-2 pr-4">Opened By</th>
                         <th className="py-2 pr-4">Closed By</th>
                         <th className="py-2 pr-4 text-right">Tickets</th>
@@ -197,6 +199,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                               <p className="font-medium text-text">{shift.closedAt ? fmtDate(shift.closedAt) : "—"}</p>
                               <p className="text-xs text-text-tertiary">Opened {fmtDate(shift.openedAt)}</p>
                             </td>
+                            <td className="py-2.5 pr-4 font-semibold text-text">{shift.shiftNumber == null ? "Unnumbered" : `Shift ${shift.shiftNumber}`}</td>
                             <td className="py-2.5 pr-4 text-text-secondary">{shift.openedBy}</td>
                             <td className="py-2.5 pr-4 text-text-secondary">{shift.closedBy ?? "Not recorded"}</td>
                             <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-text">{shift.ticketsSold}</td>
@@ -210,7 +213,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                           </tr>
                           {expandedShift === shift.id && shift.gameBreakdown.length > 0 && (
                             <tr key={`${shift.id}-expand`} className="bg-surface-soft">
-                              <td colSpan={10} className="px-4 pb-3 pt-1">
+                              <td colSpan={11} className="px-4 pb-3 pt-1">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-2">Game Breakdown</p>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-xs">
@@ -237,6 +240,23 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                                   </table>
                                 </div>
                                 <p className="mt-2 text-xs text-text-secondary">Total tickets = opening available stock; active stock = closing unsold stock. Cost / Payout is a 95% sales obligation, not recorded prize payments.</p>
+                                <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Pack Sales by Display</p>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead><tr className="text-left">
+                                      <th className="p-2">Display #</th><th className="p-2">Pack</th><th className="p-2">Game</th>
+                                      <th className="p-2 text-right">Beginning</th><th className="p-2 text-right">Ending</th>
+                                      <th className="p-2 text-right">Tickets Sold</th><th className="p-2 text-right">Gross Sales</th><th className="p-2 text-right">Cost (95%)</th>
+                                    </tr></thead>
+                                    <tbody>{[...shift.packSales].sort((a, b) => compareDisplayNumberLabels(a.display, b.display)).map((pack) => (
+                                      <tr key={`${pack.display}-${pack.pack}`} className="border-t border-border">
+                                        <td className="p-2 font-semibold">{formatDisplayNumberLabel(pack.display)}</td><td className="p-2">{pack.pack}</td><td className="p-2">{pack.game}</td>
+                                        <td className="p-2 text-right tabular-nums">{pack.beginning ?? "Not recorded"}</td><td className="p-2 text-right tabular-nums">{pack.ending ?? "Not recorded"}</td>
+                                        <td className="p-2 text-right tabular-nums">{pack.tickets ?? "Not recorded"}</td><td className="p-2 text-right tabular-nums">{pack.sales == null ? "Not recorded" : fmt(pack.sales)}</td><td className="p-2 text-right tabular-nums">{pack.sales == null ? "Not recorded" : fmt(Math.round((pack.sales * 0.95 + Number.EPSILON) * 100) / 100)}</td>
+                                      </tr>
+                                    ))}</tbody>
+                                  </table>
+                                </div>
                               </td>
                             </tr>
                           )}
