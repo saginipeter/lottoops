@@ -8,6 +8,7 @@ import { isManagerOrAbove, isReadOnly } from "@/lib/permissions";
 import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
 import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 import { getNextAvailableShiftNumber, parseShiftNumber } from "@/lib/shift-number";
+import { normalizeTerminalId } from "@/lib/device-registry";
 
 interface ActivePack {
   id: string;
@@ -51,14 +52,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const terminalId =
-      typeof body?.terminalId === "string" && body.terminalId.trim()
-        ? body.terminalId.trim().toUpperCase()
-        : "T1";
+    const terminalId = body?.terminalId === undefined ? "T1" : normalizeTerminalId(body.terminalId);
+    if (!terminalId) return NextResponse.json({ error: "Choose a registered terminal such as T1 or T2." }, { status: 400 });
     const openingCash = Number(body?.openingCash ?? 0);
     const requestedShiftNumber = body?.shiftNumber === undefined ? null : parseShiftNumber(body.shiftNumber);
     if (body?.shiftNumber !== undefined && requestedShiftNumber === null) {
-      return NextResponse.json({ error: "Choose Shift 1, Shift 2, or Shift 3." }, { status: 400 });
+      return NextResponse.json({ error: "Choose Shift 1 or Shift 2." }, { status: 400 });
     }
     if (!Number.isFinite(openingCash) || openingCash < 0) {
       return NextResponse.json({ error: "Starting drawer cash must be a valid non-negative amount." }, { status: 400 });
@@ -77,11 +76,11 @@ export async function POST(req: NextRequest) {
     }
 
     const existingRows: Array<{ id: string; shiftNumber: number | null }> = await prisma.shift.findMany({
-      where: { storeId: session.storeId, status: "OPEN" },
+      where: { storeId: session.storeId, terminalId, status: "OPEN", shiftNumber: { in: [1, 2] } },
       select: { id: true, shiftNumber: true },
     });
-    if (existingRows.length >= 3) {
-      return NextResponse.json({ error: "All three numbered shifts are already open." }, { status: 409 });
+    if (existingRows.length >= 2) {
+      return NextResponse.json({ error: `Shift 1 and Shift 2 are already open on terminal ${terminalId}.` }, { status: 409 });
     }
     const shiftNumber = requestedShiftNumber ?? getNextAvailableShiftNumber(existingRows.map((shift) => shift.shiftNumber));
     if (shiftNumber === null) return NextResponse.json({ error: "No numbered shift is available." }, { status: 409 });
@@ -126,16 +125,12 @@ export async function POST(req: NextRequest) {
         data: {
           storeId: session.storeId,
           shiftNumber,
+          terminalId,
+          openingCash,
           openedById: session.userId,
           status: "OPEN",
         },
       });
-      await tx.$executeRawUnsafe(
-        `UPDATE shifts SET "terminalId" = $1, "openingCash" = $2 WHERE id = $3`,
-        terminalId,
-        openingCash,
-        createdShift.id,
-      );
 
       if (typedActivePacks.length > 0) {
         await tx.shiftLine.createMany({

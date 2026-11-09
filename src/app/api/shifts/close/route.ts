@@ -124,8 +124,12 @@ export async function POST(req: NextRequest) {
         where: { id: shift.id },
         data: { status: "CLOSED", closedAt: new Date(), closedById: session.userId },
       });
+      await tx.$executeRawUnsafe(
+        `UPDATE login_sessions SET ended_at = COALESCE(ended_at, NOW()) WHERE store_id = $1 AND shift_id = $2 AND ended_at IS NULL`,
+        session.storeId, shift.id,
+      );
       await tx.scanLogEntry.create({
-        data: { storeId: session.storeId, action: "SHIFT_CLOSE", performedById: session.userId, detail: `Shift ${shift.shiftNumber ?? "Unnumbered"} closed successfully.` },
+        data: { storeId: session.storeId, action: "SHIFT_CLOSE", performedById: session.userId, detail: `Shift ${shift.shiftNumber ?? "Unnumbered"} closed on terminal ${terminalId}.` },
       });
       return { terminalId, totalTickets, totalSales, openingCash, expectedCash, countedCash, cashVariance };
     });

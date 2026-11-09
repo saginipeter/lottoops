@@ -9,7 +9,7 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 
-export default async function SalesPage({ searchParams }: { searchParams?: Promise<{ shiftId?: string }> }) {
+export default async function SalesPage({ searchParams }: { searchParams?: Promise<{ shiftId?: string; terminal?: string }> }) {
   const session = await getSession();
 
   if (!session) {
@@ -39,17 +39,18 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
   }
 
   const params = searchParams ? await searchParams : {};
-  const openShifts: Array<{ id: string; shiftNumber: number | null }> = await prisma.shift.findMany({
-    where: { storeId: session.storeId, status: "OPEN" },
-    select: { id: true, shiftNumber: true },
-    orderBy: { shiftNumber: "asc" },
-  });
   const shiftBoundRole = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+  const terminalFilter = shiftBoundRole ? session.terminalId : params.terminal?.trim().toUpperCase();
+  const openShifts: Array<{ id: string; shiftNumber: number | null; terminalId: string | null }> = await prisma.shift.findMany({
+    where: { storeId: session.storeId, status: "OPEN", ...(terminalFilter ? { terminalId: terminalFilter } : {}) },
+    select: { id: true, shiftNumber: true, terminalId: true },
+    orderBy: [{ terminalId: "asc" }, { shiftNumber: "asc" }],
+  });
   const requestedShiftId = shiftBoundRole ? session.shiftId : params.shiftId;
   const selectedShiftId = requestedShiftId ?? (openShifts.length === 1 ? openShifts[0].id : null);
   const [openShift, recentClosedShifts, activePacks] = await Promise.all([
     selectedShiftId ? prisma.shift.findFirst({
-      where: { id: selectedShiftId, storeId: session.storeId, status: "OPEN" },
+      where: { id: selectedShiftId, storeId: session.storeId },
       include: {
         lines: {
           include: {
@@ -65,7 +66,7 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
         },
       },
     }) : Promise.resolve(null),
-    prisma.shift.findMany({
+    shiftBoundRole ? Promise.resolve([]) : prisma.shift.findMany({
       where: {
         storeId: session.storeId,
         status: "CLOSED",
@@ -87,8 +88,22 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
   ]);
 
   const currentLines = openShift?.lines ?? [];
+  const sessionPackSales = (shiftBoundRole && session.loginSessionId && selectedShiftId
+    ? await prisma.$queryRawUnsafe(`
+        SELECT e.pack_id AS "packId", g.name AS "gameName", g."gameNumber" AS "gameNumber",
+          p."packNumber" AS "packNumber", e.display_number AS "displayNumber",
+          COUNT(*)::int AS "ticketsSold", COALESCE(SUM(e.ticket_price), 0)::numeric AS "salesAmount",
+          MIN(e.scanned_at) AS "firstSaleAt", MAX(e.scanned_at) AS "lastSaleAt"
+        FROM live_scan_events e
+        JOIN packs p ON p.id = e.pack_id AND p."storeId" = e.store_id
+        JOIN games g ON g.id = p."gameId"
+        WHERE e.store_id = $1 AND e.shift_id = $2 AND e.scanned_by_id = $3 AND e.login_session_id = $4
+        GROUP BY e.pack_id, g.name, g."gameNumber", p."packNumber", e.display_number
+        ORDER BY e.display_number NULLS LAST, p."packNumber" ASC
+      `, session.storeId, selectedShiftId, session.userId, session.loginSessionId)
+    : []) as Array<{ packId: string; gameName: string; gameNumber: string; packNumber: string | null; displayNumber: string | null; ticketsSold: number; salesAmount: number | string; firstSaleAt: Date; lastSaleAt: Date }>;
 
-  const currentTickets = currentLines.reduce((sum: number, line: any) => {
+  const shiftCurrentTickets = currentLines.reduce((sum: number, line: any) => {
     const fallbackSold = Math.max(
       Number(line.beginningTicket) - Number(line.endingTicket ?? line.beginningTicket),
       0
@@ -96,7 +111,7 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
     return sum + Number(line.ticketsSold ?? fallbackSold);
   }, 0);
 
-  const currentSales = currentLines.reduce((sum: number, line: any) => {
+  const shiftCurrentSales = currentLines.reduce((sum: number, line: any) => {
     const fallbackSold = Math.max(
       Number(line.beginningTicket) - Number(line.endingTicket ?? line.beginningTicket),
       0
@@ -112,6 +127,8 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
     return sum + shiftSales;
   }, 0);
 
+  const currentTickets = shiftBoundRole ? sessionPackSales.reduce((sum, row) => sum + Number(row.ticketsSold), 0) : shiftCurrentTickets;
+  const currentSales = shiftBoundRole ? sessionPackSales.reduce((sum, row) => sum + Number(row.salesAmount), 0) : shiftCurrentSales;
   const currentProfit = calculateTicketSaleSplit(currentSales).profitAmount;
   const weekProfit = calculateTicketSaleSplit(weekSales).profitAmount;
 
@@ -120,11 +137,11 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
       <LivePageRefresh intervalMs={3000} />
         <Header
         title="Sales"
-        subtitle="Operational sales center for current shift and reconciliation"
+        subtitle={shiftBoundRole ? "Your ticket sales for this sign-in only" : "Operational sales center for terminal shifts and reconciliation"}
       />
 
       <PageToolbar
-        left={<span className="text-xs text-text-secondary">Shift {openShift?.shiftNumber ?? "—"}: {openShift ? "Open" : openShifts.length > 0 ? "Select a shift" : "Closed"}</span>}
+        left={<span className="text-xs text-text-secondary">{openShift?.terminalId ?? session.terminalId ?? "All terminals"} · Shift {openShift?.shiftNumber ?? "—"}: {openShift?.status ?? (openShifts.length > 0 ? "Select a shift" : "Closed")}</span>}
         center={<span>Ctrl+P Print | Ctrl+F Search</span>}
         right={<span className="text-xs text-text-tertiary">Active Packs: {activePacks}</span>}
       />
@@ -138,39 +155,45 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
               hint={openShift ? "Sales are in progress" : "Open shift to start sales"}
             />
             <StatCard
-              label="Current Shift Sales"
+              label={shiftBoundRole ? "Your Login Sales" : "Current Shift Sales"}
               value={formatCurrency(currentSales)}
-              hint={`${currentTickets} tickets sold`}
+              hint={`${currentTickets} tickets sold${shiftBoundRole ? " in this sign-in" : " in the selected shift"}`}
             />
             <StatCard
               label="Store Profit (5%)"
               value={formatCurrency(currentProfit)}
-              hint="Current shift store profit"
+              hint={shiftBoundRole ? "Your session profit (5%)" : "Current shift store profit"}
             />
             <StatCard
               label="Active Packs"
               value={String(activePacks)}
               hint="Packs available on display"
             />
-            <StatCard
+            {!shiftBoundRole && <StatCard
               label="Last 7 Shift Sales"
               value={formatCurrency(weekSales)}
-              hint={`${recentClosedShifts.length} closed shifts \u00b7 profit ${formatCurrency(weekProfit)}`}
-            />
+              hint={`${recentClosedShifts.length} closed shifts · profit ${formatCurrency(weekProfit)}`}
+            />}
           </div>
 
           <Panel className="p-4">
             <div className="flex flex-wrap gap-2">
-              {openShifts.length > 1 && !shiftBoundRole && openShifts.map((item) => <QuickLink key={item.id} href={`/sales?shiftId=${encodeURIComponent(item.id)}`} label={`${item.shiftNumber === openShift?.shiftNumber ? "✓ " : ""}Shift ${item.shiftNumber ?? "—"}`} />)}
-              <QuickLink href={openShift ? `/pos?shiftId=${encodeURIComponent(openShift.id)}` : "/pos"} label="Sell Tickets" />
-              <QuickLink href="/reports" label="Open Reports" />
+              {openShifts.length > 1 && !shiftBoundRole && openShifts.map((item) => <QuickLink key={item.id} href={`/sales?terminal=${encodeURIComponent(item.terminalId ?? "")}&shiftId=${encodeURIComponent(item.id)}`} label={`${item.terminalId ?? "Terminal"} · Shift ${item.shiftNumber ?? "—"}`} />)}
+              {openShift?.status === "OPEN" && <QuickLink href={`/pos?terminal=${encodeURIComponent(openShift.terminalId ?? session.terminalId ?? "")}&shiftId=${encodeURIComponent(openShift.id)}`} label="Sell Tickets" />}
+              {!shiftBoundRole && <QuickLink href="/reports" label="Open Reports" />}
             </div>
           </Panel>
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
             <Panel className="xl:col-span-2 p-4">
-              <h3 className="text-base font-semibold text-text">Current Shift Sales by Pack</h3>
-              {!openShift ? (
+              <h3 className="text-base font-semibold text-text">{shiftBoundRole ? "Your Sales This Sign-in" : "Current Shift Sales by Pack"}</h3>
+              {shiftBoundRole ? !session.loginSessionId ? (
+                <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This sign-in predates sales-session tracking. Sign out and sign in again to start a separate employee sales record.</p>
+              ) : sessionPackSales.length === 0 ? (
+                <p className="mt-3 text-sm text-text-secondary">No ticket sales have been recorded in this login session yet.</p>
+              ) : (
+                <SessionPackSalesTable rows={sessionPackSales} terminalId={session.terminalId ?? "—"} shiftNumber={session.shiftNumber ?? null} />
+              ) : !openShift ? (
                 <p className="mt-3 text-sm text-text-secondary">
                   No open shift. Open a shift to track live sales.
                 </p>
@@ -231,8 +254,10 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
             </Panel>
 
             <Panel className="p-4">
-              <h3 className="text-base font-semibold text-text">Recent Closed Shifts</h3>
-              {recentClosedShifts.length === 0 ? (
+              <h3 className="text-base font-semibold text-text">{shiftBoundRole ? "Sales visibility" : "Recent Closed Shifts"}</h3>
+              {shiftBoundRole ? (
+                <p className="mt-3 text-sm text-text-secondary">This page shows only sales from your current sign-in. Store-wide and other employee reports are reserved for managers and owners.</p>
+              ) : recentClosedShifts.length === 0 ? (
                 <p className="mt-3 text-sm text-text-secondary">
                   No closed shifts yet.
                 </p>
@@ -271,8 +296,8 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
 
       <StatusBar
         left={<span>Shift Tickets: {currentTickets}</span>}
-        center={<span>Shift Sales: {formatCurrency(currentSales)} | Week Sales: {formatCurrency(weekSales)}</span>}
-        right={<span>{recentClosedShifts.length} closed shifts loaded</span>}
+        center={<span>{shiftBoundRole ? "Your login sales" : "Shift Sales"}: {formatCurrency(currentSales)}{shiftBoundRole ? "" : ` | Week Sales: ${formatCurrency(weekSales)}`}</span>}
+        right={<span>{shiftBoundRole ? `${currentTickets} tickets · this sign-in` : `${recentClosedShifts.length} closed shifts loaded`}</span>}
       />
     </div>
   );
@@ -305,4 +330,25 @@ function QuickLink({ href, label }: { href: string; label: string }) {
       {label}
     </Link>
   );
+}
+
+function SessionPackSalesTable({ rows, terminalId, shiftNumber }: {
+  rows: Array<{ packId: string; gameName: string; gameNumber: string; packNumber: string | null; displayNumber: string | null; ticketsSold: number; salesAmount: number | string; firstSaleAt: Date; lastSaleAt: Date }>;
+  terminalId: string;
+  shiftNumber: number | null;
+}) {
+  return <div className="mt-4 overflow-x-auto">
+    <table className="w-full min-w-[680px] text-sm">
+      <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
+        <th className="py-2 pr-4">Terminal / Shift</th><th className="py-2 pr-4">Display #</th><th className="py-2 pr-4">Game / Pack</th><th className="py-2 pr-4 text-right">Tickets</th><th className="py-2 text-right">Your Sales</th>
+      </tr></thead>
+      <tbody>{rows.map((row) => <tr key={row.packId} className="border-b border-border">
+        <td className="py-2 pr-4">{terminalId} · Shift {shiftNumber ?? "—"}</td>
+        <td className="py-2 pr-4">{row.displayNumber ?? "Backstock"}</td>
+        <td className="py-2 pr-4"><span className="font-medium text-text">{row.gameName}</span><span className="block text-xs text-text-secondary">Game {row.gameNumber} · Pack #{row.packNumber ?? "—"}</span></td>
+        <td className="py-2 pr-4 text-right font-semibold">{Number(row.ticketsSold)}</td>
+        <td className="py-2 text-right font-semibold">{formatCurrency(Number(row.salesAmount))}</td>
+      </tr>)}</tbody>
+    </table>
+  </div>;
 }

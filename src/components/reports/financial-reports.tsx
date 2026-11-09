@@ -176,6 +176,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                         <th className="py-2 pr-2 w-4"></th>
                         <th className="py-2 pr-4">Date / Time</th>
                         <th className="py-2 pr-4">Shift</th>
+                        <th className="py-2 pr-4">Terminal</th>
                         <th className="py-2 pr-4">Opened By</th>
                         <th className="py-2 pr-4">Closed By</th>
                         <th className="py-2 pr-4 text-right">Tickets</th>
@@ -200,6 +201,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                               <p className="text-xs text-text-tertiary">Opened {fmtDate(shift.openedAt)}</p>
                             </td>
                             <td className="py-2.5 pr-4 font-semibold text-text">{shift.shiftNumber == null ? "Unnumbered" : `Shift ${shift.shiftNumber}`}</td>
+                            <td className="py-2.5 pr-4 text-text-secondary">{shift.terminalId ?? "Not recorded"}</td>
                             <td className="py-2.5 pr-4 text-text-secondary">{shift.openedBy}</td>
                             <td className="py-2.5 pr-4 text-text-secondary">{shift.closedBy ?? "Not recorded"}</td>
                             <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-text">{shift.ticketsSold}</td>
@@ -213,7 +215,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                           </tr>
                           {expandedShift === shift.id && shift.gameBreakdown.length > 0 && (
                             <tr key={`${shift.id}-expand`} className="bg-surface-soft">
-                              <td colSpan={11} className="px-4 pb-3 pt-1">
+                              <td colSpan={12} className="px-4 pb-3 pt-1">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-2">Game Breakdown</p>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-xs">
@@ -257,6 +259,23 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                                     ))}</tbody>
                                   </table>
                                 </div>
+                                <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Sales by Employee Login &amp; Terminal</p>
+                                {!shift.operatorSessions?.length ? <p className="rounded-md bg-surface-soft p-3 text-xs text-text-secondary">No employee-session sales were recorded for this shift.</p> : <div className="overflow-x-auto">
+                                  <table className="w-full min-w-[760px] text-xs">
+                                    <thead><tr className="text-left">
+                                      <th className="p-2">Employee</th><th className="p-2">Terminal</th><th className="p-2">Login ID</th><th className="p-2">Signed in / out</th><th className="p-2 text-right">Tickets</th><th className="p-2 text-right">Gross Sales</th><th className="p-2">Price source</th>
+                                    </tr></thead>
+                                    <tbody>{shift.operatorSessions.map((operator, index) => <Fragment key={`${operator.shiftId}-${operator.sessionId ?? operator.employeeId}-${operator.terminalId}-${index}`}>
+                                      <tr className="border-t border-border">
+                                        <td className="p-2 font-semibold">{operator.employeeName}{operator.legacyAttribution ? " · historical" : ""}</td><td className="p-2">{operator.terminalId ?? "Not recorded"}</td><td className="p-2 font-mono">{operator.sessionId ? operator.sessionId.slice(-8) : "Not recorded"}</td>
+                                        <td className="p-2">{operator.signedInAt ? new Date(operator.signedInAt).toLocaleString() : "Not recorded"}{operator.endedAt ? ` – ${new Date(operator.endedAt).toLocaleString()}` : " – Still signed in"}</td><td className="p-2 text-right tabular-nums">{operator.tickets}</td><td className="p-2 text-right tabular-nums font-semibold">{fmt(operator.grossSales)}</td><td className="p-2">{operator.hasEstimatedPrice ? "Backfilled estimate" : operator.legacyAttribution ? "Historical price" : "Recorded"}</td>
+                                      </tr>
+                                      {operator.packs.map((pack) => <tr key={`${operator.sessionId}-${pack.packId}`} className="border-t border-border/60 bg-surface-soft/50">
+                                        <td className="py-1.5 pl-6 pr-2 text-text-secondary">↳ Pack {pack.pack}</td><td className="p-2">Display {formatDisplayNumberLabel(pack.display)}</td><td className="p-2" colSpan={2}>{pack.game}</td><td className="p-2 text-right">{pack.tickets}</td><td className="p-2 text-right">{fmt(pack.grossSales)}</td><td className="p-2">{pack.hasEstimatedPrice ? "Estimate" : "Recorded"}</td>
+                                      </tr>)}
+                                    </Fragment>)}</tbody>
+                                  </table>
+                                </div>}
                               </td>
                             </tr>
                           )}

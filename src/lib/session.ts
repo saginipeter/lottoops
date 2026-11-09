@@ -11,6 +11,8 @@ export interface SessionPayload {
   rememberMe?: boolean;
   shiftId?: string;
   shiftNumber?: 1 | 2 | 3;
+  terminalId?: string;
+  loginSessionId?: string;
   impersonatedBy?: { userId: string; name: string; email: string };
   supportAccessId?: string;
 }
@@ -55,7 +57,7 @@ export async function verifySession(
 export async function signMfaChallenge(
   userId: string,
   rememberMe = false,
-  shiftAssignment?: { shiftId: string; shiftNumber: 1 | 2 | 3 },
+  shiftAssignment?: { shiftId: string; shiftNumber: 1 | 2 | 3; terminalId: string },
 ): Promise<string> {
   return new SignJWT({ type: "MFA_CHALLENGE", userId, rememberMe, ...shiftAssignment })
     .setProtectedHeader({ alg: "HS256" })
@@ -69,18 +71,21 @@ export async function verifyMfaChallenge(token: string): Promise<{
   rememberMe: boolean;
   shiftId?: string;
   shiftNumber?: 1 | 2 | 3;
+  terminalId?: string;
 } | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     if (payload.type !== "MFA_CHALLENGE" || typeof payload.userId !== "string") return null;
     const shiftNumber = payload.shiftNumber;
     const hasValidShiftNumber = shiftNumber === 1 || shiftNumber === 2 || shiftNumber === 3;
-    if ((payload.shiftId !== undefined && typeof payload.shiftId !== "string") || (shiftNumber !== undefined && !hasValidShiftNumber)) return null;
+    if ((payload.shiftId !== undefined && typeof payload.shiftId !== "string") || (shiftNumber !== undefined && !hasValidShiftNumber) ||
+        (payload.terminalId !== undefined && (typeof payload.terminalId !== "string" || !/^T\d{1,3}$/.test(payload.terminalId)))) return null;
     return {
       userId: payload.userId,
       rememberMe: payload.rememberMe === true,
       ...(typeof payload.shiftId === "string" ? { shiftId: payload.shiftId } : {}),
       ...(hasValidShiftNumber ? { shiftNumber } : {}),
+      ...(typeof payload.terminalId === "string" ? { terminalId: payload.terminalId } : {}),
     };
   } catch {
     return null;

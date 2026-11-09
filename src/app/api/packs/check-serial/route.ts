@@ -11,6 +11,7 @@ import { getSafeCurrentTicket, getValidTicketState } from "@/lib/ticket-quantity
 import { Prisma } from "@prisma/client";
 import { expectedPhysicalTicketByDirection } from "@/lib/core-validation";
 import { isValidPackBarcode } from "@/lib/barcode";
+import { normalizeTerminalId } from "@/lib/device-registry";
 
 function resolveScannedTicketNumber(normalizedSerial: string) {
   if (normalizedSerial.length <= 11) return null;
@@ -30,10 +31,10 @@ class LiveScanError extends Error {
 
 function saleResponse({
   pack, shiftId, shiftNumber, saleId, ticketBarcode, currentTicketNumber, packStatus,
-  ticketsSold = 1, salesAmount, replayed = false,
+  ticketsSold = 1, salesAmount, replayed = false, terminalId,
 }: {
   pack: any; shiftId: string; shiftNumber: number | null; saleId: string; ticketBarcode: string;
-  currentTicketNumber: number; packStatus: string; ticketsSold?: number; salesAmount?: number; replayed?: boolean;
+  currentTicketNumber: number; packStatus: string; ticketsSold?: number; salesAmount?: number; replayed?: boolean; terminalId?: string;
 }) {
   const ticketPrice = Number(pack.ticketPrice ?? pack.game.price ?? 0);
   const shiftSalesAmount = salesAmount ?? ticketPrice;
@@ -52,6 +53,7 @@ function saleResponse({
     packStatus, currentTicketNumber, nextTicketNumber, ticketQuantity: pack.ticketQuantity,
     ticketPrice: pack.ticketPrice, ticketsSold, salesAmount: shiftSalesAmount,
     profitAmount, stateCost, idempotentReplay: replayed,
+    terminalId: terminalId ?? null,
     slot: pack.slot ? { slotNumber: pack.slot.slotNumber } : null,
     game: { name: pack.game.name, gameNumber: pack.game.gameNumber },
   });
@@ -60,13 +62,14 @@ function saleResponse({
 async function findCommittedSale(storeId: string, userId: string, clientRequestId: string) {
   const rows = await prisma!.$queryRawUnsafe(`
     SELECT e.id, e.shift_id AS "shiftId", s.shift_number AS "shiftNumber",
+      e.login_session_id AS "loginSessionId",
       e.pack_id AS "packId", e.ticket_barcode AS "ticketBarcode"
     FROM live_scan_events e
     JOIN shifts s ON s.id = e.shift_id
     WHERE e.store_id = $1 AND e.scanned_by_id = $2 AND e.client_request_id = $3
     LIMIT 1
   `, storeId, userId, clientRequestId) as Array<{
-    id: string; shiftId: string; shiftNumber: number | null; packId: string; ticketBarcode: string;
+    id: string; shiftId: string; shiftNumber: number | null; loginSessionId: string | null; packId: string; ticketBarcode: string;
   }>;
   return rows[0] ?? null;
 }
@@ -88,6 +91,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { serialNumber, liveScan, terminalId: rawTerminalId, deviceKey, expectedStoreId, shiftId: requestedShiftId } = body;
   const rawClientRequestId = body?.clientRequestId;
+  const requestedLoginSessionId = typeof body?.loginSessionId === "string" ? body.loginSessionId.trim() : "";
   if (rawClientRequestId !== undefined && (typeof rawClientRequestId !== "string" || rawClientRequestId.length < 1 || rawClientRequestId.length > 120 || !/^[\w-]+$/.test(rawClientRequestId))) {
     return NextResponse.json({ error: "The scan request ID is invalid." }, { status: 400 });
   }
@@ -103,10 +107,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const terminalId =
-      typeof rawTerminalId === "string" && rawTerminalId.trim()
-        ? rawTerminalId.trim().toUpperCase()
-        : "T1";
+    const staffBound = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+    const terminalId = staffBound ? session.terminalId ?? "" : normalizeTerminalId(rawTerminalId) ?? "T1";
+    if (!terminalId || (staffBound && rawTerminalId !== undefined && normalizeTerminalId(rawTerminalId) !== terminalId)) {
+      return NextResponse.json({ error: "Your signed-in terminal assignment is missing or changed. Sign in again and choose the correct terminal shift." }, { status: 409 });
+    }
+    if (liveScan === true && (!session.loginSessionId || !requestedLoginSessionId)) {
+      return NextResponse.json({ error: "Your login session has expired. Sign out and sign in again before selling tickets." }, { status: 409 });
+    }
     const deviceAuthorization = await authorizeRegisteredDevice(session.storeId, terminalId, deviceKey);
     if (!deviceAuthorization.authorized) {
       return NextResponse.json({ error: deviceAuthorization.reason }, { status: 403 });
@@ -145,7 +153,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (liveScan === true && clientRequestId) {
-      const staffBound = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
       const replayShiftId = staffBound
         ? session.shiftId
         : typeof requestedShiftId === "string" ? requestedShiftId.trim() : null;
@@ -154,7 +161,7 @@ export async function POST(req: NextRequest) {
       }
       const committed = await findCommittedSale(session.storeId, session.userId, clientRequestId);
       if (committed) {
-        if (committed.ticketBarcode !== normalizedSerial || !replayShiftId || committed.shiftId !== replayShiftId) {
+        if (committed.ticketBarcode !== normalizedSerial || !replayShiftId || committed.shiftId !== replayShiftId || committed.loginSessionId !== requestedLoginSessionId) {
           return NextResponse.json({ error: "This queued scan request was already used for a different shift or ticket." }, { status: 409 });
         }
         const committedPack = await prisma.pack.findFirst({
@@ -170,7 +177,7 @@ export async function POST(req: NextRequest) {
           saleId: committed.id, ticketBarcode: committed.ticketBarcode,
           currentTicketNumber: Number(committedPack.currentTicketNumber ?? 0),
           packStatus: committedPack.status, ticketsSold: Number(committedLine?.ticketsSold ?? 1),
-          salesAmount: committedLine?.salesAmount == null ? undefined : Number(committedLine.salesAmount), replayed: true,
+          salesAmount: committedLine?.salesAmount == null ? undefined : Number(committedLine.salesAmount), replayed: true, terminalId,
         });
       }
     }
@@ -224,16 +231,16 @@ export async function POST(req: NextRequest) {
         let selectedShiftId = typeof requestedShiftId === "string" && requestedShiftId.trim()
           ? requestedShiftId.trim()
           : null;
-        if (session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD") {
+        if (staffBound) {
           if (!session.shiftId || (selectedShiftId && selectedShiftId !== session.shiftId)) {
             return NextResponse.json({ error: "Your shift assignment is missing or has changed. Sign in again and select an open shift." }, { status: 409 });
           }
           selectedShiftId = session.shiftId;
         }
-        const openShifts: Array<{ id: string; shiftNumber: number | null }> = await prisma.shift.findMany({
-          where: { storeId: session.storeId, status: "OPEN" },
-          select: { id: true, shiftNumber: true },
-          orderBy: { shiftNumber: "asc" },
+        const openShifts: Array<{ id: string; shiftNumber: number | null; terminalId: string | null }> = await prisma.shift.findMany({
+          where: { storeId: session.storeId, status: "OPEN", shiftNumber: { in: [1, 2] }, terminalId },
+          select: { id: true, shiftNumber: true, terminalId: true },
+          orderBy: [{ shiftNumber: "asc" }, { id: "asc" }],
         });
         if (!selectedShiftId && openShifts.length === 1) selectedShiftId = openShifts[0].id;
         if (!selectedShiftId && openShifts.length > 1) {
@@ -241,7 +248,7 @@ export async function POST(req: NextRequest) {
         }
         const selectedShift = openShifts.find((item) => item.id === selectedShiftId);
         const openShift = selectedShift
-          ? await prisma.shift.findFirst({ where: { id: selectedShift.id, storeId: session.storeId, status: "OPEN" } })
+          ? await prisma.shift.findFirst({ where: { id: selectedShift.id, storeId: session.storeId, status: "OPEN", terminalId } })
           : null;
 
         if (!openShift) {
@@ -251,10 +258,23 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        if (!session.loginSessionId || requestedLoginSessionId !== session.loginSessionId) {
+          throw new LiveScanError("Sign out and sign in again to start an attributed sales session.", 409, "LOGIN_SESSION_REQUIRED");
+        }
+        const loginSessionRows = await prisma.$queryRawUnsafe(`
+          SELECT id, shift_id AS "shiftId", terminal_id AS "terminalId"
+          FROM login_sessions WHERE id = $1 AND store_id = $2 AND user_id = $3 LIMIT 1
+        `, requestedLoginSessionId, session.storeId, session.userId) as Array<{ id: string; shiftId: string | null; terminalId: string | null }>;
+        const attributedSession = loginSessionRows[0];
+        if (!attributedSession) throw new LiveScanError("This scan does not belong to a valid login session for your account.", 403, "LOGIN_SESSION_MISMATCH");
+        if (staffBound && (attributedSession.shiftId !== openShift.id || attributedSession.terminalId !== terminalId)) {
+          throw new LiveScanError("This scan does not match your signed-in terminal shift.", 403, "SHIFT_SESSION_MISMATCH");
+        }
+
         const scanEventId = `lse_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
         const saleResult = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-          const lockedShifts = await tx.$queryRawUnsafe<Array<{ id: string; shiftNumber: number | null }>>(`
-            SELECT id, shift_number AS "shiftNumber" FROM shifts
+          const lockedShifts = await tx.$queryRawUnsafe<Array<{ id: string; shiftNumber: number | null; terminalId: string }>>(`
+            SELECT id, shift_number AS "shiftNumber", "terminalId" FROM shifts
             WHERE id = $1 AND "storeId" = $2 AND status = 'OPEN' FOR UPDATE
           `, openShift.id, session.storeId);
           if (lockedShifts.length !== 1) throw new Error("CONCURRENT_TICKET_SCAN");
@@ -266,15 +286,15 @@ export async function POST(req: NextRequest) {
 
           if (clientRequestId) {
             const prior = await tx.$queryRawUnsafe<Array<{
-              id: string; shiftId: string; shiftNumber: number | null; packId: string; ticketBarcode: string;
+              id: string; shiftId: string; shiftNumber: number | null; loginSessionId: string | null; packId: string; ticketBarcode: string;
             }>>(`
-              SELECT id, shift_id AS "shiftId", pack_id AS "packId", ticket_barcode AS "ticketBarcode",
+              SELECT id, shift_id AS "shiftId", login_session_id AS "loginSessionId", pack_id AS "packId", ticket_barcode AS "ticketBarcode",
                 $1::int AS "shiftNumber"
               FROM live_scan_events WHERE store_id = $2 AND scanned_by_id = $3 AND client_request_id = $4 LIMIT 1
             `, lockedShifts[0].shiftNumber, session.storeId, session.userId, clientRequestId);
             if (prior.length > 0) {
               const event = prior[0];
-              if (event.shiftId !== openShift.id || event.ticketBarcode !== normalizedSerial) {
+              if (event.shiftId !== openShift.id || event.ticketBarcode !== normalizedSerial || event.loginSessionId !== requestedLoginSessionId) {
                 throw new LiveScanError("This queued scan request was already used for a different shift or ticket.", 409);
               }
               const priorPack = await tx.pack.findFirst({
@@ -397,9 +417,9 @@ export async function POST(req: NextRequest) {
           if (updateResult.count !== 1) throw new Error("CONCURRENT_TICKET_SCAN");
 
           await tx.$executeRawUnsafe(`
-            INSERT INTO live_scan_events (id, store_id, shift_id, pack_id, ticket_barcode, client_request_id, scanned_by_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-          `, scanEventId, session.storeId, openShift.id, pack.id, normalizedSerial, clientRequestId, session.userId);
+            INSERT INTO live_scan_events (id, store_id, shift_id, pack_id, ticket_barcode, client_request_id, scanned_by_id, terminal_id, login_session_id, ticket_price, display_number)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          `, scanEventId, session.storeId, openShift.id, pack.id, normalizedSerial, clientRequestId, session.userId, terminalId, requestedLoginSessionId, Number(pack.ticketPrice ?? pack.game.price ?? 0), pack.slot?.slotNumber ?? null);
           const shiftCounts = await tx.$queryRawUnsafe<Array<{ ticketsSold: number | bigint }>>(
             `SELECT COUNT(*)::int AS "ticketsSold" FROM live_scan_events WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3`,
             session.storeId, openShift.id, pack.id,
@@ -441,7 +461,7 @@ export async function POST(req: NextRequest) {
             saleId: saleResult.event.id, ticketBarcode: saleResult.event.ticketBarcode,
             currentTicketNumber: Number(saleResult.pack.currentTicketNumber ?? 0),
             packStatus: saleResult.pack.status, ticketsSold: Number(saleResult.line?.ticketsSold ?? 1),
-            salesAmount: saleResult.line?.salesAmount == null ? undefined : Number(saleResult.line.salesAmount), replayed: true,
+            salesAmount: saleResult.line?.salesAmount == null ? undefined : Number(saleResult.line.salesAmount), replayed: true, terminalId,
           });
         }
         if (saleResult.kind === "mismatch") {
@@ -476,7 +496,7 @@ export async function POST(req: NextRequest) {
           saleId: saleResult.scanEventId, ticketBarcode: normalizedSerial,
           currentTicketNumber: saleResult.endingTicket,
           packStatus: saleResult.soldOut ? "SOLD_OUT" : "ACTIVE",
-          ticketsSold: saleResult.ticketsSold, salesAmount: saleResult.salesAmount,
+          ticketsSold: saleResult.ticketsSold, salesAmount: saleResult.salesAmount, terminalId,
         });
       }
 

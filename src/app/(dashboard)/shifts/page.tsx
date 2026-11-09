@@ -3,6 +3,7 @@ import { ShiftPos } from "@/components/shifts/shift-pos";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { getShiftParticipants } from "@/lib/shift-participants";
+import { ensureDeviceRegistrySchema } from "@/lib/device-registry";
 import { redirect } from "next/navigation";
 
 interface ShiftsPageProps {
@@ -30,25 +31,44 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
   if (session.role === "AUDITOR") redirect("/reports");
 
   const resolvedSearchParams = (await searchParams) ?? {};
-  const terminalId =
-    typeof resolvedSearchParams.terminal === "string" && resolvedSearchParams.terminal.trim()
-      ? resolvedSearchParams.terminal.trim().toUpperCase()
-      : "T1";
+  const staffBound = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+  let terminalOptions = ["T1", "T2"];
+  if (!staffBound) {
+    try {
+      await ensureDeviceRegistrySchema();
+      const devices = await prisma.$queryRawUnsafe(
+        `SELECT terminal_id AS "terminalId" FROM store_devices WHERE store_id = $1 ORDER BY terminal_id ASC`,
+        session.storeId,
+      ) as Array<{ terminalId: string }>;
+      if (devices.length > 0) terminalOptions = devices.map((device) => device.terminalId);
+    } catch {
+      // Older stores can still operate using the standard T1/T2 terminal labels.
+    }
+  }
+  const requestedTerminal = typeof resolvedSearchParams.terminal === "string" ? resolvedSearchParams.terminal.trim().toUpperCase() : "";
+  let terminalId = staffBound ? session.terminalId ?? "" : terminalOptions.includes(requestedTerminal) ? requestedTerminal : terminalOptions[0] ?? "T1";
+  if (staffBound && !terminalId) redirect("/login?from=/shifts");
 
-  const openShiftRows: Array<{ id: string; shiftNumber: number | null; openedAt: Date }> = await prisma.shift.findMany({
+  const allOpenShiftRows: Array<{ id: string; shiftNumber: number | null; terminalId: string | null; openedAt: Date }> = await prisma.shift.findMany({
     where: {
       storeId: session.storeId,
       status: "OPEN",
-      ...(session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"
+      ...(staffBound
         ? { id: session.shiftId ?? "__employee_has_no_selected_shift__" }
         : {}),
     },
-    select: { id: true, shiftNumber: true, openedAt: true },
-    orderBy: [{ shiftNumber: "asc" }, { openedAt: "asc" }],
+    select: { id: true, shiftNumber: true, terminalId: true, openedAt: true },
+    orderBy: [{ terminalId: "asc" }, { shiftNumber: "asc" }, { openedAt: "asc" }],
   });
-  const requestedShiftId = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"
+  if (!staffBound) terminalOptions = Array.from(new Set([...terminalOptions, ...allOpenShiftRows.flatMap((row) => row.terminalId ? [row.terminalId] : [])])).sort();
+  const requestedShiftId = staffBound
     ? session.shiftId
     : typeof resolvedSearchParams.shiftId === "string" ? resolvedSearchParams.shiftId : undefined;
+  if (!staffBound && requestedShiftId) {
+    const requestedShift = allOpenShiftRows.find((row) => row.id === requestedShiftId);
+    if (requestedShift?.terminalId) terminalId = requestedShift.terminalId;
+  }
+  const openShiftRows = allOpenShiftRows.filter((row) => row.terminalId === terminalId);
   const selectedShift = requestedShiftId
     ? openShiftRows.find((row) => row.id === requestedShiftId)
     : openShiftRows.length === 1 ? openShiftRows[0] : null;
@@ -80,13 +100,15 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
   const recentClosedShift = openShift
     ? null
     : await prisma.shift.findFirst({
-        where: { storeId: session.storeId, status: "CLOSED", closedAt: { not: null } },
+        where: { storeId: session.storeId, terminalId, status: "CLOSED", closedAt: { not: null } },
         orderBy: { closedAt: "desc" },
         select: {
           openedAt: true,
           closedAt: true,
           openedBy: { select: { name: true } },
           closedBy: { select: { name: true } },
+          shiftNumber: true,
+          terminalId: true,
         },
       });
 
@@ -118,6 +140,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
           },
           action: { in: ["SHIFT_OPEN", "SHIFT_CLOSE"] },
           detail: { contains: `Shift ${openShift.shiftNumber ?? "Unnumbered"}` },
+          AND: [{ detail: { contains: `terminal ${terminalId}` } }],
         },
         include: {
           performedBy: {
@@ -179,6 +202,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       recentClosedShift={recentClosedShift ? JSON.parse(JSON.stringify(recentClosedShift)) : null}
       terminalId={terminalId}
       openShifts={openShiftRows.map((row) => ({ id: row.id, shiftNumber: row.shiftNumber, openedAt: row.openedAt.toISOString() }))}
+      terminalOptions={terminalOptions}
       selectedShiftId={openShift?.id ?? null}
       canManageShifts={session.role === "OWNER" || session.role === "MANAGER"}
       isEmployee={session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"}

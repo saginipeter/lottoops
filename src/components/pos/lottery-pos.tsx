@@ -6,7 +6,7 @@ import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanne
 import { nextPendingPosQueueEntry, parsePosOfflineQueue, type PosQueueEntry } from "@/lib/pos-offline-queue";
 import { formatTicketScanBlockedMessage } from "@/lib/pos-scan-message";
 
-interface PosProps { storeId: string; operatorId: string; employeeName: string; storeName: string; terminalId: string; shiftId: string; shiftNumber: number | null; }
+interface PosProps { storeId: string; operatorId: string; loginSessionId: string; employeeName: string; storeName: string; terminalId: string; shiftId: string; shiftNumber: number | null; }
 interface SaleResult { error?: string; code?: string; id?: string; shiftId?: string; saleId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
 interface ReturnableSale { packId: string; shiftId: string; saleId: string; ticketBarcode: string; gameName: string; serialNumber: string; slotNumber: string; salesAmount: number; }
 type QueueEntry = PosQueueEntry;
@@ -34,10 +34,10 @@ function writeQueue(storeId: string, terminalId: string, shiftId: string, operat
 }
 
 export function LotteryPos(props: PosProps) {
-  return <StoreLotteryPos key={JSON.stringify([props.storeId, props.operatorId, props.terminalId, props.shiftId])} {...props} />;
+  return <StoreLotteryPos key={JSON.stringify([props.storeId, props.operatorId, props.loginSessionId, props.terminalId, props.shiftId])} {...props} />;
 }
 
-function StoreLotteryPos({ storeId, operatorId, employeeName, storeName, terminalId, shiftId, shiftNumber }: PosProps) {
+function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, storeName, terminalId, shiftId, shiftNumber }: PosProps) {
   const [barcode, setBarcode] = useState("");
   const [result, setResult] = useState<SaleResult | null>(null);
   const [error, setError] = useState<{ message: string; status?: number } | null>(null);
@@ -102,7 +102,7 @@ function StoreLotteryPos({ storeId, operatorId, employeeName, storeName, termina
 
   const enqueue = useCallback((value: string) => {
     try {
-      const next = [...readQueue(storeId, terminalId, shiftId, operatorId), { id: makeId(), barcode: value, shiftId, queuedAt: new Date().toISOString(), attempts: 0, state: "PENDING" as const }];
+      const next = [...readQueue(storeId, terminalId, shiftId, operatorId), { id: makeId(), barcode: value, shiftId, loginSessionId, queuedAt: new Date().toISOString(), attempts: 0, state: "PENDING" as const }];
       if (!writeQueue(storeId, terminalId, shiftId, operatorId, next)) {
         setError({ message: "This terminal could not save the scan locally. No ticket was sold. Restore storage or the connection and scan again.", status: 503 });
         return false;
@@ -114,11 +114,11 @@ function StoreLotteryPos({ storeId, operatorId, employeeName, storeName, termina
       setError({ message: queueError instanceof Error ? queueError.message : "Saved scan queue data is invalid. Preserve it and contact a manager before scanning again.", status: 503 });
       return false;
     }
-  }, [operatorId, storeId, terminalId, shiftId]);
+  }, [loginSessionId, operatorId, storeId, terminalId, shiftId]);
 
-  const sendSale = useCallback(async (value: string, isReplay = false, targetShiftId = shiftId, clientRequestId = ""): Promise<"synced" | "retry" | "conflict" | "store-changed"> => {
+  const sendSale = useCallback(async (value: string, isReplay = false, targetShiftId = shiftId, clientRequestId = "", targetLoginSessionId = loginSessionId): Promise<"synced" | "retry" | "conflict" | "store-changed"> => {
     try {
-      const response = await fetch("/api/packs/check-serial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, expectedStoreId: storeId, shiftId: targetShiftId, clientRequestId }) });
+      const response = await fetch("/api/packs/check-serial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, expectedStoreId: storeId, shiftId: targetShiftId, clientRequestId, loginSessionId: targetLoginSessionId }) });
       const data = (await response.json()) as SaleResult;
       if (response.ok) {
         setError(null);
@@ -146,7 +146,7 @@ function StoreLotteryPos({ storeId, operatorId, employeeName, storeName, termina
     } catch {
       return "retry";
     }
-  }, [lastSale, shiftId, storeId, terminalId]);
+  }, [lastSale, loginSessionId, shiftId, storeId, terminalId]);
 
   const syncQueue = useCallback(async () => {
     if (!navigator.onLine || replayingRef.current) return;
@@ -163,7 +163,7 @@ function StoreLotteryPos({ storeId, operatorId, employeeName, storeName, termina
           }
           break;
         }
-        const outcome = await sendSale(entry.barcode, true, entry.shiftId ?? shiftId, entry.id);
+        const outcome = await sendSale(entry.barcode, true, entry.shiftId ?? shiftId, entry.id, entry.loginSessionId ?? "");
         if (!activeRef.current) break;
         const current = readQueue(storeId, terminalId, shiftId, operatorId);
         if (outcome === "synced") {

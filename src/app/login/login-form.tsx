@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
+type OpenTerminalShift = { id: string; shiftNumber: 1 | 2; terminalId: string };
+
 export function LoginForm() {
   const searchParams = useSearchParams();
   const emailRef = useRef<HTMLInputElement>(null);
@@ -13,7 +15,8 @@ export function LoginForm() {
   const [mfaCode, setMfaCode] = useState("");
   const [mfaRequired, setMfaRequired] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [shiftNumber, setShiftNumber] = useState("");
+  const [shiftId, setShiftId] = useState("");
+  const [openShifts, setOpenShifts] = useState<OpenTerminalShift[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +34,7 @@ export function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mfaRequired ? { code: mfaCode } : { email, password, rememberMe, shiftNumber: shiftNumber || undefined }),
+        body: JSON.stringify(mfaRequired ? { code: mfaCode } : { email, password, rememberMe, shiftId: shiftId || undefined }),
       });
 
       const data = await res.json();
@@ -43,6 +46,10 @@ export function LoginForm() {
       }
 
       if (!res.ok) {
+        if (data.code === "SHIFT_SELECTION_REQUIRED" || data.code === "SHIFT_NOT_OPEN") {
+          setOpenShifts(Array.isArray(data.openShifts) ? data.openShifts : []);
+          setShiftId((current: string) => data.openShifts?.some((item: OpenTerminalShift) => item.id === current) ? current : "");
+        }
         setError(data.error ?? "Login failed. Please try again.");
         return;
       }
@@ -128,15 +135,13 @@ export function LoginForm() {
         <input id="remember-me" type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} className="h-4 w-4 accent-[#0d82a6]" />
         Keep me logged in
       </label>}
-      {!mfaRequired && <div>
-        <label htmlFor="shift-number" className="mb-1.5 block text-xs font-medium text-text-secondary">Work shift</label>
-        <select id="shift-number" value={shiftNumber} onChange={(event) => setShiftNumber(event.target.value)} className="w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-text focus:border-[#0d82a6] focus:outline-none focus:ring-2 focus:ring-[#0d82a6]/20 transition-colors">
-          <option value="">For employees and shift leads, select an open shift</option>
-          <option value="1">Shift 1</option>
-          <option value="2">Shift 2</option>
-          <option value="3">Shift 3</option>
+      {!mfaRequired && openShifts.length > 0 && <div>
+        <label htmlFor="terminal-shift" className="mb-1.5 block text-xs font-medium text-text-secondary">Terminal and shift</label>
+        <select id="terminal-shift" required value={shiftId} onChange={(event) => setShiftId(event.target.value)} className="w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-text focus:border-[#0d82a6] focus:outline-none focus:ring-2 focus:ring-[#0d82a6]/20 transition-colors">
+          <option value="">Select an open terminal shift</option>
+          {openShifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.terminalId} · Shift {shift.shiftNumber}</option>)}
         </select>
-        <p className="mt-1 text-xs text-text-tertiary">Employees and shift leads choose the shift opened by their manager. Managers and owners can leave this blank.</p>
+        <p className="mt-1 text-xs text-text-tertiary">Employees and Shift Leads must choose an open terminal shift. Managers and owners can sign in without opening one.</p>
       </div>}
       {mfaRequired && (
         <div>
@@ -148,7 +153,7 @@ export function LoginForm() {
 
       <button
         type="submit"
-        disabled={loading || (mfaRequired ? mfaCode.length !== 6 : !email || !password)}
+        disabled={loading || (mfaRequired ? mfaCode.length !== 6 : !email || !password || (openShifts.length > 0 && !shiftId))}
         className="mt-1 flex h-11 items-center justify-center gap-2 rounded-md bg-[#0d82a6] text-sm font-bold text-white transition-colors hover:bg-[#075f7d] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? (

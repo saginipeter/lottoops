@@ -4,6 +4,7 @@ export interface PosQueueEntry {
   queuedAt: string;
   attempts: number;
   shiftId?: string;
+  loginSessionId?: string;
   state?: "PENDING" | "CONFLICT";
   conflictReason?: string;
 }
@@ -16,6 +17,7 @@ function isQueueEntry(value: unknown): value is PosQueueEntry {
     typeof entry.queuedAt === "string" && Number.isFinite(Date.parse(entry.queuedAt)) &&
     Number.isSafeInteger(entry.attempts) && Number(entry.attempts) >= 0 &&
     (entry.shiftId === undefined || typeof entry.shiftId === "string") &&
+    (entry.loginSessionId === undefined || typeof entry.loginSessionId === "string") &&
     (entry.state === undefined || entry.state === "PENDING" || entry.state === "CONFLICT") &&
     (entry.conflictReason === undefined || typeof entry.conflictReason === "string");
 }

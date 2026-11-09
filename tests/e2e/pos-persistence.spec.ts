@@ -6,6 +6,7 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   const token = await new SignJWT({
     userId: "pos-operator", storeId: "pos-store", storeName: "POS Store",
     name: "POS Operator", email: "pos@example.test", role: "MANAGER", grantedPermissions: [],
+    shiftId: "shift", shiftNumber: 1, terminalId: "T1", loginSessionId: "login-pos-operator",
   }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m")
     .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
   await context.addCookies([{ name: "lottoops_session", value: token, url: baseURL! }]);
@@ -25,7 +26,7 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
       salesAmount: 1, nextTicketNumber: sales + 1, slot: { slotNumber: "1" }, packStatus: "ACTIVE",
     } });
   });
-  await page.goto("/pos");
+  await page.goto("/pos?shiftId=shift&terminal=T1");
   const input = page.getByPlaceholder("Scan or enter 14 digits");
   const latest = page.locator("aside").filter({ has: page.getByRole("heading", { name: "Latest scan" }) });
   await expect(input).toBeVisible();
@@ -59,6 +60,7 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await expect(latest.getByText("First game", { exact: true })).toBeVisible();
   await input.fill("12341234567003");
   await input.press("Enter");
+  await expect.poll(() => sales, { timeout: 2000 }).toBe(3);
   await expect(page.getByRole("status").filter({ hasText: "Second game sold successfully." })).toBeVisible();
   await expect(error).toHaveCount(0);
   await expect(input).toBeEnabled();
@@ -81,6 +83,7 @@ test("rapid ticket scans are queued in order while the first server check is pen
   const token = await new SignJWT({
     userId: "pos-operator", storeId: "pos-store", storeName: "POS Store",
     name: "POS Operator", email: "pos@example.test", role: "MANAGER", grantedPermissions: [],
+    shiftId: "shift", shiftNumber: 1, terminalId: "T1", loginSessionId: "login-pos-operator",
   }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m")
     .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
   await context.addCookies([{ name: "lottoops_session", value: token, url: baseURL! }]);
@@ -98,7 +101,7 @@ test("rapid ticket scans are queued in order while the first server check is pen
       slot: { slotNumber: "1" }, packStatus: "ACTIVE",
     } });
   });
-  await page.goto("/pos");
+  await page.goto("/pos?shiftId=shift&terminal=T1");
   await inventoryReady;
   const input = page.getByPlaceholder("Scan or enter 14 digits");
   await expect(input).toBeVisible();
@@ -119,6 +122,7 @@ test("remembered manager stays signed in beyond the short inactivity cutoff", as
   const token = await new SignJWT({
     userId: "pos-operator", storeId: "pos-store", storeName: "POS Store",
     name: "POS Operator", email: "pos@example.test", role: "MANAGER", grantedPermissions: [], rememberMe: true,
+    shiftId: "shift", shiftNumber: 1, terminalId: "T1", loginSessionId: "login-pos-operator",
   }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("30d")
     .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
   await context.addCookies([{ name: "lottoops_session", value: token, url: baseURL! }]);
@@ -126,10 +130,10 @@ test("remembered manager stays signed in beyond the short inactivity cutoff", as
   await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
   const now = new Date();
   await page.clock.install({ time: now });
-  await page.goto("/pos");
+  await page.goto("/pos?shiftId=shift&terminal=T1");
   await expect(page.getByRole("heading", { name: "Sell Tickets" })).toBeVisible();
   await page.clock.runFor(11 * 60 * 1000);
-  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page).toHaveURL(/\/pos\?shiftId=shift&terminal=T1$/);
   await expect(page.getByRole("heading", { name: "Sell Tickets" })).toBeVisible();
   await expect(page.getByRole("alertdialog", { name: "Inactivity warning" })).toHaveCount(0);
 });
@@ -140,10 +144,12 @@ test("sign out clears session and gives the next user an isolated, revalidated d
   const firstToken = await new SignJWT({
     userId: "pos-operator", storeId: "pos-store", storeName: "POS Store",
     name: "First Operator", email: "first@example.test", role: "MANAGER", grantedPermissions: [],
+    shiftId: "shift", shiftNumber: 1, terminalId: "T1", loginSessionId: "login-first-operator",
   }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m").sign(secret);
   const secondToken = await new SignJWT({
     userId: "second-operator", storeId: "pos-store", storeName: "POS Store",
     name: "Second Operator", email: "second@example.test", role: "MANAGER", grantedPermissions: [],
+    shiftId: "shift", shiftNumber: 1, terminalId: "T1", loginSessionId: "login-second-operator",
   }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m").sign(secret);
   await context.addCookies([
     { name: "lottoops_session", value: firstToken, url: baseURL! },
@@ -152,7 +158,7 @@ test("sign out clears session and gives the next user an isolated, revalidated d
   ]);
   await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
   await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
-  const firstResponse = await page.goto("/pos");
+  const firstResponse = await page.goto("/pos?shiftId=shift&terminal=T1");
   await expect(page.getByRole("heading", { name: "Sell Tickets" })).toBeVisible();
   expect(firstResponse?.headers()["cache-control"]).toMatch(/no-cache|no-store/);
   expect(firstResponse?.headers()["cache-control"]).toContain("must-revalidate");
@@ -168,7 +174,7 @@ test("sign out clears session and gives the next user an isolated, revalidated d
   await expect(page.getByRole("heading", { name: /sign in|welcome/i })).toBeVisible();
 
   await context.addCookies([{ name: "lottoops_session", value: secondToken, url: baseURL! }]);
-  const secondResponse = await page.goto("/pos");
+  const secondResponse = await page.goto("/pos?shiftId=shift&terminal=T1");
   await expect(page.getByText("Second Operator · scan-first POS terminal")).toBeVisible();
   await expect(page.getByText("First Operator · scan-first POS terminal")).toHaveCount(0);
   expect(secondResponse?.headers()["cache-control"]).toMatch(/no-cache|no-store/);

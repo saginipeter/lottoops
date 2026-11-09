@@ -23,6 +23,52 @@ test.describe("LottoOps Phase 1–8 public integration contracts", () => {
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
   });
 
+  test("staff select an open terminal and Shift 1 or 2 before the final sign-in", async ({ page }) => {
+    const loginRequests: Array<Record<string, unknown>> = [];
+    await page.route("**/api/auth/login", async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      loginRequests.push(body);
+      if (body.shiftId !== "shift-t2-2") {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            code: "SHIFT_SELECTION_REQUIRED",
+            error: "Choose an open terminal and shift before signing in.",
+            openShifts: [
+              { id: "shift-t1-1", shiftNumber: 1, terminalId: "T1" },
+              { id: "shift-t2-2", shiftNumber: 2, terminalId: "T2" },
+            ],
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, user: { role: "EMPLOYEE" } }),
+      });
+    });
+
+    await page.goto("/login");
+    const emailInput = page.getByLabel("Email address");
+    await expect(emailInput).toBeFocused();
+    await emailInput.fill("cashier@example.com");
+    await page.getByRole("textbox", { name: "Password" }).fill("test-password");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    const selector = page.getByLabel("Terminal and shift");
+    await expect(selector).toBeVisible();
+    await expect(selector.locator("option")).toHaveText([
+      "Select an open terminal shift",
+      "T1 · Shift 1",
+      "T2 · Shift 2",
+    ]);
+    await selector.selectOption("shift-t2-2");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect.poll(() => loginRequests.length).toBe(2);
+    expect(loginRequests[1].shiftId).toBe("shift-t2-2");
+  });
+
   for (const [name, route] of protectedPages) {
     test(`${name} is protected when no staff session exists`, async ({ page }) => {
       await page.goto(route);

@@ -11,7 +11,7 @@ test("manager can open another numbered shift without rewinding a concurrent sal
   const originals = [require.cache[prismaPath], require.cache[sessionPath], require.cache[activityPath]];
   let inTransaction = false;
   let transactionIsolation = "";
-  let createdShift: Record<string, unknown> | null = null;
+  const createdShiftCapture: { value: Record<string, unknown> | null } = { value: null };
   let beginningLines: Array<Record<string, unknown>> = [];
   let auditLines: Array<Record<string, unknown>> = [];
   let packUpdateCalls = 0;
@@ -23,7 +23,7 @@ test("manager can open another numbered shift without rewinding a concurrent sal
   const prisma = {
     $executeRawUnsafe: async () => 0,
     $queryRawUnsafe: async () => [{ count: 0 }],
-    shift: { findMany: async () => [{ id: "shift-1", shiftNumber: 1 }] },
+    shift: { findMany: async ({ where }: { where: { terminalId?: string } }) => where.terminalId === "T1" ? [{ id: "shift-1", shiftNumber: 1 }] : [] },
     pack: {
       findMany: async () => {
         assert.equal(inTransaction, true, "active inventory must be read inside the opening transaction");
@@ -43,7 +43,7 @@ test("manager can open another numbered shift without rewinding a concurrent sal
           },
           update: async () => { packUpdateCalls += 1; },
         },
-        shift: { create: async ({ data }: { data: Record<string, unknown> }) => { createdShift = data; return { id: "shift-2" }; } },
+        shift: { create: async ({ data }: { data: Record<string, unknown> }) => { createdShiftCapture.value = data; return { id: "shift-2" }; } },
         shiftLine: { createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { beginningLines = data; } },
         scanLogEntry: { create: async () => ({}) },
         inventoryAudit: { create: async ({ data }: { data: { lines: { create: Array<Record<string, unknown>> } } }) => { auditLines = data.lines.create; } },
@@ -66,21 +66,29 @@ test("manager can open another numbered shift without rewinding a concurrent sal
   });
 
   const { POST } = await import("../../app/api/shifts/open/route");
-  const request = (shiftNumber: number) => new NextRequest("http://localhost/api/shifts/open", {
+  const request = (shiftNumber: number, terminalId = "T1") => new NextRequest("http://localhost/api/shifts/open", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shiftNumber, terminalId: "T1", openingCash: 100 }),
+    body: JSON.stringify({ shiftNumber, terminalId, openingCash: 100 }),
   });
 
   const response = await POST(request(2));
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { success: true, shiftId: "shift-2", shiftNumber: 2, terminalId: "T1" });
   assert.equal(transactionIsolation, "Serializable");
-  assert.deepEqual(createdShift, { storeId: "store-1", shiftNumber: 2, openedById: "manager-1", status: "OPEN" });
+  assert.deepEqual(createdShiftCapture.value, { storeId: "store-1", shiftNumber: 2, terminalId: "T1", openingCash: 100, openedById: "manager-1", status: "OPEN" });
   assert.equal(beginningLines[0]?.beginningTicket, 12, "new shift snapshots the current post-sale ticket position");
   assert.equal(auditLines[0]?.expectedTicket, 12, "opening audit uses the LAST direction when converting the current transaction snapshot to its physical ticket ID");
   assert.equal(packUpdateCalls, 0, "opening another shift does not write a stale global pack position");
 
   const duplicate = await POST(request(1));
   assert.equal(duplicate.status, 409, "an already-open number cannot be claimed twice");
+
+  const otherTerminal = await POST(request(1, "T2"));
+  assert.equal(otherTerminal.status, 200, "the same numbered shift may be open at another terminal");
+  assert.equal((await otherTerminal.json()).terminalId, "T2");
+  assert.equal(createdShiftCapture.value?.terminalId, "T2");
+
+  const shiftThree = await POST(request(3, "T2"));
+  assert.equal(shiftThree.status, 400, "Shift 3 is no longer an option for newly opened shifts");
 });

@@ -5,6 +5,7 @@ import { calculatePhysicalAuditInventory, calculatePhysicalAuditVariance } from 
 import { prisma } from "@/lib/prisma";
 import { readShiftCashRecord, SHIFT_REPORT_CASH_QUERY } from "@/lib/shift-report-cash";
 import { shiftReportWhere } from "@/lib/shift-report-query";
+import { aggregateOperatorSessionSales, type ShiftSessionSaleRow } from "@/lib/shift-session-sales";
 
 const INVENTORY_COST_RATE = 0.95;
 // Round 95% of finalized gross at each aggregation level; rounded game costs may not sum to shift/period cost.
@@ -16,7 +17,7 @@ interface GamePerformance {
 }
 type Numeric = number | string | { toString(): string };
 interface ReportShiftRecord {
-  id: string; shiftNumber: number | null; openedAt: Date; closedAt: Date | null;
+  id: string; shiftNumber: number | null; terminalId?: string | null; openedAt: Date; closedAt: Date | null;
   openedBy: { name: string }; closedBy: { name: string } | null;
   lines: Array<{
     packId: string; slotNumber: string; beginningTicket: number;
@@ -103,10 +104,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Closed shift not found." }, { status: 404 });
   }
 
-  const cashRows = (shifts.length ? await prisma.$queryRawUnsafe(
+  const cashRows = (!shiftBoundRole && shifts.length ? await prisma.$queryRawUnsafe(
     SHIFT_REPORT_CASH_QUERY, session.storeId, shifts.map((shift) => shift.id),
   ) : []) as Array<{ id: string; record: Record<string, unknown> }>;
   const cashByShift = new Map(cashRows.map((row) => [row.id, row.record]));
+
+  const operatorSalesSql = `
+    SELECT e.shift_id AS "shiftId", e.login_session_id AS "sessionId", e.scanned_by_id AS "employeeId",
+      u.name AS "employeeName", e.terminal_id AS "terminalId", ls.signed_in_at AS "signedInAt", ls.ended_at AS "endedAt",
+      e.pack_id AS "packId", p."serialNumber" AS pack, g.name AS game, e.display_number AS display,
+      COUNT(*)::int AS tickets, SUM(e.ticket_price)::numeric AS sales,
+      MIN(e.scanned_at) AS "firstSaleAt", MAX(e.scanned_at) AS "lastSaleAt",
+      BOOL_OR(e.ticket_price_source = 'BACKFILLED') AS "hasEstimatedPrice"
+    FROM live_scan_events e
+    JOIN packs p ON p.id = e.pack_id AND p."storeId" = e.store_id
+    JOIN games g ON g.id = p."gameId"
+    LEFT JOIN users u ON u.id = e.scanned_by_id
+    LEFT JOIN login_sessions ls ON ls.id = e.login_session_id
+    WHERE e.store_id = $1 AND e.shift_id = ANY($2::text[])
+      ${shiftBoundRole ? 'AND e.login_session_id = $3 AND e.scanned_by_id = $4' : ""}
+    GROUP BY e.shift_id, e.login_session_id, e.scanned_by_id, u.name, e.terminal_id,
+      ls.signed_in_at, ls.ended_at, e.pack_id, p."serialNumber", g.name, e.display_number
+    ORDER BY e.shift_id, ls.signed_in_at NULLS FIRST, e.terminal_id NULLS LAST, e.display_number NULLS LAST, p."serialNumber"
+  `;
+  const operatorSaleParams: unknown[] = [session.storeId, shifts.map((shift) => shift.id)];
+  if (shiftBoundRole) operatorSaleParams.push(session.loginSessionId ?? "", session.userId);
+  const operatorSalesRows = (shifts.length
+    ? await prisma.$queryRawUnsafe(operatorSalesSql, ...operatorSaleParams)
+    : []) as ShiftSessionSaleRow[];
+  const operatorSalesByShift = new Map<string, ReturnType<typeof aggregateOperatorSessionSales>>();
+  for (const shift of shifts) {
+    operatorSalesByShift.set(shift.id, aggregateOperatorSessionSales(operatorSalesRows.filter((row) => row.shiftId === shift.id)));
+  }
 
   // Build per-shift summaries
 
@@ -139,33 +168,38 @@ export async function GET(req: NextRequest) {
 
     grossSales = roundCurrency(grossSales);
     const cogs = roundCurrency(grossSales * INVENTORY_COST_RATE);
-    const netMargin = roundCurrency(grossSales - cogs);
-    const marginPct = grossSales > 0 ? (netMargin / grossSales) * 100 : 0;
+    const operatorSessions = operatorSalesByShift.get(shift.id) ?? [];
+    const loginTickets = operatorSessions.reduce((sum, operator) => sum + operator.tickets, 0);
+    const loginGrossSales = roundCurrency(operatorSessions.reduce((sum, operator) => sum + operator.grossSales, 0));
+    const reportGrossSales = shiftBoundRole ? loginGrossSales : grossSales;
+    const reportCogs = shiftBoundRole ? roundCurrency(reportGrossSales * INVENTORY_COST_RATE) : cogs;
+    const reportTicketsSold = shiftBoundRole ? loginTickets : ticketsSold;
 
     return {
       id: shift.id,
       shiftNumber: shift.shiftNumber,
       storeName: session.storeName,
       ...readShiftCashRecord(cashByShift.get(shift.id)),
+      terminalId: shift.terminalId ?? readShiftCashRecord(cashByShift.get(shift.id)).terminalId,
       openedAt: shift.openedAt,
       closedAt: shift.closedAt,
-      openedBy: shift.openedBy.name,
-      closedBy: shift.closedBy?.name ?? null,
-      grossSales: Math.round(grossSales * 100) / 100,
-      cogs: Math.round(cogs * 100) / 100,
-      netMargin: Math.round(netMargin * 100) / 100,
-      marginPct: Math.round(marginPct * 10) / 10,
-      ticketsSold,
-      totalTickets,
-      activeStock,
-      gameBreakdown: Array.from(gameBreakdown.values())
+      openedBy: shiftBoundRole ? session.name : shift.openedBy.name,
+      closedBy: shiftBoundRole ? null : shift.closedBy?.name ?? null,
+      grossSales: roundCurrency(reportGrossSales),
+      cogs: reportCogs,
+      netMargin: roundCurrency(reportGrossSales - reportCogs),
+      marginPct: reportGrossSales > 0 ? Math.round((1 - INVENTORY_COST_RATE) * 1000) / 10 : 0,
+      ticketsSold: reportTicketsSold,
+      totalTickets: shiftBoundRole ? null : totalTickets,
+      activeStock: shiftBoundRole ? null : activeStock,
+      gameBreakdown: shiftBoundRole ? [] : Array.from(gameBreakdown.values())
         .map((game) => ({
           ...game,
           sales: roundCurrency(game.sales),
           cost: roundCurrency(game.sales * INVENTORY_COST_RATE),
         }))
         .sort((a, b) => b.sales - a.sales),
-      packSales: shift.lines.map((line) => ({
+      packSales: shiftBoundRole ? [] : shift.lines.map((line) => ({
         pack: line.pack.serialNumber,
         game: line.pack.game.name,
         display: line.slotNumber,
@@ -174,11 +208,13 @@ export async function GET(req: NextRequest) {
         tickets: line.ticketsSold,
         sales: line.salesAmount == null ? null : Number(line.salesAmount),
       })),
-      auditOpenedBy: shift.inventoryAudit?.begunBy.name ?? null,
-      auditClosedBy: shift.inventoryAudit?.endedBy?.name ?? null,
-      auditOpenedAt: shift.inventoryAudit?.begunAt ?? null,
-      auditClosedAt: shift.inventoryAudit?.endedAt ?? null,
-      audit: shift.inventoryAudit?.lines.map((line) => {
+      operatorSessions,
+      operatorSessionsOnly: shiftBoundRole,
+      auditOpenedBy: shiftBoundRole ? null : shift.inventoryAudit?.begunBy.name ?? null,
+      auditClosedBy: shiftBoundRole ? null : shift.inventoryAudit?.endedBy?.name ?? null,
+      auditOpenedAt: shiftBoundRole ? null : shift.inventoryAudit?.begunAt ?? null,
+      auditClosedAt: shiftBoundRole ? null : shift.inventoryAudit?.endedAt ?? null,
+      audit: shiftBoundRole ? [] : shift.inventoryAudit?.lines.map((line) => {
         const shiftLine = shift.lines.find((item) => item.packId === line.packId);
         const systemExpected = line.endingExpectedTicket ?? (shiftLine?.endingTicket != null
           ? getAuditPhysicalTicket({
@@ -261,7 +297,7 @@ export async function GET(req: NextRequest) {
   const totalCogs = roundCurrency(totalGross * INVENTORY_COST_RATE);
   const totalTickets = shiftSummaries.reduce((s: number, r) => s + r.ticketsSold, 0);
   // A pack can appear in multiple shifts; these are shift-scoped sums, not live inventory.
-  const totalOpeningTickets = shiftSummaries.reduce((sum, shift) => sum + shift.totalTickets, 0);
+  const totalOpeningTickets = shiftSummaries.reduce((sum, shift) => sum + (shift.totalTickets ?? 0), 0);
   const activeStock = shiftSummaries.reduce<number | null>((sum, shift) =>
     sum === null || shift.activeStock === null ? null : sum + shift.activeStock, 0);
 
@@ -269,9 +305,9 @@ export async function GET(req: NextRequest) {
     fromDate: fromDate.toISOString(),
     toDate: toDate.toISOString(),
     summary: {
-      totalGross: Math.round(totalGross * 100) / 100,
-      totalCogs: Math.round(totalCogs * 100) / 100,
-      totalNet: Math.round((totalGross - totalCogs) * 100) / 100,
+      totalGross: roundCurrency(totalGross),
+      totalCogs,
+      totalNet: roundCurrency(totalGross - totalCogs),
       totalTickets,
       totalOpeningTickets,
       activeStock,

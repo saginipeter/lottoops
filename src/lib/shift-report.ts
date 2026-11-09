@@ -1,6 +1,7 @@
 import type { ReportDocument } from "./report-document";
 import { calculatePhysicalAuditVariance } from "./core-validation";
 import { compareDisplayNumberLabels, formatDisplayNumberLabel } from "./display-number-order";
+import type { OperatorSessionSales } from "./shift-session-sales";
 
 export interface ShiftGameSummary {
   id?: string;
@@ -30,6 +31,8 @@ export interface ShiftReportData {
     pack: string; game: string; display: string;
     beginning: number; ending: number | null; tickets: number | null; sales: number | null;
   }>;
+  operatorSessions?: OperatorSessionSales[];
+  operatorSessionsOnly?: boolean;
   audit: Array<{
     pack: string; display?: string; direction?: string;
     beginningExpected: number | null; beginning: number | null;
@@ -87,7 +90,66 @@ function salesSummary(shift: ShiftReportData): ReportDocument["sections"][number
   };
 }
 
+function operatorSessionSections(sessions: OperatorSessionSales[] | undefined): ReportDocument["sections"] {
+  if (!sessions) return [];
+  return [
+    {
+      title: "Sales by Employee Login & Terminal",
+      columns: ["Employee", "Terminal", "Login session", "Signed in", "Signed out", "Tickets", "Gross Sales", "Price source"],
+      rows: sessions.length ? sessions.map((session) => [
+        session.employeeName,
+        session.terminalId ?? NOT_RECORDED,
+        session.sessionId ? session.sessionId.slice(-8) : "Historical — login not recorded",
+        session.signedInAt ? timestamp(new Date(session.signedInAt).toISOString()) : NOT_RECORDED,
+        session.endedAt ? timestamp(new Date(session.endedAt).toISOString()) : "Still signed in",
+        session.tickets,
+        money(session.grossSales),
+        session.hasEstimatedPrice ? "Backfilled estimate" : "Recorded",
+      ]) : [["No ticket sales recorded", NOT_RECORDED, NOT_RECORDED, NOT_RECORDED, NOT_RECORDED, 0, money(0), NOT_RECORDED]],
+    },
+    {
+      title: "Employee & Terminal Pack Breakdown",
+      columns: ["Employee", "Terminal", "Display #", "Pack / Game", "Tickets", "Gross Sales", "First sale", "Last sale", "Price source"],
+      rows: sessions.flatMap((session) => session.packs.map((pack) => [
+        session.employeeName,
+        session.terminalId ?? NOT_RECORDED,
+        formatDisplayNumberLabel(pack.display),
+        `${pack.pack} / ${pack.game}`,
+        pack.tickets,
+        money(pack.grossSales),
+        pack.firstSaleAt ? timestamp(new Date(pack.firstSaleAt).toISOString()) : NOT_RECORDED,
+        pack.lastSaleAt ? timestamp(new Date(pack.lastSaleAt).toISOString()) : NOT_RECORDED,
+        pack.hasEstimatedPrice ? "Backfilled estimate" : "Recorded",
+      ])),
+    },
+  ];
+}
+
+function buildLoginSessionReportDocument(shift: ShiftReportData, title: string): ReportDocument {
+  return {
+    title,
+    subtitle: shift.storeName,
+    paper: "A4",
+    metadata: [
+      { label: "Employee", value: shift.openedBy },
+      { label: "Terminal", value: shift.terminalId ?? NOT_RECORDED },
+      { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
+      { label: "Login session", value: shift.operatorSessions?.[0]?.sessionId?.slice(-8) ?? NOT_RECORDED },
+      { label: "Shift opened", value: timestamp(shift.openedAt) },
+      { label: "Shift closed", value: timestamp(shift.closedAt) },
+    ],
+    sections: operatorSessionSections(shift.operatorSessions),
+    notes: [
+      "This report is scoped to the authenticated employee login session. It does not include other employees' sales, shared shift totals, cash drawer values, or audit details.",
+      ...(shift.operatorSessions?.some((session) => session.hasEstimatedPrice)
+        ? ["Some historical sale prices were backfilled from the pack's configured ticket price; those values are labeled as estimates."]
+        : []),
+    ],
+  };
+}
+
 export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument {
+  if (shift.operatorSessionsOnly) return buildLoginSessionReportDocument(shift, "Employee Login Sales Report");
   return {
     title: "Shift Sales & Audit Report",
     subtitle: shift.storeName,
@@ -107,6 +169,7 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
     ],
     sections: [
       salesSummary(shift),
+      ...operatorSessionSections(shift.operatorSessions),
       {
         title: "Pack Ticket Counts",
         columns: ["Display #", "Pack / Game", "Opening remaining", "Closing remaining", "Tickets sold", "Sales"],
@@ -165,6 +228,7 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
 }
 
 export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDocument {
+  if (shift.operatorSessionsOnly) return buildLoginSessionReportDocument(shift, "Employee Login Sales Report");
   const audits = orderedAudit(shift.audit).map((line) => ({
     ...line,
     variance: line.expected == null || line.ending == null
@@ -193,6 +257,7 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
           ["Total sales", money(shift.grossSales)],
         ],
       },
+      ...operatorSessionSections(shift.operatorSessions),
       {
         title: "Cash & Variance",
         columns: ["Cash", "Amount"],

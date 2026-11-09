@@ -1,4 +1,4 @@
-export const SHIFT_NUMBERS = [1, 2, 3] as const;
+export const SHIFT_NUMBERS = [1, 2] as const;
 export type ShiftNumber = (typeof SHIFT_NUMBERS)[number];
 
 export function parseShiftNumber(value: unknown): ShiftNumber | null {
