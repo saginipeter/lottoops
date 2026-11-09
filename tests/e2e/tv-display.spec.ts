@@ -316,9 +316,9 @@ for (const viewport of [
       for (const badge of card.badges) {
         expect(badge.circleRadius).toBe("50%");
         expect(badge.faceRadius).toBe("50%");
-      expect(Math.abs(badge.circle.width - badge.circle.height)).toBeLessThan(1.5);
-      expect(Math.abs(badge.face.width - badge.face.height)).toBeLessThan(1.5);
-      expect(badge.circleRatio).toBeCloseTo(badge.labelText === "CURRENT" ? 0.7 : 0.62, 1);
+        expect(Math.abs(badge.circle.width - badge.circle.height)).toBeLessThan(1.5);
+        expect(Math.abs(badge.face.width - badge.face.height)).toBeLessThan(1.5);
+        expect(badge.circleRatio).toBeCloseTo(0.62, 1);
         expect(badge.numberFits).toBe(true);
         expect(badge.labelFits).toBe(true);
         expect(Math.abs(
@@ -374,9 +374,9 @@ for (const viewport of [
         ticketFaceBorder: getComputedStyle(ticketFace).borderTopColor,
       };
     });
-    expect(visual.currentWidth).toBeGreaterThan(visual.nextWidth);
-    expect(Math.abs(visual.currentWidth - visual.nextWidth)).toBeGreaterThan(1.5);
-    expect(visual.currentWidth / visual.currentBadgeWidth).toBeCloseTo(0.7, 1);
+    expect(Math.abs(visual.currentWidth - visual.nextWidth)).toBeLessThan(1.5);
+    expect(Math.abs(visual.currentBadgeWidth - visual.nextBadgeWidth)).toBeLessThan(1.5);
+    expect(visual.currentWidth / visual.currentBadgeWidth).toBeCloseTo(0.62, 1);
     expect(visual.nextWidth / visual.nextBadgeWidth).toBeCloseTo(0.62, 1);
     expect(visual.currentBackground).toContain("rgb(255, 154, 154)");
     expect(visual.nextBackground).toContain("rgb(255, 154, 154)");
