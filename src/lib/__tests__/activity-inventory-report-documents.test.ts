@@ -32,9 +32,10 @@ test("activity document uses the displayed filtered rows for totals and includes
   ]);
   assert.deepEqual(report.sections[0].rows, [[1, 1, 0, 1, 1]]);
   assert.deepEqual(report.sections[1].rows[0].slice(1), [
-    "Sequence issue resolved", "user-2", "—", "Needs review",
-    "Manager confirmed physical ticket <21>", "2 · SEQUENCE_LOCK_RESOLVED · Pack · pack-1",
+    "Sequence issue resolved", "Not recorded", "—", "Needs review",
+    "Manager confirmed physical ticket <21>",
   ]);
+  assert.doesNotMatch(JSON.stringify(report), /Event \/ entity|user-2|pack-1/);
   assert.equal(report.sections[1].totals?.[1], filtered.length);
   assert.equal(report.sections[1].rows.length, filtered.length);
 });
@@ -87,6 +88,16 @@ test("report output contains only escaped data and identical repeatable view/pri
   assert.equal(view, renderReportDocument(report));
   assert.match(view, /Manager confirmed physical ticket &lt;21&gt;/);
   assert.doesNotMatch(view, /<button|<select|<input|View details|Export CSV/);
+});
+
+test("legacy CUIDs in saved activity details are replaced with a readable reference note", () => {
+  const report = createActivityReportDocument([
+    { ...activity[0], detail: "Audit cmvr123456789012345678901234 closed during shift cmvr987654321098765432109876." },
+  ], { from: "2026-10-01", to: "2026-10-14", action: "ALL" });
+  const rendered = JSON.stringify(report);
+  assert.doesNotMatch(rendered, /cmvr/);
+  assert.match(rendered, /related record/);
+  assert.match(rendered, /during a shift \(number not recorded\)/);
 });
 
 test("workspace has no screen-print fallback or dashboard preview modal", () => {

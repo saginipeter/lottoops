@@ -17,7 +17,7 @@ function line(id: string, gameNumber: string, beginning: number, sold: number, s
 
 function shift(id: string, lines: ReturnType<typeof line>[]) {
   return {
-    id, openedAt: new Date("2026-10-01T08:00:00Z"), closedAt: new Date("2026-10-01T16:00:00Z"),
+    id, shiftNumber: 1, terminalId: "T1", openedAt: new Date("2026-10-01T08:00:00Z"), closedAt: new Date("2026-10-01T16:00:00Z"),
     openedBy: { name: "Opener" }, closedBy: { name: "Closer" }, inventoryAudit: null, lines,
   };
 }
@@ -139,16 +139,18 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.match(csvResponse.headers.get("Content-Disposition") ?? "", /games_2026-10-01_2026-10-02\.csv/);
     const [headers, ...rows] = parseCSV(await csvResponse.text());
     assert.deepEqual(headers, [
-      "Game ID", "Game #", "Game Name", "Opening Total Tickets (shift-scoped)", "Tickets Sold",
+      "Game #", "Game Name", "Opening Total Tickets (shift-scoped)", "Tickets Sold",
       "Ending Active Stock (shift-scoped)", "Gross Sales 100% ($)", "Cost 95% ($)", "Net Margin ($)", "Margin %",
     ]);
-    assert.deepEqual(rows.find((row) => row[0] === "game-a"), ["game-a", "001", "Same Name", "150", "20", "130", "100.00", "95.00", "5.00", "5.0"]);
-    assert.deepEqual(rows.find((row) => row[0] === "game-b")?.slice(0, 6), ["game-b", "002", "Same Name", "100", "10", "90"]);
-    assert.equal(rows.find((row) => row[0] === "game-c")?.[2], 'Third, "Game"');
-    assert.deepEqual(rows.at(-1), ["", "", "Total (shift-scoped)", "450", "50", "400", "250.00", "237.50", "12.50", "5.0"]);
+    assert.deepEqual(rows.find((row) => row[0] === "001"), ["001", "Same Name", "150", "20", "130", "100.00", "95.00", "5.00", "5.0"]);
+    assert.deepEqual(rows.find((row) => row[0] === "002")?.slice(0, 5), ["002", "Same Name", "100", "10", "90"]);
+    assert.equal(rows.find((row) => row[0] === "003")?.[1], 'Third, "Game"');
+    assert.deepEqual(rows.at(-1), ["", "Total (shift-scoped)", "450", "50", "400", "250.00", "237.50", "12.50", "5.0"]);
+    assert.doesNotMatch((await (await getExport(exportRequest())).text()), /game-a|Game ID/);
     const [shiftHeaders, shiftRow] = await shiftsCSV();
-    assert.deepEqual(shiftHeaders.slice(5), headers.slice(3));
-    assert.deepEqual(shiftRow.slice(5), ["450", "50", "400", "250.00", "237.50", "12.50", "5.0"]);
+    assert.deepEqual(shiftHeaders.slice(6), headers.slice(2));
+    assert.deepEqual(shiftRow.slice(6), ["450", "50", "400", "250.00", "237.50", "12.50", "5.0"]);
+    assert.deepEqual(shiftRow.slice(0, 2), ["Shift 1", "T1"]);
   });
 
   await context.test("repeated packs across shifts are summed, not mistaken for current stock", async () => {
@@ -159,8 +161,8 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.deepEqual([data.summary.totalOpeningTickets, data.summary.totalTickets, data.summary.activeStock], [540, 55, 485]);
     assert.equal(data.summary.totalCogs, 261.25);
     const rows = await gamesCSV();
-    assert.deepEqual(rows.find((row) => row[0] === "game-a")?.slice(3, 8), ["240", "25", "215", "125.00", "118.75"]);
-    assert.deepEqual(rows.at(-1)?.slice(3, 8), ["540", "55", "485", "275.00", "261.25"]);
+    assert.deepEqual(rows.find((row) => row[0] === "001")?.slice(2, 7), ["240", "25", "215", "125.00", "118.75"]);
+    assert.deepEqual(rows.at(-1)?.slice(2, 7), ["540", "55", "485", "275.00", "261.25"]);
   });
 
   await context.test("unknown endings propagate only through the affected game and containing totals", async () => {
@@ -177,10 +179,10 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.equal(data.gamePerformance.find((game: { id: string }) => game.id === "game-b").activeStock, 90);
     assert.equal(data.shifts[1].gameBreakdown.find((game: { id: string }) => game.id === "game-b").activeStock, 0);
     const rows = await gamesCSV();
-    assert.equal(rows.find((row) => row[0] === "game-a")?.[5], "");
-    assert.equal(rows.at(-1)?.[5], "");
+    assert.equal(rows.find((row) => row[0] === "001")?.[4], "");
+    assert.equal(rows.at(-1)?.[4], "");
     const shiftRows = await shiftsCSV();
-    assert.equal(shiftRows[2][7], "");
+    assert.equal(shiftRows[2][8], "");
   });
 
   await context.test("cost rounds once from aggregate finalized gross, not rounded line costs or game prices", async () => {
@@ -191,8 +193,8 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.equal(data.summary.totalNet, 0.01);
     assert.equal(data.gamePerformance[0].cost, 0.29);
     const rows = await gamesCSV();
-    assert.deepEqual(rows[1].slice(6, 9), ["0.30", "0.29", "0.01"]);
-    assert.deepEqual(rows.at(-1)?.slice(6, 9), ["0.30", "0.29", "0.01"]);
+    assert.deepEqual(rows[1].slice(5, 8), ["0.30", "0.29", "0.01"]);
+    assert.deepEqual(rows.at(-1)?.slice(5, 8), ["0.30", "0.29", "0.01"]);
     shifts = [shift("one", [
       line("game-a", "001", 1, 1, "0.10", 0),
       line("game-a", "001", 1, 1, "0.10", 0),
@@ -201,7 +203,7 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     const sameShift = await (await getReport(reportRequest())).json();
     assert.equal(sameShift.shifts[0].cogs, 0.29);
     assert.equal(sameShift.shifts[0].gameBreakdown[0].cost, 0.29);
-    assert.deepEqual((await shiftsCSV())[1].slice(8, 11), ["0.30", "0.29", "0.01"]);
+    assert.deepEqual((await shiftsCSV())[1].slice(9, 12), ["0.30", "0.29", "0.01"]);
   });
 
   await context.test("zero sales, empty shifts, and no shifts retain zero totals", async () => {
@@ -209,13 +211,13 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     const data = await (await getReport(reportRequest())).json();
     assert.deepEqual([data.shifts[1].totalTickets, data.shifts[1].activeStock, data.shifts[1].cogs], [0, 0, 0]);
     assert.equal(data.gamePerformance[0].marginPct, 0);
-    assert.deepEqual((await gamesCSV())[1].slice(3), ["12", "0", "12", "0.00", "0.00", "0.00", "0.0"]);
+    assert.deepEqual((await gamesCSV())[1].slice(2), ["12", "0", "12", "0.00", "0.00", "0.00", "0.0"]);
     shifts = [];
     const empty = await (await getReport(reportRequest())).json();
     assert.deepEqual(empty.gamePerformance, []);
     assert.equal(empty.summary.totalOpeningTickets, 0);
     assert.equal(empty.summary.activeStock, 0);
-    assert.deepEqual((await gamesCSV())[1], ["", "", "Total (shift-scoped)", "0", "0", "0", "0.00", "0.00", "0.00", "0.0"]);
+    assert.deepEqual((await gamesCSV())[1], ["", "Total (shift-scoped)", "0", "0", "0", "0.00", "0.00", "0.00", "0.0"]);
   });
 
   await context.test("API and CSV totals round their own gross even when rounded game costs sum differently", async () => {
@@ -229,9 +231,9 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.deepEqual(data.shifts[0].gameBreakdown.map((game: { cost: number }) => game.cost), [0.1, 0.1, 0.1]);
     assert.deepEqual(data.gamePerformance.map((game: { cost: number }) => game.cost), [0.1, 0.1, 0.1]);
     const rows = await gamesCSV();
-    assert.deepEqual(rows.slice(1, -1).map((row) => row[7]), ["0.10", "0.10", "0.10"]);
-    assert.deepEqual(rows.at(-1)?.slice(6, 9), ["0.30", "0.29", "0.01"]);
-    assert.deepEqual((await shiftsCSV())[1].slice(8, 11), ["0.30", "0.29", "0.01"]);
+    assert.deepEqual(rows.slice(1, -1).map((row) => row[6]), ["0.10", "0.10", "0.10"]);
+    assert.deepEqual(rows.at(-1)?.slice(5, 8), ["0.30", "0.29", "0.01"]);
+    assert.deepEqual((await shiftsCSV())[1].slice(9, 12), ["0.30", "0.29", "0.01"]);
   });
 
   await context.test("existing PDF behavior is preserved", async () => {

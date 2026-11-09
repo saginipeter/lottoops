@@ -57,7 +57,6 @@ export function buildShipmentReport(shipment: ShipmentReportData): ReportDocumen
     subtitle: `Invoice ${shipment.invoiceNumber} · ${shipment.store.name}`,
     paper: "A4",
     metadata: [
-      { label: "Shipment ID", value: shipment.id },
       { label: "Store", value: shipment.store.name },
       { label: "Store number", value: recorded(shipment.store.storeNumber) },
       { label: "Store address", value: recorded(shipment.store.address) },

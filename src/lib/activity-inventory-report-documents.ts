@@ -1,4 +1,5 @@
 import type { ReportDocument } from "@/lib/report-document";
+import { readableReportText } from "@/lib/report-readable-text";
 
 export interface ActivityRow {
   id: number;
@@ -70,13 +71,13 @@ export function createActivityReportDocument(rows: ActivityRow[], filters: { fro
       { title: "Filtered activity summary", columns: ["Total events", "Users involved", "Terminals", "Corrections", "Exceptions"], rows: [[summary.total, summary.people, summary.terminals, summary.corrections, summary.exceptions]] },
       {
         title: "Activity details",
-        columns: ["When", "What happened", "Completed by", "Terminal", "Status", "Details", "Event / entity"],
+        columns: ["When", "What happened", "Completed by", "Terminal", "Status", "Details"],
         rows: rows.map((row) => [
           new Date(row.createdAt).toLocaleString(), readableActivityAction(row.action),
-          row.performedByName ?? row.performedById, row.terminalId ?? "—", activityRowStatus(row.action).label,
-          row.detail, `${row.id} · ${row.action} · ${row.entityType} · ${row.entityId ?? "—"}`,
+          row.performedByName ?? "Not recorded", row.terminalId ?? "—", activityRowStatus(row.action).label,
+          readableReportText(row.detail),
         ]),
-        totals: ["Total events", rows.length, "", "", "", "", ""],
+        totals: ["Total events", rows.length, "", "", "", ""],
       },
     ],
     notes: ["Includes the loaded events matching the selected dates and action filter."],

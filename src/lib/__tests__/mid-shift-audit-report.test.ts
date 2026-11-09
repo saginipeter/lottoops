@@ -21,6 +21,7 @@ test("mid-shift print document labels live values provisional and never calls th
   assert.equal(document.title, "Mid-Shift Audit Snapshot");
   assert.equal(document.metadata?.find((item) => item.label === "Shift status")?.value, "OPEN");
   assert.equal(document.metadata?.find((item) => item.label === "Shift")?.value, "Shift 2");
+  assert.doesNotMatch(JSON.stringify(document), /shift-1|audit-1|Shift ID|Audit ID/);
   assert.deepEqual(document.sections[0].columns.slice(0, 2), ["Display #", "Pack"]);
   assert.deepEqual(document.sections[0].rows.map((row) => row[0]), ["2", "10"]);
   assert.equal(document.sections[0].rows[1][7], 0, "a zero scanned ticket is preserved, not treated as missing");

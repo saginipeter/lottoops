@@ -7,11 +7,11 @@ import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "./report-actions";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildCorrectionDocument } from "@/lib/workspace-detail-report-documents";
+import { readableReportText } from "@/lib/report-readable-text";
 
 interface Correction {
-  id: string;
   entityType: string;
-  entityId: string;
+  entityLabel: string;
   fieldName: string;
   oldValue: string | null;
   newValue: string;
@@ -46,7 +46,7 @@ export function CorrectionReport({ dateRange }: { dateRange: ReportDateRangeValu
   }, [load]);
 
   return (
-    <Panel className="p-4 sm:p-5">
+      <Panel className="p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <History size={18} className="mt-0.5 text-accent" />
@@ -62,7 +62,7 @@ export function CorrectionReport({ dateRange }: { dateRange: ReportDateRangeValu
       </div>
       <ReportActions document={buildCorrectionDocument(corrections)} disabled={loading || !!error} />
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-      {loading ? <div className="mt-4 flex items-center gap-2 text-sm text-text-secondary"><Loader2 size={15} className="animate-spin" /> Loading correction history...</div> : corrections.length === 0 ? <p className="mt-4 text-sm text-text-secondary">No protected corrections recorded.</p> : <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary"><th className="py-2 pr-3">Time</th><th className="py-2 pr-3">Entity</th><th className="py-2 pr-3">Field</th><th className="py-2 pr-3">Original</th><th className="py-2 pr-3">Corrected</th><th className="py-2 pr-3">Reason</th><th className="py-2">By</th></tr></thead><tbody>{corrections.map((correction) => <tr key={correction.id} className="border-b border-border last:border-0"><td className="whitespace-nowrap py-2.5 pr-3 text-xs text-text-tertiary">{new Date(correction.createdAt).toLocaleString()}</td><td className="py-2.5 pr-3"><span className="font-mono text-xs">{correction.entityId}</span><br /><span className="text-xs text-text-secondary">{correction.entityType}</span></td><td className="py-2.5 pr-3 text-text-secondary">{correction.fieldName}</td><td className="py-2.5 pr-3 text-red-700">{correction.oldValue ?? "-"}</td><td className="py-2.5 pr-3 font-semibold text-emerald-700">{correction.newValue}</td><td className="max-w-64 py-2.5 pr-3 text-xs text-text-secondary">{correction.reason}</td><td className="py-2.5 text-text-secondary">{correction.correctedByName ?? "Unknown"}</td></tr>)}</tbody></table></div>}
+      {loading ? <div className="mt-4 flex items-center gap-2 text-sm text-text-secondary"><Loader2 size={15} className="animate-spin" /> Loading correction history...</div> : corrections.length === 0 ? <p className="mt-4 text-sm text-text-secondary">No protected corrections recorded.</p> : <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary"><th className="py-2 pr-3">Time</th><th className="py-2 pr-3">Entity</th><th className="py-2 pr-3">Field</th><th className="py-2 pr-3">Original</th><th className="py-2 pr-3">Corrected</th><th className="py-2 pr-3">Reason</th><th className="py-2">By</th></tr></thead><tbody>{corrections.map((correction) => <tr key={`${correction.createdAt}-${correction.entityLabel}-${correction.fieldName}-${correction.newValue}`} className="border-b border-border last:border-0"><td className="whitespace-nowrap py-2.5 pr-3 text-xs text-text-tertiary">{new Date(correction.createdAt).toLocaleString()}</td><td className="py-2.5 pr-3"><span className="text-sm font-medium">{readableReportText(correction.entityLabel) || correction.entityType.replaceAll("_", " ")}</span></td><td className="py-2.5 pr-3 text-text-secondary">{correction.fieldName}</td><td className="py-2.5 pr-3 text-red-700">{readableReportText(correction.oldValue) ?? "-"}</td><td className="py-2.5 pr-3 font-semibold text-emerald-700">{readableReportText(correction.newValue)}</td><td className="max-w-64 py-2.5 pr-3 text-xs text-text-secondary">{readableReportText(correction.reason)}</td><td className="py-2.5 text-text-secondary">{correction.correctedByName ?? "Unknown"}</td></tr>)}</tbody></table></div>}
     </Panel>
   );
 }

@@ -49,11 +49,9 @@ export function buildMidShiftAuditSnapshotDocument(snapshot: MidShiftAuditSnapsh
     paper: "A4",
     metadata: [
       { label: "Shift", value: snapshot.shift.shiftNumber == null ? "Unnumbered" : `Shift ${snapshot.shift.shiftNumber}` },
-      { label: "Shift ID", value: snapshot.shift.id },
       { label: "Shift status", value: snapshot.shift.status },
       { label: "Shift opened", value: formatTimestamp(snapshot.shift.openedAt) },
       { label: "Shift opened by", value: snapshot.shift.openedBy },
-      { label: "Audit ID", value: snapshot.audit.id },
       { label: "Audit status", value: snapshot.audit.status === "COMPLETED" ? "Closing audit complete; shift remains open" : "In progress" },
       { label: "Audit begun", value: formatTimestamp(snapshot.audit.begunAt) },
       { label: "Audit begun by", value: snapshot.audit.begunBy },

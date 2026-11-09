@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ReportActions } from "./report-actions";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildTicketReportsDocument } from "@/lib/workspace-detail-report-documents";
+import { readableReportText } from "@/lib/report-readable-text";
 
 interface TicketReport {
   id: string;
@@ -19,21 +20,21 @@ interface TicketReport {
 
 interface ParsedReportDetail {
   terminal: string;
-  shiftId?: string;
+  shiftLabel?: string;
   ticket: string;
   reason: string;
 }
 
 function parseDetail(detail: string): ParsedReportDetail | null {
   const match = detail.match(
-    /^Ticket reported from\s+(\S+)(?:\s+during shift\s+([^:]+))?:\s+(.+)\.\s+Reason:\s+(.+)$/i
+    /^Ticket reported from\s+(\S+)(?:\s+during\s+(Shift\s+\d+|Shift number not recorded|a shift \(number not recorded\)))?:\s+(.+)\.\s+Reason:\s+(.+)$/i
   );
 
   if (!match) return null;
 
   return {
     terminal: match[1],
-    shiftId: match[2]?.trim() || undefined,
+    shiftLabel: match[2]?.trim() || undefined,
     ticket: match[3].trim(),
     reason: match[4].trim(),
   };
@@ -175,11 +176,11 @@ export function TicketReportsPanel({
               </div>
 
               {(() => {
-                const parsed = parseDetail(report.detail);
+                const parsed = parseDetail(readableReportText(report.detail) ?? report.detail);
                 if (!parsed) {
                   return (
                     <div className="space-y-1.5">
-                      <p className="text-sm font-medium text-text break-words">{report.detail}</p>
+                  <p className="text-sm font-medium text-text break-words">{readableReportText(report.detail)}</p>
                       <p className="text-xs text-text-tertiary">
                         By {report.performedByName ?? "Unknown"} · {report.storeName}
                       </p>
@@ -193,9 +194,9 @@ export function TicketReportsPanel({
                       <span className="rounded bg-surface-soft px-2 py-0.5 text-[11px] font-medium text-text-secondary">
                         {parsed.terminal}
                       </span>
-                      {parsed.shiftId && (
+                      {parsed.shiftLabel && (
                         <span className="rounded bg-surface-soft px-2 py-0.5 text-[11px] font-medium text-text-secondary">
-                          Shift {parsed.shiftId.slice(-6)}
+                          {parsed.shiftLabel}
                         </span>
                       )}
                       <span className="rounded bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">

@@ -29,7 +29,7 @@ test.describe("Data-only report documents", () => {
       json: { logs: [{
         id: 1, action: "RECEIVED", entityType: "PACK", performedById: "receiver",
         performedByName: "Receiver Name", terminalId: "Terminal A",
-        detail: '<script>window.reportAttack = true</script>', createdAt: "2026-10-14T09:00:00Z",
+        detail: '<script>window.reportAttack = true</script> during shift cmvr8k2g40001abc123def456', createdAt: "2026-10-14T09:00:00Z",
       }] },
     }));
     await page.goto("/admin/reports");
@@ -38,9 +38,11 @@ test.describe("Data-only report documents", () => {
     await page.getByRole("button", { name: "View Report", exact: true }).click();
     const preview = page.frameLocator('iframe[title$=" preview"]');
     await expect(preview.getByText("Receiver Name", { exact: true })).toBeVisible();
-    await expect(preview.getByText("<script>window.reportAttack = true</script>", { exact: true })).toBeVisible();
+    await expect(preview.getByText("<script>window.reportAttack = true</script> during a shift (number not recorded)", { exact: true })).toBeVisible();
     expect(await preview.locator("nav, aside, button, input, script").count()).toBe(0);
     const previewHtml = await preview.locator("body").innerHTML();
+    expect(previewHtml).not.toContain("cmvr8k2g40001abc123def456");
+    expect(previewHtml).toContain("during a shift (number not recorded)");
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await page.getByRole("button", { name: "Print Report", exact: true }).click();
     await expect.poll(() => page.evaluate(() =>
@@ -110,11 +112,11 @@ test.describe("Data-only report documents", () => {
   });
 
   test("simple shift report prints only the selected shift statistics and variance", async ({ page }) => {
-    await page.route("**/api/reports/shifts?*", (route) => route.fulfill({
-      json: {
+      await page.route("**/api/reports/shifts?*", (route) => route.fulfill({
+        json: {
         summary: { totalGross: 10, totalCogs: 9.5, totalNet: 0.5, totalTickets: 10, avgMarginPct: 5, shiftCount: 1 },
         shifts: [{
-          id: "closed-shift", shiftNumber: 1, storeName: "Report Store", terminalId: "Terminal A",
+          id: "cmvr8k2g40001abc123def456", shiftNumber: 1, storeName: "Report Store", terminalId: "Terminal A",
           openedAt: "2026-10-14T08:00:00Z", closedAt: "2026-10-14T12:00:00Z",
           openedBy: "Opening Operator", closedBy: "Closing Operator",
           grossSales: 10, cogs: 9.5, netMargin: 0.5, marginPct: 5, ticketsSold: 10,
@@ -152,7 +154,6 @@ test.describe("Data-only report documents", () => {
     await expect(displayRows.nth(2).locator("td").first()).toHaveText("10");
     await selected.getByRole("button", { name: "View Report", exact: true }).click();
     const preview = page.frameLocator('iframe[title$=" preview"]');
-    await expect(preview.getByText("closed-shift", { exact: true })).toBeVisible();
     await expect(preview.getByText("Opening Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByText("Closing Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByRole("heading", { name: "End of Shift Report" })).toBeVisible();
@@ -166,6 +167,7 @@ test.describe("Data-only report documents", () => {
     await expect(preview.getByRole("row").filter({ hasText: "1 / pack-A" })).toHaveText("1 / pack-A11121");
     expect(await preview.locator("nav, aside, button, input, script").count()).toBe(0);
     const previewHtml = await preview.locator("body").innerHTML();
+    expect(previewHtml).not.toContain("cmvr8k2g40001abc123def456");
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await selected.getByRole("button", { name: "Print Report", exact: true }).click();
     await expect.poll(() => page.evaluate(() =>

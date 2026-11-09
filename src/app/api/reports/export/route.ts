@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { queryInventoryActivity } from "@/lib/activity-log";
+import { readableReportText } from "@/lib/report-readable-text";
 
 const INVENTORY_COST_RATE = 0.95;
 // Match the API: each row/total rounds 95% of its own gross, not the sum of rounded child costs.
@@ -95,7 +96,7 @@ export async function GET(req: NextRequest) {
 
   if (type === "shifts") {
     const headers = [
-      "Shift ID", "Opened At", "Closed At", "Opened By", "Closed By",
+      "Shift", "Terminal", "Opened At", "Closed At", "Opened By", "Closed By",
       "Opening Total Tickets (shift-scoped)", "Tickets Sold", "Ending Active Stock (shift-scoped)",
       "Gross Sales 100% ($)", "Cost 95% ($)", "Net Margin ($)", "Margin %",
     ];
@@ -115,7 +116,8 @@ export async function GET(req: NextRequest) {
       const cogs = roundCurrency(gross * INVENTORY_COST_RATE);
       const net = roundCurrency(gross - cogs);
       return [
-        shift.id,
+        shift.shiftNumber == null ? "Unnumbered" : `Shift ${shift.shiftNumber}`,
+        shift.terminalId ?? "Not recorded",
         shift.openedAt.toISOString(),
         shift.closedAt?.toISOString() ?? "",
         shift.openedBy.name,
@@ -157,7 +159,7 @@ export async function GET(req: NextRequest) {
       }
     }
     const headers = [
-      "Game ID", "Game #", "Game Name", "Opening Total Tickets (shift-scoped)", "Tickets Sold",
+      "Game #", "Game Name", "Opening Total Tickets (shift-scoped)", "Tickets Sold",
       "Ending Active Stock (shift-scoped)", "Gross Sales 100% ($)", "Cost 95% ($)", "Net Margin ($)", "Margin %",
     ];
     const rows = Array.from(gameMap.values())
@@ -167,7 +169,6 @@ export async function GET(req: NextRequest) {
         const cost = roundCurrency(sales * INVENTORY_COST_RATE);
         const net = roundCurrency(sales - cost);
         return [
-          g.id,
           g.gameNumber,
           g.name,
           g.totalTickets,
@@ -191,7 +192,7 @@ export async function GET(req: NextRequest) {
     const cost = roundCurrency(gross * INVENTORY_COST_RATE);
     const net = roundCurrency(gross - cost);
     rows.push([
-      "", "", "Total (shift-scoped)", totals.totalTickets, totals.tickets, totals.activeStock,
+      "", "Total (shift-scoped)", totals.totalTickets, totals.tickets, totals.activeStock,
       gross.toFixed(2), cost.toFixed(2), net.toFixed(2), gross > 0 ? ((net / gross) * 100).toFixed(1) : "0.0",
     ]);
     csv = buildCSV(headers, rows);
@@ -203,10 +204,10 @@ export async function GET(req: NextRequest) {
       include: { game: { select: { name: true, gameNumber: true, price: true } } },
       orderBy: { receivedAt: "desc" },
     });
-    const headers = ["Pack ID", "Serial #", "Game #", "Game Name", "Status", "Ticket Price ($)", "Qty", "Cost ($)", "Retail Value ($)", "Received At"];
+    const headers = ["Serial #", "Game #", "Game Name", "Status", "Ticket Price ($)", "Qty", "Cost ($)", "Retail Value ($)", "Received At"];
 
     const rows = (packs as any[]).map((p) => [
-      p.id, p.serialNumber, p.game.gameNumber, p.game.name, p.status,
+      p.serialNumber, p.game.gameNumber, p.game.name, p.status,
       Number(p.ticketPrice ?? p.game.price).toFixed(2),
       p.ticketQuantity ?? "",
       Number(p.cost).toFixed(2),
@@ -221,7 +222,7 @@ export async function GET(req: NextRequest) {
       to: toDate,
       limit: 2000,
     });
-    const headers = ["Timestamp", "Action", "Entity", "Entity ID", "Detail", "Performed By", "Terminal"];
+    const headers = ["Timestamp", "Action", "Area", "Detail", "Performed By", "Terminal"];
     const rows = logs.map((row: unknown) => {
       const entry = row as {
         createdAt: Date | string;
@@ -230,16 +231,14 @@ export async function GET(req: NextRequest) {
         entityId: string | null;
         detail: string;
         performedByName: string | null;
-        performedById: string;
         terminalId: string | null;
       };
       return [
         new Date(entry.createdAt).toISOString(),
         entry.action,
         entry.entityType,
-        entry.entityId ?? "",
-        entry.detail,
-        entry.performedByName ?? entry.performedById,
+        readableReportText(entry.detail),
+        entry.performedByName ?? "Not recorded",
         entry.terminalId ?? "",
       ];
     });
@@ -254,14 +253,14 @@ export async function GET(req: NextRequest) {
       const rows = (shifts as any[]).flatMap((shift) => {
         const tickets = shift.lines.reduce((sum: number, line: any) => sum + Number(line.ticketsSold ?? 0), 0);
         const sales = shift.lines.reduce((sum: number, line: any) => sum + Number(line.salesAmount ?? 0), 0);
-        return [`${shift.openedAt.toISOString()} | ${shift.openedBy.name} -> ${shift.closedBy?.name ?? ""}`, `Tickets: ${tickets} | Sales: $${sales.toFixed(2)}`, ""];
+        return [`${shift.shiftNumber == null ? "Unnumbered shift" : `Shift ${shift.shiftNumber}`} · ${shift.terminalId ?? "Terminal not recorded"} · ${shift.openedAt.toISOString()}`, `${shift.openedBy.name} → ${shift.closedBy?.name ?? "Not recorded"}`, `Tickets: ${tickets} | Sales: $${sales.toFixed(2)}`, ""];
       });
       const pdf = buildSimplePdf("LottoOps Shift Report", `${fromDate.toISOString().slice(0, 10)} through ${toDate.toISOString().slice(0, 10)}`, rows);
       return new NextResponse(pdf as unknown as BodyInit, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="shifts_${fromDate.toISOString().slice(0, 10)}.pdf"` } });
     }
     if (type === "activity") {
       const logs = await queryInventoryActivity(session.storeId, { from: fromDate, to: toDate, limit: 2000 });
-      const rows = logs.map((entry: any) => `${new Date(entry.createdAt).toISOString()} | ${entry.action} | ${entry.performedByName ?? entry.performedById} | ${entry.detail}`);
+      const rows = logs.map((entry: any) => `${new Date(entry.createdAt).toISOString()} | ${entry.action} | ${entry.performedByName ?? "Not recorded"} | ${readableReportText(entry.detail) ?? ""}`);
       const pdf = buildSimplePdf("LottoOps Activity Log", `${fromDate.toISOString().slice(0, 10)} through ${toDate.toISOString().slice(0, 10)}`, rows);
       return new NextResponse(pdf as unknown as BodyInit, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="activity_${fromDate.toISOString().slice(0, 10)}.pdf"` } });
     }

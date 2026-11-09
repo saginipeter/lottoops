@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ReportActions } from "./report-actions";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildTicketReturnRequestsDocument } from "@/lib/workspace-detail-report-documents";
+import { readableReportText } from "@/lib/report-readable-text";
 
 interface ReturnRequest {
   id: string;
@@ -156,7 +157,7 @@ export function TicketReturnRequestsPanel({
                 {request.gameName} (Game {request.gameNumber}) · Pack {request.serialNumber}
               </p>
               {request.reason && (
-                <p className="mt-1 text-sm text-text break-words">Reason: {request.reason}</p>
+                <p className="mt-1 text-sm text-text break-words">Reason: {readableReportText(request.reason)}</p>
               )}
               <p className="mt-1 text-xs text-text-tertiary">
                 Requested by {request.requestedByName ?? "Unknown"}

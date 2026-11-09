@@ -1,4 +1,5 @@
 import type { ReportDocument, ReportValue } from "./report-document";
+import { readableReportText } from "./report-readable-text";
 
 type Metadata = NonNullable<ReportDocument["metadata"]>;
 
@@ -19,7 +20,7 @@ function table(
 }
 
 function text(value: string | null | undefined): string | null {
-  return value?.trim() ? value : null;
+  return value?.trim() ? readableReportText(value) : null;
 }
 
 function usd(value: number | null | undefined): string | null {
@@ -57,12 +58,12 @@ export function buildDiscrepancyDocument(rows: ReadonlyArray<{
 }
 
 export function buildCorrectionDocument(corrections: ReadonlyArray<{
-  entityType: string; entityId: string; fieldName: string; oldValue: string | null;
+  entityType: string; entityLabel?: string | null; fieldName: string; oldValue: string | null;
   newValue: string; reason: string; correctedByName: string | null; createdAt: string;
 }>): ReportDocument {
-  return table("Correction History", ["Time", "Entity type", "Entity ID", "Field", "Original", "Corrected", "Reason", "Corrected by"],
-    corrections.map((row) => [row.createdAt, row.entityType, row.entityId, row.fieldName, row.oldValue,
-      row.newValue, text(row.reason), text(row.correctedByName)]));
+  return table("Correction History", ["Time", "Entity", "Field", "Original", "Corrected", "Reason", "Corrected by"],
+    corrections.map((row) => [row.createdAt, text(row.entityLabel) ?? row.entityType.replaceAll("_", " "), row.fieldName,
+      readableReportText(row.oldValue), readableReportText(row.newValue), readableReportText(row.reason), text(row.correctedByName)]));
 }
 
 export function buildLifecycleAnalyticsDocument(data: {
@@ -149,9 +150,9 @@ export function buildTicketReportsDocument(reports: ReadonlyArray<{
   id: string; storeId: string; storeName: string; detail: string;
   performedByName: string | null; createdAt: string;
 }>, title = "Employee Ticket Reports"): ReportDocument {
-  return table(title, ["Report ID", "Store", "Store ID", "Reported at", "Reported by", "Detail"],
-    reports.map((report) => [report.id, text(report.storeName), report.storeId, report.createdAt,
-      text(report.performedByName), text(report.detail)]),
+  return table(title, ["Store", "Reported at", "Reported by", "Detail"],
+    reports.map((report) => [text(report.storeName), report.createdAt,
+      text(report.performedByName), readableReportText(report.detail)]),
     [{ label: "Scope", value: "All loaded pending reports" }],
     ["Includes every loaded record, not only the first eight cards."]);
 }
@@ -160,13 +161,15 @@ export function buildTicketReturnRequestsDocument(requests: ReadonlyArray<{
   id: string; storeId: string; shiftId: string; packId: string; ticketBarcode: string | null;
   reason: string | null; requestedByName: string | null; createdAt: string;
   serialNumber: string; gameName: string; gameNumber: string; status?: string;
+  storeName?: string | null; terminalId?: string | null; shiftNumber?: number | null;
 }>, title = "Ticket Return Requests"): ReportDocument {
-  return table(title, ["Request ID", "Store ID", "Shift", "Pack ID", "Pack", "Game", "Game number", "Ticket barcode", "Reason", "Requested by", "Requested at"],
-    requests.map((request) => [request.id, request.storeId, request.shiftId, request.packId,
+  return table(title, ["Status", "Store", "Terminal", "Shift", "Pack serial", "Game", "Game #", "Ticket barcode", "Reason", "Requested by", "Requested at"],
+    requests.map((request) => [request.status === "RETURNED_PENDING_REVIEW" ? "Returned — review only" : request.status?.replaceAll("_", " ") ?? "Pending",
+      text(request.storeName), text(request.terminalId), request.shiftNumber == null ? "Not recorded" : `Shift ${request.shiftNumber}`,
       request.serialNumber, request.gameName, request.gameNumber, text(request.ticketBarcode),
       request.status === "RETURNED_PENDING_REVIEW"
-        ? `Already returned; review only. Reason: ${request.reason ?? "Not recorded"}`
-        : text(request.reason),
+        ? `Already returned; review only. Reason: ${readableReportText(request.reason) ?? "Not recorded"}`
+        : readableReportText(request.reason),
       text(request.requestedByName), request.createdAt]),
     [{ label: "Scope", value: "All loaded return reviews and legacy pending requests. Returned-ticket reviews do not change inventory or sales." }]);
 }
@@ -174,9 +177,9 @@ export function buildTicketReturnRequestsDocument(requests: ReadonlyArray<{
 export function buildShipmentOverridesDocument(notifications: ReadonlyArray<{
   id: string | number; storeName: string; detail: string; performedByName: string | null; createdAt: string;
 }>): ReportDocument {
-  return table("Shipment Overrides", ["Notification ID", "Store", "Time", "Approved by", "Detail"],
-    notifications.map((notification) => [notification.id, text(notification.storeName), notification.createdAt,
-      text(notification.performedByName), text(notification.detail)]));
+  return table("Shipment Overrides", ["Store", "Time", "Approved by", "Detail"],
+    notifications.map((notification) => [text(notification.storeName), notification.createdAt,
+      text(notification.performedByName), readableReportText(notification.detail)]));
 }
 
 export function buildStateReportArchiveDocument(report: {
@@ -186,7 +189,7 @@ export function buildStateReportArchiveDocument(report: {
   return {
     title: `${context.label} — Archive Record`, paper: "A4",
     metadata: [
-      { label: "Store", value: text(context.storeName) }, { label: "Store ID", value: report.storeId },
+      { label: "Store", value: text(context.storeName) },
       { label: "Week of Monday", value: text(context.weekStart) }, { label: "Report type", value: report.reportType },
     ],
     sections: [{ title: "Saved upload metadata", columns: ["File name", "Uploaded at", "CSV rows", "Verification status", "Original evidence URL"],

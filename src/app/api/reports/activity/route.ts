@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { queryInventoryActivity } from "@/lib/activity-log";
 import { parseReportDateRange } from "@/lib/report-date-range";
+import { readableReportText } from "@/lib/report-readable-text";
 
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
     logs: logs.map((log: { id: bigint | number | string; [key: string]: unknown }) => ({
       ...log,
       id: typeof log.id === "bigint" ? log.id.toString() : log.id,
+      detail: readableReportText(typeof log.detail === "string" ? log.detail : null),
     })),
   });
 }

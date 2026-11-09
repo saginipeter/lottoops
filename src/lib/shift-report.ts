@@ -77,9 +77,9 @@ function salesSummary(shift: ShiftReportData): ReportDocument["sections"][number
       : shift.gameBreakdown.reduce((sum, game) => sum + (game[field] ?? 0), 0);
   return {
     title: "Sales Summary",
-    columns: ["Game Name / ID", "Total Tickets", "Tickets Sold", "Active Stock", "Gross Sales (100%)", "Cost / Payout (95%)"],
+    columns: ["Game / Game #", "Total Tickets", "Tickets Sold", "Active Stock", "Gross Sales (100%)", "Cost / Payout (95%)"],
     rows: shift.gameBreakdown.map((game) => [
-      `${game.name}${game.gameNumber || game.id ? ` / ${game.gameNumber || game.id}` : ""}`,
+      `${game.name}${game.gameNumber ? ` / ${game.gameNumber}` : ""}`,
       game.totalTickets ?? NOT_RECORDED, game.tickets, game.activeStock ?? NOT_RECORDED,
       money(game.sales), money(game.cost),
     ]),
@@ -90,16 +90,16 @@ function salesSummary(shift: ShiftReportData): ReportDocument["sections"][number
   };
 }
 
-function operatorSessionSections(sessions: OperatorSessionSales[] | undefined): ReportDocument["sections"] {
+function operatorSessionSections(sessions: OperatorSessionSales[] | undefined, shiftNumber?: number | null): ReportDocument["sections"] {
   if (!sessions) return [];
   return [
     {
       title: "Sales by Employee Login & Terminal",
-      columns: ["Employee", "Terminal", "Login session", "Signed in", "Signed out", "Tickets", "Gross Sales", "Price source"],
+      columns: ["Employee", "Terminal", "Shift", "Signed in", "Signed out", "Tickets", "Gross Sales", "Price source"],
       rows: sessions.length ? sessions.map((session) => [
         session.employeeName,
         session.terminalId ?? NOT_RECORDED,
-        session.sessionId ? session.sessionId.slice(-8) : "Historical — login not recorded",
+        shiftNumber == null ? NOT_RECORDED : `Shift ${shiftNumber}`,
         session.signedInAt ? timestamp(new Date(session.signedInAt).toISOString()) : NOT_RECORDED,
         session.endedAt ? timestamp(new Date(session.endedAt).toISOString()) : "Still signed in",
         session.tickets,
@@ -131,14 +131,14 @@ function buildLoginSessionReportDocument(shift: ShiftReportData, title: string):
     subtitle: shift.storeName,
     paper: "A4",
     metadata: [
-      { label: "Employee", value: shift.openedBy },
+      { label: "Employee", value: shift.operatorSessions?.[0]?.employeeName ?? shift.openedBy },
       { label: "Terminal", value: shift.terminalId ?? NOT_RECORDED },
       { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
-      { label: "Login session", value: shift.operatorSessions?.[0]?.sessionId?.slice(-8) ?? NOT_RECORDED },
+      { label: "Signed in", value: shift.operatorSessions?.[0]?.signedInAt ? timestamp(new Date(shift.operatorSessions[0].signedInAt).toISOString()) : NOT_RECORDED },
       { label: "Shift opened", value: timestamp(shift.openedAt) },
       { label: "Shift closed", value: timestamp(shift.closedAt) },
     ],
-    sections: operatorSessionSections(shift.operatorSessions),
+    sections: operatorSessionSections(shift.operatorSessions, shift.shiftNumber),
     notes: [
       "This report is scoped to the authenticated employee login session. It does not include other employees' sales, shared shift totals, cash drawer values, or audit details.",
       ...(shift.operatorSessions?.some((session) => session.hasEstimatedPrice)
@@ -156,7 +156,6 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
     paper: "A4",
     metadata: [
       { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
-      { label: "Shift ID", value: shift.id },
       { label: "Terminal", value: shift.terminalId ?? NOT_RECORDED },
       { label: "Opened", value: timestamp(shift.openedAt) },
       { label: "Opened by", value: shift.openedBy },
@@ -169,7 +168,7 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
     ],
     sections: [
       salesSummary(shift),
-      ...operatorSessionSections(shift.operatorSessions),
+      ...operatorSessionSections(shift.operatorSessions, shift.shiftNumber),
       {
         title: "Pack Ticket Counts",
         columns: ["Display #", "Pack / Game", "Opening remaining", "Closing remaining", "Tickets sold", "Sales"],
@@ -241,7 +240,6 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
     paper: "A4",
     metadata: [
       { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
-      { label: "Shift ID", value: shift.id },
       { label: "Report date (UTC)", value: shift.closedAt?.slice(0, 10) ?? NOT_RECORDED },
       { label: "Opened", value: timestamp(shift.openedAt) },
       { label: "Closed", value: timestamp(shift.closedAt) },
@@ -257,7 +255,7 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
           ["Total sales", money(shift.grossSales)],
         ],
       },
-      ...operatorSessionSections(shift.operatorSessions),
+      ...operatorSessionSections(shift.operatorSessions, shift.shiftNumber),
       {
         title: "Cash & Variance",
         columns: ["Cash", "Amount"],

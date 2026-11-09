@@ -5,6 +5,7 @@ import { AlertTriangle, Clock3, RefreshCw } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { ReportActions } from "./report-actions";
+import { readableReportText } from "@/lib/report-readable-text";
 import { buildShipmentOverridesDocument } from "@/lib/workspace-detail-report-documents";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 
@@ -63,7 +64,7 @@ export function ShipmentOverrideNotifications({ dateRange }: { dateRange: Report
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800"><AlertTriangle size={13} /> {notification.storeName}</span>
                 <span className="inline-flex items-center gap-1 text-[11px] text-text-tertiary"><Clock3 size={12} /> {new Date(notification.createdAt).toLocaleString()}</span>
               </div>
-              <p className="mt-1 text-sm text-text">{notification.detail}</p>
+              <p className="mt-1 text-sm text-text">{readableReportText(notification.detail)}</p>
               <p className="mt-1 text-xs text-text-tertiary">Approved by {notification.performedByName ?? "Unknown"}</p>
             </div>
           ))}

@@ -21,8 +21,23 @@ export async function POST(request: NextRequest) {
     const terminalId =
       typeof body?.terminalId === "string" && body.terminalId.trim()
         ? body.terminalId.trim().toUpperCase()
-        : "T1";
+        : session.terminalId ?? "T1";
     const shiftId = typeof body?.shiftId === "string" ? body.shiftId.trim() : "";
+
+    if ((session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD") && shiftId !== session.shiftId) {
+      return NextResponse.json({ error: "This report must use your assigned shift." }, { status: 403 });
+    }
+
+    const shift = shiftId ? await prisma.shift.findFirst({
+      where: { id: shiftId, storeId: session.storeId },
+      select: { shiftNumber: true, terminalId: true },
+    }) : null;
+    if (shiftId && !shift) return NextResponse.json({ error: "The selected shift was not found." }, { status: 404 });
+    if (shift?.terminalId && session.terminalId && shift.terminalId !== session.terminalId) {
+      return NextResponse.json({ error: "This report must use your assigned terminal." }, { status: 403 });
+    }
+    const reportTerminal = shift?.terminalId ?? session.terminalId ?? terminalId;
+    const shiftLabel = shift ? (shift.shiftNumber == null ? "Shift number not recorded" : `Shift ${shift.shiftNumber}`) : null;
 
     if (!ticket) {
       return NextResponse.json({ error: "Ticket number or barcode is required." }, { status: 400 });
@@ -63,7 +78,7 @@ export async function POST(request: NextRequest) {
       action: "TICKET_REPORTED",
       entityType: "TICKET",
       entityId: matchedPack?.id,
-      detail: `Ticket reported from ${terminalId}${shiftId ? ` during shift ${shiftId}` : ""}: ${ticketLabel}. Reason: ${reason}`,
+      detail: `Ticket reported from ${reportTerminal}${shiftLabel ? ` during ${shiftLabel}` : ""}: ${ticketLabel}. Reason: ${reason}`,
       performedById: session.userId,
       performedByName: session.name,
     });

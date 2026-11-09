@@ -359,10 +359,12 @@ export async function GET(req?: NextRequest) {
     const dateSql = range && !("error" in range) ? " AND r.created_at >= $2 AND r.created_at <= $3" : "";
     const baseSelect = `
       SELECT r.id, r.status, r.store_id AS "storeId", stores.name AS "storeName",
-        r.shift_id AS "shiftId", r.pack_id AS "packId", r.ticket_barcode AS "ticketBarcode",
+        r.shift_id AS "shiftId", s.shift_number AS "shiftNumber", s."terminalId" AS "terminalId",
+        r.pack_id AS "packId", r.ticket_barcode AS "ticketBarcode",
         r.reason, r.requested_by_name AS "requestedByName", r.created_at AS "createdAt",
         p."serialNumber" AS "serialNumber", g.name AS "gameName", g."gameNumber" AS "gameNumber"
       FROM ticket_return_requests r
+      LEFT JOIN shifts s ON s.id = r.shift_id AND s."storeId" = r.store_id
       JOIN packs p ON p.id = r.pack_id
       JOIN games g ON g.id = p."gameId"
       JOIN stores ON stores.id = r.store_id

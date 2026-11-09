@@ -14,15 +14,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await prisma.$queryRawUnsafe(`
-      SELECT id, entity_type AS "entityType", entity_id AS "entityId",
+      SELECT logs.entity_type AS "entityType",
+             COALESCE('Pack ' || packs."serialNumber" || ' · ' || games.name || ' (Game ' || games."gameNumber" || ')',
+                      logs.entity_type || ' (record no longer available)') AS "entityLabel",
              field_name AS "fieldName", old_value AS "oldValue", new_value AS "newValue",
-             reason, corrected_by_id AS "correctedById", corrected_by_name AS "correctedByName",
-             created_at AS "createdAt"
-      FROM inventory_correction_logs
-      WHERE store_id = $1
-        AND created_at >= $2
-        AND created_at <= $3
-      ORDER BY created_at DESC
+             reason, corrected_by_name AS "correctedByName",
+             logs.created_at AS "createdAt"
+      FROM inventory_correction_logs logs
+      LEFT JOIN packs ON logs.entity_type = 'PACK' AND packs.id = logs.entity_id AND packs."storeId" = logs.store_id
+      LEFT JOIN games ON games.id = packs."gameId" AND games."storeId" = packs."storeId"
+      WHERE logs.store_id = $1
+        AND logs.created_at >= $2
+        AND logs.created_at <= $3
+      ORDER BY logs.created_at DESC
       LIMIT 200
     `, session.storeId, range.fromDate, range.toDate);
     return NextResponse.json({ corrections: rows });

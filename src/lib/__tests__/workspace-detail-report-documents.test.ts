@@ -50,14 +50,15 @@ test("discrepancy filter and rows are a single matching snapshot, retaining zero
   }
 });
 
-test("correction history retains original and corrected strings, IDs, reasons and approvers", () => {
+test("correction history retains original/corrected values and uses a readable entity label", () => {
   const document = buildCorrectionDocument([{
-    entityType: "PACK", entityId: "pack-1", fieldName: "ticket", oldValue: null,
-    newValue: "000", reason: "Recounted", correctedByName: null, createdAt: "2026-10-14T12:00:00Z",
+    entityType: "PACK", entityLabel: "Pack 000123 · Lucky Game (Game 004)", fieldName: "ticket", oldValue: null,
+    newValue: "000", reason: "Recounted under cmvr8k2g40001abc123def456", correctedByName: null, createdAt: "2026-10-14T12:00:00Z",
   }]);
   assert.deepEqual(document.sections[0].rows[0], [
-    "2026-10-14T12:00:00Z", "PACK", "pack-1", "ticket", null, "000", "Recounted", null,
+    "2026-10-14T12:00:00Z", "Pack 000123 · Lucky Game (Game 004)", "ticket", null, "000", "Recounted under related record", null,
   ]);
+  assert.doesNotMatch(JSON.stringify(document), /cmvr8k2g40001abc123def456|Entity ID/);
   assertTableWidths(document);
 });
 
@@ -122,7 +123,7 @@ test("WhatsApp document preserves actual generated message instead of rebuilding
   assertTableWidths(document);
 });
 
-test("ticket report documents include all loaded records and full unparsed detail", () => {
+test("ticket report documents include all loaded records and full unparsed detail without IDs", () => {
   const reports = Array.from({ length: 10 }, (_, index) => ({
     id: `r-${index}`, storeId: "store-1", storeName: "Central",
     detail: "Unparsed report detail; ticket 0000123", performedByName: null, createdAt: "2026-10-14T12:00:00Z",
@@ -130,32 +131,37 @@ test("ticket report documents include all loaded records and full unparsed detai
   const document = buildTicketReportsDocument(reports, "Scoped Ticket Reports");
   assert.equal(document.title, "Scoped Ticket Reports");
   assert.equal(document.sections[0].rows.length, 10);
-  assert.equal(document.sections[0].rows[9][5], reports[9].detail);
-  assert.equal(document.sections[0].rows[0][4], null);
+  assert.equal(document.sections[0].rows[9][3], reports[9].detail);
+  assert.equal(document.sections[0].rows[0][2], null);
+  assert.deepEqual(document.sections[0].columns, ["Store", "Reported at", "Reported by", "Detail"]);
+  assert.doesNotMatch(JSON.stringify(document), /Report ID|Store ID/);
   assertTableWidths(document);
 });
 
-test("return request document retains full shift/pack references, barcode and missing reason", () => {
+test("return request document uses shift, terminal, pack serial and barcode instead of database IDs", () => {
   const document = buildTicketReturnRequestsDocument([{
     id: "request-1", storeId: "store-1", shiftId: "shift-full-id", packId: "pack-full-id",
     serialNumber: "000123", gameName: "Cash", gameNumber: "004", ticketBarcode: "00000009",
-    reason: null, requestedByName: "Employee", createdAt: "2026-10-14T12:00:00Z",
+    reason: "Return requested under cmvr8k2g40001abc123def456", requestedByName: "Employee", createdAt: "2026-10-14T12:00:00Z", status: "PENDING",
+    storeName: "Central", terminalId: "T2", shiftNumber: 1,
   }]);
   assert.deepEqual(document.sections[0].rows[0], [
-    "request-1", "store-1", "shift-full-id", "pack-full-id", "000123", "Cash", "004",
-    "00000009", null, "Employee", "2026-10-14T12:00:00Z",
+    "PENDING", "Central", "T2", "Shift 1", "000123", "Cash", "004", "00000009", "Return requested under related record",
+    "Employee", "2026-10-14T12:00:00Z",
   ]);
+  assert.doesNotMatch(JSON.stringify(document), /shift-full-id|pack-full-id|store-1|request-1|cmvr8k2g40001abc123def456/);
   assertTableWidths(document);
 });
 
-test("shipment override document retains loaded evidence and missing approver", () => {
+test("shipment override document retains evidence without a database notification ID", () => {
   const document = buildShipmentOverridesDocument([{
     id: 7, storeName: "Central", detail: "Override authorized after count",
     performedByName: null, createdAt: "2026-10-14T12:00:00Z",
   }]);
   assert.deepEqual(document.sections[0].rows[0], [
-    7, "Central", "2026-10-14T12:00:00Z", null, "Override authorized after count",
+    "Central", "2026-10-14T12:00:00Z", null, "Override authorized after count",
   ]);
+  assert.doesNotMatch(JSON.stringify(document), /Notification ID/);
   assertTableWidths(document);
 });
 
@@ -167,6 +173,7 @@ test("state archive is metadata-only, retains evidence reference, and never trea
   }, { storeName: "Central", weekStart: "2026-10-05", label: "Activated Report" });
   assert.equal(document.title, "Activated Report — Archive Record");
   assert.equal(document.metadata?.find((item) => item.label === "Week of Monday")?.value, "2026-10-05");
+  assert.doesNotMatch(JSON.stringify(document), /Store ID|store-1/);
   assert.deepEqual(document.sections[0].rows[0], [
     "receipt.jpg", "2026-10-14T12:00:00Z", null, "OCR_PENDING", "https://example.invalid/evidence.jpg",
   ]);

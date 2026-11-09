@@ -32,6 +32,8 @@ const shipment: ShipmentReportData = {
 test("shipment A4 template contains canonical supplier, receiver, timestamps, packs and totals", () => {
   const report = buildShipmentReport(shipment);
   assert.equal(report.paper, "A4");
+  assert.equal(report.subtitle, "Invoice INV-123 · Main store");
+  assert.doesNotMatch(JSON.stringify(report), /shipment-1|Shipment ID/);
   assert.equal(report.metadata?.find((item) => item.label === "Supplier")?.value, "State lottery");
   assert.equal(report.metadata?.find((item) => item.label === "Received by")?.value, "Canonical receiver");
   assert.equal(report.metadata?.find((item) => item.label === "Confirmed at (UTC)")?.value, shipment.confirmedAt);

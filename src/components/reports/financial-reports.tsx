@@ -220,13 +220,13 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-xs">
                                     <thead><tr className="text-left">
-                                      <th className="p-2">Game Name / ID</th><th className="p-2">Total Tickets</th>
+                                      <th className="p-2">Game / Game #</th><th className="p-2">Total Tickets</th>
                                       <th className="p-2">Tickets Sold</th><th className="p-2">Active Stock</th>
                                       <th className="p-2">Gross Sales (100%)</th><th className="p-2">Cost / Payout (95%)</th>
                                     </tr></thead>
                                     <tbody>{shift.gameBreakdown.map((g) => (
                                       <tr key={g.id ?? g.name}>
-                                        <td className="p-2">{g.name} / {g.gameNumber ?? g.id ?? "Not recorded"}</td>
+                                        <td className="p-2">{g.name}{g.gameNumber ? ` / ${g.gameNumber}` : ""}</td>
                                         <td className="p-2">{g.totalTickets ?? "Not recorded"}</td>
                                         <td className="p-2">{g.tickets}</td><td className="p-2">{g.activeStock ?? "Not recorded"}</td>
                                         <td className="p-2">{fmt(g.sales)}</td><td className="p-2">{fmt(g.cost)}</td>
@@ -263,11 +263,11 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                                 {!shift.operatorSessions?.length ? <p className="rounded-md bg-surface-soft p-3 text-xs text-text-secondary">No employee-session sales were recorded for this shift.</p> : <div className="overflow-x-auto">
                                   <table className="w-full min-w-[760px] text-xs">
                                     <thead><tr className="text-left">
-                                      <th className="p-2">Employee</th><th className="p-2">Terminal</th><th className="p-2">Login ID</th><th className="p-2">Signed in / out</th><th className="p-2 text-right">Tickets</th><th className="p-2 text-right">Gross Sales</th><th className="p-2">Price source</th>
+                                      <th className="p-2">Employee</th><th className="p-2">Terminal</th><th className="p-2">Shift</th><th className="p-2">Signed in / out</th><th className="p-2 text-right">Tickets</th><th className="p-2 text-right">Gross Sales</th><th className="p-2">Price source</th>
                                     </tr></thead>
                                     <tbody>{shift.operatorSessions.map((operator, index) => <Fragment key={`${operator.shiftId}-${operator.sessionId ?? operator.employeeId}-${operator.terminalId}-${index}`}>
                                       <tr className="border-t border-border">
-                                        <td className="p-2 font-semibold">{operator.employeeName}{operator.legacyAttribution ? " · historical" : ""}</td><td className="p-2">{operator.terminalId ?? "Not recorded"}</td><td className="p-2 font-mono">{operator.sessionId ? operator.sessionId.slice(-8) : "Not recorded"}</td>
+                                        <td className="p-2 font-semibold">{operator.employeeName}{operator.legacyAttribution ? " · historical" : ""}</td><td className="p-2">{operator.terminalId ?? "Not recorded"}</td><td className="p-2">{shift.shiftNumber == null ? "Not recorded" : `Shift ${shift.shiftNumber}`}</td>
                                         <td className="p-2">{operator.signedInAt ? new Date(operator.signedInAt).toLocaleString() : "Not recorded"}{operator.endedAt ? ` – ${new Date(operator.endedAt).toLocaleString()}` : " – Still signed in"}</td><td className="p-2 text-right tabular-nums">{operator.tickets}</td><td className="p-2 text-right tabular-nums font-semibold">{fmt(operator.grossSales)}</td><td className="p-2">{operator.hasEstimatedPrice ? "Backfilled estimate" : operator.legacyAttribution ? "Historical price" : "Recorded"}</td>
                                       </tr>
                                       {operator.packs.map((pack) => <tr key={`${operator.sessionId}-${pack.packId}`} className="border-t border-border/60 bg-surface-soft/50">
@@ -368,7 +368,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
-                        <th className="py-2 pr-4">Game Name / ID</th>
+                        <th className="py-2 pr-4">Game / Game #</th>
                         <th className="py-2 pr-4 text-right">Total Tickets</th>
                         <th className="py-2 pr-4 text-right">Tickets Sold</th>
                         <th className="py-2 pr-4 text-right">Active Stock</th>
@@ -386,7 +386,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">
                                 {i + 1}
                               </span>
-                              <span className="font-medium text-text">{g.name} / {g.gameNumber ?? g.id ?? "Not recorded"}</span>
+                              <span className="font-medium text-text">{g.name}{g.gameNumber ? ` / ${g.gameNumber}` : ""}</span>
                             </div>
                           </td>
                           <td className="py-2.5 pr-4 text-right tabular-nums text-text">{g.totalTickets?.toLocaleString() ?? "Not recorded"}</td>

@@ -25,7 +25,8 @@ test("shift template uses finalized sales, counts, operators, and signed audit v
   assert.deepEqual(document.sections[1].rows[0], ["1", "P1 / Game", 50, 38, 12, "$60.00"]);
   assert.deepEqual(document.sections[4].rows[0], ["1 / P1", "FIRST", 1, 1, 13, 15, 2]);
   assert.equal(document.metadata?.find((field) => field.label === "Shift")?.value, "Shift 2");
-  assert.equal(document.metadata?.find((field) => field.label === "Shift ID")?.value, "shift-old");
+  assert.equal(document.metadata?.find((field) => field.label === "Shift")?.value, "Shift 2");
+  assert.doesNotMatch(JSON.stringify(document), /shift-old/);
   assert.equal(document.metadata?.find((field) => field.label === "Opening audit operator")?.value, "Auditor");
   assert.equal(document.metadata?.find((field) => field.label === "Closed")?.value, "2025-01-01 16:00:00 UTC");
 });
@@ -41,8 +42,8 @@ test("financial summaries show bidirectional shift quantities and the 100/95 spl
   ];
   for (const build of [buildShiftReportDocument, buildEndOfShiftReportDocument]) {
     const summary = build(shift).sections.find((section) => section.title === "Sales Summary")!;
-    assert.deepEqual(summary.columns, ["Game Name / ID", "Total Tickets", "Tickets Sold", "Active Stock", "Gross Sales (100%)", "Cost / Payout (95%)"]);
-    assert.deepEqual(summary.rows[0], ["Lucky 7s (Rev. 150-1) / lucky", 150, 10, 140, "$50.00", "$47.50"]);
+    assert.deepEqual(summary.columns, ["Game / Game #", "Total Tickets", "Tickets Sold", "Active Stock", "Gross Sales (100%)", "Cost / Payout (95%)"]);
+    assert.deepEqual(summary.rows[0], ["Lucky 7s (Rev. 150-1)", 150, 10, 140, "$50.00", "$47.50"]);
     assert.deepEqual(summary.totals, ["TOTAL SHIFT SUMMARY", 450, 50, 400, "$250.00", "$237.50"]);
   }
 });
@@ -103,7 +104,7 @@ test("missing cash and physical audit data remain Not recorded, not zero", () =>
   assert.equal(document.sections[1].rows[0][5], "Not recorded");
 });
 
-test("employee login sales are printed by sign-in, terminal, and sale-time display", () => {
+test("employee login sales are printed by employee, terminal, shift and sale-time display", () => {
   const shift = fixture();
   shift.operatorSessions = [{
     shiftId: "shift-old", sessionId: "login-session-12345678", employeeId: "cashier-1", employeeName: "Cashier One", terminalId: "T2",
@@ -114,7 +115,8 @@ test("employee login sales are printed by sign-in, terminal, and sale-time displ
   const document = buildEndOfShiftReportDocument(shift);
   const login = document.sections.find((section) => section.title === "Sales by Employee Login & Terminal");
   const pack = document.sections.find((section) => section.title === "Employee & Terminal Pack Breakdown");
-  assert.deepEqual(login?.rows[0]?.slice(0, 3), ["Cashier One", "T2", "12345678"]);
+  assert.deepEqual(login?.rows[0]?.slice(0, 3), ["Cashier One", "T2", "Shift 2"]);
+  assert.doesNotMatch(JSON.stringify(document), /login-session-12345678|shift-old/);
   assert.equal(login?.rows[0]?.[5], 3);
   assert.equal(login?.rows[0]?.[6], "$6.00");
   assert.deepEqual(pack?.rows[0]?.slice(0, 4), ["Cashier One", "T2", "2", "P1 / Game"]);
@@ -211,7 +213,8 @@ test("scoped lazy loader encodes the ID and builds only the requested shift", as
     return Response.json({ shifts: [shift] });
   });
   const document = await loadShiftReportDocument(shift.id);
-  assert.equal(document.metadata?.find((field) => field.label === "Shift ID")?.value, shift.id);
+  assert.equal(document.metadata?.find((field) => field.label === "Shift")?.value, "Shift 2");
+  assert.doesNotMatch(JSON.stringify(document), /shift & old/);
   assert.equal(fetchMock.mock.callCount(), 1);
 });
 
