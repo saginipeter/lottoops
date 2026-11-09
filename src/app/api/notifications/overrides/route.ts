@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   try {
     const rows = (await prisma.$queryRawUnsafe(
       `
-      SELECT logs.id, logs.store_id AS "storeId", stores.name AS "storeName",
+      SELECT logs.id::text AS id, logs.store_id AS "storeId", stores.name AS "storeName",
              logs.detail, logs.performed_by_name AS "performedByName",
              logs.created_at AS "createdAt"
       FROM inventory_activity_logs logs
@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
     )) as unknown[];
 
     return NextResponse.json({ notifications: rows });
-  } catch {
-    return NextResponse.json({ notifications: [] });
+  } catch (error) {
+    console.error("[GET /api/notifications/overrides]", error);
+    return NextResponse.json({ error: "Unable to load shipment override report." }, { status: 500 });
   }
 }
