@@ -36,7 +36,7 @@ export default async function SettingsPage() {
             </div>
             <h3 className="text-base font-semibold text-text">TV Screens</h3>
             <p className="mt-1 text-sm text-text-secondary">
-              Manage customer-facing screens. Each screen shows up to 40 entries in a 10-column × 4-row layout, with overflow continuing automatically on the next screen.
+              Manage customer-facing screens. Each screen shows up to 50 entries in a 10-column × 5-row layout, with overflow continuing automatically on the next screen.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link

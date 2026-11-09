@@ -284,23 +284,23 @@ for (const viewport of [
   { name: "desktop 1080p", width: 1920, height: 1080 },
   { name: "mobile 390px", width: 390, height: 844 },
 ]) {
-  test(`40 cards fit a 10-column by 4-row kiosk grid at ${viewport.name}`, async ({ page }) => {
+  test(`50 cards fit a 10-column by 5-row kiosk grid at ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    await showBoard(page, 40, true);
+    await showBoard(page, 50, true);
 
     const snapshot = await gridSnapshot(page);
     expect(snapshot.display).toBe("grid");
     expect(snapshot.gridTemplateColumns.trim().split(/\s+/)).toHaveLength(10);
-    expect(snapshot.gridTemplateRows.trim().split(/\s+/)).toHaveLength(4);
-    expect(snapshot.cards).toHaveLength(40);
+    expect(snapshot.gridTemplateRows.trim().split(/\s+/)).toHaveLength(5);
+    expect(snapshot.cards).toHaveLength(50);
     expect(snapshot.columnGap).toBe(viewport.width <= 900 ? 6 : 8);
     expect(snapshot.rowGap).toBe(viewport.width <= 900 ? 6 : 8);
     expect(snapshot.boardScrollHeight).toBeLessThanOrEqual(snapshot.boardClientHeight + 1);
     expect(snapshot.boardScrollWidth).toBeLessThanOrEqual(snapshot.boardClientWidth + 1);
 
     const rows = groupRows(snapshot.cards);
-    expect(rows).toHaveLength(4);
-    expect(rows.map((row) => row.length)).toEqual([10, 10, 10, 10]);
+    expect(rows).toHaveLength(5);
+    expect(rows.map((row) => row.length)).toEqual([10, 10, 10, 10, 10]);
     for (const row of rows) {
       expect(Math.abs(row[0].dimensions.x - snapshot.board.x)).toBeLessThan(1.5);
       const right = row[row.length - 1].dimensions.x + row[row.length - 1].dimensions.width;
@@ -453,14 +453,14 @@ test("kiosk automatically rotates to the next physical screen and fades the new 
   await page.addStyleTag({ content: css });
   await page.addScriptTag({ content: browserHarness });
   await expect(page.locator(".tv-ticket-badge-current .tv-ticket-number")).toHaveText("21");
-  await page.evaluate(() => (window as any).__tvTest.load({ inventoryCount: 41 }));
+  await page.evaluate(() => (window as any).__tvTest.load({ inventoryCount: 51 }));
   await expect(page.locator(".tv-screen-count")).toContainText("Screen 1 of 2");
-  await expect.poll(async () => displayedSlotNumbers(page)).toHaveLength(40);
+  await expect.poll(async () => displayedSlotNumbers(page)).toHaveLength(50);
   await expect(page.locator("[data-screen-number]")).toHaveAttribute("data-screen-number", "1");
   await page.clock.fastForward(30_000);
   await expect.poll(async () => page.locator("[data-screen-number]").getAttribute("data-screen-number")).toBe("2");
   await expect(page.locator(".tv-screen-count")).toContainText("Screen 2 of 2");
-  await expect.poll(async () => displayedSlotNumbers(page)).toEqual([41]);
+  await expect.poll(async () => displayedSlotNumbers(page)).toEqual([51]);
   const previousHref = await hrefQuery(page, "Previous screen");
   expect(previousHref.searchParams.get("token")).toBe("signed-kiosk-token");
   expect(previousHref.searchParams.get("screen")).toBe("1");
@@ -468,26 +468,26 @@ test("kiosk automatically rotates to the next physical screen and fades the new 
   expect(screenAnimation).toBe("tv-screen-enter");
 });
 
-test.describe("40-entry TV screen splitting", () => {
-  const cases = [40, 41, 80, 81];
+test.describe("50-entry TV screen splitting", () => {
+  const cases = [50, 51, 100, 101];
 
   for (const count of cases) {
     test(`${count} entries show each natural slot exactly once across screens 1, 2, and 3`, async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 720 });
       const allDisplayed: number[] = [];
-      const expectedPages = Math.max(1, Math.ceil(count / 40));
+      const expectedPages = Math.max(1, Math.ceil(count / 50));
       const slots = slotsFor(count, true);
 
       for (const screenNumber of [1, 2, 3]) {
         await showBoard(page, slots, true, screenNumber);
         const displayed = await displayedSlotNumbers(page);
-        expect(displayed.length).toBeLessThanOrEqual(40);
+        expect(displayed.length).toBeLessThanOrEqual(50);
         expect(displayed).toEqual(displayed.slice().sort((left, right) => left - right));
         allDisplayed.push(...displayed);
 
-        const first = (screenNumber - 1) * 40 + 1;
+        const first = (screenNumber - 1) * 50 + 1;
         const expected = screenNumber <= expectedPages
-          ? Array.from({ length: Math.min(40, count - first + 1) }, (_, index) => first + index)
+          ? Array.from({ length: Math.min(50, count - first + 1) }, (_, index) => first + index)
           : [];
         expect(displayed).toEqual(expected);
 
@@ -503,8 +503,8 @@ test.describe("40-entry TV screen splitting", () => {
       expect(allDisplayed).toEqual(Array.from({ length: count }, (_, index) => index + 1));
       expect(new Set(allDisplayed).size).toBe(count);
       expect(Math.max(...[1, 2, 3].map((screenNumber) =>
-        screenNumber <= expectedPages ? Math.min(40, count - (screenNumber - 1) * 40) : 0,
-      ))).toBeLessThanOrEqual(40);
+        screenNumber <= expectedPages ? Math.min(50, count - (screenNumber - 1) * 50) : 0,
+      ))).toBeLessThanOrEqual(50);
     });
   }
 });
@@ -513,11 +513,11 @@ test("screen navigation exposes only applicable links and preserves kiosk token,
   await page.setViewportSize({ width: 1280, height: 720 });
   const token = "signed-kiosk-token";
 
-  await showBoard(page, 40, true, 1, token, 30);
+  await showBoard(page, 50, true, 1, token, 30);
   await expect(page.getByRole("link", { name: "Previous screen", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Next screen", exact: true })).toHaveCount(0);
 
-  await showBoard(page, 81, true, 1, token, 30);
+  await showBoard(page, 101, true, 1, token, 30);
   await expect(page.getByRole("link", { name: "Previous screen", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Next screen", exact: true })).toHaveCount(1);
   const nextFromFirst = await hrefQuery(page, "Next screen");
@@ -525,7 +525,7 @@ test("screen navigation exposes only applicable links and preserves kiosk token,
   expect(nextFromFirst.searchParams.get("interval")).toBe("30");
   expect(nextFromFirst.searchParams.get("token")).toBe(token);
 
-  await showBoard(page, 81, true, 2, token, 30);
+  await showBoard(page, 101, true, 2, token, 30);
   await expect(page.getByRole("link", { name: "Previous screen", exact: true })).toHaveCount(1);
   await expect(page.getByRole("link", { name: "Next screen", exact: true })).toHaveCount(1);
   const previousFromMiddle = await hrefQuery(page, "Previous screen");
@@ -537,7 +537,7 @@ test("screen navigation exposes only applicable links and preserves kiosk token,
     expect(url.searchParams.get("token")).toBe(token);
   }
 
-  await showBoard(page, 81, true, 3, token, 30);
+  await showBoard(page, 101, true, 3, token, 30);
   await expect(page.getByRole("link", { name: "Previous screen", exact: true })).toHaveCount(1);
   await expect(page.getByRole("link", { name: "Next screen", exact: true })).toHaveCount(0);
   const previousFromLast = await hrefQuery(page, "Previous screen");
@@ -549,11 +549,11 @@ test("screen navigation exposes only applicable links and preserves kiosk token,
 test("a selected screen remains empty after inventory shrinks instead of switching to screen 1", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   const token = "signed-kiosk-token";
-  await showBoard(page, 41, true, 2, token, 15);
+  await showBoard(page, 51, true, 2, token, 15);
   await expect(page.locator("article")).toHaveCount(1);
-  await expect(page.locator(".tv-display-number")).toHaveText("#041");
+  await expect(page.locator(".tv-display-number")).toHaveText("#051");
 
-  await showBoard(page, 40, true, 2, token, 15);
+  await showBoard(page, 50, true, 2, token, 15);
   await expect(page.locator("article")).toHaveCount(0);
   await expect(page.getByText("No games on Screen 2", { exact: true })).toBeVisible();
   await expect(page.getByText("No games on display", { exact: true })).toHaveCount(0);
@@ -571,7 +571,7 @@ test("zero inventory keeps the default No games on display state, while an expli
   await expect(page.getByText("No games on display", { exact: true })).toBeVisible();
   await expect(page.getByText("No games on Screen 1", { exact: true })).toHaveCount(0);
 
-  await showBoard(page, 41, true, 99);
+  await showBoard(page, 51, true, 99);
   await expect(page.locator("article")).toHaveCount(0);
   await expect(page.getByText("No games on Screen 99", { exact: true })).toBeVisible();
 });

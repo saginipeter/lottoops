@@ -120,7 +120,7 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
         .tv-screen-preview { height:min(70vh,900px); }
         .tv-delay-banner { display:flex; align-items:center; gap:8px; flex:none; border:1px solid rgba(252,211,77,.45); background:rgba(252,211,77,.1); padding:6px 10px; color:#fef3c7; font-size:11px; }
         .tv-empty-state { display:flex; min-height:0; flex:1; flex-direction:column; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.05); padding:20px; text-align:center; }
-        .tv-board-stack { display:grid; min-height:0; min-width:0; flex:1; grid-template-columns:repeat(10,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); gap:8px; overflow:hidden; background:#000; padding:0; }
+        .tv-board-stack { display:grid; min-height:0; min-width:0; flex:1; grid-template-columns:repeat(10,minmax(0,1fr)); grid-template-rows:repeat(5,minmax(0,1fr)); gap:8px; overflow:hidden; background:#000; padding:0; }
         .tv-jackpot-board { position:relative; display:block; min-width:0; min-height:0; width:100%; height:100%; overflow:hidden; background:#000; container-type:size; }
         .tv-artwork-crop { position:absolute; inset:-18% 0 0; z-index:0; overflow:hidden; }
         .tv-jackpot-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover; object-position:center bottom; transform-origin:center bottom; }

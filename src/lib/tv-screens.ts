@@ -1,5 +1,5 @@
 export const TV_SCREEN_COLUMNS = 10;
-export const TV_SCREEN_ROWS = 4;
+export const TV_SCREEN_ROWS = 5;
 export const TV_SCREEN_CAPACITY = TV_SCREEN_COLUMNS * TV_SCREEN_ROWS;
 export const TV_SCREEN_MAX_NUMBER = 10_000;
 export const TV_SCREEN_ROTATION_SECONDS = 30;
@@ -12,7 +12,7 @@ export function parseTvScreenNumber(value: unknown): number {
   return Number.isSafeInteger(number) && number > 0 && number <= TV_SCREEN_MAX_NUMBER ? number : 1;
 }
 
-/** Natural display order, with every real entry assigned exactly once to a 40-card screen. */
+/** Natural display order, with every real entry assigned exactly once to a 50-card screen. */
 export function splitTvScreens<T extends { slotNumber: string }>(slots: readonly T[]): T[][] {
   const ordered = [...slots].sort((left, right) =>
     left.slotNumber.localeCompare(right.slotNumber, "en", { numeric: true }) ||

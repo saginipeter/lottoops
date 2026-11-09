@@ -18,7 +18,7 @@ LottoOps helps lottery retailers manage scratch-ticket inventory, sales shifts, 
 
 ### Customer TV display
 
-- Show up to **40 displays per screen** in a responsive 10-column by 4-row layout.
+- Show up to **50 displays per screen** in a responsive 10-column by 5-row layout.
 - Automatically rotate between screens every **30 seconds** when additional screens are needed.
 - Show game-specific artwork, ticket price, animated current/next ticket indicators, and a three-digit display label such as **`#040`**.
 - Use a signed kiosk link for a customer-facing screen without requiring a staff login.
