@@ -32,7 +32,7 @@ test("aging prints loaded packs oldest first without mutating input or guessing 
 });
 
 const discrepancy = {
-  type: "AUDIT", status: "UNRESOLVED", game: "Cash", pack: "000123", display: "",
+  type: "AUDIT", status: "UNRESOLVED", game: "Cash", gameNumber: "0042", pack: "000123", display: "",
   expected: 0, observed: null, variance: -2, timestamp: null, actor: "", reason: "Review <ticket>",
 };
 
@@ -42,12 +42,25 @@ test("discrepancy filter and rows are a single matching snapshot, retaining zero
     const document = buildDiscrepancyDocument(rows, filter);
     assert.equal(document.metadata?.[0].value, filter);
     assert.equal(document.sections[0].rows.length, filter === "ALL" ? 2 : 1);
-    assert.equal(document.sections[0].rows[0][5], 0);
-    assert.equal(document.sections[0].rows[0][6], null);
-    assert.equal(document.sections[0].rows[0][4], null);
+    assert.equal(document.sections[0].rows[0][6], 0);
+    assert.equal(document.sections[0].rows[0][7], null);
+    assert.equal(document.sections[0].rows[0][5], null);
     if (filter !== "ALL") assert.equal(document.sections[0].rows[0][1], filter);
     assertTableWidths(document);
   }
+});
+
+test("legacy Pack CUIDs in discrepancy reasons print as Pack # and Game #", () => {
+  const document = buildDiscrepancyDocument([{
+    ...discrepancy,
+    reason: "Pack cmvzmngub002jla08ddeayzmp: expected physical ticket 62, observed 63.",
+  }], "ALL");
+  const row = document.sections[0].rows[0];
+  assert.equal(row[2], "000123");
+  assert.equal(row[4], "0042");
+  assert.equal(row[11], "Pack #000123 · Game #0042: expected physical ticket 62, observed 63.");
+  assert.doesNotMatch(JSON.stringify(document), /cmvzmngub002jla08ddeayzmp/);
+  assertTableWidths(document);
 });
 
 test("correction history retains original/corrected values and uses a readable entity label", () => {

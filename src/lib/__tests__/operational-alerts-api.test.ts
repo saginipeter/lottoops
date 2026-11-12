@@ -14,7 +14,7 @@ test("operational alerts expose readable pack/game labels and persist manager cl
   let displayPackNumber: string | null = "00017";
   const notification = {
     id: "notification-1", notificationType: "TICKET_EXCEPTION", title: "Out-of-sequence ticket scan",
-    detail: "Employee scanned an out-of-order ticket for Pack #00017; expected ticket 002.", severity: "HIGH",
+    detail: "Employee scanned an out-of-order ticket for Pack #00017 · Game #0042; expected ticket 002.", severity: "HIGH",
     createdAt: new Date("2026-11-11T18:00:00.000Z"), entityId: "pack-1", packNumber: "00017" as string | null, gameNumber: "0042",
   };
   const fakePrisma = {
@@ -33,6 +33,8 @@ test("operational alerts expose readable pack/game labels and persist manager cl
         assert.match(sql, /notification_type AS "notificationType"/);
         assert.match(sql, /p\."packNumber" AS "packNumber"/);
         assert.match(sql, /REGEXP_REPLACE/);
+        assert.match(sql, /CONCAT\('Pack ', p\.id\)/);
+        assert.match(sql, /g\."gameNumber"/);
         assert.doesNotMatch(sql, /COALESCE\(p\."packNumber", p\."serialNumber"\)/);
         return [notification];
       }
@@ -83,6 +85,7 @@ test("operational alerts expose readable pack/game labels and persist manager cl
   assert.equal(exception.type, "TICKET_EXCEPTION");
   assert.equal(exception.packNumber, "00017");
   assert.equal(exception.gameNumber, "0042");
+  assert.ok(exception.detail.includes("Game #0042"));
   assert.ok(!exception.detail.includes("12345678901"));
 
   displayPackNumber = null;

@@ -140,13 +140,19 @@ test("manager and owner main workspaces expose the prominent TV launcher, but em
   assert.match(owner, /<button[^>]*disabled=""/);
 });
 
-test("Manage Workspace is right-aligned and operations appear before the TV launcher", () => {
+test("Manage Workspace is the only management shortcut and the TV launcher is last in the rightmost column", () => {
   const html = renderToStaticMarkup(createElement(PosHomeDashboard, {
     storeName: "Store A", storeId: "owned-a", role: "MANAGER", grantedPermissions: [], tvStores: stores,
   }));
   assert.match(html, /class="ml-auto flex items-center gap-3">[\s\S]*?<a href="\/admin"/);
   assert.ok(html.includes("Manage Workspace"));
   assert.ok(html.indexOf('aria-label="POS operations"') < html.indexOf("TV Display Board"));
+  assert.ok(html.includes("lg:col-start-4"));
+  assert.ok(html.indexOf('href="/pos"') < html.indexOf("Open TV Display Board"));
+  assert.ok(!html.includes('href="/admin/reports"'));
+  assert.ok(!html.includes('href="/inventory/active"'));
+  assert.ok(!html.includes('href="/display-slots"'));
+  assert.ok(!html.includes('aria-label="Management &amp; oversight"'));
   const employee = renderToStaticMarkup(createElement(PosHomeDashboard, { storeName: "Store A", role: "EMPLOYEE", grantedPermissions: [] }));
   assert.ok(!employee.includes("Manage Workspace"));
 });

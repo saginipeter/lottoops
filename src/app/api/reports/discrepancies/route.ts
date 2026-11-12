@@ -4,11 +4,12 @@ import { canAccessReports } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getResolutionMap } from "@/lib/discrepancy-resolution";
 import { parseReportDateRange } from "@/lib/report-date-range";
+import { readablePackReferenceText } from "@/lib/report-readable-text";
 
 interface LockedPackReport {
   id: string;
-  serialNumber: string;
-  game: { name: string };
+  packNumber: string | null;
+  game: { name: string; gameNumber: string };
   slot: { slotNumber: string } | null;
   sequenceLockExpectedTicket: number | null;
   sequenceLockScannedTicket: number | null;
@@ -24,7 +25,7 @@ interface AuditVarianceReport {
   endingPhysicalTicket: number | null;
   variance: number | null;
   varianceReason: string | null;
-  pack: { serialNumber: string; game: { name: string } };
+  pack: { packNumber: string | null; game: { name: string; gameNumber: string } };
   audit: {
     status: string;
     begunAt: Date;
@@ -45,12 +46,12 @@ export async function GET(req: NextRequest) {
   try {
     const lockedPacks = await prisma.pack.findMany({
       where: { storeId: session.storeId, sequenceLocked: true, sequenceLockedAt: { gte: range.fromDate, lte: range.toDate } },
-      include: { game: { select: { name: true } }, slot: { select: { slotNumber: true } } },
+      include: { game: { select: { name: true, gameNumber: true } }, slot: { select: { slotNumber: true } } },
       orderBy: { sequenceLockedAt: "asc" },
     });
     const auditLines = (await prisma.inventoryAuditLine.findMany({
       where: { audit: { storeId: session.storeId, OR: [{ endedAt: { gte: range.fromDate, lte: range.toDate } }, { endedAt: null, begunAt: { gte: range.fromDate, lte: range.toDate } }] }, variance: { not: 0 } },
-      include: { pack: { select: { serialNumber: true, game: { select: { name: true } } } }, audit: { select: { status: true, begunAt: true, endedAt: true, begunBy: { select: { name: true } }, endedBy: { select: { name: true } } } } },
+      include: { pack: { select: { packNumber: true, game: { select: { name: true, gameNumber: true } } } }, audit: { select: { status: true, begunAt: true, endedAt: true, begunBy: { select: { name: true } }, endedBy: { select: { name: true } } } } },
       orderBy: { id: "desc" },
     })) as AuditVarianceReport[];
     const lockReports = lockedPacks as LockedPackReport[];
@@ -62,7 +63,8 @@ export async function GET(req: NextRequest) {
         type: "SEQUENCE_LOCK",
         status: resolutions.has(`SEQUENCE_LOCK:${pack.id}`) ? "RESOLVED" : "UNRESOLVED",
         game: pack.game.name,
-        pack: pack.serialNumber,
+        gameNumber: pack.game.gameNumber,
+        pack: pack.packNumber ?? "not recorded",
         display: pack.slot?.slotNumber ?? "Unassigned",
         expected: pack.sequenceLockExpectedTicket,
         observed: pack.sequenceLockScannedTicket,
@@ -79,14 +81,19 @@ export async function GET(req: NextRequest) {
         type: "INVENTORY_AUDIT",
         status: resolutions.has(`INVENTORY_AUDIT:${line.id}`) ? "RESOLVED" : "UNRESOLVED",
         game: line.pack.game.name,
-        pack: line.pack.serialNumber,
+        gameNumber: line.pack.game.gameNumber,
+        pack: line.pack.packNumber ?? "not recorded",
         display: line.slotNumber,
         expected: line.endingExpectedTicket ?? line.expectedTicket,
         observed: line.endingPhysicalTicket ?? line.beginningPhysicalTicket,
         variance: line.variance,
         timestamp: line.audit.endedAt ?? line.audit.begunAt,
         actor: line.audit.endedBy?.name ?? line.audit.begunBy.name,
-        reason: resolutions.get(`INVENTORY_AUDIT:${line.id}`)?.reason ?? line.varianceReason ?? "Inventory count does not match system expectation",
+        reason: readablePackReferenceText(
+          resolutions.get(`INVENTORY_AUDIT:${line.id}`)?.reason ?? line.varianceReason ?? "Inventory count does not match system expectation",
+          line.pack.packNumber,
+          line.pack.game.gameNumber,
+        ),
         resolvedBy: resolutions.get(`INVENTORY_AUDIT:${line.id}`)?.resolvedByName ?? null,
       })),
     });

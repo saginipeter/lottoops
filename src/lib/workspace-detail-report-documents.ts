@@ -1,5 +1,5 @@
 import type { ReportDocument, ReportValue } from "./report-document";
-import { readableReportText } from "./report-readable-text";
+import { readablePackReferenceText, readableReportText } from "./report-readable-text";
 
 type Metadata = NonNullable<ReportDocument["metadata"]>;
 
@@ -45,15 +45,15 @@ export function buildInventoryAgingDocument(packs: ReadonlyArray<{
 }
 
 export function buildDiscrepancyDocument(rows: ReadonlyArray<{
-  type: string; status: string; game: string; pack: string; display: string;
+  type: string; status: string; game: string; gameNumber?: string | null; pack: string; display: string;
   expected: number | null; observed: number | null; variance: number | null;
   timestamp: string | null; actor: string; reason: string; resolvedBy?: string | null;
 }>, filter: "ALL" | "UNRESOLVED" | "RESOLVED"): ReportDocument {
   const selected = filter === "ALL" ? rows : rows.filter((row) => row.status === filter);
   return table("Discrepancy Review",
-    ["Type", "Status", "Pack", "Game", "Display", "Expected", "Observed", "Variance", "Time", "Actor", "Reason", "Resolved by"],
-    selected.map((row) => [row.type, row.status, row.pack, row.game, text(row.display), row.expected,
-      row.observed, row.variance, row.timestamp, text(row.actor), text(row.reason), text(row.resolvedBy)]),
+    ["Type", "Status", "Pack #", "Game", "Game #", "Display", "Expected", "Observed", "Variance", "Time", "Actor", "Reason", "Resolved by"],
+    selected.map((row) => [row.type, row.status, row.pack, row.game, text(row.gameNumber), text(row.display), row.expected,
+      row.observed, row.variance, row.timestamp, text(row.actor), readablePackReferenceText(row.reason, row.pack, row.gameNumber), text(row.resolvedBy)]),
     [{ label: "Status filter", value: filter }]);
 }
 

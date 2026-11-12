@@ -60,13 +60,15 @@ export async function GET() {
     try {
       notifications = await prisma.$queryRawUnsafe(`
         SELECT n.id, n.notification_type AS "notificationType", n.title,
-               CASE WHEN p."serialNumber" IS NULL THEN
+               CASE WHEN p.id IS NULL THEN
                  REGEXP_REPLACE(n.detail, '(?i)pack[[:space:]]+#?[[:alnum:]_-]*[[:digit:]][[:alnum:]_-]*', 'Pack #not recorded', 'g')
                ELSE
-                 REPLACE(REPLACE(REPLACE(n.detail,
-                   CONCAT('Pack #', p."serialNumber"), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'))),
-                   CONCAT('Pack ', p."serialNumber"), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'))),
-                   CONCAT('pack ', p."serialNumber"), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded')))
+                 REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(n.detail,
+                   CONCAT('Pack #', p.id), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'), ' · Game #', COALESCE(g."gameNumber", 'not recorded'))),
+                   CONCAT('Pack ', p.id), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'), ' · Game #', COALESCE(g."gameNumber", 'not recorded'))),
+                   CONCAT('pack ', p.id), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'), ' · Game #', COALESCE(g."gameNumber", 'not recorded'))),
+                   CONCAT('Pack #', p."serialNumber"), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'), ' · Game #', COALESCE(g."gameNumber", 'not recorded'))),
+                   CONCAT('Pack ', p."serialNumber"), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'), ' · Game #', COALESCE(g."gameNumber", 'not recorded')))
                END AS detail,
                n.severity,
                n.created_at AS "createdAt", n.entity_id AS "entityId",

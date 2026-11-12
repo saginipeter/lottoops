@@ -47,8 +47,8 @@ export async function launchTvWindow(
   }
 }
 
-export function TvDisplayLauncher({ stores, currentStoreId, loading = false }: {
-  stores: TvStore[]; currentStoreId?: string; loading?: boolean;
+export function TvDisplayLauncher({ stores, currentStoreId, loading = false, className }: {
+  stores: TvStore[]; currentStoreId?: string; loading?: boolean; className?: string;
 }) {
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
@@ -67,7 +67,7 @@ export function TvDisplayLauncher({ stores, currentStoreId, loading = false }: {
     }
   }
 
-  return <Panel className="mb-5 border-2 border-accent/40 bg-surface p-5">
+  return <Panel className={className ?? "mb-5 border-2 border-accent/40 bg-surface p-5"}>
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-3">
         <Tv size={30} className="shrink-0 text-accent" />
