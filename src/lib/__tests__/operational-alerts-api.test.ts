@@ -11,15 +11,16 @@ test("operational alerts expose readable pack/game labels and persist manager cl
   const acknowledgments = new Map<string, { resolved: boolean }>();
   const acknowledgmentWrites: unknown[][] = [];
   let lowTicketCount = 4;
+  let displayPackNumber: string | null = "00017";
   const notification = {
     id: "notification-1", notificationType: "TICKET_EXCEPTION", title: "Out-of-sequence ticket scan",
-    detail: "Employee scanned ticket 003; expected ticket 002.", severity: "HIGH",
-    createdAt: new Date("2026-11-11T18:00:00.000Z"), entityId: "pack-1", packNumber: "00017", gameNumber: "0042",
+    detail: "Employee scanned an out-of-order ticket for Pack #00017; expected ticket 002.", severity: "HIGH",
+    createdAt: new Date("2026-11-11T18:00:00.000Z"), entityId: "pack-1", packNumber: "00017" as string | null, gameNumber: "0042",
   };
   const fakePrisma = {
     pack: {
       findMany: async ({ select }: { select?: Record<string, unknown> }) => select?.packNumber
-        ? lowTicketCount <= 5 ? [{ id: "pack-1", serialNumber: "12345678901", packNumber: "00017", currentTicketNumber: lowTicketCount, slot: { slotNumber: "08" }, game: { name: "Lucky Game", gameNumber: "0042" } }] : []
+        ? lowTicketCount <= 5 ? [{ id: "pack-1", serialNumber: "12345678901", packNumber: displayPackNumber, currentTicketNumber: lowTicketCount, slot: { slotNumber: "08" }, game: { name: "Lucky Game", gameNumber: "0042" } }] : []
         : [{ id: "pack-1" }],
     },
     shift: { findMany: async () => [] },
@@ -30,7 +31,9 @@ test("operational alerts expose readable pack/game labels and persist manager cl
       if (sql.includes("FROM operational_alert_acknowledgments")) return [...acknowledgments].filter(([, row]) => !row.resolved).map(([alertKey]) => ({ alertKey }));
       if (sql.includes("FROM inventory_notifications n")) {
         assert.match(sql, /notification_type AS "notificationType"/);
-        assert.match(sql, /COALESCE\(p\."packNumber", p\."serialNumber"\)/);
+        assert.match(sql, /p\."packNumber" AS "packNumber"/);
+        assert.match(sql, /REGEXP_REPLACE/);
+        assert.doesNotMatch(sql, /COALESCE\(p\."packNumber", p\."serialNumber"\)/);
         return [notification];
       }
       if (sql.includes("FROM inventory_notifications WHERE id = $1")) {
@@ -80,6 +83,18 @@ test("operational alerts expose readable pack/game labels and persist manager cl
   assert.equal(exception.type, "TICKET_EXCEPTION");
   assert.equal(exception.packNumber, "00017");
   assert.equal(exception.gameNumber, "0042");
+  assert.ok(!exception.detail.includes("12345678901"));
+
+  displayPackNumber = null;
+  notification.packNumber = null;
+  notification.detail = "Employee scanned an out-of-order ticket for Pack #not recorded; expected ticket 002.";
+  const missingPackNumberResponse = await GET();
+  const missingPackNumberData = await missingPackNumberResponse.json();
+  const missingPackNumber = missingPackNumberData.alerts.find((alert: { type: string }) => alert.type === "TICKET_EXCEPTION");
+  const missingLowStockNumber = missingPackNumberData.alerts.find((alert: { type: string }) => alert.type === "LOW_TICKETS");
+  assert.equal(missingPackNumber.packNumber, null);
+  assert.equal(missingLowStockNumber.packNumber, null);
+  assert.ok(!missingPackNumber.detail.includes("12345678901"));
 
   session = { ...session!, role: "EMPLOYEE" };
   assert.equal((await clear(clearRequest())).status, 403);

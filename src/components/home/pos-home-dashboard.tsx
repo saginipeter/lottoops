@@ -43,10 +43,10 @@ export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, gran
 
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
     <main className="mx-auto w-full max-w-[1366px] px-5 py-5 sm:px-8 sm:py-7">
-      <div className="mb-5 flex items-end justify-between gap-4"><div><p className="text-sm font-semibold text-slate-500">{storeName}</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{isPlatformAdmin ? "Platform workspace" : isAdmin ? "Management workspace" : "What would you like to do?"}</h2></div><p className="hidden text-sm font-semibold text-emerald-700 sm:block">{isPlatformAdmin || isAdmin ? "Oversight access enabled" : "POS ready"}</p></div>
-      {isAdmin && <TvDisplayLauncher stores={isOwner ? tvStores : storeId ? [{ id: storeId, name: storeName }] : []} currentStoreId={storeId} />}
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-slate-500">{storeName}</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{isPlatformAdmin ? "Platform workspace" : isAdmin ? "Management workspace" : "What would you like to do?"}</h2></div><div className="ml-auto flex items-center gap-3"><p className="hidden text-sm font-semibold text-emerald-700 sm:block">{isPlatformAdmin || isAdmin ? "Oversight access enabled" : "POS ready"}</p>{(isAdmin || isPlatformAdmin) && <a href={isPlatformAdmin ? "/platform-admin" : "/admin"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#17233f] px-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#24385f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#087da8]">Manage Workspace <ArrowRight size={16} /></a>}</div></div>
       <ActionSection title="POS operations" actions={posActions} />
-      {adminActions.length > 0 && <div className="mt-8"><ActionSection title={isPlatformAdmin ? "Platform administration" : "Management & oversight"} actions={adminActions} /></div>}
+      {adminActions.length > 0 && <div className="mt-6"><ActionSection title={isPlatformAdmin ? "Platform administration" : "Management & oversight"} actions={adminActions} /></div>}
+      {isAdmin && <div className="mt-6"><TvDisplayLauncher stores={isOwner ? tvStores : storeId ? [{ id: storeId, name: storeName }] : []} currentStoreId={storeId} /></div>}
       {role === "AUDITOR" && <div className="mt-5 flex items-center gap-2 border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900"><FileText size={18} /> Read-only audit access. Operational POS actions are hidden.</div>}
     </main>
   </div>;

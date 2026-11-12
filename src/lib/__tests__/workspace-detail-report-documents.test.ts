@@ -138,10 +138,10 @@ test("ticket report documents include all loaded records and full unparsed detai
   assertTableWidths(document);
 });
 
-test("return request document uses shift, terminal, pack serial and barcode instead of database IDs", () => {
+test("return request document uses shift, terminal, Pack # and barcode instead of database IDs", () => {
   const document = buildTicketReturnRequestsDocument([{
     id: "request-1", storeId: "store-1", shiftId: "shift-full-id", packId: "pack-full-id",
-    serialNumber: "000123", gameName: "Cash", gameNumber: "004", ticketBarcode: "00000009",
+    packNumber: "000123", gameName: "Cash", gameNumber: "004", ticketBarcode: "00000009",
     reason: "Return requested under cmvr8k2g40001abc123def456", requestedByName: "Employee", createdAt: "2026-10-14T12:00:00Z", status: "PENDING",
     storeName: "Central", terminalId: "T2", shiftNumber: 1,
   }]);
@@ -149,6 +149,8 @@ test("return request document uses shift, terminal, pack serial and barcode inst
     "PENDING", "Central", "T2", "Shift 1", "000123", "Cash", "004", "00000009", "Return requested under related record",
     "Employee", "2026-10-14T12:00:00Z",
   ]);
+  assert.ok(document.sections[0].columns.includes("Pack #"));
+  assert.ok(!document.sections[0].columns.includes("Pack serial"));
   assert.doesNotMatch(JSON.stringify(document), /shift-full-id|pack-full-id|store-1|request-1|cmvr8k2g40001abc123def456/);
   assertTableWidths(document);
 });

@@ -118,9 +118,9 @@ async function processBatchReturn({
         const pack = await tx.pack.findFirst({
           where: { id: packId, storeId: session.storeId },
           select: {
-            id: true, serialNumber: true, status: true, currentTicketNumber: true,
+            id: true, serialNumber: true, packNumber: true, status: true, currentTicketNumber: true,
             firstTicket: true, ticketQuantity: true, ticketPrice: true,
-            game: { select: { price: true } },
+            game: { select: { price: true, gameNumber: true } },
           },
         });
         if (!pack || (pack.status !== "ACTIVE" && pack.status !== "SOLD_OUT")) throw new ReturnError("A selected pack is no longer available for return.", 409);
@@ -166,7 +166,7 @@ async function processBatchReturn({
         await tx.scanLogEntry.create({
           data: {
             storeId: session.storeId, action: "RETURNED", packId: pack.id, performedById: session.userId,
-            detail: `Batch returned ${packTickets.length} ticket(s) for pack ${pack.serialNumber}. Reason: ${reason}`,
+            detail: `Batch returned ${packTickets.length} ticket(s) for Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber}. Reason: ${reason}`,
           },
         });
       }
@@ -231,8 +231,8 @@ export async function POST(req: NextRequest) {
       const pack = await tx.pack.findFirst({
         where: { id: packId, storeId: session.storeId },
         select: {
-          id: true, serialNumber: true, status: true, currentTicketNumber: true,
-          firstTicket: true, ticketQuantity: true, ticketPrice: true, game: { select: { price: true } },
+          id: true, serialNumber: true, packNumber: true, status: true, currentTicketNumber: true,
+          firstTicket: true, ticketQuantity: true, ticketPrice: true, game: { select: { price: true, gameNumber: true } },
         },
       });
       if (!pack) throw new ReturnError("Pack not found.", 404);
@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
       await tx.scanLogEntry.create({
         data: {
           storeId: session.storeId, action: "RETURNED", packId: pack.id, performedById: session.userId,
-          detail: `Returned latest ticket ${ticketBarcode} for pack ${pack.serialNumber} to slot ${line.slotNumber}; awaiting manager review. Reason: ${reason}`,
+          detail: `Returned latest ticket ${ticketBarcode} for Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber} to Display ${line.slotNumber}; awaiting manager review. Reason: ${reason}`,
         },
       });
       await tx.$executeRawUnsafe(`
@@ -314,7 +314,7 @@ export async function POST(req: NextRequest) {
           (id, store_id, notification_type, entity_id, event_key, pack_id, title, detail, severity)
         VALUES ($1, $2, 'TICKET_RETURN_REVIEW', $3, $4, $5, $6, $7, 'MEDIUM')
       `, `notification_${id}`, session.storeId, id, `TICKET_RETURN_REVIEW:${id}`, pack.id, "Returned ticket needs manager review",
-      `${session.name} returned ticket ${ticketBarcode} from pack ${pack.serialNumber} to slot ${line.slotNumber}. Available for sale immediately. Reason: ${reason}`);
+      `${session.name} returned ticket ${ticketBarcode} from Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber} to Display ${line.slotNumber}. Available for sale immediately. Reason: ${reason}`);
       return { currentTicketNumber: restoredCurrent, ticketsSold, salesAmount };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json({ success: true, mode: "returned-pending-review", status: "RETURNED_PENDING_REVIEW", id, ...result });
@@ -349,7 +349,7 @@ export async function GET(req?: NextRequest) {
         r.shift_id AS "shiftId", s.shift_number AS "shiftNumber", s."terminalId" AS "terminalId",
         r.pack_id AS "packId", r.ticket_barcode AS "ticketBarcode",
         r.reason, r.requested_by_name AS "requestedByName", r.created_at AS "createdAt",
-        p."serialNumber" AS "serialNumber", g.name AS "gameName", g."gameNumber" AS "gameNumber"
+        p."packNumber" AS "packNumber", g.name AS "gameName", g."gameNumber" AS "gameNumber"
       FROM ticket_return_requests r
       LEFT JOIN shifts s ON s.id = r.shift_id AND s."storeId" = r.store_id
       JOIN packs p ON p.id = r.pack_id

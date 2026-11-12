@@ -68,9 +68,9 @@ test("active pack metadata updates are scoped, allowlisted, and atomically audit
   assert.equal(pack.lotNumber, "LOT-B");
   assert.equal(correctionWrites.length, 2, "one immutable correction row is written per changed field");
   assert.equal(activityWrites.length, 1);
-  assert.match(String(activityWrites[0][2]), /Pack 00017.*Game 0042.*notes, lotNumber/);
+  assert.match(String(activityWrites[0][2]), /Pack #00017.*Game #0042.*notes, lotNumber/);
   assert.equal(notificationWrites.length, 1);
-  assert.match(String(notificationWrites[0][5]), /Pack 00017.*Game 0042.*Display 08/);
+  assert.match(String(notificationWrites[0][5]), /Pack #00017.*Game #0042.*Display 08/);
 
   status = "BACK_STOCK";
   assert.equal((await POST(request({ notes: "Other note", reason: "Verified supplier receipt" }), params)).status, 409);

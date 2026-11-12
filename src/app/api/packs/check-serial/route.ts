@@ -442,7 +442,7 @@ export async function POST(req: NextRequest) {
             await tx.scanLogEntry.create({
               data: {
                 storeId: session.storeId, action: "SOLD_OUT", performedById: session.userId,
-                packId: pack.id, detail: `Pack ${pack.serialNumber} sold out during live scan.`,
+                packId: pack.id, detail: `Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber} sold out during live scan.`,
               },
             });
           }
@@ -473,7 +473,7 @@ export async function POST(req: NextRequest) {
             eventKey,
             packId: saleResult.pack.id,
             title: "Out-of-sequence ticket scan",
-            detail: `${session.name} scanned ticket ${saleResult.scannedTicketNumber} for Pack ${saleResult.pack.packNumber ?? saleResult.pack.serialNumber} · Game ${saleResult.pack.game.gameNumber} at Display ${saleResult.pack.slot?.slotNumber ?? "—"}, Shift ${saleResult.shiftNumber ?? "—"}, Terminal ${terminalId}. Expected ticket ${saleResult.expectedPhysical}. No sale was recorded.`,
+            detail: `${session.name} scanned ticket ${saleResult.scannedTicketNumber} for Pack #${saleResult.pack.packNumber ?? "not recorded"} · Game #${saleResult.pack.game.gameNumber} at Display ${saleResult.pack.slot?.slotNumber ?? "—"}, Shift ${saleResult.shiftNumber ?? "—"}, Terminal ${terminalId}. Expected ticket ${saleResult.expectedPhysical}. No sale was recorded.`,
             severity: "HIGH",
           }).catch((error) => console.warn("Unable to persist ticket sequence exception alert", error));
           return NextResponse.json({
@@ -533,7 +533,7 @@ export async function POST(req: NextRequest) {
         type: "WRONG_PACK_OR_GAME",
         entityId: normalizedSerial,
         title: "Wrong pack or game scan",
-        detail: `Live scan ${normalizedSerial} did not match an active display pack in this store.`,
+        detail: "A scanned ticket could not be matched to an active display pack for this store. No sale was recorded.",
         severity: "HIGH",
       });
       return NextResponse.json(
@@ -545,7 +545,7 @@ export async function POST(req: NextRequest) {
     // For receiving mode: check if it's a duplicate
     const isDuplicate = await prisma.pack.findFirst({
       where: { storeId: session.storeId, serialNumber },
-      select: { id: true },
+      select: { id: true, packNumber: true, game: { select: { gameNumber: true } } },
     });
 
     if (isDuplicate) {
@@ -553,8 +553,9 @@ export async function POST(req: NextRequest) {
         storeId: session.storeId,
         type: "DUPLICATE_PACK",
         entityId: isDuplicate.id,
+        packId: isDuplicate.id,
         title: "Duplicate pack received",
-        detail: `Pack ${serialNumber} was submitted for receiving again after it already existed in LottoOps.`,
+        detail: `Pack #${isDuplicate.packNumber ?? "not recorded"} · Game #${isDuplicate.game.gameNumber} was submitted for receiving again after it already existed in LottoOps.`,
         severity: "HIGH",
       });
       return NextResponse.json({ status: "duplicate" });

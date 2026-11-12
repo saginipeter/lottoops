@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ChevronDown, Clock3, Loader2, RefreshCw, Check } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, ChevronDown, Clock3, Loader2, RefreshCw, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
-import { alertCategories, filterAndSortAlerts, type AlertCategory, type AlertSort } from "./alert-categories";
+import { alertCategories, filterAndSortAlerts, getAlertResolutionGuidance, type AlertCategory, type AlertSort } from "./alert-categories";
 
 interface OperationalAlert { id: string; alertKey: string; type: string; severity: string; title: string; detail: string; createdAt: string; entityId: string; packNumber?: string | null; gameNumber?: string | null; }
 
@@ -84,7 +84,27 @@ export function OperationalAlertsPanel({ category: selectedCategory, onCategoryC
         : category === "SECURITY" && filteredAlerts.length === 0 ? <p className="mt-4 text-sm text-text-secondary">No security warnings have been reported.</p>
           : alerts.length === 0 ? <p className="mt-4 text-sm text-emerald-700">No operational alerts detected.</p>
           : filteredAlerts.length === 0 ? <p className="mt-4 text-sm text-text-secondary">No alerts in this category.</p>
-            : <div className="mt-4 space-y-2">{filteredAlerts.map((alert) => <div key={alert.id} className={`rounded-md border px-3 py-3 ${severityStyle[alert.severity] ?? "border-border bg-surface-soft text-text"}`}><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-2"><Clock3 size={15} className="mt-0.5 shrink-0" /><div className="min-w-0"><p className="text-sm font-semibold">{alert.title} <span className="ml-1 text-[10px] uppercase">{alert.severity}</span></p>{(alert.packNumber || alert.gameNumber) && <p className="mt-1 text-xs font-bold">{alert.packNumber ? `Pack #${alert.packNumber}` : "Pack number unavailable"}{alert.gameNumber ? ` · Game #${alert.gameNumber}` : ""}</p>}<p className="mt-1 break-words text-xs">{alert.detail}</p></div></div><Button size="sm" variant="outline" onClick={() => { void clearAlert(alert); }} disabled={clearingId === alert.id} className="shrink-0 bg-white"><Check size={13} />{clearingId === alert.id ? "Clearing…" : "Review & Clear Alert"}</Button></div></div>)}</div>}
+            : <div className="mt-4 space-y-2">{filteredAlerts.map((alert) => {
+              const guidance = getAlertResolutionGuidance(alert.type);
+              return <div key={alert.id} className={`rounded-md border px-3 py-3 ${severityStyle[alert.severity] ?? "border-border bg-surface-soft text-text"}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-2"><Clock3 size={15} className="mt-0.5 shrink-0" /><div className="min-w-0">
+                    <p className="text-sm font-semibold">{alert.title} <span className="ml-1 text-[10px] uppercase">{alert.severity}</span></p>
+                    {(alert.packNumber || alert.gameNumber) && <p className="mt-1 text-xs font-bold">{alert.packNumber ? `Pack #${alert.packNumber}` : "Pack # not recorded"}{alert.gameNumber ? ` · Game #${alert.gameNumber}` : ""}</p>}
+                    <p className="mt-1 break-words text-xs">{alert.detail}</p>
+                  </div></div>
+                  <Button size="sm" variant="outline" onClick={() => { void clearAlert(alert); }} disabled={clearingId === alert.id} className="shrink-0 bg-white"><Check size={13} />{clearingId === alert.id ? "Clearing…" : "Review & Clear Alert"}</Button>
+                </div>
+                <details className="mt-3 border-t border-current/15 pt-2">
+                  <summary className="min-h-9 cursor-pointer select-none text-xs font-bold underline decoration-dotted underline-offset-4">What to do next</summary>
+                  <div className="mt-2 rounded bg-white/70 p-3 text-xs">
+                    <ol className="list-decimal space-y-1 pl-4">{guidance.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+                    {guidance.href && guidance.linkLabel && <a href={guidance.href} className="mt-3 inline-flex min-h-9 items-center gap-1 font-bold underline underline-offset-2">{guidance.linkLabel}<ArrowUpRight size={13} /></a>}
+                    <p className="mt-2 text-[11px]">After checking the source record, use <strong>Review &amp; Clear Alert</strong> to remove this alert from the active list. Clearing it does not change inventory or audit records.</p>
+                  </div>
+                </details>
+              </div>;
+            })}</div>}
     </div>}
   </Panel>;
 }

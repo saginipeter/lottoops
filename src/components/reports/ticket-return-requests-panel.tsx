@@ -19,7 +19,7 @@ interface ReturnRequest {
   reason: string | null;
   requestedByName: string | null;
   createdAt: string;
-  serialNumber: string;
+  packNumber: string | null;
   gameName: string;
   gameNumber: string;
 }
@@ -154,7 +154,7 @@ export function TicketReturnRequestsPanel({
               </div>
 
               <p className="text-sm font-semibold text-text break-words">
-                {request.gameName} (Game {request.gameNumber}) · Pack {request.serialNumber}
+                {request.gameName} · Game #{request.gameNumber} · Pack #{request.packNumber ?? "not recorded"}
               </p>
               {request.reason && (
                 <p className="mt-1 text-sm text-text break-words">Reason: {readableReportText(request.reason)}</p>

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           (store_id, action, entity_type, entity_id, detail, performed_by_id, performed_by_name)
         VALUES ($1, 'PACK_UPDATE', 'PACK', $2, $3, $4, $5)
       `, session.storeId, pack.id,
-      `Pack ${pack.packNumber ?? pack.serialNumber} · Game ${pack.game.gameNumber}: updated ${changedFields}. Reason: ${reason}`,
+      `Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber}: updated ${changedFields}. Reason: ${reason}`,
       session.userId, session.name);
 
       const eventKey = `PACK_UPDATE:${pack.id}:${nowKey}`;
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           (id, store_id, notification_type, entity_id, event_key, pack_id, title, detail, severity)
         VALUES ($1, $2, 'PACK_UPDATE', $3, $4, $5, 'Pack updated', $6, 'MEDIUM')
       `, `notification_pack_update_${nowKey}`, session.storeId, pack.id, eventKey, pack.id,
-      `${session.name} updated Pack ${pack.packNumber ?? pack.serialNumber} · Game ${pack.game.gameNumber} at Display ${pack.slot?.slotNumber ?? "—"}. Updated fields: ${changedFields}. Reason: ${reason}`);
+      `${session.name} updated Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber} at Display ${pack.slot?.slotNumber ?? "—"}. Updated fields: ${changedFields}. Reason: ${reason}`);
       return { updatedPack, changedFields };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 

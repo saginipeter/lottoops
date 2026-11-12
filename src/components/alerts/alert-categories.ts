@@ -22,6 +22,63 @@ export function getAlertCategory(type: string): AlertCategory {
   return "SYSTEM";
 }
 
+export interface AlertResolutionGuidance {
+  steps: string[];
+  href?: string;
+  linkLabel?: string;
+}
+
+export function getAlertResolutionGuidance(type: string): AlertResolutionGuidance {
+  if (type === "LOW_TICKETS") return {
+    steps: ["Check the pack and ticket count at the named display.", "Prepare a replacement pack from Back Stock before the display sells out."],
+    href: "/inventory/active", linkLabel: "Open Active Stock",
+  };
+  if (type === "INCOMPLETE_AUDIT") return {
+    steps: ["Open the shift shown in this alert.", "Complete the missing physical ticket scans, then finish the audit."],
+    href: "/shifts", linkLabel: "Open Shifts",
+  };
+  if (type === "INVENTORY_AUDIT_VARIANCE") return {
+    steps: ["Recount the tickets in the named pack.", "Compare the physical count with the audit and record an explanation before making any stock correction."],
+    href: "/shifts", linkLabel: "Review Shift Audits",
+  };
+  if (type === "TICKET_EXCEPTION" || type === "EXPECTED_TICKET_MISMATCH") return {
+    steps: ["No sale was recorded for the wrong ticket.", "Check the expected ticket number and scan that ticket next. Review the pack and shift if the numbers still do not match."],
+    href: "/shifts", linkLabel: "Review Shifts",
+  };
+  if (type === "WRONG_PACK_OR_GAME") return {
+    steps: ["No sale was recorded because the barcode did not match an active display pack.", "Check the barcode and the Pack # / Game # on the ticket, then verify that the correct pack is active on the correct display."],
+    href: "/inventory/active", linkLabel: "Open Active Stock",
+  };
+  if (type === "PACK_UPDATE") return {
+    steps: ["Review which pack details changed and the reason recorded by the manager.", "If the change looks wrong, verify the pack against its receipt or physical label and follow your correction process."],
+    href: "/reports", linkLabel: "Open Reports",
+  };
+  if (type === "DUPLICATE_PACK") return {
+    steps: ["Do not receive the same pack again.", "Find the existing Pack # in Active Stock or Back Stock and compare it with the shipment paperwork."],
+    href: "/inventory/back-stock", linkLabel: "Open Back Stock",
+  };
+  if (type === "STALE_RECEIVING") return {
+    steps: ["Open the receiving draft and compare scanned packs with the invoice.", "Finish receiving or correct the draft through the normal shipment workflow."],
+    href: "/inventory/receive", linkLabel: "Open Receive Shipment",
+  };
+  if (type === "SHIPMENT_OVERRIDE") return {
+    steps: ["Compare the expected pack count with the count recorded when the override was approved.", "Check the invoice and receiving records; do not change the historical approval to hide a difference."],
+    href: "/reports", linkLabel: "Open Reports",
+  };
+  if (type === "DEVICE_HEALTH") return {
+    steps: ["Check that the named terminal is powered on and connected to the store network.", "Open device settings to confirm that it is active and paired, then check in again."],
+    href: "/settings", linkLabel: "Open Device Settings",
+  };
+  if (type === "TICKET_RETURN_REVIEW" || type === "RETURN_REQUEST") return {
+    steps: ["Open Ticket Return Requests below and compare the ticket, Pack #, reason, and shift.", "Approve or flag the review only after checking the details; the action shown there controls whether inventory changes."],
+    href: "/alerts", linkLabel: "Open Alerts",
+  };
+  return {
+    steps: ["Open the related shift, shipment, or inventory record and check the details shown here.", "Do not change stock or clear the alert until the physical record has been checked."],
+    href: "/alerts", linkLabel: "Open Alerts",
+  };
+}
+
 export function filterAndSortAlerts<T extends { type: string; severity: string; createdAt: string }>(
   alerts: T[], category: AlertCategory, sort: AlertSort,
 ): T[] {

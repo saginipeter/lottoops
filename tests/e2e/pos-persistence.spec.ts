@@ -58,6 +58,8 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   expect(bounds?.y).toBe(16);
   await expect(input).toBeEnabled();
   await expect(latest.getByText("First game", { exact: true })).toBeVisible();
+  await page.clock.runFor(4000);
+  await expect(error).toHaveCount(0);
   await input.fill("12341234567003");
   await input.press("Enter");
   await expect.poll(() => sales, { timeout: 2000 }).toBe(3);
@@ -69,11 +71,9 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await input.fill("123");
   await input.press("Enter");
   await expect(error).toContainText("complete 14-digit ticket barcode");
-  await page.clock.runFor(2000);
-  await input.press("Enter");
-  await page.clock.runFor(2000);
+  await page.clock.runFor(3999);
   await expect(error).toBeVisible();
-  await page.clock.runFor(4000);
+  await page.clock.runFor(1);
   await expect(error).toHaveCount(0);
   expect(sales).toBe(3);
 });
@@ -90,7 +90,7 @@ test("rapid ticket scans are queued in order while the first server check is pen
   await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
   await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
   const scanned: string[] = [];
-  const inventoryReady = page.waitForResponse("**/api/pos/inventory-status");
+  const posReady = page.waitForResponse("**/api/pos/reconciliation?*");
   await page.route("**/api/packs/check-serial", async (route) => {
     const serialNumber = route.request().postDataJSON().serialNumber as string;
     scanned.push(serialNumber);
@@ -102,16 +102,18 @@ test("rapid ticket scans are queued in order while the first server check is pen
     } });
   });
   await page.goto("/pos?shiftId=shift&terminal=T1");
-  await inventoryReady;
+  await posReady;
   const input = page.getByPlaceholder("Scan or enter 14 digits");
   await expect(input).toBeVisible();
   await expect(page.getByText("Online", { exact: true })).toBeVisible();
   await input.fill("12341234567001");
-  await input.press("Enter");
+  await expect(page.getByRole("button", { name: "Sell" })).toBeEnabled();
+  await page.getByRole("button", { name: "Sell" }).click();
   await expect.poll(() => scanned.length).toBe(1);
   await expect(input).toBeEnabled();
   await input.fill("12341234567002");
-  await input.press("Enter");
+  await expect(page.getByRole("button", { name: "Sell" })).toBeEnabled();
+  await page.getByRole("button", { name: "Sell" }).click();
   await expect.poll(() => scanned.length).toBe(2);
   await expect.poll(() => page.locator("aside").getByText("12341234567002", { exact: true }).count()).toBe(1);
   expect(scanned).toEqual(["12341234567001", "12341234567002"]);

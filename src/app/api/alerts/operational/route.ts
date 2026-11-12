@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isManagerOrAbove } from "@/lib/permissions";
 import { ensureDeviceRegistrySchema } from "@/lib/device-registry";
 
-interface LowTicketPack { id: string; serialNumber: string; packNumber: string | null; currentTicketNumber: number | null; slot: { slotNumber: string } | null; game: { name: string; gameNumber: string } }
+interface LowTicketPack { id: string; packNumber: string | null; currentTicketNumber: number | null; slot: { slotNumber: string } | null; game: { name: string; gameNumber: string } }
 interface OpenShift { id: string; openedAt: Date; openedBy: { name: string }; inventoryAudit: { id: string; status: string; lines: Array<{ packId: string; beginningPhysicalTicket: number | null; endingPhysicalTicket: number | null }> } | null }
 interface StaleShipment { id: string; invoiceNumber: string; createdAt: Date; expectedPacks: number }
 interface InventoryNotification { id: string; notificationType: string; title: string; detail: string; severity: string; createdAt: Date; entityId: string; packNumber: string | null; gameNumber: string | null }
@@ -19,7 +19,7 @@ export async function GET() {
     const [packsResult, shiftsResult, shipmentsResult, activePackResult] = await Promise.all([
       prisma.pack.findMany({
         where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null }, currentTicketNumber: { lte: 5 } },
-        select: { id: true, serialNumber: true, packNumber: true, currentTicketNumber: true, slot: { select: { slotNumber: true } }, game: { select: { name: true, gameNumber: true } } },
+        select: { id: true, packNumber: true, currentTicketNumber: true, slot: { select: { slotNumber: true } }, game: { select: { name: true, gameNumber: true } } },
         orderBy: { currentTicketNumber: "asc" },
       }),
       prisma.shift.findMany({
@@ -59,9 +59,18 @@ export async function GET() {
     let clearedAlertKeys: string[] = [];
     try {
       notifications = await prisma.$queryRawUnsafe(`
-        SELECT n.id, n.notification_type AS "notificationType", n.title, n.detail, n.severity,
+        SELECT n.id, n.notification_type AS "notificationType", n.title,
+               CASE WHEN p."serialNumber" IS NULL THEN
+                 REGEXP_REPLACE(n.detail, '(?i)pack[[:space:]]+#?[[:alnum:]_-]*[[:digit:]][[:alnum:]_-]*', 'Pack #not recorded', 'g')
+               ELSE
+                 REPLACE(REPLACE(REPLACE(n.detail,
+                   CONCAT('Pack #', p."serialNumber"), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'))),
+                   CONCAT('Pack ', p."serialNumber"), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded'))),
+                   CONCAT('pack ', p."serialNumber"), CONCAT('Pack #', COALESCE(p."packNumber", 'not recorded')))
+               END AS detail,
+               n.severity,
                n.created_at AS "createdAt", n.entity_id AS "entityId",
-               COALESCE(p."packNumber", p."serialNumber") AS "packNumber", g."gameNumber" AS "gameNumber"
+               p."packNumber" AS "packNumber", g."gameNumber" AS "gameNumber"
         FROM inventory_notifications n
         LEFT JOIN inventory_audit_lines audit_line ON audit_line.id = n.entity_id
         LEFT JOIN packs p ON p.id = COALESCE(n.pack_id, audit_line."packId", n.entity_id)
@@ -82,7 +91,7 @@ export async function GET() {
       // Legacy databases may not have the activity log table initialized.
     }
     const alerts = [
-      ...packs.map((pack) => ({ id: `LOW_TICKETS_${pack.id}`, alertKey: `LOW_TICKETS:${pack.id}`, type: "LOW_TICKETS", severity: "HIGH", title: "Low tickets remaining", packNumber: pack.packNumber ?? pack.serialNumber, gameNumber: pack.game.gameNumber, detail: `${pack.game.name} at display ${pack.slot?.slotNumber ?? "-"} has ${pack.currentTicketNumber ?? 0} ticket(s) remaining.`, createdAt: new Date().toISOString(), entityId: pack.id })),
+      ...packs.map((pack) => ({ id: `LOW_TICKETS_${pack.id}`, alertKey: `LOW_TICKETS:${pack.id}`, type: "LOW_TICKETS", severity: "HIGH", title: "Low tickets remaining", packNumber: pack.packNumber, gameNumber: pack.game.gameNumber, detail: `${pack.game.name} at display ${pack.slot?.slotNumber ?? "-"} has ${pack.currentTicketNumber ?? 0} ticket(s) remaining.`, createdAt: new Date().toISOString(), entityId: pack.id })),
       ...shifts.flatMap((shift) => {
         const audit = shift.inventoryAudit;
         if (audit?.status === "COMPLETED" || activePackRows.length === 0) return [];

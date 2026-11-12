@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       entityId: line.id,
       packId: pack.id,
       title: "Physical audit variance requires review",
-      detail: `Pack #${pack.packNumber ?? pack.serialNumber} · Game #${pack.game.gameNumber}: expected physical ticket ${expected}, observed ${line.endingPhysicalTicket}.`,
+      detail: `Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber}: expected physical ticket ${expected}, observed ${line.endingPhysicalTicket}.`,
       severity: "URGENT",
     }).catch((error) => console.warn("Unable to create audit variance notification", error))));
     return NextResponse.json({ success: true, auditId: result.auditId });

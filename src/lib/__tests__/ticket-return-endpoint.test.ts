@@ -13,7 +13,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   const staff = { userId: "staff", storeId: "store", name: "Staff", role: "EMPLOYEE", shiftId: "shift", shiftNumber: 1, terminalId: "T1", loginSessionId: "login-session" };
   let session: typeof staff | null = staff;
   const initial = () => ({
-    pack: { id: "pack", storeId: "store", serialNumber: "P1", status: "ACTIVE", currentTicketNumber: 9, firstTicket: 1, ticketQuantity: 10, ticketPrice: null as number | null, game: { price: 5 }, completedAt: null },
+    pack: { id: "pack", storeId: "store", serialNumber: "P1", packNumber: "P1", status: "ACTIVE", currentTicketNumber: 9, firstTicket: 1, ticketQuantity: 10, ticketPrice: null as number | null, game: { price: 5, gameNumber: "1234" }, completedAt: null },
     shift: { id: "shift", storeId: "store", status: "OPEN", shiftNumber: 1, terminalId: "T1", lines: [{ id: "line", packId: "pack", slotNumber: "1", beginningTicket: 10, endingTicket: 9, ticketsSold: 1, salesAmount: 5 }] },
     slot: { id: "slot", storeId: "store", packId: "pack" as string | null },
     // Deliberately older than two minutes and sold by somebody else.
@@ -437,7 +437,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     const record = {
       id: "return", storeId: "store", shiftId: "shift", packId: "pack", ticketBarcode: "barcode",
       reason: "Customer declined", requestedByName: "Staff", createdAt: "2026-10-14T12:00:00Z",
-      serialNumber: "P1", gameName: "Game", gameNumber: "1",
+      packNumber: "0001", gameName: "Game", gameNumber: "1",
     };
     const document = buildTicketReturnRequestsDocument([
       { ...record, status: "RETURNED_PENDING_REVIEW" },
@@ -576,7 +576,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal(state.pack.currentTicketNumber, beforeMismatch.pack.currentTicketNumber);
     assert.ok(!calls.includes("pack.write"), "an out-of-sequence attempt must not update or lock the pack");
     assert.equal(state.notifications[0]?.notificationType, "TICKET_EXCEPTION");
-    assert.match(state.notifications[0]?.detail ?? "", /Pack P1.*Game 1234.*Expected ticket 2/);
+    assert.match(state.notifications[0]?.detail ?? "", /Pack #P1.*Game #1234.*Expected ticket 2/);
     const firstMismatchKey = state.notifications[0]?.eventKey;
     assert.equal((await sellTicket(saleRequest("wrong-ticket-1", "12340000001003"))).status, 409);
     assert.equal(state.notifications.length, 1, "retrying the same rejected scan reuses the same alert identity");

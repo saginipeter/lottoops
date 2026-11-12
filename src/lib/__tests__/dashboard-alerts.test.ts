@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { alertCategories, filterAndSortAlerts, getAlertCategory } from "@/components/alerts/alert-categories";
+import { alertCategories, filterAndSortAlerts, getAlertCategory, getAlertResolutionGuidance } from "@/components/alerts/alert-categories";
 import { AlertsCenter } from "@/components/alerts/alerts-center";
 import { getTvTarget, launchTvWindow, TvDisplayLauncher } from "@/components/home/tv-display-launcher";
 import { PosHomeDashboard } from "@/components/home/pos-home-dashboard";
@@ -47,6 +47,16 @@ test("security warnings are distinct from device failures and never fabricated",
   assert.equal(getAlertCategory("DUPLICATE_PACK"), "SHIPMENT");
   const device = { type: "DEVICE_HEALTH", severity: "HIGH", createdAt: "2026-10-01" };
   assert.deepEqual(filterAndSortAlerts([device], "SECURITY", "SEVERITY"), []);
+});
+
+test("operational alert guidance gives practical next steps and points to the right module", () => {
+  const mismatch = getAlertResolutionGuidance("TICKET_EXCEPTION");
+  assert.ok(mismatch.steps.some((step) => step.includes("No sale was recorded")));
+  assert.ok(mismatch.steps.some((step) => step.includes("expected ticket")));
+  assert.equal(mismatch.href, "/shifts");
+  assert.equal(getAlertResolutionGuidance("LOW_TICKETS").href, "/inventory/active");
+  assert.equal(getAlertResolutionGuidance("DEVICE_HEALTH").href, "/settings");
+  assert.ok(getAlertResolutionGuidance("SHIPMENT_OVERRIDE").steps.join(" ").includes("pack count"));
 });
 
 test("operational category filtering and severity/newest/oldest sorting are stable and non-mutating", () => {
@@ -128,4 +138,15 @@ test("manager and owner main workspaces expose the prominent TV launcher, but em
   const owner = renderToStaticMarkup(createElement(TvDisplayLauncher, { stores, currentStoreId: "foreign-store" }));
   assert.ok(owner.includes("not an accessible owned store"));
   assert.match(owner, /<button[^>]*disabled=""/);
+});
+
+test("Manage Workspace is right-aligned and operations appear before the TV launcher", () => {
+  const html = renderToStaticMarkup(createElement(PosHomeDashboard, {
+    storeName: "Store A", storeId: "owned-a", role: "MANAGER", grantedPermissions: [], tvStores: stores,
+  }));
+  assert.match(html, /class="ml-auto flex items-center gap-3">[\s\S]*?<a href="\/admin"/);
+  assert.ok(html.includes("Manage Workspace"));
+  assert.ok(html.indexOf('aria-label="POS operations"') < html.indexOf("TV Display Board"));
+  const employee = renderToStaticMarkup(createElement(PosHomeDashboard, { storeName: "Store A", role: "EMPLOYEE", grantedPermissions: [] }));
+  assert.ok(!employee.includes("Manage Workspace"));
 });

@@ -160,13 +160,13 @@ export function buildTicketReportsDocument(reports: ReadonlyArray<{
 export function buildTicketReturnRequestsDocument(requests: ReadonlyArray<{
   id: string; storeId: string; shiftId: string; packId: string; ticketBarcode: string | null;
   reason: string | null; requestedByName: string | null; createdAt: string;
-  serialNumber: string; gameName: string; gameNumber: string; status?: string;
+  packNumber: string | null; gameName: string; gameNumber: string; status?: string;
   storeName?: string | null; terminalId?: string | null; shiftNumber?: number | null;
 }>, title = "Ticket Return Requests"): ReportDocument {
-  return table(title, ["Status", "Store", "Terminal", "Shift", "Pack serial", "Game", "Game #", "Ticket barcode", "Reason", "Requested by", "Requested at"],
+  return table(title, ["Status", "Store", "Terminal", "Shift", "Pack #", "Game", "Game #", "Ticket barcode", "Reason", "Requested by", "Requested at"],
     requests.map((request) => [request.status === "RETURNED_PENDING_REVIEW" ? "Returned — review only" : request.status?.replaceAll("_", " ") ?? "Pending",
       text(request.storeName), text(request.terminalId), request.shiftNumber == null ? "Not recorded" : `Shift ${request.shiftNumber}`,
-      request.serialNumber, request.gameName, request.gameNumber, text(request.ticketBarcode),
+      request.packNumber ?? "Not recorded", request.gameName, request.gameNumber, text(request.ticketBarcode),
       request.status === "RETURNED_PENDING_REVIEW"
         ? `Already returned; review only. Reason: ${readableReportText(request.reason) ?? "Not recorded"}`
         : readableReportText(request.reason),
