@@ -103,6 +103,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
         where: { storeId: session.storeId, terminalId, status: "CLOSED", closedAt: { not: null } },
         orderBy: { closedAt: "desc" },
         select: {
+          id: true,
           openedAt: true,
           closedAt: true,
           openedBy: { select: { name: true } },
