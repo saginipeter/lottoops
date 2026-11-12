@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { ActiveStockTable } from "@/components/inventory/active-stock-table";
 import { getSession } from "@/lib/get-session";
-import { canManageDisplay } from "@/lib/permissions";
+import { canManageDisplay, isManagerOrAbove } from "@/lib/permissions";
 import { getDisplaySlots } from "@/lib/services/display-slots";
 
 export default async function ActiveStockPage() {
@@ -26,10 +26,17 @@ export default async function ActiveStockPage() {
       packNumber: true,
       serialNumber: true,
       ticketPrice: true,
+      notes: true,
+      lotNumber: true,
+      activationNumber: true,
+      activationReceipt: true,
+      activationReceiptPhoto: true,
+      packImage: true,
       activatedAt: true,
       game: {
         select: {
           name: true,
+          gameNumber: true,
           ticketsPerPack: true,
           price: true,
         },
@@ -73,7 +80,7 @@ export default async function ActiveStockPage() {
         }
       />
 
-      <ActiveStockTable packs={activePacks} canManageDisplay={canManageDisplay(session)} slots={slots} />
+      <ActiveStockTable packs={activePacks} canManageDisplay={canManageDisplay(session)} canUpdatePackMetadata={isManagerOrAbove(session)} slots={slots} />
 
     </div>
   );

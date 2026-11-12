@@ -1,120 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
 import { getApiSession } from "@/lib/api-session";
+import { canManageBackstock } from "@/lib/permissions";
+import { activatePackToDisplay, ActivationAuditConflict } from "@/lib/activation-audit-snapshot";
 
 interface ActivateRequestBody {
-  slotNumber: string;
-  packId: string;
-  startingTicketNumber: number;
+  slotNumber?: unknown;
+  packId?: unknown;
+  startingTicketNumber?: unknown;
 }
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!canManageBackstock(session)) return NextResponse.json({ error: "You don't have permission to activate back-stock packs." }, { status: 403 });
+  if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
 
-  if (session.role === "EMPLOYEE") {
-    return NextResponse.json(
-      { error: "You don't have permission to activate packs" },
-      { status: 403 }
-    );
-  }
-
-  if (!prisma) {
-    return NextResponse.json(
-      { error: "Database not connected" },
-      { status: 503 }
-    );
-  }
-
-  const body: ActivateRequestBody = await req.json();
-  const { slotNumber, packId, startingTicketNumber } = body;
-
-  if (!slotNumber || !packId || typeof startingTicketNumber !== "number") {
-    return NextResponse.json(
-      { error: "slotNumber, packId, and startingTicketNumber are required" },
-      { status: 400 }
-    );
+  const body = await req.json().catch(() => null) as ActivateRequestBody | null;
+  const slotNumber = typeof body?.slotNumber === "string" ? body.slotNumber.trim() : "";
+  const packId = typeof body?.packId === "string" ? body.packId.trim() : "";
+  const startingTicketNumber = body?.startingTicketNumber;
+  if (!slotNumber || !packId || !Number.isInteger(startingTicketNumber)) {
+    return NextResponse.json({ error: "slotNumber, packId, and a whole startingTicketNumber are required." }, { status: 400 });
   }
 
   try {
-    const pack = await prisma.pack.findFirst({
-      where: { id: packId, storeId: session.storeId },
-      include: { game: true },
-    });
-
-    if (!pack) {
-      return NextResponse.json({ error: "Pack not found" }, { status: 404 });
-    }
-
-    if (pack.status !== "BACK_STOCK") {
-      return NextResponse.json(
-        { error: "Only back stock packs can be activated" },
-        { status: 409 }
-      );
-    }
-
-    if (startingTicketNumber <= 0 || startingTicketNumber > pack.game.ticketsPerPack) {
-      return NextResponse.json(
-        { error: `Starting ticket must be between 1 and ${pack.game.ticketsPerPack}` },
-        { status: 400 }
-      );
-    }
-
-    const slot = await prisma.displaySlot.findFirst({
-      where: { storeId: session.storeId, slotNumber },
-    });
-
-    if (!slot) {
-      return NextResponse.json({ error: "Slot not found" }, { status: 404 });
-    }
-
-    if (slot.packId) {
-      const existingPack = await prisma.pack.findUnique({
-        where: { id: slot.packId },
-      });
-      if (existingPack && existingPack.status === "ACTIVE") {
-        return NextResponse.json(
-          { error: "This slot already has an active pack â€” close it out first" },
-          { status: 409 }
-        );
-      }
-    }
-
-    // One transaction: activate the pack, assign it to the slot, log it.
-    await prisma.$transaction([
-      prisma.pack.update({
-        where: { id: pack.id },
-        data: {
-          status: "ACTIVE",
-          currentTicketNumber: remainingTicketsFromStartingTicket(startingTicketNumber, pack.ticketQuantity ?? pack.game.ticketsPerPack),
-          activatedAt: new Date(),
-          firstOrLastTicket: "FIRST",
-        },
-      }),
-      prisma.displaySlot.update({
-        where: { id: slot.id },
-        data: { packId: pack.id },
-      }),
-      prisma.scanLogEntry.create({
-        data: {
-          storeId: session.storeId,
-          action: "ACTIVATED",
-          packId: pack.id,
-          performedById: session.userId,
-          detail: `Activated to slot ${slotNumber} â€” ${pack.game.name}, starting at ticket ${startingTicketNumber}`,
-        },
-      }),
-    ]);
-
+    const slot = await prisma.displaySlot.findFirst({ where: { storeId: session.storeId, slotNumber }, select: { id: true } });
+    if (!slot) return NextResponse.json({ error: "Display not found." }, { status: 404 });
+    await prisma.$transaction((tx: Prisma.TransactionClient) => activatePackToDisplay(tx, {
+      storeId: session.storeId, actorId: session.userId, packId, slotId: slot.id,
+      startingTicketNumber: Number(startingTicketNumber), firstOrLastTicket: "FIRST",
+      detail: `Activated to display ${slotNumber} starting at ticket ${startingTicketNumber}`,
+    }), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("[POST /api/slots/activate]", err);
-    return NextResponse.json(
-      { error: "Failed to activate pack. Please try again." },
-      { status: 500 }
-    );
+  } catch (error) {
+    if (error instanceof ActivationAuditConflict) return NextResponse.json({ error: error.message }, { status: 409 });
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+      return NextResponse.json({ error: "Inventory changed during activation. Refresh and try again." }, { status: 409 });
+    }
+    console.error("[POST /api/slots/activate]", error);
+    return NextResponse.json({ error: "Failed to activate pack. Please try again." }, { status: 500 });
   }
 }

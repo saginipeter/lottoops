@@ -162,7 +162,7 @@ export function PackActions({
   return (
     <Panel className="space-y-4 p-6">
       <Button className="w-full" onClick={handleUpdateCurrentTicket} disabled={savingTicket}>
-        {savingTicket ? "Updating..." : "Update Remaining Ticket Count"}
+        {savingTicket ? "Correcting Ticket Position..." : "Correct Ticket Position"}
       </Button>
 
       <Button

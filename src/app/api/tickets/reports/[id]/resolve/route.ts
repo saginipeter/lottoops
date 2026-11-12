@@ -3,44 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { isManagerOrAbove } from "@/lib/permissions";
 
-let schemaReady = false;
-
-async function ensureActivitySchema() {
-  if (schemaReady) return;
-
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS inventory_activity_logs (
-      id BIGSERIAL PRIMARY KEY,
-      store_id TEXT NOT NULL,
-      action TEXT NOT NULL,
-      entity_type TEXT NOT NULL,
-      entity_id TEXT,
-      detail TEXT NOT NULL,
-      performed_by_id TEXT NOT NULL,
-      performed_by_name TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE inventory_activity_logs
-    ADD COLUMN IF NOT EXISTS resolved BOOLEAN NOT NULL DEFAULT FALSE
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE inventory_activity_logs
-    ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE inventory_activity_logs
-    ADD COLUMN IF NOT EXISTS resolved_by_id TEXT
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE inventory_activity_logs
-    ADD COLUMN IF NOT EXISTS resolved_by_name TEXT
-  `);
-
-  schemaReady = true;
-}
-
 interface OwnedReportRow {
   id: number | bigint;
   storeId: string;
@@ -71,8 +33,6 @@ export async function POST(
   }
 
   try {
-    await ensureActivitySchema();
-
     let ownedRows: OwnedReportRow[] = [];
 
     if (session.role === "OWNER") {

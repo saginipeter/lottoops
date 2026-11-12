@@ -7,7 +7,7 @@ import { nextPendingPosQueueEntry, parsePosOfflineQueue, type PosQueueEntry } fr
 import { formatTicketScanBlockedMessage } from "@/lib/pos-scan-message";
 
 interface PosProps { storeId: string; operatorId: string; loginSessionId: string; employeeName: string; storeName: string; terminalId: string; shiftId: string; shiftNumber: number | null; }
-interface SaleResult { error?: string; code?: string; id?: string; shiftId?: string; saleId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
+interface SaleResult { error?: string; code?: string; id?: string; packId?: string; expectedTicket?: number; scannedTicketNumber?: number; noSale?: boolean; shiftId?: string; saleId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
 interface ReturnableSale { packId: string; shiftId: string; saleId: string; ticketBarcode: string; gameName: string; serialNumber: string; slotNumber: string; salesAmount: number; }
 type QueueEntry = PosQueueEntry;
 interface StockAlert { id: string; severity: string; title: string; detail: string; }
@@ -40,7 +40,7 @@ export function LotteryPos(props: PosProps) {
 function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, storeName, terminalId, shiftId, shiftNumber }: PosProps) {
   const [barcode, setBarcode] = useState("");
   const [result, setResult] = useState<SaleResult | null>(null);
-  const [error, setError] = useState<{ message: string; status?: number } | null>(null);
+  const [error, setError] = useState<{ message: string; status?: number; packId?: string } | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [pendingScanCount, setPendingScanCount] = useState(0);
   const [online, setOnline] = useState(true);
@@ -81,6 +81,7 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
   useEffect(() => {
     if (!error) return;
     setSuccessNotice(null);
+    if (error.packId) return;
     const timer = window.setTimeout(() => setError(null), 6000);
     return () => window.clearTimeout(timer);
   }, [error]);
@@ -107,7 +108,8 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
         setError({ message: "This terminal could not save the scan locally. No ticket was sold. Restore storage or the connection and scan again.", status: 503 });
         return false;
       }
-      setQueue(next); setPendingScanCount(next.length); setResult({ status: "queued", ticketBarcode: value }); setError(null);
+      setQueue(next); setPendingScanCount(next.length); setResult({ status: "queued", ticketBarcode: value });
+      setError((current) => current?.packId ? current : null);
       if (navigator.onLine && replayingRef.current) syncRequestedWhileRunningRef.current = true;
       return true;
     } catch (queueError) {
@@ -116,12 +118,12 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
     }
   }, [loginSessionId, operatorId, storeId, terminalId, shiftId]);
 
-  const sendSale = useCallback(async (value: string, isReplay = false, targetShiftId = shiftId, clientRequestId = "", targetLoginSessionId = loginSessionId): Promise<"synced" | "retry" | "conflict" | "store-changed"> => {
+  const sendSale = useCallback(async (value: string, isReplay = false, targetShiftId = shiftId, clientRequestId = "", targetLoginSessionId = loginSessionId): Promise<"synced" | "retry" | "conflict" | "store-changed" | "rejected-no-sale"> => {
     try {
       const response = await fetch("/api/packs/check-serial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serialNumber: value, liveScan: true, terminalId, expectedStoreId: storeId, shiftId: targetShiftId, clientRequestId, loginSessionId: targetLoginSessionId }) });
       const data = (await response.json()) as SaleResult;
       if (response.ok) {
-        setError(null);
+        setError((current) => current?.packId && current.packId !== data.id ? current : null);
         setSuccessNotice(`${data.gameName ?? "Lottery ticket"} sold successfully.`);
         setResult(data);
         setLastSale(data);
@@ -138,7 +140,12 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
         setResult(lastSale);
         return "store-changed";
       }
-      const rejectionReason = formatTicketScanBlockedMessage({ code: data.code, error: data.error, status: response.status });
+      const rejectionReason = formatTicketScanBlockedMessage({ code: data.code, error: data.error, status: response.status, expectedTicket: data.expectedTicket, scannedTicketNumber: data.scannedTicketNumber });
+      if (data.code === "TICKET_SEQUENCE_MISMATCH" || data.code === "INVALID_TICKET_NUMBER") {
+        setError({ message: rejectionReason, status: response.status, packId: data.packId });
+        setResult(lastSale);
+        return "rejected-no-sale";
+      }
       if (isReplay) replayReasonRef.current = rejectionReason;
       setError({ message: rejectionReason, status: response.status });
       setResult(lastSale);
@@ -175,6 +182,16 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
           setQueue(next);
           setPendingScanCount(next.length);
           void refreshInventory();
+          continue;
+        }
+        if (outcome === "rejected-no-sale") {
+          const next = current.filter((item) => item.id !== entry.id);
+          if (!writeQueue(storeId, terminalId, shiftId, operatorId, next)) {
+            setError({ message: "The rejected scan was not sold, but this terminal could not clear it from the local queue. Restore storage before leaving this screen.", status: 503 });
+            break;
+          }
+          setQueue(next);
+          setPendingScanCount(next.length);
           continue;
         }
         if (outcome === "conflict" || outcome === "store-changed") {
@@ -262,12 +279,13 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
     const normalized = value.replace(/\D/g, "");
     if (!normalized) return;
     if (normalized.length !== 14) { setError({ message: "Please scan or enter the complete 14-digit ticket barcode. No ticket was sold.", status: 400 }); setBarcode(""); focusInput(); return; }
-    setError(null); setBarcode("");
+    setBarcode("");
+    if (!error?.packId) setError(null);
     if (enqueue(normalized) && navigator.onLine) void syncQueue();
     focusInput();
   }
 
-  function resetForNextScan() { setError(null); setBarcode(""); focusInput(); }
+  function resetForNextScan() { setError((current) => current?.packId ? current : null); setBarcode(""); focusInput(); }
 
   async function submitReturn() {
     if (!returnReason || returning) return;
@@ -303,7 +321,7 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]"><main className="mx-auto flex min-h-[calc(100vh-58px)] max-w-[1240px] flex-col px-4 py-4 sm:px-8 sm:py-6 lg:py-8">
     <header className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#087da8]">{storeName} · {terminalId} · Shift {shiftNumber ?? "—"}</p><h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Sell Tickets</h1><p className="mt-1 text-sm text-slate-500">{employeeName} · scan-first POS terminal · Shift {shiftNumber ?? "—"}</p></div><div className="flex flex-wrap items-center justify-end gap-2 text-xs font-bold">{online ? <span className="inline-flex items-center gap-2 bg-emerald-50 px-3 py-2 text-emerald-700"><Wifi size={14} /> Online</span> : <span className="inline-flex items-center gap-2 bg-amber-50 px-3 py-2 text-amber-800"><CloudOff size={14} /> Offline mode</span>}{queue.length > 0 && <button type="button" onClick={() => { void syncQueue(); }} disabled={!online || syncing} className="inline-flex items-center gap-2 bg-[#17233f] px-3 py-2 text-white disabled:opacity-60">{syncing ? <RefreshCw size={14} className="animate-spin" /> : <Cloud size={14} />} {syncing ? "Syncing..." : pendingLabel}</button>}</div></header>
     {stockAlerts.length > 0 && <div className="mb-4 border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><div className="flex items-center justify-between gap-3"><p className="font-black">Inventory attention required</p><span className="text-[10px] font-bold uppercase tracking-wide">Live stock</span></div><div className="mt-2 grid gap-1 sm:grid-cols-2">{stockAlerts.slice(0, 4).map((alert) => <p key={alert.id} className={alert.severity === "URGENT" ? "font-black text-red-700" : "font-semibold text-amber-800"}>{alert.detail}</p>)}</div><p className="mt-2 text-[10px] text-amber-700">Updated {inventoryUpdatedAt ? new Date(inventoryUpdatedAt).toLocaleTimeString() : "just now"}. The terminal refreshes automatically.</p></div>}
-    <section className="grid flex-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]"><div className="flex flex-col justify-center border-2 border-[#087da8] bg-white p-5 shadow-[0_8px_0_rgba(8,125,168,0.12)] sm:p-8"><div className="mx-auto w-full max-w-2xl text-center"><div className="mx-auto flex h-20 w-20 items-center justify-center bg-[#087da8] text-white shadow-lg"><ScanLine size={44} /></div><h2 className="mt-5 text-3xl font-black sm:text-4xl">Scan a ticket</h2><p className="mx-auto mt-2 max-w-md text-sm text-slate-500 sm:text-base">Use the hardware scanner, phone camera, or enter the complete 14-digit barcode. Each scan is validated by the server.</p><div className="mt-7 flex gap-3"><input ref={inputRef} value={barcode} onChange={(event) => setBarcode(event.target.value.replace(/\D/g, "").slice(0, 14))} onPaste={(event) => { const value = event.clipboardData.getData("text").replace(/\D/g, ""); setBarcode(value.slice(0, 14)); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void submitScan(); } }} inputMode="numeric" autoComplete="off" autoFocus placeholder="Scan or enter 14 digits" className="min-h-16 min-w-0 flex-1 border-2 border-slate-200 bg-white px-4 font-mono text-lg tracking-wider outline-none focus:border-[#087da8] disabled:bg-slate-100 sm:text-2xl" /><button type="button" onClick={() => { void submitScan(); }} disabled={barcode.length !== 14} className="min-h-16 min-w-28 bg-[#087da8] px-4 text-base font-black text-white hover:bg-[#066989] disabled:cursor-not-allowed disabled:bg-slate-300">{syncing ? `Checking · ${pendingScanCount} queued` : "Sell"}</button></div><PhoneBarcodeScanner onScan={(value) => { setBarcode(value); void submitScan(value); }} /><div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-slate-500"><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><Keyboard size={14} /> Hardware scanner supported</span><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><LockKeyhole size={14} /> Opening Audit protected</span></div>{!online && <p className="mt-5 border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-bold text-amber-900">Connection lost. Scans will be held on this terminal and synchronized automatically when the connection returns.</p>}{conflictCount > 0 && <p className="mt-3 border border-red-200 bg-red-50 px-3 py-3 text-sm font-bold text-red-800">{conflictCount} queued sale{conflictCount === 1 ? "" : "s"} is blocked pending manager reconciliation. New scans can continue; conflicted offline sales remain blocked until manager review.</p>}</div></div>
+    <section className="grid flex-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]"><div className="flex flex-col justify-center border-2 border-[#087da8] bg-white p-5 shadow-[0_8px_0_rgba(8,125,168,0.12)] sm:p-8"><div className="mx-auto w-full max-w-2xl text-center"><div className="mx-auto flex h-20 w-20 items-center justify-center bg-[#087da8] text-white shadow-lg"><ScanLine size={44} /></div><h2 className="mt-5 text-3xl font-black sm:text-4xl">Scan a ticket</h2><p className="mx-auto mt-2 max-w-md text-sm text-slate-500 sm:text-base">Use the hardware scanner, phone camera, or enter the complete 14-digit barcode. Each scan is validated by the server.</p><div className="mt-7 flex gap-3"><input ref={inputRef} value={barcode} onChange={(event) => setBarcode(event.target.value.replace(/\D/g, "").slice(0, 14))} onPaste={(event) => { const value = event.clipboardData.getData("text").replace(/\D/g, ""); setBarcode(value.slice(0, 14)); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void submitScan(); } }} inputMode="numeric" autoComplete="off" autoFocus placeholder="Scan or enter 14 digits" className="min-h-16 min-w-0 flex-1 border-2 border-slate-200 bg-white px-4 font-mono text-lg tracking-wider outline-none focus:border-[#087da8] disabled:bg-slate-100 sm:text-2xl" /><button type="button" onClick={() => { void submitScan(); }} disabled={barcode.length !== 14} className="min-h-16 min-w-28 bg-[#087da8] px-4 text-base font-black text-white hover:bg-[#066989] disabled:cursor-not-allowed disabled:bg-slate-300">{syncing ? `Checking · ${pendingScanCount} queued` : "Sell"}</button></div><PhoneBarcodeScanner onScan={(value) => { setBarcode(value); void submitScan(value); }} /><div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-slate-500"><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><Keyboard size={14} /> Hardware scanner supported</span><span className="inline-flex items-center gap-1 bg-slate-100 px-3 py-2"><LockKeyhole size={14} /> Opening Audit protected</span></div>{!online && <p className="mt-5 border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-bold text-amber-900">Connection lost. Scans will be held on this terminal and synchronized automatically when the connection returns.</p>}{conflictCount > 0 && <p className="mt-3 border border-red-200 bg-red-50 px-3 py-3 text-sm font-bold text-red-800">{conflictCount} offline sale{conflictCount === 1 ? "" : "s"} require manager reconciliation. You can continue scanning while those offline conflicts remain queued.</p>}</div></div>
       <aside className="flex flex-col border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center gap-3 border-b border-slate-200 pb-4"><span className="flex h-11 w-11 items-center justify-center bg-blue-50 text-[#087da8]"><Ticket size={23} /></span><div><h2 className="text-xl font-black">Latest scan</h2><p className="text-xs text-slate-500">Server-confirmed sale or sync status</p></div></div>{result?.status === "queued" ? <div className="mt-5 border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-amber-700">Waiting for connection</p><p className="mt-1 font-mono text-sm text-amber-900">{result.ticketBarcode}</p><p className="mt-2 text-sm text-amber-800">This scan is queued locally and is not marked as sold until LottoOps confirms synchronization.</p></div> : !result ? <div className="flex flex-1 flex-col items-center justify-center py-12 text-center text-slate-400"><ScanLine size={42} strokeWidth={1.5} /><p className="mt-4 font-bold">Waiting for a ticket</p><p className="mt-1 text-xs">Keep the scanner ready for the next customer.</p></div> : <div className="mt-5 space-y-4"><div className="bg-emerald-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Sale recorded</p><p className="mt-1 text-xl font-black text-emerald-900">{result.gameName ?? "Lottery ticket"}</p><p className="mt-1 font-mono text-xs text-emerald-800">{result.ticketBarcode ?? result.serialNumber}</p></div><div className="grid grid-cols-2 gap-3"><Detail label="Amount" value={`$${Number(result.salesAmount ?? result.ticketPrice ?? 0).toFixed(2)}`} /><Detail label="Next ticket" value={result.nextTicketNumber == null ? "Sold out" : String(result.nextTicketNumber)} /><Detail label="Display" value={result.slot?.slotNumber ?? "—"} /><Detail label="Pack status" value={result.packStatus ?? "ACTIVE"} /></div><button type="button" onClick={resetForNextScan} className="min-h-14 w-full bg-[#087da8] text-lg font-black text-white hover:bg-[#066989]">Scan next ticket</button></div>}</aside></section>
     <section className="mt-5 border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Return tickets">
       <div className="flex flex-wrap items-center justify-between gap-3">

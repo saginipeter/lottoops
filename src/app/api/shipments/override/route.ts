@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { isManagerOrAbove } from "@/lib/permissions";
-import { logInventoryActivity } from "@/lib/activity-log";
+
+class OverrideError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
 
 export async function POST(req: NextRequest) {
   const session = await getApiSession();
@@ -16,22 +20,38 @@ export async function POST(req: NextRequest) {
   if (!shipmentId) return NextResponse.json({ error: "Shipment ID is required." }, { status: 400 });
   if (reason.length < 10) return NextResponse.json({ error: "Enter a detailed override reason of at least 10 characters." }, { status: 400 });
 
-  const shipment = await prisma.shipment.findFirst({
-    where: { id: shipmentId, storeId: session.storeId, status: "IN_PROGRESS" },
-    select: { id: true, invoiceNumber: true, expectedPacks: true },
-  });
-  if (!shipment) return NextResponse.json({ error: "In-progress shipment not found." }, { status: 404 });
+  try {
+    const snapshot = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const shipments = await tx.$queryRawUnsafe<Array<{ id: string; invoiceNumber: string; expectedPacks: number }>>(
+        `SELECT id, "invoiceNumber", "expectedPacks" FROM shipments
+         WHERE id = $1 AND "storeId" = $2 AND status = 'IN_PROGRESS' FOR UPDATE`,
+        shipmentId, session.storeId,
+      );
+      const shipment = shipments[0];
+      if (!shipment) throw new OverrideError("In-progress shipment not found.", 404);
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM packs WHERE "shipmentId" = $1 AND "storeId" = $2 ORDER BY id FOR UPDATE`,
+        shipmentId, session.storeId,
+      );
+      const recordedPackQuantity = await tx.pack.count({ where: { shipmentId, storeId: session.storeId } });
+      const detail = `Shipment override approved for invoice ${shipment.invoiceNumber}: expected ${shipment.expectedPacks} packs, recorded ${recordedPackQuantity} packs. ${reason}`;
+      await tx.$executeRawUnsafe(`
+        INSERT INTO inventory_activity_logs
+          (store_id, action, entity_type, entity_id, detail, performed_by_id, performed_by_name,
+           expected_pack_quantity, recorded_pack_quantity, quantity_unit)
+        VALUES ($1, 'SHIPMENT_OVERRIDE', 'SHIPMENT', $2, $3, $4, $5, $6, $7, 'PACKS')
+      `, session.storeId, shipment.id, detail, session.userId, session.name,
+      shipment.expectedPacks, recordedPackQuantity);
+      return { shipmentId: shipment.id, expectedPackQuantity: shipment.expectedPacks, recordedPackQuantity };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-  const scannedPacks = await prisma.pack.count({ where: { shipmentId, storeId: session.storeId } });
-  await logInventoryActivity({
-    storeId: session.storeId,
-    action: "SHIPMENT_OVERRIDE",
-    entityType: "SHIPMENT",
-    entityId: shipment.id,
-    detail: `Shipment override approved for invoice ${shipment.invoiceNumber}: expected ${shipment.expectedPacks}, scanned ${scannedPacks}. ${reason}`,
-    performedById: session.userId,
-    performedByName: session.name,
-  });
-
-  return NextResponse.json({ success: true, shipmentId, scannedPacks });
+    return NextResponse.json({ success: true, ...snapshot, quantityUnit: "PACKS" });
+  } catch (error) {
+    if (error instanceof OverrideError) return NextResponse.json({ error: error.message }, { status: error.status });
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+      return NextResponse.json({ error: "Shipment contents changed during approval. Refresh and approve the current count again." }, { status: 409 });
+    }
+    console.error("[POST /api/shipments/override]", error);
+    return NextResponse.json({ error: "Unable to record shipment override." }, { status: 500 });
+  }
 }

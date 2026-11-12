@@ -176,10 +176,14 @@ export function buildTicketReturnRequestsDocument(requests: ReadonlyArray<{
 
 export function buildShipmentOverridesDocument(notifications: ReadonlyArray<{
   id: string | number; storeName: string; detail: string; performedByName: string | null; createdAt: string;
+  expectedPackQuantity?: number | null; recordedPackQuantity?: number | null;
 }>): ReportDocument {
-  return table("Shipment Overrides", ["Store", "Time", "Approved by", "Detail"],
+  return table("Shipment Overrides", ["Store", "Time", "Approved by", "Expected Quantity (packs)", "Recorded Quantity (packs)", "Detail"],
     notifications.map((notification) => [text(notification.storeName), notification.createdAt,
-      text(notification.performedByName), readableReportText(notification.detail)]));
+      text(notification.performedByName), notification.expectedPackQuantity ?? null,
+      notification.recordedPackQuantity ?? null, readableReportText(notification.detail)]),
+    [{ label: "Quantity unit", value: "Pack counts at override approval" }],
+    ["Not recorded means the historical approval did not retain a safely recoverable pack-count snapshot."]);
 }
 
 export function buildStateReportArchiveDocument(report: {

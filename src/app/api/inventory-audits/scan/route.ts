@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       if (!inventory) throw new AuditScanError("Physical ticket is outside this pack's inventory range.", 400);
 
       const data = phase === "beginning"
-        ? { beginningPhysicalTicket: physicalTicket, expectedTicket: expectedPhysicalTicket, variance: inventory.variance }
+        ? { beginningPhysicalTicket: physicalTicket, beginningSource: "PHYSICAL_SCAN", expectedTicket: expectedPhysicalTicket, variance: inventory.variance }
         : { endingPhysicalTicket: physicalTicket, endingExpectedTicket: expectedPhysicalTicket, variance: inventory.variance };
       const updated = await tx.inventoryAuditLine.update({
         where: { id: line.id },

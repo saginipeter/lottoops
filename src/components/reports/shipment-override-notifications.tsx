@@ -15,6 +15,8 @@ interface OverrideNotification {
   detail: string;
   performedByName: string | null;
   createdAt: string;
+  expectedPackQuantity: number | null;
+  recordedPackQuantity: number | null;
 }
 
 export function ShipmentOverrideNotifications({ dateRange }: { dateRange: ReportDateRangeValue }) {
@@ -65,6 +67,10 @@ export function ShipmentOverrideNotifications({ dateRange }: { dateRange: Report
                 <span className="inline-flex items-center gap-1 text-[11px] text-text-tertiary"><Clock3 size={12} /> {new Date(notification.createdAt).toLocaleString()}</span>
               </div>
               <p className="mt-1 text-sm text-text">{readableReportText(notification.detail)}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                <p className="rounded bg-white/70 px-2 py-1.5"><span className="font-semibold">Expected Quantity:</span> {notification.expectedPackQuantity ?? "Not recorded"}{notification.expectedPackQuantity == null ? "" : " packs"}</p>
+                <p className="rounded bg-white/70 px-2 py-1.5"><span className="font-semibold">Recorded Quantity:</span> {notification.recordedPackQuantity ?? "Not recorded"}{notification.recordedPackQuantity == null ? "" : " packs"}</p>
+              </div>
               <p className="mt-1 text-xs text-text-tertiary">Approved by {notification.performedByName ?? "Unknown"}</p>
             </div>
           ))}

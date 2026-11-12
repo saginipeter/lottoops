@@ -2,6 +2,8 @@ export interface TicketScanRejection {
   code?: string;
   error?: string;
   status?: number;
+  expectedTicket?: number;
+  scannedTicketNumber?: number;
 }
 
 /** Convert a server rejection into a supportive notice while keeping useful details. */
@@ -9,16 +11,26 @@ export function formatTicketScanBlockedMessage({
   code,
   error,
   status,
+  expectedTicket,
+  scannedTicketNumber,
 }: TicketScanRejection): string {
   const reason = error?.trim() ?? "";
 
+  if (code === "TICKET_SEQUENCE_MISMATCH") {
+    const expected = expectedTicket?.toString() ?? reason.match(/expected ticket\s+(\d+)/i)?.[1];
+    const scanned = scannedTicketNumber?.toString() ?? reason.match(/scanned ticket\s+(\d+)/i)?.[1] ?? reason.match(/(?:ticket\s+)?(\d+)\s+(?:was\s+)?scanned/i)?.[1];
+    const details = expected
+      ? ` Expected ticket ${expected}${scanned ? `; ticket ${scanned} was scanned` : ""}.`
+      : " Please scan the next expected ticket.";
+    return `Wrong ticket scanned in this shift, no sales recorded.${details}`;
+  }
+
   if (code === "SEQUENCE_LOCKED") {
-    const expected = reason.match(/expected ticket\s+(\d+)/i)?.[1];
-    const scanned = reason.match(/scanned ticket\s+(\d+)/i)?.[1];
-    const sequenceDetail = expected && scanned
-      ? `The pack expects ticket ${expected}, but ticket ${scanned} was scanned. `
-      : "The ticket sequence did not match the pack. ";
-    return `We’ve paused this sale to protect the inventory. No ticket was sold. ${sequenceDetail}Please ask a manager to review the ticket sequence before scanning again.`;
+    return "This pack needs manager assistance before another sale. No ticket was sold.";
+  }
+
+  if (code === "INVALID_TICKET_NUMBER") {
+    return "This barcode has an invalid ticket number. Scan a complete ticket barcode; no sale was recorded.";
   }
 
   if (code === "BEGINNING_AUDIT_REQUIRED") {

@@ -64,15 +64,18 @@ export async function POST(req: NextRequest) {
           // historical lines without blocking shift close.
           lines: {
             where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
-            select: { beginningPhysicalTicket: true, endingPhysicalTicket: true },
+            select: { packId: true, beginningPhysicalTicket: true, endingPhysicalTicket: true },
           },
         },
       });
-      const activeDisplayPackCount = await tx.pack.count({
+      const activeDisplayPacks = await tx.pack.findMany({
         where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
+        select: { id: true },
       });
-      const openingAuditIncomplete = !audit || audit.lines.some((line) => line.beginningPhysicalTicket === null);
-      const closingAuditIncomplete = Boolean(audit && audit.lines.some((line) => line.endingPhysicalTicket === null));
+      const auditLineByPack = new Map((audit?.lines ?? []).map((line) => [line.packId, line]));
+      const openingAuditIncomplete = !audit || activeDisplayPacks.some((pack) => auditLineByPack.get(pack.id)?.beginningPhysicalTicket == null);
+      const closingAuditIncomplete = !audit || activeDisplayPacks.some((pack) => auditLineByPack.get(pack.id)?.endingPhysicalTicket == null);
+      const activeDisplayPackCount = activeDisplayPacks.length;
       if (activeDisplayPackCount > 0 && openingAuditIncomplete) {
         throw new CloseError("Complete the Opening Audit before starting the Closing Audit.", 409);
       }

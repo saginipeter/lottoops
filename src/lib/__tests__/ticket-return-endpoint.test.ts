@@ -20,7 +20,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     events: [{ id: "sale", ticketBarcode: "barcode", scannedAt: new Date("2020-01-01"), scannedById: "other-staff", terminalId: "T1", loginSessionId: null }] as Array<{ id: string; ticketBarcode: string; scannedAt: Date; scannedById: string; terminalId?: string | null; loginSessionId?: string | null; clientRequestId?: string | null }>,
     loginSessions: [{ id: "login-session", storeId: "store", shiftId: "shift", endedAt: null as Date | null }, { id: "other-session", storeId: "store", shiftId: "other-shift", endedAt: null as Date | null }],
     requests: [] as Array<{ id: string; storeId: string; shiftId: string; packId: string; status: string; saleEventId?: string; ticketBarcode?: string }>,
-    notifications: [] as Array<{ id: string; entityId: string; title: string; detail: string; severity: string; createdAt: Date }>,
+    notifications: [] as Array<{ id: string; entityId: string; notificationType: string; eventKey: string; packId?: string | null; title: string; detail: string; severity: string; createdAt: Date }>,
     cash: { expectedCash: 0, countedCash: 0, cashVariance: 0 },
     audit: { id: "audit", status: "COMPLETED", lines: [{ packId: "pack", beginningPhysicalTicket: 1 as number | null, endingPhysicalTicket: 2 as number | null, active: true }] },
   });
@@ -142,13 +142,13 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       }
       if (sql.includes("FROM live_scan_events")) {
         if (sql.includes("client_request_id = $4")) {
-          assert.deepEqual(values, [1, session?.storeId, session?.userId, "pos-request-1"]);
+          assert.deepEqual(values.slice(0, 3), [1, session?.storeId, session?.userId]);
             return state.events.filter((event) => event.clientRequestId === values[3] && event.scannedById === values[2]).map((event) => ({
             id: event.id, shiftId: "shift", shiftNumber: 1, loginSessionId: event.loginSessionId, packId: "pack", ticketBarcode: event.ticketBarcode,
           }));
         }
         if (sql.includes("client_request_id = $3")) {
-          assert.deepEqual(values, [session?.storeId, session?.userId, "pos-request-1"]);
+          assert.deepEqual(values.slice(0, 2), [session?.storeId, session?.userId]);
           return state.events.filter((event) => event.clientRequestId === values[2] && event.scannedById === values[1]).map((event) => ({
             id: event.id, shiftId: "shift", shiftNumber: 1, loginSessionId: event.loginSessionId, packId: "pack", ticketBarcode: event.ticketBarcode,
           }));
@@ -181,6 +181,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         assert.doesNotMatch(sql, /notification_type\s*=/);
         return state.notifications;
       }
+      if (sql.includes("FROM operational_alert_acknowledgments")) return [];
       if (sql.includes("FROM store_devices") || sql.includes("FROM inventory_activity_logs")) return [];
       assert.match(sql, /status IN \('PENDING', 'RETURNED_PENDING_REVIEW'\)/);
       const unresolved = state.requests.filter((r) => ["PENDING", "RETURNED_PENDING_REVIEW"].includes(r.status));
@@ -213,12 +214,19 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         return 1;
       }
       if (sql.includes("INSERT INTO inventory_notifications")) {
-        assert.match(sql, /TICKET_RETURN_REVIEW/);
         if (fail === "notification") throw new Error("notification unavailable");
-        state.notifications.push({
-          id: String(values[0]), entityId: String(values[2]), title: String(values[3]),
-          detail: String(values[4]), severity: "MEDIUM", createdAt: new Date(),
-        });
+        if (values[2] === "TICKET_EXCEPTION") {
+          if (!state.notifications.some((notification) => notification.notificationType === String(values[2]) && notification.eventKey === String(values[4]))) {
+            state.notifications.push({ id: String(values[0]), entityId: String(values[3]), notificationType: String(values[2]), eventKey: String(values[4]), packId: String(values[5]), title: String(values[6]), detail: String(values[7]), severity: String(values[8]), createdAt: new Date() });
+          }
+        } else if (sql.includes("'TICKET_RETURN_REVIEW'")) {
+          const batch = sql.includes("ON CONFLICT");
+          state.notifications.push({
+            id: String(values[0]), entityId: String(values[2]), notificationType: "TICKET_RETURN_REVIEW",
+            eventKey: String(values[3]), packId: batch ? null : String(values[4]),
+            title: String(values[batch ? 4 : 5]), detail: String(values[batch ? 5 : 6]), severity: "MEDIUM", createdAt: new Date(),
+          });
+        }
         return 1;
       }
       if (sql.includes("INSERT INTO ticket_return_requests")) {
@@ -510,6 +518,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
 
   await context.test("sale responses expose the persisted event ID and concurrent close rejects a sale before inventory writes", async (subcontext) => {
     subcontext.mock.method(console, "error", () => {});
+    subcontext.mock.method(console, "warn", () => {});
     const saleRequest = (clientRequestId?: string, serialNumber = "12340000001002", overrides: Record<string, unknown> = {}) => new NextRequest("http://localhost/api/packs/check-serial", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ serialNumber, liveScan: true, terminalId: "T1", shiftId: "shift", loginSessionId: "login-session", ...(clientRequestId ? { clientRequestId } : {}), ...overrides }),
@@ -551,6 +560,42 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal(state.pack.currentTicketNumber, packPosition);
     assert.equal((await sellTicket(saleRequest("pos-request-1", "12340000001003"))).status, 409);
     assert.equal(state.events.length, eventCount, "a request ID cannot acknowledge a different ticket barcode");
+
+    reset();
+    state.audit.status = "OPEN";
+    state.events = [];
+    const beforeMismatch = structuredClone(state);
+    const mismatchResponse = await sellTicket(saleRequest("wrong-ticket-1", "12340000001003"));
+    assert.equal(mismatchResponse.status, 409);
+    const mismatch = await mismatchResponse.json();
+    assert.equal(mismatch.code, "TICKET_SEQUENCE_MISMATCH");
+    assert.equal(mismatch.expectedTicket, 2);
+    assert.equal(mismatch.scannedTicketNumber, 3);
+    assert.equal(mismatch.noSale, true);
+    assert.equal(state.events.length, 0);
+    assert.equal(state.pack.currentTicketNumber, beforeMismatch.pack.currentTicketNumber);
+    assert.ok(!calls.includes("pack.write"), "an out-of-sequence attempt must not update or lock the pack");
+    assert.equal(state.notifications[0]?.notificationType, "TICKET_EXCEPTION");
+    assert.match(state.notifications[0]?.detail ?? "", /Pack P1.*Game 1234.*Expected ticket 2/);
+    const firstMismatchKey = state.notifications[0]?.eventKey;
+    assert.equal((await sellTicket(saleRequest("wrong-ticket-1", "12340000001003"))).status, 409);
+    assert.equal(state.notifications.length, 1, "retrying the same rejected scan reuses the same alert identity");
+    assert.equal((await sellTicket(saleRequest("wrong-ticket-1", "12340000001004"))).status, 409);
+    assert.equal(state.notifications.length, 2, "a different wrong barcode with a reused request ID still creates its own manager alert");
+    assert.notEqual(state.notifications[1]?.eventKey, firstMismatchKey);
+
+    reset();
+    state.audit.status = "OPEN";
+    const beforeZero = structuredClone(state);
+    const invalidTicketResponse = await sellTicket(saleRequest("zero-ticket-1", "12340000001000"));
+    assert.equal(invalidTicketResponse.status, 400);
+    assert.equal((await invalidTicketResponse.json()).code, "INVALID_TICKET_NUMBER");
+    assert.deepEqual(state, beforeZero, "ticket suffix 000 must be rejected before any inventory or sale write");
+
+    reset();
+    fail = "notification";
+    state.audit.status = "OPEN";
+    assert.equal((await sellTicket(saleRequest("alert-failure-1", "12340000001003"))).status, 409, "failed manager alert persistence must not convert the no-sale rejection to a 500");
 
     reset(); fail = "close-race";
     const before = structuredClone(state);
@@ -624,12 +669,13 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal((await closeShift(closeRequest())).status, 401);
     session = { ...staff, role: "AUDITOR" };
     assert.equal((await closeShift(closeRequest())).status, 403);
-    for (const scenario of ["store", "closed", "cash", "opening-audit", "closing-audit", "invalid-count"]) {
+    for (const scenario of ["store", "closed", "cash", "opening-audit", "closing-audit", "missing-active-pack-line", "invalid-count"]) {
       reset();
       if (scenario === "store") session = { ...staff, storeId: "foreign" };
       if (scenario === "closed") state.shift.status = "CLOSED";
       if (scenario === "opening-audit") state.audit.lines[0].beginningPhysicalTicket = null;
       if (scenario === "closing-audit") state.audit.lines[0].endingPhysicalTicket = null;
+      if (scenario === "missing-active-pack-line") state.audit.lines = [];
       if (scenario === "invalid-count") state.pack.currentTicketNumber = 11;
       const before = structuredClone(state);
       const response = await closeShift(closeRequest(scenario === "cash" ? { countedCash: undefined } : {}));
@@ -641,6 +687,18 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal((await closeShift(closeRequest({ countedCash: 150 }))).status, 200);
     assert.equal(state.cash.expectedCash, 105, "only this shift's single recorded sale contributes to cash expectations");
     assert.equal(state.shift.lines[0].ticketsSold, 1, "global stock may be depleted by sales on another concurrent shift");
+
+    reset();
+    state.events = [];
+    state.pack.firstTicket = 25;
+    state.pack.ticketQuantity = 50;
+    state.pack.currentTicketNumber = 26;
+    state.shift.lines[0].beginningTicket = 26;
+    state.shift.lines[0].endingTicket = 26;
+    state.shift.lines[0].ticketsSold = 0;
+    state.audit.lines[0].beginningPhysicalTicket = 50;
+    state.audit.lines[0].endingPhysicalTicket = 50;
+    assert.equal((await closeShift(closeRequest({ countedCash: 100 }))).status, 200, "26 sellable tickets from ticket 25 through 50 is a valid, closable LAST pack position");
 
     reset();
     state.audit.lines.push({ packId: "retired-pack", beginningPhysicalTicket: 1, endingPhysicalTicket: null, active: false });

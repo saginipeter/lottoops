@@ -28,6 +28,7 @@ model Store {
   shipments    Shipment[]
   users        User[]
   documents    Document[]
+  alertAcknowledgments OperationalAlertAcknowledgment[]
   organization Organization? @relation(fields: [organizationId], references: [id])
 
   @@map("stores")
@@ -54,6 +55,7 @@ model User {
   shipmentsReceived Shipment[]     @relation("ShipmentsReceived")
   store             Store          @relation(fields: [storeId], references: [id])
   documentsUploaded Document[]      @relation("DocumentsUploaded")
+  alertsCleared     OperationalAlertAcknowledgment[] @relation("AlertsClearedBy")
 
   @@index([storeId])
   @@map("users")
@@ -334,6 +336,7 @@ model InventoryAuditLine {
   packId                  String
   slotNumber              String
   expectedTicket          Int
+  beginningSource         String         @default("AWAITING_PHYSICAL_SCAN") @map("beginning_source")
   endingExpectedTicket    Int?
   beginningPhysicalTicket Int?
   endingPhysicalTicket    Int?
@@ -345,6 +348,22 @@ model InventoryAuditLine {
   @@unique([auditId, packId])
   @@index([packId])
   @@map("inventory_audit_lines")
+}
+
+model OperationalAlertAcknowledgment {
+  id          String   @id @default(cuid())
+  storeId     String   @map("store_id")
+  alertKey    String   @map("alert_key")
+  alertType   String   @map("alert_type")
+  clearedAt   DateTime @default(now()) @db.Timestamptz(6) @map("cleared_at")
+  resolvedAt  DateTime? @db.Timestamptz(6) @map("resolved_at")
+  clearedById String   @map("cleared_by_id")
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  clearedBy   User     @relation("AlertsClearedBy", fields: [clearedById], references: [id], onDelete: Restrict)
+
+  @@unique([storeId, alertKey])
+  @@index([storeId, clearedAt])
+  @@map("operational_alert_acknowledgments")
 }
 
 model ShiftLine {

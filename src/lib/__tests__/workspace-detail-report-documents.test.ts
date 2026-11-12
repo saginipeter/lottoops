@@ -156,11 +156,12 @@ test("return request document uses shift, terminal, pack serial and barcode inst
 test("shipment override document retains evidence without a database notification ID", () => {
   const document = buildShipmentOverridesDocument([{
     id: 7, storeName: "Central", detail: "Override authorized after count",
-    performedByName: null, createdAt: "2026-10-14T12:00:00Z",
+    performedByName: null, createdAt: "2026-10-14T12:00:00Z", expectedPackQuantity: 12, recordedPackQuantity: 10,
   }]);
   assert.deepEqual(document.sections[0].rows[0], [
-    "Central", "2026-10-14T12:00:00Z", null, "Override authorized after count",
+    "Central", "2026-10-14T12:00:00Z", null, 12, 10, "Override authorized after count",
   ]);
+  assert.deepEqual(document.sections[0].columns.slice(3, 5), ["Expected Quantity (packs)", "Recorded Quantity (packs)"]);
   assert.doesNotMatch(JSON.stringify(document), /Notification ID/);
   assertTableWidths(document);
 });

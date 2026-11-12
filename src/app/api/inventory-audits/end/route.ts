@@ -13,11 +13,13 @@ class AuditCloseError extends Error {
 
 interface ActivePack {
   id: string;
+  serialNumber: string;
+  packNumber: string | null;
   currentTicketNumber: number | null;
   firstTicket: number | null;
   ticketQuantity: number | null;
   firstOrLastTicket: string | null;
-  game: { ticketsPerPack: number | null };
+  game: { ticketsPerPack: number | null; gameNumber: string };
 }
 
 interface AuditLine {
@@ -32,6 +34,7 @@ interface ResolvedAuditLine {
   line: AuditLine;
   expected: number;
   variance: number;
+  pack: ActivePack;
 }
 
 export async function POST(request: NextRequest) {
@@ -76,8 +79,8 @@ export async function POST(request: NextRequest) {
       const activePacks = await tx.pack.findMany({
         where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
         select: {
-          id: true, currentTicketNumber: true, firstTicket: true, ticketQuantity: true,
-          firstOrLastTicket: true, game: { select: { ticketsPerPack: true } },
+          id: true, serialNumber: true, packNumber: true, currentTicketNumber: true, firstTicket: true, ticketQuantity: true,
+          firstOrLastTicket: true, game: { select: { ticketsPerPack: true, gameNumber: true } },
         },
       }) as ActivePack[];
       const lines = audit.lines as AuditLine[];
@@ -99,7 +102,7 @@ export async function POST(request: NextRequest) {
           firstOrLastTicket: pack.firstOrLastTicket,
         });
         const variance = calculatePhysicalAuditVariance(expected, Number(line.endingPhysicalTicket)) ?? 0;
-        return { line, expected, variance };
+        return { line, expected, variance, pack };
       });
       for (const { line, expected, variance } of resolved) {
         await tx.inventoryAuditLine.update({ where: { id: line.id }, data: { endingExpectedTicket: expected, variance } });
@@ -121,12 +124,13 @@ export async function POST(request: NextRequest) {
       performedByName: session.name,
     }).catch((error) => console.warn("Unable to log ending audit completion", error));
     const varianceLines = result.resolved.filter(({ variance }) => variance !== 0);
-    await Promise.all(varianceLines.map(({ line, expected }) => createInventoryNotification({
+    await Promise.all(varianceLines.map(({ line, expected, pack }) => createInventoryNotification({
       storeId: session.storeId,
       type: "INVENTORY_AUDIT_VARIANCE",
       entityId: line.id,
+      packId: pack.id,
       title: "Physical audit variance requires review",
-      detail: `Pack ${line.packId}: expected physical ticket ${expected}, observed ${line.endingPhysicalTicket}.`,
+      detail: `Pack #${pack.packNumber ?? pack.serialNumber} · Game #${pack.game.gameNumber}: expected physical ticket ${expected}, observed ${line.endingPhysicalTicket}.`,
       severity: "URGENT",
     }).catch((error) => console.warn("Unable to create audit variance notification", error))));
     return NextResponse.json({ success: true, auditId: result.auditId });

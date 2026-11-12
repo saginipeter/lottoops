@@ -1,137 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { canManageBackstock } from "@/lib/permissions";
-import { getActivationStartingTicket } from "@/lib/ticket-quantity";
-import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
+import { ActivationAuditConflict, activatePackToDisplay } from "@/lib/activation-audit-snapshot";
 
 export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canManageBackstock(session)) return NextResponse.json({ error: "You do not have permission to activate back-stock packs." }, { status: 403 });
+  if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+
+  const body = await req.json().catch(() => ({}));
+  const packId = typeof body.packId === "string" ? body.packId.trim() : "";
+  const slotId = typeof body.slotId === "string" ? body.slotId.trim() : "";
+  if (!packId) return NextResponse.json({ error: "Pack ID is required." }, { status: 400 });
+  if (!slotId) return NextResponse.json({ error: "Display ID is required." }, { status: 400 });
+
   try {
-    const session = await getSession();
-
-    if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    if (!canManageBackstock(session)) {
-      return NextResponse.json(
-        { error: "You do not have permission to activate back-stock packs." },
-        { status: 403 }
-      );
-    }
-
-    const {
+    const pack = await prisma.$transaction((tx: Prisma.TransactionClient) => activatePackToDisplay(tx, {
+      storeId: session.storeId,
+      actorId: session.userId,
       packId,
       slotId,
-      activationNumber,
-      activationReceiptPhoto,
-      lotNumber,
-      firstOrLastTicket,
-    } = await req.json();
-
-    if (!packId) {
-      return NextResponse.json(
-        { error: "Pack ID is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!slotId) {
-      return NextResponse.json(
-        { error: "Display ID is required." },
-        { status: 400 }
-      );
-    }
-
-    // Verify pack exists and belongs to user's store
-    const pack = await prisma.pack.findUnique({
-      where: { id: packId },
-    });
-
-    if (!pack || pack.storeId !== session.storeId) {
-      return NextResponse.json(
-        { error: "Pack not found or access denied." },
-        { status: 404 }
-      );
-    }
-
-    if (pack.status !== "BACK_STOCK") {
-      return NextResponse.json(
-        { error: "Only packs in BACK_STOCK can be activated." },
-        { status: 400 }
-      );
-    }
-
-    // Verify slot is available
-    const slot = await prisma.displaySlot.findUnique({
-      where: { id: slotId },
-    });
-
-    if (!slot || slot.storeId !== session.storeId) {
-      return NextResponse.json(
-        { error: "Display not found or access denied." },
-        { status: 404 }
-      );
-    }
-
-    if (slot.packId && slot.packId !== packId) {
-      return NextResponse.json(
-        { error: "Display is already occupied." },
-        { status: 400 }
-      );
-    }
-
-    const sellableTicket = getActivationStartingTicket({
-      currentTicketNumber: pack.currentTicketNumber,
-      firstTicket: pack.firstTicket,
-      ticketQuantity: pack.ticketQuantity,
-      firstOrLastTicket,
-    });
-    const direction = firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
-    if (sellableTicket === null) {
-      return NextResponse.json(
-        {
-          error:
-            "Pack has invalid ticket data. Set first ticket or quantity before activation.",
-        },
-        { status: 409 }
-      );
-    }
-
-    // Update pack with activation details
-    const updatedPack = await prisma.pack.update({
-      where: { id: packId },
-      data: {
-        status: "ACTIVE",
-        activatedAt: new Date(),
-        currentTicketNumber: direction === "LAST"
-          ? Number(pack.ticketQuantity ?? 0)
-          : remainingTicketsFromStartingTicket(sellableTicket, pack.ticketQuantity ?? 0),
-        activationNumber: activationNumber || undefined,
-        activationReceiptPhoto: activationReceiptPhoto || undefined,
-        lotNumber: lotNumber || undefined,
-        firstOrLastTicket: direction,
-      },
-    });
-
-    // Assign pack to slot
-    await prisma.displaySlot.update({
-      where: { id: slotId },
-      data: { packId },
-    });
-
-    return NextResponse.json({
-      success: true,
-      pack: updatedPack,
-    });
+      firstOrLastTicket: body.firstOrLastTicket,
+      activationNumber: typeof body.activationNumber === "string" ? body.activationNumber : null,
+      activationReceiptPhoto: typeof body.activationReceiptPhoto === "string" ? body.activationReceiptPhoto : null,
+      lotNumber: typeof body.lotNumber === "string" ? body.lotNumber : null,
+    }), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return NextResponse.json({ success: true, pack });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: "Unable to activate pack." },
-      { status: 500 }
-    );
+    if (error instanceof ActivationAuditConflict) return NextResponse.json({ error: error.message }, { status: 409 });
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+      return NextResponse.json({ error: "Inventory changed during activation. Refresh and try again." }, { status: 409 });
+    }
+    console.error("[POST /api/packs/back-stock/activate]", error);
+    return NextResponse.json({ error: "Unable to activate pack." }, { status: 500 });
   }
 }

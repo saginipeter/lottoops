@@ -3,7 +3,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { canReceiveShipments } from "@/lib/permissions";
-import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
+import { activatePacksToDisplays, ActivationAuditConflict } from "@/lib/activation-audit-snapshot";
+
+class ShipmentActivationError extends Error {
+  constructor(message: string, readonly status = 409) { super(message); }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -147,82 +151,130 @@ export async function POST(req: NextRequest) {
 
     // If destination is "active", activate only with display assignment.
     if (destination === "active") {
-      const availableDisplays = await prisma.displaySlot.findMany({
-        where: {
-          storeId: shipment.storeId,
-          packId: null,
-        },
-        orderBy: { slotNumber: "asc" },
-      });
+      try {
+        const updatedShipment = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          const lockedShipments = await tx.$queryRawUnsafe<Array<{ id: string; expectedPacks: number }>>(
+            `SELECT id, "expectedPacks" AS "expectedPacks" FROM shipments
+             WHERE id = $1 AND "storeId" = $2 AND status = 'IN_PROGRESS' FOR UPDATE`,
+            shipmentId, session.storeId,
+          );
+          const lockedShipment = lockedShipments[0];
+          if (!lockedShipment) throw new ShipmentActivationError("Shipment was already confirmed or is no longer available.");
 
-      if (availableDisplays.length < shipmentPacks.length) {
-        return NextResponse.json(
-          {
-            error: `Cannot activate shipment: ${shipmentPacks.length} packs need display assignment, but only ${availableDisplays.length} displays are free.`,
-          },
-          { status: 400 }
-        );
-      }
-
-      await prisma.$transaction([
-        ...shipmentPacks.map(
-          (
-            pack: { id: string; firstTicket: number | null; ticketQuantity: number | null },
-            index: number
-          ) => {
-          const targetDisplay = availableDisplays[index];
-          return prisma.pack.update({
-            where: { id: pack.id },
-            data: {
-              status: "ACTIVE",
-              activatedAt: new Date(),
-              currentTicketNumber: firstOrLastTicket === "LAST"
-                ? Number(pack.ticketQuantity ?? 0)
-                : remainingTicketsFromStartingTicket(pack.firstTicket ?? 1, pack.ticketQuantity ?? 0),
-              firstOrLastTicket: firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
-              activationNumber: activationNumber || undefined,
-              activationReceipt: activationReceiptPhoto || undefined,
-              slot: {
-                connect: { id: targetDisplay.id },
-              },
-            },
+          const currentPacks = await tx.pack.findMany({
+            where: { shipmentId, storeId: session.storeId, status: "RECEIVING" },
+            select: { id: true, firstTicket: true, ticketQuantity: true, ticketPrice: true },
+            orderBy: { id: "asc" },
           });
+          const currentCount = currentPacks.length;
+          const overrideRows = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+            `SELECT id::text AS id FROM inventory_activity_logs
+             WHERE store_id = $1 AND action = 'SHIPMENT_OVERRIDE' AND entity_type = 'SHIPMENT' AND entity_id = $2
+             ORDER BY created_at DESC LIMIT 1`,
+            session.storeId, shipmentId,
+          );
+          const approved = overrideRows.length > 0;
+          if (currentCount !== lockedShipment.expectedPacks && !approved) {
+            throw new ShipmentActivationError(`Expected ${lockedShipment.expectedPacks} packs but scanned ${currentCount}.`, 400);
           }
-        ),
-        prisma.shipment.update({
-          where: { id: shipmentId },
-          data: {
-            scannedPacks: scanned,
-            status: "RECEIVED",
-            confirmedAt: new Date(),
-          },
-        }),
-      ]);
-      return NextResponse.json({
-        ...shipment,
-        scannedPacks: scanned,
-        status: "RECEIVED",
-      });
+          const currentRetailValue = currentPacks.reduce((sum, pack) => sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0), 0);
+          const currentCost = Math.round(currentRetailValue * 0.95 * 100) / 100;
+          if (Math.round(parsedExpectedInventoryCost * 100) !== Math.round(currentCost * 100) && !approved) {
+            throw new ShipmentActivationError(`Expected inventory cost ($${parsedExpectedInventoryCost.toFixed(2)}) does not match the calculated 95% cost ($${currentCost.toFixed(2)}).`, 400);
+          }
+
+          const availableDisplays = await tx.displaySlot.findMany({
+            where: { storeId: session.storeId, packId: null },
+            orderBy: { slotNumber: "asc" },
+            take: currentCount,
+          });
+          if (availableDisplays.length < currentCount) {
+            throw new ShipmentActivationError(`Cannot activate shipment: ${currentCount} packs need display assignment, but only ${availableDisplays.length} displays are free.`, 400);
+          }
+
+          await activatePacksToDisplays(tx, currentPacks.map((pack, index) => ({
+            storeId: session.storeId,
+            actorId: session.userId,
+            packId: pack.id,
+            slotId: availableDisplays[index].id,
+            firstOrLastTicket: firstOrLastTicket === "LAST" ? "LAST" : "FIRST",
+            allowedCurrentStatus: "RECEIVING",
+            activationNumber: typeof activationNumber === "string" ? activationNumber : null,
+            activationReceipt: typeof activationReceiptPhoto === "string" ? activationReceiptPhoto : null,
+            activationReceiptPhoto: typeof activationReceiptPhoto === "string" ? activationReceiptPhoto : null,
+            detail: `Activated during shipment ${shipment.invoiceNumber} to display ${availableDisplays[index].slotNumber}`,
+          })));
+          return tx.shipment.update({
+            where: { id: shipmentId },
+            data: { scannedPacks: currentCount, status: "RECEIVED", confirmedAt: new Date() },
+          });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        return NextResponse.json(updatedShipment);
+      } catch (error) {
+        if (error instanceof ShipmentActivationError || error instanceof ActivationAuditConflict) {
+          return NextResponse.json({ error: error.message }, { status: error instanceof ShipmentActivationError ? error.status : 409 });
+        }
+        if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+          return NextResponse.json({ error: "Shipment or inventory changed during confirmation. Refresh before trying again." }, { status: 409 });
+        }
+        throw error;
+      }
     }
 
     const updatedShipment = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.pack.updateMany({
-        where: { shipmentId, storeId: shipment.storeId, status: "RECEIVING" },
+      const lockedShipments = await tx.$queryRawUnsafe<Array<{ id: string; expectedPacks: number }>>(
+        `SELECT id, "expectedPacks" AS "expectedPacks" FROM shipments
+         WHERE id = $1 AND "storeId" = $2 AND status = 'IN_PROGRESS' FOR UPDATE`,
+        shipmentId, session.storeId,
+      );
+      const lockedShipment = lockedShipments[0];
+      if (!lockedShipment) throw new ShipmentActivationError("Shipment was already confirmed or is no longer available.");
+
+      const currentPacks = await tx.pack.findMany({
+        where: { shipmentId, storeId: session.storeId, status: "RECEIVING" },
+        select: { id: true, ticketPrice: true, ticketQuantity: true },
+        orderBy: { id: "asc" },
+      });
+      const currentCount = currentPacks.length;
+      const overrideRows = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id::text AS id FROM inventory_activity_logs
+         WHERE store_id = $1 AND action = 'SHIPMENT_OVERRIDE' AND entity_type = 'SHIPMENT' AND entity_id = $2
+         ORDER BY created_at DESC LIMIT 1`,
+        session.storeId, shipmentId,
+      );
+      const approved = overrideRows.length > 0;
+      if (currentCount !== lockedShipment.expectedPacks && !approved) {
+        throw new ShipmentActivationError(`Expected ${lockedShipment.expectedPacks} packs but scanned ${currentCount}.`, 400);
+      }
+
+      const currentRetailValue = currentPacks.reduce(
+        (sum, pack) => sum + Number(pack.ticketPrice ?? 0) * Number(pack.ticketQuantity ?? 0), 0,
+      );
+      const currentCost = Math.round(currentRetailValue * 0.95 * 100) / 100;
+      if (Math.round(parsedExpectedInventoryCost * 100) !== Math.round(currentCost * 100) && !approved) {
+        throw new ShipmentActivationError(`Expected inventory cost ($${parsedExpectedInventoryCost.toFixed(2)}) does not match the calculated 95% cost ($${currentCost.toFixed(2)}).`, 400);
+      }
+
+      const packsUpdated = await tx.pack.updateMany({
+        where: { shipmentId, storeId: session.storeId, status: "RECEIVING" },
         data: { status: "BACK_STOCK" },
       });
+      if (packsUpdated.count !== currentCount) throw new ShipmentActivationError("Shipment packs changed during confirmation. Refresh and try again.");
 
       return tx.shipment.update({
         where: { id: shipmentId },
-        data: {
-          scannedPacks: scanned,
-          status: "RECEIVED",
-          confirmedAt: new Date(),
-        },
+        data: { scannedPacks: currentCount, status: "RECEIVED", confirmedAt: new Date() },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return NextResponse.json(updatedShipment);
   } catch (error) {
+    if (error instanceof ShipmentActivationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+      return NextResponse.json({ error: "Shipment changed during confirmation. Refresh before trying again." }, { status: 409 });
+    }
     console.error(error);
 
     return NextResponse.json(

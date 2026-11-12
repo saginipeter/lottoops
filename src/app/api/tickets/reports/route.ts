@@ -4,52 +4,6 @@ import { getApiSession } from "@/lib/api-session";
 import { isManagerOrAbove } from "@/lib/permissions";
 import { parseReportDateRange } from "@/lib/report-date-range";
 
-let schemaReady = false;
-
-async function ensureActivitySchema() {
-  if (schemaReady) return;
-
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS inventory_activity_logs (
-      id BIGSERIAL PRIMARY KEY,
-      store_id TEXT NOT NULL,
-      action TEXT NOT NULL,
-      entity_type TEXT NOT NULL,
-      entity_id TEXT,
-      detail TEXT NOT NULL,
-      performed_by_id TEXT NOT NULL,
-      performed_by_name TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE INDEX IF NOT EXISTS idx_inventory_activity_logs_store_created
-    ON inventory_activity_logs (store_id, created_at DESC)
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE inventory_activity_logs
-    ADD COLUMN IF NOT EXISTS resolved BOOLEAN NOT NULL DEFAULT FALSE
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE inventory_activity_logs
-    ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE inventory_activity_logs
-    ADD COLUMN IF NOT EXISTS resolved_by_id TEXT
-  `);
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE inventory_activity_logs
-    ADD COLUMN IF NOT EXISTS resolved_by_name TEXT
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE INDEX IF NOT EXISTS idx_inventory_activity_logs_unresolved
-    ON inventory_activity_logs (store_id, resolved, created_at DESC)
-  `);
-
-  schemaReady = true;
-}
-
 interface TicketReportRow {
   id: number | bigint;
   storeId: string;
@@ -87,8 +41,6 @@ export async function GET(req: NextRequest) {
   if ("error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
 
   try {
-    await ensureActivitySchema();
-
     if (session.role === "OWNER") {
       const reports = (await prisma.$queryRawUnsafe(
         `

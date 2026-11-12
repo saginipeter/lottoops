@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         {
           error:
             pack.firstOrLastTicket === "LAST"
-              ? `Physical ticket must be between 1 and ${ticketQuantity}.`
+              ? `Physical ticket must be between ${firstTicket} and ${ticketQuantity}.`
               : `Physical ticket must be between ${firstTicket} and ${ticketQuantity}.`,
         },
         { status: 400 }

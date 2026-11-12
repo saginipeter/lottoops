@@ -14,11 +14,11 @@ export const alertCategories: Array<{ id: AlertCategory; label: string }> = [
 
 export function getAlertCategory(type: string): AlertCategory {
   if (type === "LOW_TICKETS") return "LOW_STOCK";
-  if (type === "STALE_RECEIVING" || type === "SHIPMENT_OVERRIDE") return "SHIPMENT";
-  if (type === "INCOMPLETE_AUDIT" || type === "INVENTORY_AUDIT_VARIANCE") return "AUDIT";
+  if (type === "STALE_RECEIVING" || type === "SHIPMENT_OVERRIDE" || type === "DUPLICATE_PACK") return "SHIPMENT";
+  if (type === "INCOMPLETE_AUDIT" || type === "INVENTORY_AUDIT_VARIANCE" || type === "PACK_UPDATE") return "AUDIT";
   if (type === "SECURITY" || type.startsWith("SECURITY_")) return "SECURITY";
-  if (type === "RETURN_REQUEST") return "RETURN";
-  if (type === "TICKET_EXCEPTION") return "TICKET";
+  if (type === "RETURN_REQUEST" || type === "TICKET_RETURN_REVIEW") return "RETURN";
+  if (type === "TICKET_EXCEPTION" || type === "EXPECTED_TICKET_MISMATCH" || type === "WRONG_PACK_OR_GAME") return "TICKET";
   return "SYSTEM";
 }
 

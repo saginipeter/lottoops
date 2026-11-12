@@ -130,6 +130,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (liveScan === true && resolveScannedTicketNumber(normalizedSerial) === null) {
+      return NextResponse.json(
+        { error: "Ticket number 000 is invalid. Scan a complete barcode with a ticket number from 001 through 999.", code: "INVALID_TICKET_NUMBER", noSale: true },
+        { status: 400 },
+      );
+    }
+
     try {
       const registeredRows = await prisma.$queryRawUnsafe(
         `SELECT COUNT(*)::int AS count FROM store_devices WHERE store_id = $1`,
@@ -332,7 +339,6 @@ export async function POST(req: NextRequest) {
           });
           const auditLines = audit?.lines ?? [];
           const openingAuditComplete = audit?.status === "OPEN" &&
-            auditLines.every((line: { beginningPhysicalTicket: number | null }) => line.beginningPhysicalTicket !== null) &&
             activeDisplayPacks.every((active) => auditLines.some((line: { packId: string; beginningPhysicalTicket: number | null }) =>
               line.packId === active.id && line.beginningPhysicalTicket !== null
             ));
@@ -352,19 +358,6 @@ export async function POST(req: NextRequest) {
           const line = await tx.shiftLine.findUnique({ where: { shiftId_packId: { shiftId: openShift.id, packId: pack.id } } });
           if (!auditLine || !line) {
             throw new LiveScanError("Record this pack in the Opening Audit before selling tickets.", 409, "BEGINNING_AUDIT_REQUIRED");
-          }
-
-          let sequenceLockResolved = false;
-          if (pack.sequenceLocked) {
-            if (!canSelfResolveSequenceLock(pack.sequenceLocked, pack.sequenceLockExpectedTicket, scannedTicketNumber)) {
-              throw new LiveScanError("Pack is locked pending manager review.", 409, "SEQUENCE_LOCKED");
-            }
-            await tx.pack.update({ where: { id: pack.id }, data: {
-              sequenceLocked: false, sequenceLockExpectedTicket: null, sequenceLockScannedTicket: null,
-              sequenceLockBarcode: null, sequenceLockedAt: null, sequenceLockedById: null,
-            } });
-            pack.sequenceLocked = false;
-            sequenceLockResolved = true;
           }
 
           const beginning = getSafeCurrentTicket({
@@ -396,15 +389,20 @@ export async function POST(req: NextRequest) {
           if (currentTicket <= 0) throw new LiveScanError("Pack is already sold out.", 400);
 
           if (scannedTicketNumber !== null && expectedPhysical !== null && scannedTicketNumber !== expectedPhysical) {
+            return { kind: "mismatch" as const, pack, expectedPhysical, scannedTicketNumber, shiftNumber: lockedShifts[0].shiftNumber };
+          }
+
+          let sequenceLockResolved = false;
+          if (pack.sequenceLocked) {
+            if (!canSelfResolveSequenceLock(pack.sequenceLocked, pack.sequenceLockExpectedTicket, scannedTicketNumber)) {
+              throw new LiveScanError("This ticket cannot be sold until the existing pack review is resolved.", 409, "SEQUENCE_LOCKED");
+            }
             await tx.pack.update({ where: { id: pack.id }, data: {
-              sequenceLocked: true,
-              sequenceLockExpectedTicket: expectedPhysical,
-              sequenceLockScannedTicket: scannedTicketNumber,
-              sequenceLockBarcode: normalizedSerial,
-              sequenceLockedAt: new Date(),
-              sequenceLockedById: session.userId,
+              sequenceLocked: false, sequenceLockExpectedTicket: null, sequenceLockScannedTicket: null,
+              sequenceLockBarcode: null, sequenceLockedAt: null, sequenceLockedById: null,
             } });
-            return { kind: "mismatch" as const, pack, expectedPhysical, scannedTicketNumber };
+            pack.sequenceLocked = false;
+            sequenceLockResolved = true;
           }
 
           const endingTicket = Math.max(currentTicket - 1, 0);
@@ -465,15 +463,26 @@ export async function POST(req: NextRequest) {
           });
         }
         if (saleResult.kind === "mismatch") {
+          const eventKey = clientRequestId
+            ? `TICKET_EXCEPTION:${clientRequestId}:${saleResult.shiftNumber ?? "—"}:${saleResult.pack.id}:${normalizedSerial}`
+            : `TICKET_EXCEPTION:${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
           await createInventoryNotification({
-            storeId: session.storeId, type: "EXPECTED_TICKET_MISMATCH", entityId: saleResult.pack.id,
-            title: "Expected ticket mismatch",
-            detail: `Pack ${saleResult.pack.serialNumber} expected ticket ${saleResult.expectedPhysical}, but ticket ${saleResult.scannedTicketNumber} was scanned.`,
+            storeId: session.storeId,
+            type: "TICKET_EXCEPTION",
+            entityId: saleResult.pack.id,
+            eventKey,
+            packId: saleResult.pack.id,
+            title: "Out-of-sequence ticket scan",
+            detail: `${session.name} scanned ticket ${saleResult.scannedTicketNumber} for Pack ${saleResult.pack.packNumber ?? saleResult.pack.serialNumber} · Game ${saleResult.pack.game.gameNumber} at Display ${saleResult.pack.slot?.slotNumber ?? "—"}, Shift ${saleResult.shiftNumber ?? "—"}, Terminal ${terminalId}. Expected ticket ${saleResult.expectedPhysical}. No sale was recorded.`,
             severity: "HIGH",
-          });
+          }).catch((error) => console.warn("Unable to persist ticket sequence exception alert", error));
           return NextResponse.json({
-            code: "SEQUENCE_LOCKED",
-            error: `Out-of-sequence scan. Expected ticket ${saleResult.expectedPhysical}, but scanned ticket ${saleResult.scannedTicketNumber}. Pack locked pending manager review.`,
+            code: "TICKET_SEQUENCE_MISMATCH",
+            error: `Wrong ticket scanned in this shift, no sales recorded. The system expected ticket ${saleResult.expectedPhysical}; ticket ${saleResult.scannedTicketNumber} was scanned.`,
+            expectedTicket: saleResult.expectedPhysical,
+            scannedTicketNumber: saleResult.scannedTicketNumber,
+            packId: saleResult.pack.id,
+            noSale: true,
           }, { status: 409 });
         }
 

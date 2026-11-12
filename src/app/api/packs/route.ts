@@ -19,6 +19,10 @@ type CreatePackBody = {
   packNumber?: unknown;
 };
 
+class ReceivingCountConflict extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getApiSession();
@@ -197,48 +201,56 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const pack = await prisma.pack.create({
-      data: {
-        shipmentId,
-        storeId: session.storeId,
-        gameId: game.id,
-        receivedById: session.userId,
-
-        serialNumber: barcode,
-
-        gameNumber,
-        packNumber,
-        firstTicket: normalizedFirstTicket,
-
-        ticketPrice: normalizedTicketPrice,
-        ticketQuantity: normalizedTicketQuantity,
-        
-        packImage,
-        activationNumber,
-        firstOrLastTicket,
-
-        status: "RECEIVING",
-        // Expected inventory cost is the amount paid up front: 95% of face
-        // value. The remaining 5% is the store's margin.
-        cost: normalizedTicketPrice * normalizedTicketQuantity * 0.95,
-        retailValue: normalizedTicketPrice * normalizedTicketQuantity,
-      },
-    });
-
-    const savedPack = await prisma.pack.findUnique({
-  where: {
-    id: pack.id,
-  },
-  include: {
-    game: true,
-  },
-});
+    const savedPack = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const lockedShipments = await tx.$queryRawUnsafe<Array<{ id: string; expectedPacks: number }>>(
+        `SELECT id, "expectedPacks" FROM shipments
+         WHERE id = $1 AND "storeId" = $2 AND status = 'IN_PROGRESS' FOR UPDATE`,
+        shipmentId, session.storeId,
+      );
+      const lockedShipment = lockedShipments[0];
+      if (!lockedShipment) throw new ReceivingCountConflict("Shipment not found, already received, or access denied.", 404);
+      const currentPackCount = await tx.pack.count({ where: { storeId: session.storeId, shipmentId } });
+      if (currentPackCount >= lockedShipment.expectedPacks) {
+        throw new ReceivingCountConflict(`This shipment already reached its expected pack count (${lockedShipment.expectedPacks}).`, 409);
+      }
+      const pack = await tx.pack.create({
+        data: {
+          shipmentId,
+          storeId: session.storeId,
+          gameId: game.id,
+          receivedById: session.userId,
+          serialNumber: barcode,
+          gameNumber,
+          packNumber,
+          firstTicket: normalizedFirstTicket,
+          ticketPrice: normalizedTicketPrice,
+          ticketQuantity: normalizedTicketQuantity,
+          packImage,
+          activationNumber,
+          firstOrLastTicket,
+          status: "RECEIVING",
+          // Expected inventory cost is the amount paid up front: 95% of face
+          // value. The remaining 5% is the store's margin.
+          cost: normalizedTicketPrice * normalizedTicketQuantity * 0.95,
+          retailValue: normalizedTicketPrice * normalizedTicketQuantity,
+        },
+      });
+      return tx.pack.findUnique({ where: { id: pack.id }, include: { game: true } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
 return NextResponse.json(savedPack);
 
     
   } catch (error) {
     console.error("[POST /api/packs] Failed to create pack:", error);
+
+    if (error instanceof ReceivingCountConflict) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+      return NextResponse.json({ error: "Shipment contents changed during receiving. Refresh the shipment before scanning again." }, { status: 409 });
+    }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
@@ -424,6 +436,12 @@ export async function DELETE(req: NextRequest) {
 
 async function deleteReceivingPacks(storeId: string, packIds: string[]) {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT s.id FROM shipments s JOIN packs p ON p."shipmentId" = s.id
+       WHERE p.id = ANY($1::text[]) AND p."storeId" = $2 AND s."storeId" = $2 AND s.status = 'IN_PROGRESS'
+       ORDER BY s.id FOR UPDATE OF s`,
+      packIds, storeId,
+    );
     const documentTable = await tx.$queryRaw<Array<{ exists: boolean }>>`
       SELECT to_regclass('public.documents') IS NOT NULL AS "exists"
     `;

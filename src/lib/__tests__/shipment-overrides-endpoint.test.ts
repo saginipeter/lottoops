@@ -12,20 +12,27 @@ test("shipment override report serializes database IDs and surfaces query failur
   let queryError: Error | null = null;
   let query = "";
   let parameters: unknown[] = [];
+  let row: {
+    id: string; storeId: string; storeName: string; detail: string; performedByName: string;
+    createdAt: Date; expectedPackQuantity: number | null; recordedPackQuantity: number | null; quantityUnit: string | null;
+  } = {
+    id: "9007199254740993",
+    storeId: "store-1",
+    storeName: "Central",
+    detail: "Approved short shipment after recount.",
+    performedByName: "Manager",
+    createdAt: new Date("2026-11-09T10:00:00.000Z"),
+    expectedPackQuantity: 12,
+    recordedPackQuantity: 10,
+    quantityUnit: "PACKS",
+  };
 
   const fakePrisma = {
     $queryRawUnsafe: async (sql: string, ...values: unknown[]) => {
       query = sql;
       parameters = values;
       if (queryError) throw queryError;
-      return [{
-        id: "9007199254740993",
-        storeId: "store-1",
-        storeName: "Central",
-        detail: "Approved short shipment after recount.",
-        performedByName: "Manager",
-        createdAt: new Date("2026-11-09T10:00:00.000Z"),
-      }];
+      return [row];
     },
   };
 
@@ -63,6 +70,27 @@ test("shipment override report serializes database IDs and surfaces query failur
   assert.equal(data.notifications.length, 1);
   assert.equal(data.notifications[0].id, "9007199254740993");
   assert.equal(data.notifications[0].detail, "Approved short shipment after recount.");
+  assert.equal(data.notifications[0].expectedPackQuantity, 12);
+  assert.equal(data.notifications[0].recordedPackQuantity, 10);
+  assert.equal(data.notifications[0].quantityUnit, "PACKS");
+
+  row = { ...row, expectedPackQuantity: null, recordedPackQuantity: null, quantityUnit: null, detail: "Shipment override approved: expected 9 packs, recorded 7 packs." };
+  const legacyResponse = await GET(request());
+  const legacy = await legacyResponse.json();
+  assert.equal(legacy.notifications[0].expectedPackQuantity, 9);
+  assert.equal(legacy.notifications[0].recordedPackQuantity, 7);
+  row = { ...row, detail: "Shipment override approved for invoice INV-004: expected 12, scanned 9. Approved after the receiving recount." };
+  const previousFormatResponse = await GET(request());
+  const previousFormat = await previousFormatResponse.json();
+  assert.equal(previousFormat.notifications[0].expectedPackQuantity, 12);
+  assert.equal(previousFormat.notifications[0].recordedPackQuantity, 9);
+  row = { ...row, detail: "Historical approval without reliable count data." };
+  const noSnapshotResponse = await GET(request());
+  const noSnapshot = await noSnapshotResponse.json();
+  assert.equal(noSnapshot.notifications[0].expectedPackQuantity, null);
+  assert.equal(noSnapshot.notifications[0].recordedPackQuantity, null);
+  assert.match(query, /expected_pack_quantity/);
+  assert.match(query, /recorded_pack_quantity/);
 
   queryError = new Error("database query failed");
   const originalConsoleError = console.error;

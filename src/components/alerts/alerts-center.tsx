@@ -19,7 +19,7 @@ export function AlertsCenter({ returns, shipments, discrepancies, tickets }: {
     </div>
     <div hidden={!visible("RETURN")}>{returns}</div>
     <div hidden={!visible("SHIPMENT")}>{shipments}</div>
-    <div hidden={category === "RETURN" || category === "TICKET"}>
+    <div hidden={category === "RETURN"}>
       <OperationalAlertsPanel category={category} onCategoryChange={setCategory} />
     </div>
     <div hidden={!visible("AUDIT")}>{discrepancies}</div>

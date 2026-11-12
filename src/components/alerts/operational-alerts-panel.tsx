@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AlertTriangle, ChevronDown, Clock3, Loader2, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, ChevronDown, Clock3, Loader2, RefreshCw, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { alertCategories, filterAndSortAlerts, type AlertCategory, type AlertSort } from "./alert-categories";
 
-interface OperationalAlert { id: string; type: string; severity: string; title: string; detail: string; createdAt: string; entityId: string; }
+interface OperationalAlert { id: string; alertKey: string; type: string; severity: string; title: string; detail: string; createdAt: string; entityId: string; packNumber?: string | null; gameNumber?: string | null; }
 
 const severityStyle: Record<string, string> = { URGENT: "border-red-300 bg-red-50 text-red-800", HIGH: "border-orange-300 bg-orange-50 text-orange-800", MEDIUM: "border-amber-300 bg-amber-50 text-amber-800" };
 
@@ -15,22 +15,45 @@ export function OperationalAlertsPanel({ category: selectedCategory, onCategoryC
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(true);
+  const [clearingId, setClearingId] = useState<string | null>(null);
   const [localCategory, setCategory] = useState<AlertCategory>("ALL");
   const [sort, setSort] = useState<AlertSort>("SEVERITY");
   const category = selectedCategory ?? localCategory;
 
-  async function load() {
-    setLoading(true); setError("");
+  const load = useCallback(async (background = false) => {
+    if (!background) setLoading(true);
+    if (!background) setError("");
     try {
       const response = await fetch("/api/alerts/operational", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load operational alerts.");
       setAlerts(data.alerts ?? []);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load operational alerts."); }
-    finally { setLoading(false); }
-  }
+    finally { if (!background) setLoading(false); }
+  }, []);
 
-  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => { void load(true); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [load]);
+
+  async function clearAlert(alert: OperationalAlert) {
+    setClearingId(alert.id); setError("");
+    try {
+      const response = await fetch("/api/alerts/operational/clear", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alertKey: alert.alertKey, type: alert.type }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "Unable to clear this alert.");
+      setAlerts((current) => current.filter((item) => item.alertKey !== alert.alertKey));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to clear this alert.");
+    } finally {
+      setClearingId(null);
+    }
+  }
 
   const filteredAlerts = filterAndSortAlerts(alerts, category, sort);
 
@@ -44,7 +67,7 @@ export function OperationalAlertsPanel({ category: selectedCategory, onCategoryC
       <div className="flex flex-wrap items-center gap-2">
         <label className="sr-only" htmlFor="operational-alert-category">Filter alert category</label>
         <select id="operational-alert-category" value={category} onChange={(event) => { const value = event.target.value as AlertCategory; setCategory(value); onCategoryChange?.(value); }} className="min-h-9 border border-border bg-surface px-2 text-xs font-semibold text-text">
-          {alertCategories.filter((option) => option.id !== "RETURN" && option.id !== "TICKET").map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+          {alertCategories.filter((option) => option.id !== "RETURN").map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
         </select>
         <label className="sr-only" htmlFor="operational-alert-sort">Sort operational alerts</label>
         <select id="operational-alert-sort" value={sort} onChange={(event) => setSort(event.target.value as AlertSort)} className="min-h-9 border border-border bg-surface px-2 text-xs font-semibold text-text">
@@ -61,7 +84,7 @@ export function OperationalAlertsPanel({ category: selectedCategory, onCategoryC
         : category === "SECURITY" && filteredAlerts.length === 0 ? <p className="mt-4 text-sm text-text-secondary">No security warnings have been reported.</p>
           : alerts.length === 0 ? <p className="mt-4 text-sm text-emerald-700">No operational alerts detected.</p>
           : filteredAlerts.length === 0 ? <p className="mt-4 text-sm text-text-secondary">No alerts in this category.</p>
-            : <div className="mt-4 space-y-2">{filteredAlerts.map((alert) => <div key={alert.id} className={`rounded-md border px-3 py-3 ${severityStyle[alert.severity] ?? "border-border bg-surface-soft text-text"}`}><div className="flex items-start gap-2"><Clock3 size={15} className="mt-0.5 shrink-0" /><div><p className="text-sm font-semibold">{alert.title} <span className="ml-1 text-[10px] uppercase">{alert.severity}</span></p><p className="mt-1 text-xs">{alert.detail}</p></div></div></div>)}</div>}
+            : <div className="mt-4 space-y-2">{filteredAlerts.map((alert) => <div key={alert.id} className={`rounded-md border px-3 py-3 ${severityStyle[alert.severity] ?? "border-border bg-surface-soft text-text"}`}><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-2"><Clock3 size={15} className="mt-0.5 shrink-0" /><div className="min-w-0"><p className="text-sm font-semibold">{alert.title} <span className="ml-1 text-[10px] uppercase">{alert.severity}</span></p>{(alert.packNumber || alert.gameNumber) && <p className="mt-1 text-xs font-bold">{alert.packNumber ? `Pack #${alert.packNumber}` : "Pack number unavailable"}{alert.gameNumber ? ` · Game #${alert.gameNumber}` : ""}</p>}<p className="mt-1 break-words text-xs">{alert.detail}</p></div></div><Button size="sm" variant="outline" onClick={() => { void clearAlert(alert); }} disabled={clearingId === alert.id} className="shrink-0 bg-white"><Check size={13} />{clearingId === alert.id ? "Clearing…" : "Review & Clear Alert"}</Button></div></div>)}</div>}
     </div>}
   </Panel>;
 }

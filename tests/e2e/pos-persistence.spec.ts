@@ -16,7 +16,7 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await page.route("**/api/packs/check-serial", async (route) => {
     sales++;
     if (sales === 2) {
-      await route.fulfill({ status: 409, json: { code: "SEQUENCE_LOCKED", error: "Out-of-sequence scan. Expected ticket 50, but scanned ticket 1. Pack locked pending manager review." } });
+      await route.fulfill({ status: 409, json: { code: "TICKET_SEQUENCE_MISMATCH", noSale: true, packId: "pack", expectedTicket: 50, scannedTicketNumber: 1, error: "Wrong ticket scanned in this shift, no sales recorded. The system expected ticket 50; ticket 1 was scanned." } });
       return;
     }
     await route.fulfill({ json: {
@@ -51,9 +51,9 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await input.press("Enter");
   const error = page.getByRole("alert").filter({ hasText: "Ticket scan error" });
   await expect(error).toContainText("Ticket scan error · no sale recorded");
-  await expect(error).toContainText("No ticket was sold");
-  await expect(error).toContainText("expects ticket 50, but ticket 1 was scanned");
-  await expect(error).toContainText("Please ask a manager");
+  await expect(error).toContainText("Wrong ticket scanned in this shift, no sales recorded");
+  await expect(error).toContainText("Expected ticket 50; ticket 1 was scanned");
+  await expect(error).not.toContainText("manager");
   const bounds = await error.boundingBox();
   expect(bounds?.y).toBe(16);
   await expect(input).toBeEnabled();
@@ -115,6 +115,71 @@ test("rapid ticket scans are queued in order while the first server check is pen
   await expect.poll(() => scanned.length).toBe(2);
   await expect.poll(() => page.locator("aside").getByText("12341234567002", { exact: true }).count()).toBe(1);
   expect(scanned).toEqual(["12341234567001", "12341234567002"]);
+});
+
+test("offline wrong-ticket replay is consumed without manager reconciliation and later valid scans continue", async ({ context, page, baseURL }) => {
+  test.skip(!process.env.E2E_REPORT_SECRET, "Requires development offline auth with matching JWT_SECRET and E2E_REPORT_SECRET.");
+  const token = await new SignJWT({
+    userId: "pos-operator", storeId: "pos-store", storeName: "POS Store",
+    name: "POS Operator", email: "pos@example.test", role: "MANAGER", grantedPermissions: [],
+    shiftId: "shift", shiftNumber: 1, terminalId: "T1", loginSessionId: "login-pos-operator",
+  }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m")
+    .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
+  await context.addCookies([{ name: "lottoops_session", value: token, url: baseURL! }]);
+  await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
+  let reconciliationPosts = 0;
+  await page.route("**/api/pos/reconciliation**", async (route) => {
+    if (route.request().method() === "POST") reconciliationPosts++;
+    await route.fulfill({ json: { items: [] } });
+  });
+  const scans: string[] = [];
+  let announceSecondScan!: () => void;
+  const secondScanStarted = new Promise<void>((resolve) => { announceSecondScan = resolve; });
+  let releaseSecondResponse!: () => void;
+  const secondResponseReleased = new Promise<void>((resolve) => { releaseSecondResponse = resolve; });
+  await page.route("**/api/packs/check-serial", async (route) => {
+    const serialNumber = route.request().postDataJSON().serialNumber as string;
+    scans.push(serialNumber);
+    if (scans.length === 1) {
+      await route.fulfill({ status: 409, json: {
+        code: "TICKET_SEQUENCE_MISMATCH", noSale: true, packId: "pack",
+        expectedTicket: 50, scannedTicketNumber: 1,
+        error: "Wrong ticket scanned in this shift, no sales recorded. The system expected ticket 50; ticket 1 was scanned.",
+      } });
+      return;
+    }
+    announceSecondScan();
+    await secondResponseReleased;
+    await route.fulfill({ json: {
+      id: "pack", saleId: "sale-after-mismatch", shiftId: "shift", ticketBarcode: serialNumber,
+      gameName: "Correct ticket", salesAmount: 1, nextTicketNumber: 51,
+      slot: { slotNumber: "1" }, packStatus: "ACTIVE",
+    } });
+  });
+
+  await page.goto("/pos?shiftId=shift&terminal=T1");
+  const input = page.getByPlaceholder("Scan or enter 14 digits");
+  await expect(input).toBeVisible();
+  await context.setOffline(true);
+  await expect(page.getByText("Offline mode")).toBeVisible();
+  await input.fill("12341234567001");
+  await input.press("Enter");
+  await input.fill("12341234567002");
+  await input.press("Enter");
+  await expect(page.getByRole("button", { name: "2 sales waiting to sync" })).toBeVisible();
+
+  await context.setOffline(false);
+  await secondScanStarted;
+  const error = page.getByRole("alert").filter({ hasText: "Ticket scan error" });
+  await expect(error).toContainText("Wrong ticket scanned in this shift, no sales recorded");
+  await expect(error).toContainText("Expected ticket 50; ticket 1 was scanned");
+  await expect(error).not.toContainText("manager");
+  await expect.poll(() => scans.length).toBe(2);
+  releaseSecondResponse();
+  await expect(page.getByRole("status").filter({ hasText: "Correct ticket sold successfully." })).toBeVisible();
+  await expect(error).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /sales waiting to sync|conflict.*needs review/ })).toHaveCount(0);
+  expect(reconciliationPosts).toBe(0);
 });
 
 test("remembered manager stays signed in beyond the short inactivity cutoff", async ({ context, page, baseURL }) => {

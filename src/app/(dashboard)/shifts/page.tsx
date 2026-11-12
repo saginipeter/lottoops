@@ -182,11 +182,13 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
     : null;
   const participants = openShift ? await getShiftParticipants(openShift.id) : [];
 
-  const activePackCount = openShift
-    ? await prisma.pack.count({
+  const activeDisplayPacks: Array<{ id: string }> = openShift
+    ? await prisma.pack.findMany({
         where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
+        select: { id: true },
       })
-    : 0;
+    : [];
+  const activePackIds = activeDisplayPacks.map((pack) => pack.id);
   const cashRows = openShift
     ? await prisma.$queryRawUnsafe(
         `SELECT COALESCE("openingCash", 0)::numeric AS "openingCash", "expectedCash", "countedCash", "cashVariance" FROM shifts WHERE id = $1 LIMIT 1`,
@@ -206,7 +208,8 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       selectedShiftId={openShift?.id ?? null}
       canManageShifts={session.role === "OWNER" || session.role === "MANAGER"}
       isEmployee={session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"}
-      activeDisplayPackCount={activePackCount}
+      activeDisplayPackCount={activePackIds.length}
+      activeDisplayPackIds={activePackIds}
       shiftEvents={eventData}
       participants={JSON.parse(JSON.stringify(participants))}
       employeeName={session.name}

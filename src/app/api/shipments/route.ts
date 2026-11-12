@@ -274,7 +274,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: true, cleared: false });
     }
 
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const deleted = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const lockedShipments = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM shipments WHERE id = $1 AND "storeId" = $2 AND status = 'IN_PROGRESS' FOR UPDATE`,
+        shipment.id, session.storeId,
+      );
+      if (lockedShipments.length === 0) return false;
       // Packs already referenced by a sale (shift line) or an inventory audit
       // can't be hard-deleted (FK restrict) — detach them from the shipment
       // instead so the shipment record itself can be removed cleanly.
@@ -301,9 +306,10 @@ export async function DELETE(req: NextRequest) {
         },
       });
       await tx.shipment.delete({ where: { id: shipment.id } });
+      return true;
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, cleared: deleted });
   } catch (error) {
     console.error("Shipment draft deletion failed:", error);
 

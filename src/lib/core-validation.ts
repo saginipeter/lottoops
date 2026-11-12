@@ -34,10 +34,10 @@ export function expectedPhysicalTicketByDirection(
   direction?: string | null,
 ): number | null {
   if (!Number.isInteger(firstTicket) || !Number.isInteger(ticketsPerPack) || !Number.isInteger(remainingTickets)) return null;
-  if (firstTicket < 1 || ticketsPerPack < firstTicket || remainingTickets < 0 || remainingTickets > ticketsPerPack) return null;
+  if (firstTicket < 1 || ticketsPerPack < firstTicket || remainingTickets < 0 || remainingTickets > ticketsPerPack - firstTicket + 1) return null;
   if (remainingTickets === 0) return 0;
   if (direction === "LAST") {
-    return remainingTickets;
+    return firstTicket + remainingTickets - 1;
   }
   return expectedPhysicalTicket(firstTicket, ticketsPerPack, remainingTickets);
 }
@@ -58,7 +58,9 @@ export function remainingTicketsFromPhysicalTicket(
   if (physicalTicket === 0) return 0;
 
   if (direction === "LAST") {
-    return physicalTicket <= ticketsPerPack ? physicalTicket : null;
+    return physicalTicket >= firstTicket && physicalTicket <= ticketsPerPack
+      ? physicalTicket - firstTicket + 1
+      : null;
   }
 
   if (physicalTicket < firstTicket || physicalTicket > ticketsPerPack) return null;

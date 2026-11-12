@@ -2,15 +2,20 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { formatTicketScanBlockedMessage } from "../pos-scan-message";
 
-test("sequence lock notice preserves expected/scanned ticket numbers and confirms no sale", () => {
+test("sequence mismatch gives the exact non-locking no-sale cashier warning without manager-review language", () => {
   const message = formatTicketScanBlockedMessage({
-    code: "SEQUENCE_LOCKED",
-    error: "Out-of-sequence scan. Expected ticket 50, but scanned ticket 1. Pack locked pending manager review.",
+    code: "TICKET_SEQUENCE_MISMATCH",
+    error: "Wrong ticket scanned in this shift, no sales recorded. The system expected ticket 50; ticket 1 was scanned.",
     status: 409,
+    expectedTicket: 50,
+    scannedTicketNumber: 1,
   });
-  assert.match(message, /no ticket was sold/i);
-  assert.match(message, /expects ticket 50, but ticket 1 was scanned/i);
-  assert.match(message, /please ask a manager/i);
+  assert.equal(message, "Wrong ticket scanned in this shift, no sales recorded. Expected ticket 50; ticket 1 was scanned.");
+  assert.doesNotMatch(message, /manager|review|locked/i);
+});
+
+test("ticket number 000 is described as an invalid no-sale barcode", () => {
+  assert.match(formatTicketScanBlockedMessage({ code: "INVALID_TICKET_NUMBER" }), /invalid ticket number.*no sale was recorded/i);
 });
 
 test("opening audit rejection explains the next step kindly", () => {

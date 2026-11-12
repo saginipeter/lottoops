@@ -37,20 +37,6 @@ async function ensureSchema() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_ticket_return_requests_sale
     ON ticket_return_requests (store_id, sale_event_id) WHERE sale_event_id IS NOT NULL
   `);
-  // Persist the manager alert in the same transaction as the returned ticket.
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS inventory_notifications (
-      id TEXT PRIMARY KEY,
-      store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
-      notification_type TEXT NOT NULL,
-      entity_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      detail TEXT NOT NULL,
-      severity TEXT NOT NULL DEFAULT 'HIGH',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(store_id, notification_type, entity_id)
-    )
-  `);
   schemaReady = true;
 }
 
@@ -186,12 +172,13 @@ async function processBatchReturn({
       }
       await tx.$executeRawUnsafe(
         `INSERT INTO inventory_notifications
-          (id, store_id, notification_type, entity_id, title, detail, severity)
-         VALUES ($1, $2, 'TICKET_RETURN_REVIEW', $3, $4, $5, 'MEDIUM')
-         ON CONFLICT (store_id, notification_type, entity_id) DO NOTHING`,
+          (id, store_id, notification_type, entity_id, event_key, title, detail, severity)
+         VALUES ($1, $2, 'TICKET_RETURN_REVIEW', $3, $4, $5, $6, 'MEDIUM')
+         ON CONFLICT (store_id, notification_type, event_key) DO NOTHING`,
         `notification_${batchId}`,
         session.storeId,
         batchId,
+        `TICKET_RETURN_REVIEW:${batchId}`,
         "Batch ticket return needs manager review",
         `${session.name} returned ${returned.length} tickets in one batch. Reason: ${reason}`,
       );
@@ -324,9 +311,9 @@ export async function POST(req: NextRequest) {
       });
       await tx.$executeRawUnsafe(`
         INSERT INTO inventory_notifications
-          (id, store_id, notification_type, entity_id, title, detail, severity)
-        VALUES ($1, $2, 'TICKET_RETURN_REVIEW', $3, $4, $5, 'MEDIUM')
-      `, `notification_${id}`, session.storeId, id, "Returned ticket needs manager review",
+          (id, store_id, notification_type, entity_id, event_key, pack_id, title, detail, severity)
+        VALUES ($1, $2, 'TICKET_RETURN_REVIEW', $3, $4, $5, $6, $7, 'MEDIUM')
+      `, `notification_${id}`, session.storeId, id, `TICKET_RETURN_REVIEW:${id}`, pack.id, "Returned ticket needs manager review",
       `${session.name} returned ticket ${ticketBarcode} from pack ${pack.serialNumber} to slot ${line.slotNumber}. Available for sale immediately. Reason: ${reason}`);
       return { currentTicketNumber: restoredCurrent, ticketsSold, salesAmount };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

@@ -196,7 +196,7 @@ test("does not produce negative sold or remaining values", () => {
 });
 
 test("keeps sell-from-last packs synchronized at one remaining ticket", () => {
-  assert.deepEqual(calculateTicketProgress(50, 1, 50), { sold: 49, remaining: 1 });
+  assert.deepEqual(calculateTicketProgress(1, 1, 50), { sold: 49, remaining: 1 });
   assert.equal(getDisplayedTicketNumber(1, 50, 50, "LAST"), 50);
   assert.equal(getNextDisplayedTicket(1, 50, 50, "LAST"), 49);
   assert.equal(getDisplayedTicketNumber(1, 1, 50, "LAST"), 1);
@@ -221,9 +221,10 @@ test("derives current and next tickets when an active pack has no remaining coun
   assert.equal(getNextDisplayedTicket(8, firstDirectionRemaining, 50, "FIRST"), 9);
 
   const lastDirectionRemaining = getDisplayRemainingTicketCount(null, 8, 50, "LAST");
-  assert.equal(lastDirectionRemaining, 50);
+  assert.equal(lastDirectionRemaining, 43);
   assert.equal(getDisplayedTicketNumber(8, lastDirectionRemaining, 50, "LAST"), 50);
   assert.equal(getNextDisplayedTicket(8, lastDirectionRemaining, 50, "LAST"), 49);
+  assert.deepEqual(calculateTicketProgress(8, lastDirectionRemaining, 50), { sold: 0, remaining: 43 });
 });
 
 test("preserves an explicit sold-out remaining count", () => {

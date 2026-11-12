@@ -121,9 +121,10 @@ export function getValidTicketState({
       ? current
       : resolvedFirstTicket;
 
+  const maxRemaining = Math.max(resolvedQuantity - resolvedFirstTicket + 1, 0);
   const safeCurrent =
-    resolvedQuantity > 0 && resolvedCurrentTicket > resolvedQuantity
-      ? resolvedQuantity
+    maxRemaining > 0 && resolvedCurrentTicket > maxRemaining
+      ? maxRemaining
       : resolvedCurrentTicket;
 
   return {

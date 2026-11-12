@@ -18,6 +18,7 @@ interface AuditLine {
   variance?: number | null;
   beginningPhysicalTicket: number | null;
   endingPhysicalTicket: number | null;
+  beginningSource?: string;
   pack?: { serialNumber: string; game: { name: string } };
 }
 
@@ -41,6 +42,7 @@ interface LiveAuditPack {
   expectedTicket: number;
   endingExpectedTicket: number | null;
   beginningPhysicalTicket: number | null;
+  beginningSource: string;
   endingPhysicalTicket: number | null;
   variance: number | null;
 }
@@ -57,10 +59,10 @@ interface InventoryLine {
   };
 }
 
-export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCount, inventoryLines = [] }: { shiftId: string; audit?: AuditState; activeDisplayPackCount: number; inventoryLines?: InventoryLine[] }) {
+export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackIds, inventoryLines = [] }: { shiftId: string; audit?: AuditState; activeDisplayPackIds: string[]; inventoryLines?: InventoryLine[] }) {
   const router = useRouter();
   const [phase, setPhase] = useState<"beginning" | "ending">(() =>
-    activeDisplayPackCount > 0 && (audit?.lines ?? []).filter((line) => line.beginningPhysicalTicket !== null).length >= activeDisplayPackCount
+    activeDisplayPackIds.length > 0 && activeDisplayPackIds.every((packId) => (audit?.lines ?? []).some((line) => line.packId === packId && line.beginningPhysicalTicket !== null))
       ? "ending"
       : "beginning"
   );
@@ -98,8 +100,19 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
     return () => window.clearInterval(timer);
   }, [audit, loadLiveAudit]);
   const lines = useMemo(() => {
-    if (!liveLoaded) return localLines;
-    return livePacks.map((pack) => {
+    const packs: LiveAuditPack[] = liveLoaded ? livePacks : activeDisplayPackIds.flatMap((packId) => {
+      const line = localLines.find((item) => item.packId === packId);
+      if (!line) return [];
+      return [{
+        packId, slotNumber: line.slotNumber ?? "—", serialNumber: line.pack?.serialNumber ?? packId,
+        gameName: line.pack?.game.name ?? "Game", currentTicketNumber: null, firstTicket: null,
+        ticketQuantity: null, firstOrLastTicket: null, ticketsPerPack: null, lineId: line.id,
+        expectedTicket: line.expectedTicket ?? 0, endingExpectedTicket: line.endingExpectedTicket ?? null,
+        beginningPhysicalTicket: line.beginningPhysicalTicket, beginningSource: line.beginningSource ?? "AWAITING_PHYSICAL_SCAN",
+        endingPhysicalTicket: line.endingPhysicalTicket, variance: line.variance ?? null,
+      }];
+    });
+    return packs.map((pack) => {
       const existing = localLines.find((line) => line.packId === pack.packId);
       return existing ?? {
         id: pack.lineId ?? `pending-${pack.packId}`,
@@ -109,17 +122,20 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
         endingExpectedTicket: pack.endingExpectedTicket,
         variance: pack.variance,
         beginningPhysicalTicket: pack.beginningPhysicalTicket,
+        beginningSource: pack.beginningSource,
         endingPhysicalTicket: pack.endingPhysicalTicket,
         pack: { serialNumber: pack.serialNumber, game: { name: pack.gameName } },
       } satisfies AuditLine;
     });
-  }, [liveLoaded, livePacks, localLines]);
-  const activeCount = liveLoaded ? livePacks.length : activeDisplayPackCount;
-  const scanned = useMemo(() => lines.filter((line) => phase === "beginning" ? line.beginningPhysicalTicket !== null : line.endingPhysicalTicket !== null).length, [lines, phase]);
+  }, [activeDisplayPackIds, liveLoaded, livePacks, localLines]);
+  const activePackIds = liveLoaded ? livePacks.map((pack) => pack.packId) : activeDisplayPackIds;
+  const activeCount = activePackIds.length;
   // An empty display has nothing to reconcile. Treat 0/0 as complete so the
   // shift can move directly to closing without requiring a phantom scan.
-  const beginningScanned = lines.filter((line) => line.beginningPhysicalTicket !== null).length;
-  const closingScanned = lines.filter((line) => line.endingPhysicalTicket !== null).length;
+  const lineByPack = new Map(lines.map((line) => [line.packId, line]));
+  const beginningScanned = activePackIds.filter((packId) => lineByPack.get(packId)?.beginningPhysicalTicket != null).length;
+  const closingScanned = activePackIds.filter((packId) => lineByPack.get(packId)?.endingPhysicalTicket != null).length;
+  const scanned = phase === "beginning" ? beginningScanned : closingScanned;
   const beginningComplete = activeCount === 0 || beginningScanned >= activeCount;
   const closingComplete = audit?.status === "COMPLETED" || activeCount === 0 || closingScanned >= activeCount;
   const varianceLines = lines.filter((line) => line.endingPhysicalTicket !== null && Number(line.variance ?? 0) !== 0);
@@ -175,7 +191,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
       />}
       </div>
       {audit && audit.status === "OPEN" && <>
-        <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" className={beginningComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} onClick={() => setPhase("beginning")}>Opening Audit · {beginningComplete ? "Complete" : "Required"}</Button><Button size="sm" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit · {closingComplete ? "Complete" : "Required"}</Button><Button size="sm" aria-label="Complete Closing Audit" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={phase !== "ending" || closingScanned < activeCount} onClick={completeAudit}>Complete Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>
+        <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" className={beginningComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} onClick={() => setPhase("beginning")}>Opening Audit · {beginningComplete ? "Complete" : "Required"}</Button><Button size="sm" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit · {closingComplete ? "Complete" : "Required"}</Button><Button size="sm" aria-label="Complete Closing Audit" className="!border-red-700 !bg-red-700 !font-black !text-white enabled:hover:!bg-red-800 disabled:opacity-50" disabled={phase !== "ending" || closingScanned < activeCount} onClick={completeAudit}>Complete Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>
         {!beginningComplete && <p className="mt-2 text-xs font-medium text-amber-700">Complete the Opening Audit first. The Closing Audit becomes available afterward.</p>}
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]"><input ref={inputRef} autoFocus value={barcode} inputMode="numeric" onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void scan(); } }} placeholder={phase === "beginning" ? "Scan the current ticket for the Opening Audit" : "Scan the current ticket for the Closing Audit"} className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono text-lg tracking-wider" /><Button onClick={() => { void scan(); }} disabled={!barcode.trim()}>Record {phase === "beginning" ? "Opening" : "Closing"} Scan</Button></div>
         <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before sales begin." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
@@ -211,7 +227,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackCo
               <td className="p-2"><span className="font-semibold">Display {line.slotNumber}</span><span className="ml-2 text-text-tertiary">{line.pack?.serialNumber ?? line.packId}</span></td><td className="p-2">{beginning}</td>
               <td className="p-2">{Math.max(beginning - expected, 0)}</td><td className="p-2">{expected}</td>
               <td className="p-2">{result?.remaining ?? "Not scanned"}</td>
-              <td className="p-2">{result ? `${result.variance > 0 ? "+" : ""}${result.variance}` : "Not scanned"}</td><td className={`p-2 font-semibold ${scannedInPhase ? "text-emerald-700" : "text-amber-700"}`}>{scannedInPhase ? "Scanned" : `Needs ${phase === "beginning" ? "opening" : "closing"} scan`}</td>
+              <td className="p-2">{result ? `${result.variance > 0 ? "+" : ""}${result.variance}` : "Not scanned"}</td><td className={`p-2 font-semibold ${scannedInPhase ? "text-emerald-700" : "text-amber-700"}`}>{scannedInPhase ? phase === "beginning" && line.beginningSource === "ACTIVATION_SNAPSHOT" ? "Auto-baselined on activation" : "Scanned" : `Needs ${phase === "beginning" ? "opening" : "closing"} scan`}</td>
             </tr>;
           })}</tbody>
         </table>

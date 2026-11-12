@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculatePhysicalAuditInventory, calculatePhysicalAuditVariance, expectedPhysicalTicket, expectedPhysicalTicketByDirection, findUnassignedActivePacks, physicalTicketFromRemaining, remainingTicketsFromStartingTicket, validateEndingTicket } from "@/lib/core-validation";
+import { calculatePhysicalAuditInventory, calculatePhysicalAuditVariance, expectedPhysicalTicket, expectedPhysicalTicketByDirection, findUnassignedActivePacks, physicalTicketFromRemaining, remainingTicketsFromPhysicalTicket, remainingTicketsFromStartingTicket, validateEndingTicket } from "@/lib/core-validation";
 
 test("accepts ending ticket zero through beginning ticket", () => {
   assert.equal(validateEndingTicket(100, 0), null);
@@ -94,6 +94,18 @@ test("descending audit excludes previously sold tickets and preserves ID varianc
   });
   assert.deepEqual(calculatePhysicalAuditInventory(1, 150, 140, 139, "LAST"), {
     expectedTicket: 140, remaining: 139, variance: -1, scannedSoldTicket: false,
+  });
+});
+
+test("LAST mode preserves the correct physical ticket and available count for a partial pack", () => {
+  assert.equal(remainingTicketsFromPhysicalTicket(25, 50, 50, "LAST"), 26);
+  assert.equal(remainingTicketsFromPhysicalTicket(25, 50, 25, "LAST"), 1);
+  assert.equal(remainingTicketsFromPhysicalTicket(25, 50, 24, "LAST"), null);
+  assert.equal(expectedPhysicalTicketByDirection(25, 50, 26, "LAST"), 50);
+  assert.equal(expectedPhysicalTicketByDirection(25, 50, 1, "LAST"), 25);
+  assert.equal(expectedPhysicalTicketByDirection(25, 50, 27, "LAST"), null);
+  assert.deepEqual(calculatePhysicalAuditInventory(25, 50, 26, 50, "LAST"), {
+    expectedTicket: 50, remaining: 26, variance: 0, scannedSoldTicket: false,
   });
 });
 

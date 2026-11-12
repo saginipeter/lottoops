@@ -41,6 +41,10 @@ test("security warnings are distinct from device failures and never fabricated",
   assert.equal(getAlertCategory("DEVICE_HEALTH"), "SYSTEM");
   assert.equal(getAlertCategory("SYSTEM_ERROR"), "SYSTEM");
   assert.equal(getAlertCategory("INVENTORY_AUDIT_VARIANCE"), "AUDIT");
+  assert.equal(getAlertCategory("PACK_UPDATE"), "AUDIT");
+  assert.equal(getAlertCategory("TICKET_EXCEPTION"), "TICKET");
+  assert.equal(getAlertCategory("WRONG_PACK_OR_GAME"), "TICKET");
+  assert.equal(getAlertCategory("DUPLICATE_PACK"), "SHIPMENT");
   const device = { type: "DEVICE_HEALTH", severity: "HIGH", createdAt: "2026-10-01" };
   assert.deepEqual(filterAndSortAlerts([device], "SECURITY", "SEVERITY"), []);
 });

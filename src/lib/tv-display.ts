@@ -1,11 +1,13 @@
 export function calculateTicketProgress(
-  _firstTicket: number,
+  firstTicket: number,
   remainingTicketCount: number,
   quantity: number
 ) {
   const safeQuantity = Math.max(Number(quantity) || 0, 0);
-  const remaining = Math.min(Math.max(Number(remainingTicketCount) || 0, 0), safeQuantity);
-  const sold = Math.max(safeQuantity - remaining, 0);
+  const first = Math.max(Number(firstTicket) || 1, 1);
+  const available = Math.max(safeQuantity - first + 1, 0);
+  const remaining = Math.min(Math.max(Number(remainingTicketCount) || 0, 0), available);
+  const sold = Math.max(available - remaining, 0);
   return { sold, remaining };
 }
 
@@ -13,18 +15,19 @@ export function getDisplayRemainingTicketCount(
   currentTicketNumber: number | null | undefined,
   firstTicket: number,
   quantity: number,
-  direction?: string | null,
+  _direction?: string | null,
 ): number {
   const safeQuantity = Math.max(Number(quantity) || 0, 0);
+  const first = Math.max(Number(firstTicket) || 1, 1);
+  const available = Math.max(safeQuantity - first + 1, 0);
+  // The sell direction changes the displayed physical ticket, not the sellable count.
+  void _direction;
   const current = Number(currentTicketNumber);
   if (currentTicketNumber !== null && currentTicketNumber !== undefined && Number.isFinite(current)) {
-    return Math.min(Math.max(current, 0), safeQuantity);
+    return Math.min(Math.max(current, 0), available);
   }
 
-  if (direction === "LAST") return safeQuantity;
-
-  const first = Math.max(Number(firstTicket) || 1, 1);
-  return Math.min(Math.max(safeQuantity - first + 1, 0), safeQuantity);
+  return available;
 }
 
 export function getDisplayedTicketNumber(
@@ -35,11 +38,11 @@ export function getDisplayedTicketNumber(
 ): number {
   const first = Math.max(Number(firstTicket) || 1, 1);
   const safeQuantity = Math.max(Number(quantity) || 0, 0);
-  const remaining = Math.min(Math.max(Number(remainingTicketCount) || 0, 0), safeQuantity);
+  const available = Math.max(safeQuantity - first + 1, 0);
+  const remaining = Math.min(Math.max(Number(remainingTicketCount) || 0, 0), available);
   if (remaining === 0) return 0;
-  if (direction === "LAST") return remaining;
-  const initialRemaining = Math.max(safeQuantity - first + 1, 0);
-  return initialRemaining > 0 ? first + Math.max(initialRemaining - remaining, 0) : 0;
+  if (direction === "LAST") return first + remaining - 1;
+  return available > 0 ? first + Math.max(available - remaining, 0) : 0;
 }
 
 export function getNextDisplayedTicket(
@@ -49,7 +52,7 @@ export function getNextDisplayedTicket(
   direction?: string | null,
 ): number {
   const current = getDisplayedTicketNumber(firstTicket, remainingTicketCount, quantity, direction);
-  if (direction === "LAST") return current > 1 ? current - 1 : 0;
+  if (direction === "LAST") return current > Math.max(Number(firstTicket) || 1, 1) ? current - 1 : 0;
   const first = Math.max(Number(firstTicket) || 1, 1);
   const safeQuantity = Math.max(Number(quantity) || 0, 0);
   const last = first + Math.max(safeQuantity - first, 0);

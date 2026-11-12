@@ -1,32 +1,5 @@
 import { prisma } from "@/lib/prisma";
 
-let schemaReady = false;
-
-async function ensureActivitySchema() {
-  if (schemaReady || !prisma) return;
-
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS inventory_activity_logs (
-      id BIGSERIAL PRIMARY KEY,
-      store_id TEXT NOT NULL,
-      action TEXT NOT NULL,
-      entity_type TEXT NOT NULL,
-      entity_id TEXT,
-      detail TEXT NOT NULL,
-      performed_by_id TEXT NOT NULL,
-      performed_by_name TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`ALTER TABLE inventory_activity_logs ADD COLUMN IF NOT EXISTS terminal_id TEXT`);
-  await prisma.$executeRawUnsafe(`
-    CREATE INDEX IF NOT EXISTS idx_inventory_activity_logs_store_created
-    ON inventory_activity_logs (store_id, created_at DESC)
-  `);
-
-  schemaReady = true;
-}
-
 interface ActivityInput {
   storeId: string;
   action: string;
@@ -36,17 +9,20 @@ interface ActivityInput {
   performedById: string;
   performedByName?: string;
   terminalId?: string;
+  expectedPackQuantity?: number;
+  recordedPackQuantity?: number;
+  quantityUnit?: string;
 }
 
 export async function logInventoryActivity(input: ActivityInput) {
   if (!prisma) return;
 
-  await ensureActivitySchema();
   await prisma.$executeRawUnsafe(
     `
     INSERT INTO inventory_activity_logs
-      (store_id, action, entity_type, entity_id, detail, performed_by_id, performed_by_name, terminal_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      (store_id, action, entity_type, entity_id, detail, performed_by_id, performed_by_name, terminal_id,
+       expected_pack_quantity, recorded_pack_quantity, quantity_unit)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     `,
     input.storeId,
     input.action,
@@ -55,7 +31,10 @@ export async function logInventoryActivity(input: ActivityInput) {
     input.detail,
     input.performedById,
     input.performedByName ?? null,
-    input.terminalId ?? null
+    input.terminalId ?? null,
+    input.expectedPackQuantity ?? null,
+    input.recordedPackQuantity ?? null,
+    input.quantityUnit ?? null
   );
 }
 
@@ -64,8 +43,6 @@ export async function queryInventoryActivity(
   options?: { from?: Date; to?: Date; limit?: number }
 ) {
   if (!prisma) return [];
-  await ensureActivitySchema();
-
   const from = options?.from ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const to = options?.to ?? new Date();
   const limit = Math.min(Math.max(options?.limit ?? 500, 1), 2000);

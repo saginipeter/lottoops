@@ -7,6 +7,7 @@ type AuditLineRecord = {
   id: string;
   packId: string;
   expectedTicket: number;
+  beginningSource: string;
   endingExpectedTicket: number | null;
   beginningPhysicalTicket: number | null;
   endingPhysicalTicket: number | null;
@@ -103,6 +104,7 @@ export async function GET(
         beginningPhysicalTicket: line?.beginningPhysicalTicket ?? null,
         endingPhysicalTicket: line?.endingPhysicalTicket ?? null,
         variance: line?.variance ?? null,
+        beginningSource: line?.beginningSource ?? "AWAITING_PHYSICAL_SCAN",
       }];
     });
 

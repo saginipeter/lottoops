@@ -1,19 +1,10 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { canManageDisplay } from "@/lib/permissions";
 import { ensureDisplaySlots } from "@/lib/services/display-slots";
-import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
-import { remainingTicketsFromStartingTicket } from "@/lib/core-validation";
-
-function resolveSellableTicket(pack: {
-  currentTicketNumber: number | null;
-  firstTicket: number | null;
-  ticketQuantity: number | null;
-}) {
-  const currentTicket = getSafeCurrentTicket(pack);
-  return currentTicket > 0 ? currentTicket : null;
-}
+import { activatePackToDisplay, ActivationAuditConflict, assignActivePackToDisplay } from "@/lib/activation-audit-snapshot";
 
 // GET all display slots
 export async function GET() {
@@ -89,112 +80,35 @@ export async function POST(req: Request) {
       );
     }
 
-    // Prevent assigning an already active pack
-    const existingSlot = await prisma.displaySlot.findFirst({
-      where: {
-        storeId: session.storeId,
-        packId,
-      },
-    });
-
-    if (existingSlot) {
-      return NextResponse.json(
-        { error: "Pack is already assigned to another display slot." },
-        { status: 400 }
-      );
-    }
-
-    const slot = await prisma.displaySlot.findFirst({
-      where: { id: slotId, storeId: session.storeId },
-    });
-
-    if (!slot) {
-      return NextResponse.json({ error: "Display not found." }, { status: 404 });
-    }
-
-    const pack = await prisma.pack.findFirst({
-      where: { id: packId, storeId: session.storeId },
-    });
-
-    if (!pack) {
-      return NextResponse.json({ error: "Pack not found." }, { status: 404 });
-    }
-
+    const [slot, pack] = await Promise.all([
+      prisma.displaySlot.findFirst({ where: { id: slotId, storeId: session.storeId }, select: { id: true, slotNumber: true, packId: true } }),
+      prisma.pack.findFirst({ where: { id: packId, storeId: session.storeId }, select: { id: true, status: true } }),
+    ]);
+    if (!slot) return NextResponse.json({ error: "Display not found." }, { status: 404 });
+    if (!pack) return NextResponse.json({ error: "Pack not found." }, { status: 404 });
+    if (slot.packId) return NextResponse.json({ error: "Display already contains a pack." }, { status: 409 });
     if (pack.status !== "BACK_STOCK" && pack.status !== "ACTIVE") {
-      return NextResponse.json(
-        { error: "Only back stock or unassigned active packs can be assigned." },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Only back stock or unassigned active packs can be assigned." }, { status: 409 });
     }
-
-    if (slot.packId) {
-      return NextResponse.json(
-        { error: "Slot already contains a pack." },
-        { status: 409 }
-      );
-    }
-
-    const sellableTicket = resolveSellableTicket(pack);
-    if (pack.status === "BACK_STOCK" && sellableTicket === null) {
-      return NextResponse.json(
-        {
-          error:
-            "Pack has invalid ticket data. Set first ticket or quantity before assigning to display.",
-        },
-        { status: 409 }
-      );
-    }
-
-    const txOps: any[] = [
-      prisma.displaySlot.update({
-        where: {
-          id: slot.id,
-        },
-        data: {
-          packId,
-        },
-      }),
-      prisma.scanLogEntry.create({
-        data: {
-          storeId: session.storeId,
-          action: "ACTIVATED",
-          packId: pack.id,
-          performedById: session.userId,
-          detail:
-            pack.status === "BACK_STOCK"
-              ? `Activated and assigned pack to display ${slot.slotNumber}`
-              : `Assigned active pack to display ${slot.slotNumber}`,
-        },
-      }),
-    ];
-
-    if (pack.status === "BACK_STOCK") {
-      const direction = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
-      const ticketQuantity = Number(pack.ticketQuantity ?? 0);
-      const firstTicket = Number(pack.firstTicket ?? 1);
-      const startingRemaining =
-        direction === "LAST"
-          ? ticketQuantity
-          : remainingTicketsFromStartingTicket(firstTicket, ticketQuantity);
-      txOps.unshift(
-        prisma.pack.update({
-          where: {
-            id: pack.id,
-          },
-          data: {
-            status: "ACTIVE",
-            activatedAt: new Date(),
-            currentTicketNumber: startingRemaining || sellableTicket,
-            firstOrLastTicket: direction,
-          },
-        })
-      );
-    }
-
-    await prisma.$transaction(txOps);
-
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      if (pack.status === "BACK_STOCK") {
+        await activatePackToDisplay(tx, {
+          storeId: session.storeId, actorId: session.userId, packId: pack.id, slotId: slot.id,
+          detail: `Activated and assigned pack to display ${slot.slotNumber}`,
+        });
+      } else {
+        await assignActivePackToDisplay(tx, {
+          storeId: session.storeId, actorId: session.userId, packId: pack.id, slotId: slot.id,
+          detail: `Assigned active pack to display ${slot.slotNumber}`,
+        });
+      }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof ActivationAuditConflict) return NextResponse.json({ error: error.message }, { status: 409 });
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+      return NextResponse.json({ error: "Inventory changed during display assignment. Refresh and try again." }, { status: 409 });
+    }
     console.error(error);
 
     return NextResponse.json(

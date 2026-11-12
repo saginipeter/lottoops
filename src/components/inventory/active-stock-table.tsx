@@ -8,19 +8,22 @@ import { Button } from "@/components/ui/button";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
 import { RemoveActivePackModal } from "./remove-active-pack-modal";
+import { ActivePackUpdateDialog } from "./active-pack-update-dialog";
 import { getDisplayedTicketNumber } from "@/lib/tv-display";
 
 interface Props {
   packs: any[];
   canManageDisplay: boolean;
+  canUpdatePackMetadata: boolean;
   slots: Array<{ id: string; slotNumber: string; occupied: boolean }>;
 }
 
-export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
+export function ActiveStockTable({ packs, canManageDisplay, canUpdatePackMetadata, slots }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [updatingDirectionId, setUpdatingDirectionId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -123,6 +126,7 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
         onSuccess={handleSuccess}
         slots={slots}
       />
+      <ActivePackUpdateDialog pack={selectedPack} open={updateModalOpen} onOpenChange={setUpdateModalOpen} />
 
       <PageToolbar
         left={
@@ -177,6 +181,7 @@ export function ActiveStockTable({ packs, canManageDisplay, slots }: Props) {
                         View
                       </Button>
                     </Link>
+                    {canUpdatePackMetadata && <Button size="sm" variant="secondary" onClick={() => { setSelectedPack(pack); setUpdateModalOpen(true); }}>Update This Pack</Button>}
                     {canManageDisplay && <label className="sr-only" htmlFor={`sell-direction-${pack.id}`}>Sell direction for pack {pack.packNumber ?? pack.serialNumber}</label>}
                     {canManageDisplay && <select
                       id={`sell-direction-${pack.id}`}
