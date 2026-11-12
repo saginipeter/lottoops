@@ -140,7 +140,7 @@ test("manager and owner main workspaces expose the prominent TV launcher, but em
   assert.match(owner, /<button[^>]*disabled=""/);
 });
 
-test("Manage Workspace is the only management shortcut and the TV launcher is last in the rightmost column", () => {
+test("dashboard restores stock shortcuts without duplicating inventory in Manage Workspace and keeps TV rightmost", () => {
   const html = renderToStaticMarkup(createElement(PosHomeDashboard, {
     storeName: "Store A", storeId: "owned-a", role: "MANAGER", grantedPermissions: [], tvStores: stores,
   }));
@@ -151,8 +151,12 @@ test("Manage Workspace is the only management shortcut and the TV launcher is la
   assert.equal([...html.matchAll(/href="\/alerts"/g)].length, 1);
   assert.ok(html.includes("lg:col-start-4"));
   assert.ok(html.indexOf('href="/pos"') < html.indexOf("Open TV Display Board"));
+  assert.equal([...html.matchAll(/href="\/inventory\/active"/g)].length, 1);
+  assert.equal([...html.matchAll(/href="\/inventory\/back-stock"/g)].length, 1);
+  assert.ok(html.includes('href="/admin/inventory"'));
+  const workspaceSource = readFileSync("src/app/(dashboard)/admin/page.tsx", "utf8");
+  assert.ok(!workspaceSource.includes('href: "/admin/inventory"'), "Manage Workspace should not repeat the inventory card");
   assert.ok(!html.includes('href="/admin/reports"'));
-  assert.ok(!html.includes('href="/inventory/active"'));
   assert.ok(!html.includes('href="/display-slots"'));
   assert.ok(!html.includes('aria-label="Management &amp; oversight"'));
   const employee = renderToStaticMarkup(createElement(PosHomeDashboard, { storeName: "Store A", role: "EMPLOYEE", grantedPermissions: [] }));

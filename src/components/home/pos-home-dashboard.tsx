@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, ClipboardCheck, FileText, PackagePlus, ShoppingCart } from "lucide-react";
+import { AlertTriangle, ArrowRight, Boxes, ClipboardCheck, FileText, Layers, Package, PackagePlus, ShoppingCart } from "lucide-react";
 import { TvDisplayLauncher, type TvStore } from "./tv-display-launcher";
 
 type Action = { title: string; description: string; href: string; icon: typeof ShoppingCart; className: string };
@@ -11,6 +11,8 @@ export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, gran
   const isOwner = role === "OWNER";
   const isAdmin = role === "OWNER" || role === "MANAGER";
   const canReceive = isAdmin || grantedPermissions.includes("RECEIVE_SHIPMENTS");
+  const canManageBackstock = isAdmin || (role === "SHIFT_LEAD" && grantedPermissions.includes("MANAGE_BACKSTOCK"));
+  const canViewInventoryMap = isAdmin || role === "SHIFT_LEAD";
 
   const posActions: Action[] = isPlatformAdmin ? [] : [
     { title: "Sell Tickets", description: "Open the cashier terminal", href: "/pos", icon: ShoppingCart, className: "bg-[#087da8]" },
@@ -20,6 +22,11 @@ export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, gran
   const alertActions: Action[] = isAdmin ? [
     { title: "Alerts", description: "Review operational issues and stock warnings", href: "/alerts", icon: AlertTriangle, className: "bg-[#bd522d]" },
   ] : [];
+  const inventoryActions: Action[] = isPlatformAdmin || role === "AUDITOR" ? [] : [
+    { title: "Active Stock", description: "Review active packs and current tickets", href: "/inventory/active", icon: Layers, className: "bg-[#4567a8]" },
+    ...(canManageBackstock ? [{ title: "Back Stock", description: "Review packs awaiting activation", href: "/inventory/back-stock", icon: Package, className: "bg-[#7653a6]" }] : []),
+    ...(canViewInventoryMap ? [{ title: "Live Inventory Map", description: "View stock and display positions together", href: "/admin/inventory", icon: Boxes, className: "bg-[#344563]" }] : []),
+  ];
 
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
     <main className="mx-auto w-full max-w-[1366px] px-5 py-5 sm:px-8 sm:py-7">
@@ -33,6 +40,7 @@ export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, gran
           className="flex h-full min-h-[175px] flex-col justify-between border-2 border-accent/40 bg-surface p-5 lg:col-start-4"
         /> : undefined}
       />}
+      {inventoryActions.length > 0 && <div className="mt-6"><ActionSection title="Inventory" actions={inventoryActions} /></div>}
       {alertActions.length > 0 && <div className="mt-6"><ActionSection title="Operations Alerts" actions={alertActions} /></div>}
       {role === "AUDITOR" && <div className="mt-5 flex items-center gap-2 border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900"><FileText size={18} /> Read-only audit access. Operational POS actions are hidden.</div>}
     </main>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, Boxes, CreditCard, Monitor, RefreshCw, Settings, Users } from "lucide-react";
+import { BarChart3, CreditCard, Monitor, RefreshCw, Settings, Users } from "lucide-react";
 import { getSession } from "@/lib/get-session";
 import { canAccessReports, canManageDisplay, canManageGames, isManagerOrAbove } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -11,7 +11,6 @@ export default async function AdminHomePage() {
 
   const cards = [
     ...(canAccessReports(session) ? [{ href: "/admin/reports", title: "Reports", description: "Sales, audits, inventory, and performance", icon: BarChart3, tone: "bg-[#d92735]" }] : []),
-    { href: "/admin/inventory", title: "Inventory", description: "Back stock, active packs, and live displays", icon: Boxes, tone: "bg-[#d41478]" },
     ...(canManageDisplay(session) ? [{ href: "/display-slots", title: "Displays", description: "Assign and monitor ticket displays", icon: Monitor, tone: "bg-[#6b46c1]" }] : []),
     ...(isManagerOrAbove(session) ? [{ href: "/settings/users", title: "Staff", description: "Users, roles, and permissions", icon: Users, tone: "bg-[#159447]" }] : []),
     ...(isManagerOrAbove(session) && canManageGames(session) ? [{ href: "/games", title: "Games", description: "Manage the store game catalogue", icon: Settings, tone: "bg-[#087da8]" }] : []),

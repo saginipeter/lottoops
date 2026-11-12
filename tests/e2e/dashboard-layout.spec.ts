@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { SignJWT } from "jose";
 
-test("dashboard keeps management in one workspace and places TV launcher last", async ({ context, page, baseURL }) => {
+test("dashboard keeps management separate, restores inventory links, and places TV launcher last", async ({ context, page, baseURL }) => {
   test.skip(!process.env.E2E_REPORT_SECRET, "Requires development offline auth with matching JWT_SECRET and E2E_REPORT_SECRET.");
   const token = await new SignJWT({
     userId: "dashboard-manager", storeId: "dashboard-store", storeName: "Dashboard Store",
@@ -18,7 +18,9 @@ test("dashboard keeps management in one workspace and places TV launcher last", 
   await expect(alertsSection).toBeVisible();
   await expect(alertsSection.getByRole("link", { name: "Alerts" })).toHaveAttribute("href", "/alerts");
   await expect(page.getByRole("link", { name: "Reports" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Active Stock" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Active Stock" })).toHaveAttribute("href", "/inventory/active");
+  await expect(page.getByRole("link", { name: "Back Stock" })).toHaveAttribute("href", "/inventory/back-stock");
+  await expect(page.getByRole("link", { name: "Live Inventory Map" })).toHaveAttribute("href", "/admin/inventory");
   await expect(page.getByRole("link", { name: "Displays" })).toHaveCount(0);
 
   const launcher = page.locator("div[class*='lg:col-start-4']").filter({ has: page.getByRole("heading", { name: "TV Display Board" }) });
