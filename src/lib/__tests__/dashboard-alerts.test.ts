@@ -147,6 +147,8 @@ test("Manage Workspace is the only management shortcut and the TV launcher is la
   assert.match(html, /class="ml-auto flex items-center gap-3">[\s\S]*?<a href="\/admin"/);
   assert.ok(html.includes("Manage Workspace"));
   assert.ok(html.indexOf('aria-label="POS operations"') < html.indexOf("TV Display Board"));
+  assert.ok(html.includes('aria-label="Operations Alerts"'));
+  assert.equal([...html.matchAll(/href="\/alerts"/g)].length, 1);
   assert.ok(html.includes("lg:col-start-4"));
   assert.ok(html.indexOf('href="/pos"') < html.indexOf("Open TV Display Board"));
   assert.ok(!html.includes('href="/admin/reports"'));

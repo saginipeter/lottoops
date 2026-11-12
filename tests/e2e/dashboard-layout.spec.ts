@@ -14,6 +14,9 @@ test("dashboard keeps management in one workspace and places TV launcher last", 
   await expect(page.getByRole("heading", { name: "What would you like to do?" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Manage Workspace" })).toHaveAttribute("href", "/admin");
   await expect(page.getByRole("heading", { name: "TV Display Board" })).toBeVisible();
+  const alertsSection = page.locator("section[aria-label='Operations Alerts']");
+  await expect(alertsSection).toBeVisible();
+  await expect(alertsSection.getByRole("link", { name: "Alerts" })).toHaveAttribute("href", "/alerts");
   await expect(page.getByRole("link", { name: "Reports" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Active Stock" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Displays" })).toHaveCount(0);

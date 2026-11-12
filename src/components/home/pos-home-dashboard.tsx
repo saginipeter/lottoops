@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ClipboardCheck, FileText, PackagePlus, ShoppingCart } from "lucide-react";
+import { AlertTriangle, ArrowRight, ClipboardCheck, FileText, PackagePlus, ShoppingCart } from "lucide-react";
 import { TvDisplayLauncher, type TvStore } from "./tv-display-launcher";
 
 type Action = { title: string; description: string; href: string; icon: typeof ShoppingCart; className: string };
@@ -17,6 +17,9 @@ export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, gran
     { title: "Shift", description: "Clock in, audit, and reconcile", href: "/shifts", icon: ClipboardCheck, className: "bg-[#e87512]" },
     ...(canReceive ? [{ title: "Receive Stock", description: "Receive shipment inventory", href: "/inventory/receive", icon: PackagePlus, className: "bg-[#159447]" }] : []),
   ];
+  const alertActions: Action[] = isAdmin ? [
+    { title: "Alerts", description: "Review operational issues and stock warnings", href: "/alerts", icon: AlertTriangle, className: "bg-[#bd522d]" },
+  ] : [];
 
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
     <main className="mx-auto w-full max-w-[1366px] px-5 py-5 sm:px-8 sm:py-7">
@@ -30,6 +33,7 @@ export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, gran
           className="flex h-full min-h-[175px] flex-col justify-between border-2 border-accent/40 bg-surface p-5 lg:col-start-4"
         /> : undefined}
       />}
+      {alertActions.length > 0 && <div className="mt-6"><ActionSection title="Operations Alerts" actions={alertActions} /></div>}
       {role === "AUDITOR" && <div className="mt-5 flex items-center gap-2 border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900"><FileText size={18} /> Read-only audit access. Operational POS actions are hidden.</div>}
     </main>
   </div>;
