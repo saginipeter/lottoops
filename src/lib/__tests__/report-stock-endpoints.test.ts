@@ -54,6 +54,10 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
   const originals = paths.map((path) => require.cache[path]);
   let session: { storeId: string; storeName: string } | null = null;
   let shifts = [example];
+  const inventoryPacks = [
+    { serialNumber: "000123", game: { gameNumber: "0042", name: "Lucky Game", price: "5.00" }, status: "BACK_STOCK", ticketPrice: "5.00", ticketQuantity: 150, cost: "712.50", retailValue: "750.00", receivedAt: new Date("2026-10-01T08:00:00Z") },
+    { serialNumber: "000124", game: { gameNumber: "0019", name: "Other Game", price: "2.00" }, status: "BACK_STOCK", ticketPrice: "2.00", ticketQuantity: 300, cost: "570.00", retailValue: "600.00", receivedAt: new Date("2026-10-02T08:00:00Z") },
+  ];
   const queries: Array<{ where: Record<string, unknown>; include: { lines: { include: { pack: { include: { game: { select: Record<string, boolean> } } } } } } }> = [];
   const fakePrisma = {
     shift: {
@@ -63,6 +67,12 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
         assert.equal(query.where.status, "CLOSED");
         assert.equal(query.include.lines.include.pack.include.game.select.id, true);
         return shifts;
+      },
+    },
+    pack: {
+      findMany: async (query: { where: { storeId: string } }) => {
+        assert.equal(query.where.storeId, "store-authorized");
+        return inventoryPacks;
       },
     },
     $queryRawUnsafe: async (_query: string, storeId: string, ids: string[]) => {
@@ -104,6 +114,16 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.equal((await getExport(exportRequest())).status, 503);
     assert.equal(queries.length, 0);
     database.prisma = fakePrisma;
+  });
+
+  await context.test("inventory CSV totals physical packs in the Game Name column, not ticket counts", async () => {
+    const response = await getExport(exportRequest("inventory"));
+    assert.equal(response.status, 200);
+    const rows = parseCSV(await response.text());
+    assert.equal(rows[0][2], "Game Name");
+    assert.deepEqual(rows.at(-1), ["", "", "Total packs: 2", "", "", "", "", "", ""]);
+    assert.equal(rows[1][5], "150");
+    assert.equal(rows[2][5], "300");
   });
 
   await context.test("three-game example is 450 opening / 50 sold / 400 ending / $250 gross / $237.50 cost", async () => {

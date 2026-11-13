@@ -143,8 +143,15 @@ export function InventoryStatusReport({ dateRange }: { dateRange: ReportDateRang
                 <td className="py-2 pr-3">{row.activeRemovalReason ?? row.removalReason ?? "—"}</td>
               </tr>
             ))}
-          </tbody>
-        </table>
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border bg-surface-soft font-semibold">
+                <td className="py-2 pr-3"></td>
+                <td className="py-2 pr-3">Total packs: {rows.length}</td>
+                <td className="py-2 pr-3" colSpan={6}></td>
+              </tr>
+            </tfoot>
+          </table>
       </div>
     </Panel>
   );

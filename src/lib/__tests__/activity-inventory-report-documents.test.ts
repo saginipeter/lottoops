@@ -48,7 +48,7 @@ test("activity summary and data template agree for all events", () => {
   assert.equal(report.sections[1].rows[0][4], "Recorded");
 });
 
-test("inventory document preserves identifiers, counts, filter labels, quantities and retail totals", () => {
+test("inventory document counts physical packs, preserves per-pack ticket quantities and retail totals", () => {
   const report = createInventoryStatusReportDocument(packs, { ACTIVE: 2 }, { status: "ACTIVE", q: " Lucky " });
   assert.deepEqual(report.metadata, [
     { label: "Status", value: "ACTIVE" },
@@ -62,7 +62,8 @@ test("inventory document preserves identifiers, counts, filter labels, quantitie
     ["ACTIVE", "Lucky Game #0042", "01", "0007", "000123", 10, "$50.50", "Manager review"],
     ["ACTIVE", "Second Game #—", "—", "—", "000124", 0, "$25.00", "—"],
   ]);
-  assert.deepEqual(report.sections[1].totals, ["Total", "", "", "", "", 10, "$75.50", ""]);
+  assert.deepEqual(report.sections[1].totals, ["", "Total packs: 2", "", "", "", "", "", ""]);
+  assert.deepEqual(report.sections[1].rows.map((row) => row[5]), [10, 0]);
   assert.match(report.notes?.[0] ?? "", /up to 1,000 packs/);
 });
 
@@ -79,7 +80,7 @@ test("empty filtered documents retain metadata and zero totals", () => {
   const inventoryReport = createInventoryStatusReportDocument([], {}, { status: "BACK_STOCK", q: "Missing" });
   assert.equal(inventoryReport.metadata?.[0].value, "BACK STOCK");
   assert.deepEqual(inventoryReport.sections[1].rows, []);
-  assert.deepEqual(inventoryReport.sections[1].totals, ["Total", "", "", "", "", 0, "$0.00", ""]);
+  assert.deepEqual(inventoryReport.sections[1].totals, ["", "Total packs: 0", "", "", "", "", "", ""]);
 });
 
 test("report output contains only escaped data and identical repeatable view/print content", () => {

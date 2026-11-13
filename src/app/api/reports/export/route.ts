@@ -214,6 +214,7 @@ export async function GET(req: NextRequest) {
       Number(p.retailValue).toFixed(2),
       p.receivedAt.toISOString(),
     ]);
+    rows.push(["", "", `Total packs: ${packs.length}`, "", "", "", "", "", ""]);
     csv = buildCSV(headers, rows);
     filename = `inventory_${fromDate.toISOString().slice(0, 10)}_${toDate.toISOString().slice(0, 10)}.csv`;
   } else if (type === "activity") {

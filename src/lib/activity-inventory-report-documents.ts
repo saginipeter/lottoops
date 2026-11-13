@@ -86,7 +86,6 @@ export function createActivityReportDocument(rows: ActivityRow[], filters: { fro
 
 export function createInventoryStatusReportDocument(rows: InventoryReportRow[], counts: Record<string, number>, filters: { status: PackStatus; q: string }): ReportDocument {
   const totalRetail = rows.reduce((sum, row) => sum + Number(row.retailValue ?? 0), 0);
-  const totalQuantity = rows.reduce((sum, row) => sum + (row.ticketQuantity ?? 0), 0);
   return {
     title: "Inventory Status Report",
     paper: "A4",
@@ -107,7 +106,7 @@ export function createInventoryStatusReportDocument(rows: InventoryReportRow[], 
           row.ticketQuantity ?? 0, `$${Number(row.retailValue).toFixed(2)}`,
           row.activeRemovalReason ?? row.removalReason ?? "—",
         ]),
-        totals: ["Total", "", "", "", "", totalQuantity, `$${totalRetail.toFixed(2)}`, ""],
+        totals: ["", `Total packs: ${rows.length}`, "", "", "", "", "", ""],
       },
     ],
     notes: ["Includes the loaded packs matching the selected status and search (up to 1,000 packs)."],
