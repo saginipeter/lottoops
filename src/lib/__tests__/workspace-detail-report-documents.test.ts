@@ -24,7 +24,7 @@ test("aging prints loaded packs oldest first without mutating input or guessing 
   const packs = Object.freeze([Object.freeze({ ...agingPack, serialNumber: "000124", ageDays: 0 }), Object.freeze(agingPack)]);
   const document = buildInventoryAgingDocument(packs);
   assert.deepEqual(document.sections[0].rows[0], [
-    "000123", "Cash", "004", "BACK STOCK", null, agingPack.receivedAt, null, 43,
+    "000123", "Cash", "004", "BACK STOCK", null, "Sep 1, 2026, 7:00 AM", null, 43,
   ]);
   assert.equal(document.sections[0].rows[1][7], 0);
   assert.equal(packs[0].serialNumber, "000124");
@@ -69,7 +69,7 @@ test("correction history retains original/corrected values and uses a readable e
     newValue: "000", reason: "Recounted under cmvr8k2g40001abc123def456", correctedByName: null, createdAt: "2026-10-14T12:00:00Z",
   }]);
   assert.deepEqual(document.sections[0].rows[0], [
-    "2026-10-14T12:00:00Z", "Pack 000123 · Lucky Game (Game 004)", "ticket", null, "000", "Recounted under related record", null,
+    "Oct 14, 2026, 7:00 AM", "Pack 000123 · Lucky Game (Game 004)", "ticket", null, "000", "Recounted under related record", null,
   ]);
   assert.doesNotMatch(JSON.stringify(document), /cmvr8k2g40001abc123def456|Entity ID/);
   assertTableWidths(document);
@@ -109,7 +109,7 @@ test("exception daily rows and summary remain distinct, including resolution cou
     summary: { auditVariances: 2, openSequenceLocks: 9, resolved: 1 },
     totals: [{ date: "2026-10-14", auditVariances: 2, sequenceLocks: 1, resolved: 1 }],
   });
-  assert.equal(document.metadata?.find((item) => item.label === "Since")?.value, "2026-09-14T12:00:00Z");
+  assert.equal(document.metadata?.find((item) => item.label === "Since")?.value, "Sep 14, 2026, 7:00 AM");
   assert.deepEqual(document.sections[0].rows[1], ["Open sequence locks", 9]);
   assert.deepEqual(document.sections[1].rows[0], ["2026-10-14", 2, 1, 1]);
   assert.equal(document.sections[1].totals, undefined);
@@ -132,7 +132,7 @@ test("WhatsApp document preserves actual generated message instead of rebuilding
   const summary = "Central daily summary\nShifts: 2\nSales: $0.00\nAudit variances: 0";
   const document = buildWhatsAppSummaryDocument(summary, "2026-10-14T12:00:00Z");
   assert.deepEqual(document.sections[0].rows, summary.split("\n").map((line) => [line]));
-  assert.equal(document.metadata?.[0].value, "2026-10-14T12:00:00Z");
+  assert.equal(document.metadata?.[0].value, "Oct 14, 2026, 7:00 AM");
   assertTableWidths(document);
 });
 
@@ -160,7 +160,7 @@ test("return request document uses shift, terminal, Pack # and barcode instead o
   }]);
   assert.deepEqual(document.sections[0].rows[0], [
     "PENDING", "Central", "T2", "Shift 1", "000123", "Cash", "004", "00000009", "Return requested under related record",
-    "Employee", "2026-10-14T12:00:00Z",
+    "Employee", "Oct 14, 2026, 7:00 AM",
   ]);
   assert.ok(document.sections[0].columns.includes("Pack #"));
   assert.ok(!document.sections[0].columns.includes("Pack serial"));
@@ -174,7 +174,7 @@ test("shipment override document retains evidence without a database notificatio
     performedByName: null, createdAt: "2026-10-14T12:00:00Z", expectedPackQuantity: 12, recordedPackQuantity: 10,
   }]);
   assert.deepEqual(document.sections[0].rows[0], [
-    "Central", "2026-10-14T12:00:00Z", null, 12, 10, "Override authorized after count",
+    "Central", "Oct 14, 2026, 7:00 AM", null, 12, 10, "Override authorized after count",
   ]);
   assert.deepEqual(document.sections[0].columns.slice(3, 5), ["Expected Quantity (packs)", "Recorded Quantity (packs)"]);
   assert.doesNotMatch(JSON.stringify(document), /Notification ID/);
@@ -191,7 +191,7 @@ test("state archive is metadata-only, retains evidence reference, and never trea
   assert.equal(document.metadata?.find((item) => item.label === "Week of Monday")?.value, "2026-10-05");
   assert.doesNotMatch(JSON.stringify(document), /Store ID|store-1/);
   assert.deepEqual(document.sections[0].rows[0], [
-    "receipt.jpg", "2026-10-14T12:00:00Z", null, "OCR_PENDING", "https://example.invalid/evidence.jpg",
+    "receipt.jpg", "Oct 14, 2026, 7:00 AM", null, "OCR_PENDING", "https://example.invalid/evidence.jpg",
   ]);
   assert.equal(document.sections.length, 1);
   assertTableWidths(document);

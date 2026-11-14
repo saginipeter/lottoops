@@ -129,7 +129,7 @@ test.describe("Data-only report documents", () => {
           audit: [{ pack: "pack-A", display: "1", direction: "FIRST", beginningExpected: 1, beginning: 1, expected: 11, ending: 12 }],
           auditOpenedBy: "Opening Operator", auditClosedBy: "Closing Operator",
           auditOpenedAt: "2026-10-14T08:00:00Z", auditClosedAt: "2026-10-14T12:00:00Z",
-          cash: { openingCash: 100, expectedCash: 110, countedCash: 108, cashVariance: -2, reconciledAt: "2026-10-14T12:00:00Z", reconciledBy: "Closing Operator" },
+          registerScratchOffSales: 108, registerSalesRecordedAt: "2026-10-14T12:00:00Z", registerSalesRecordedBy: "Closing Operator",
         }, {
           id: "other-shift", shiftNumber: 2, storeName: "Report Store", terminalId: "Terminal B",
           openedAt: "2026-10-14T13:00:00Z", closedAt: "2026-10-14T17:00:00Z",
@@ -137,7 +137,7 @@ test.describe("Data-only report documents", () => {
           grossSales: 999, cogs: 0, netMargin: 999, marginPct: 100, ticketsSold: 999,
           gameBreakdown: [], packSales: [], audit: [],
           auditOpenedBy: null, auditClosedBy: null, auditOpenedAt: null, auditClosedAt: null,
-          cash: { openingCash: null, expectedCash: null, countedCash: null, cashVariance: null, reconciledAt: null, reconciledBy: null },
+          registerScratchOffSales: null, registerSalesRecordedAt: null, registerSalesRecordedBy: null,
         }],
         dailyTotals: [], gamePerformance: [],
       },
@@ -146,7 +146,7 @@ test.describe("Data-only report documents", () => {
     const selected = page.getByRole("row").filter({ has: page.getByText("Opening Operator", { exact: true }) }).first();
     await expect(selected.getByText("Shift 1", { exact: true })).toBeVisible();
     await selected.click();
-    await expect(page.getByText("Pack Sales by Display", { exact: true })).toBeVisible();
+    await expect(page.getByText("Ticket Tracking by Display", { exact: true })).toBeVisible();
     const displayRows = page.locator("table").last().locator("tbody tr");
     await expect(displayRows).toHaveCount(3);
     await expect(displayRows.nth(0).locator("td").first()).toHaveText("1");
@@ -157,9 +157,11 @@ test.describe("Data-only report documents", () => {
     await expect(preview.getByText("Opening Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByText("Closing Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByRole("heading", { name: "End of Shift Report" })).toBeVisible();
-    await expect(preview.getByRole("row", { name: "Tickets sold 10" })).toBeVisible();
-    await expect(preview.getByRole("row").filter({ hasText: "Recorded cash variance" })).toContainText("-$2.00");
-    const printedPackRows = preview.locator("section").filter({ has: preview.getByRole("heading", { name: "Pack Sales by Display" }) }).locator("tbody tr");
+    await expect(preview.getByRole("row", { name: "Tickets tracked 10" })).toBeVisible();
+    await expect(preview.getByRole("row").filter({ hasText: "Register Scratch Off Sales" })).toContainText("$108.00");
+    await expect(preview.getByRole("row").filter({ hasText: "System tracked ticket value" })).toContainText("$10.00");
+    await expect(preview.getByText(/opening drawer cash|counted closing cash|cash variance/i)).toHaveCount(0);
+    const printedPackRows = preview.locator("section").filter({ has: preview.getByRole("heading", { name: "Ticket Tracking by Display" }) }).locator("tbody tr");
     await expect(printedPackRows).toHaveCount(3);
     await expect(printedPackRows.nth(0).locator("td").first()).toHaveText("1");
     await expect(printedPackRows.nth(1).locator("td").first()).toHaveText("2");

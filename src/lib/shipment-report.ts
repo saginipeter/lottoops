@@ -1,4 +1,5 @@
 import type { ReportDocument } from "@/lib/report-document";
+import { formatReportDate, formatReportTimestamp } from "@/lib/report-timestamp";
 
 type Amount = number | string | { toString(): string } | null;
 type Timestamp = string | Date | null;
@@ -38,7 +39,7 @@ export interface ShipmentReportData {
 
 const money = (amount: Amount | undefined) => amount == null ? "Not recorded" : `$${Number(amount).toFixed(2)}`;
 const recorded = (value: string | null | undefined) => value?.trim() || "Not recorded";
-const timestamp = (value: Timestamp) => value ? new Date(value).toISOString() : "Not recorded";
+const timestamp = (value: Timestamp, timeZone?: string) => value ? formatReportTimestamp(value, timeZone) : "Not recorded";
 const cents = (value: Amount) => Math.round(Number(value ?? 0) * 100);
 
 export function shipmentFinancialTotals(shipment: ShipmentReportData) {
@@ -67,9 +68,9 @@ export function buildShipmentReport(shipment: ShipmentReportData): ReportDocumen
       { label: "Received by", value: recorded(shipment.receivedBy?.name) },
       { label: "Invoice number", value: shipment.invoiceNumber },
       { label: "Confirmation number", value: recorded(shipment.shipmentConfirmationNumber) },
-      { label: "Shipment date", value: timestamp(shipment.shipmentDate) },
-      { label: "Created at (UTC)", value: timestamp(shipment.createdAt) },
-      { label: "Confirmed at (UTC)", value: timestamp(shipment.confirmedAt) },
+      { label: "Shipment date", value: shipment.shipmentDate ? formatReportDate(String(shipment.shipmentDate)) : "Not recorded" },
+      { label: "Created at", value: timestamp(shipment.createdAt, shipment.store.timezone) },
+      { label: "Confirmed at", value: timestamp(shipment.confirmedAt, shipment.store.timezone) },
       { label: "Status", value: shipment.status.replaceAll("_", " ") },
       { label: "Expected packs", value: shipment.expectedPacks },
       { label: "Recorded packs", value: totals.packCount },
@@ -88,7 +89,7 @@ export function buildShipmentReport(shipment: ShipmentReportData): ReportDocumen
       ]),
       totals: ["Totals", `${totals.packCount} packs`, "", totals.ticketCount, "", money(totals.retailValue), money(totals.inventoryCost), ""],
     }],
-    notes: ["Financial totals use the recorded receiving values for each pack. Timestamps are UTC."],
+    notes: ["Financial totals use the recorded receiving values for each pack. Timestamps are shown in the store timezone."],
   };
 }
 

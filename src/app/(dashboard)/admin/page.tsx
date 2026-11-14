@@ -10,12 +10,12 @@ export default async function AdminHomePage() {
   if (session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD") redirect("/pos");
 
   const cards = [
-    ...(canAccessReports(session) ? [{ href: "/admin/reports", title: "Reports", description: "Sales, audits, inventory, and performance", icon: BarChart3, tone: "bg-[#d92735]" }] : []),
+    ...(canAccessReports(session) ? [{ href: "/admin/reports", title: "Reports", description: "Ticket tracking, audits, inventory, and performance", icon: BarChart3, tone: "bg-[#d92735]" }] : []),
     ...(canManageDisplay(session) ? [{ href: "/display-slots", title: "Displays", description: "Assign and monitor ticket displays", icon: Monitor, tone: "bg-[#6b46c1]" }] : []),
     ...(isManagerOrAbove(session) ? [{ href: "/settings/users", title: "Staff", description: "Users, roles, and permissions", icon: Users, tone: "bg-[#159447]" }] : []),
     ...(isManagerOrAbove(session) && canManageGames(session) ? [{ href: "/games", title: "Games", description: "Manage the store game catalogue", icon: Settings, tone: "bg-[#087da8]" }] : []),
     ...(isManagerOrAbove(session) ? [{ href: "/settings", title: "Settings", description: "Store controls and terminals", icon: Settings, tone: "bg-[#344563]" }] : []),
-    ...(isManagerOrAbove(session) ? [{ href: "/admin/reconciliation", title: "Reconciliation", description: "Resolve offline POS sale conflicts", icon: RefreshCw, tone: "bg-[#087da8]" }] : []),
+    ...(isManagerOrAbove(session) ? [{ href: "/admin/reconciliation", title: "Reconciliation", description: "Resolve offline ticket scan conflicts", icon: RefreshCw, tone: "bg-[#087da8]" }] : []),
     ...(session.role === "OWNER" ? [{ href: "/admin/command-center", title: "COMMAND Center", description: "Centralized multi-store inventory and analytics", icon: BarChart3, tone: "bg-[#17233f]" }, { href: "/admin/billing", title: "Billing", description: "Plan, subscription, and invoices", icon: CreditCard, tone: "bg-[#087da8]" }] : []),
   ];
 

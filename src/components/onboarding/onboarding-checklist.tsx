@@ -15,7 +15,7 @@ const steps = [
   { title: "Set manager approval PIN", description: "Protect reversals and sensitive ticket corrections.", href: "/settings" },
   { title: "Receive your first shipment", description: "Scan packs into receiving and confirm them to Back Stock.", href: "/inventory/receive" },
   { title: "Assign a display pack", description: "Move a Back Stock pack to an assigned display position.", href: "/display-slots" },
-  { title: "Open a shift and complete the audit", description: "Record beginning readings before ticket sales begin.", href: "/shifts" },
+  { title: "Open a shift and complete the audit", description: "Record beginning readings before ticket tracking begins.", href: "/shifts" },
   { title: "Verify the customer display", description: "Open the TV display and confirm active games are visible.", href: "/tv-display" },
 ];
 

@@ -127,13 +127,13 @@ export function TvDisplayBoard({ slots, kioskMode, refreshSeconds, verifiedAt, k
         .tv-jackpot-board-artwork::before { position:absolute; top:-10%; bottom:-10%; left:-50%; z-index:1; width:45%; background:linear-gradient(90deg,transparent,rgba(255,241,171,.2),rgba(255,255,255,.4),transparent); opacity:0; pointer-events:none; content:""; }
         .tv-image-unavailable { position:absolute; inset:0; z-index:0; display:flex; align-items:center; justify-content:center; padding:min(5cqi,12px); background:#111827; color:#f9fafb; font-size:min(8cqi,14px); font-weight:800; line-height:1.15; text-align:center; text-transform:uppercase; }
         .tv-jackpot-board::after { position:absolute; inset:0; border:1px solid rgba(255,255,255,.55); content:""; pointer-events:none; }
-        .tv-card-meta { position:absolute; top:min(2cqi,6px); right:min(2cqi,6px); left:min(2cqi,6px); z-index:2; display:flex; align-items:flex-start; justify-content:space-between; gap:min(2cqi,6px); pointer-events:none; }
+        .tv-card-meta { position:absolute; top:min(2cqi,6px); right:min(2cqi,6px); left:min(2cqi,6px); z-index:2; display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:start; gap:min(2cqi,6px); pointer-events:none; }
         .tv-price-badge,.tv-display-badge { display:flex; min-width:0; flex-direction:column; border:1px solid #fff; box-shadow:0 0 min(2cqi,6px) rgba(255,255,255,.28); color:#050505; line-height:1; text-transform:uppercase; }
-        .tv-price-badge { align-items:flex-start; border-color:#fff; border-radius:3px; background:#fff; color:#050505; padding:min(1.5cqi,4px) min(2cqi,6px) min(1.7cqi,5px); }
-        .tv-price-kicker,.tv-display-kicker { font-size:min(3.2cqi,9px); font-weight:900; letter-spacing:.14em; opacity:.82; }
+        .tv-price-badge { align-items:flex-start; justify-self:start; max-width:100%; box-sizing:border-box; overflow:hidden; border-color:#fff; border-radius:3px; background:#fff; color:#050505; padding:min(1.2cqi,3px) min(1.6cqi,5px) min(1.4cqi,4px); }
+        .tv-price-kicker,.tv-display-kicker { font-size:min(3cqi,8px); font-weight:900; letter-spacing:.14em; opacity:.82; }
         .tv-display-kicker { font-size:min(5cqi,12px); }
-        .tv-price-value { margin-top:min(.8cqi,2px); font-size:min(9cqi,20px); font-weight:950; letter-spacing:-.06em; }
-        .tv-display-badge { align-items:flex-end; border-color:#fff; border-radius:3px; background:#fff; color:#050505; padding:min(1.5cqi,4px) min(2cqi,6px) min(1.7cqi,5px); }
+        .tv-price-value { margin-top:min(.8cqi,2px); font-size:min(8cqi,18px); font-weight:950; letter-spacing:-.06em; white-space:nowrap; }
+        .tv-display-badge { grid-column:2; justify-self:center; max-width:100%; box-sizing:border-box; overflow:hidden; align-items:flex-end; border-color:#fff; border-radius:3px; background:#fff; color:#050505; padding:min(1.5cqi,4px) min(2cqi,6px) min(1.7cqi,5px); }
         /* The sizing box mirrors the current ticket face content width at every board size. */
         /* Responsive server-rendered fallback; hydration mirrors the exact live Current Ticket font size. */
         .tv-display-number { display:block; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc((min(18.9969cqi,57.9233px) - 1.7px) / var(--current-ticket-digit-divisor,1.6)); font-weight:950; letter-spacing:-.04em; line-height:1; white-space:nowrap; }

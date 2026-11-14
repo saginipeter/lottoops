@@ -82,7 +82,7 @@ export function ActiveStockTable({ packs, canManageDisplay, canUpdatePackMetadat
   async function updateDirection(pack: any, next: "FIRST" | "LAST") {
     const current = pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST";
     if (next === current) return;
-    const reason = window.prompt("Enter the reason for changing the sell direction:")?.trim();
+    const reason = window.prompt("Enter the reason for changing the ticket tracking order:")?.trim();
     if (!reason || reason.length < 6) return;
     try {
       setUpdatingDirectionId(pack.id);
@@ -93,12 +93,12 @@ export function ActiveStockTable({ packs, canManageDisplay, canUpdatePackMetadat
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        window.alert(data.error ?? "Unable to update sell direction.");
+        window.alert(data.error ?? "Unable to update ticket tracking order.");
         return;
       }
       router.refresh();
     } catch {
-      window.alert("Unable to update sell direction. Check your connection and try again.");
+      window.alert("Unable to update ticket tracking order. Check your connection and try again.");
     } finally {
       setUpdatingDirectionId(null);
     }
@@ -182,17 +182,17 @@ export function ActiveStockTable({ packs, canManageDisplay, canUpdatePackMetadat
                       </Button>
                     </Link>
                     {canUpdatePackMetadata && <Button size="sm" variant="secondary" onClick={() => { setSelectedPack(pack); setUpdateModalOpen(true); }}>Update This Pack</Button>}
-                    {canManageDisplay && <label className="sr-only" htmlFor={`sell-direction-${pack.id}`}>Sell direction for pack {pack.packNumber ?? pack.serialNumber}</label>}
+                    {canManageDisplay && <label className="sr-only" htmlFor={`sell-direction-${pack.id}`}>Ticket tracking order for pack {pack.packNumber ?? pack.serialNumber}</label>}
                     {canManageDisplay && <select
                       id={`sell-direction-${pack.id}`}
-                      aria-label={`Sell direction for pack ${pack.packNumber ?? pack.serialNumber}`}
+                      aria-label={`Ticket tracking order for pack ${pack.packNumber ?? pack.serialNumber}`}
                       value={pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST"}
                       disabled={updatingDirectionId === pack.id}
                       onChange={(event) => { void updateDirection(pack, event.target.value as "FIRST" | "LAST"); }}
                       className="min-h-9 border border-border bg-surface px-2 text-xs font-semibold text-text disabled:opacity-60"
                     >
-                      <option value="FIRST">Sell from First</option>
-                      <option value="LAST">Sell from Last</option>
+                      <option value="FIRST">Track from First</option>
+                      <option value="LAST">Track from Last</option>
                     </select>}
                     {canManageDisplay && <Button size="sm" variant="destructive" onClick={() => openRemoveModal(pack)}>Remove</Button>}
                   </div>

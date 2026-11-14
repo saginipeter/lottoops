@@ -3,6 +3,7 @@ import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { queryInventoryActivity } from "@/lib/activity-log";
 import { readableReportText } from "@/lib/report-readable-text";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 const INVENTORY_COST_RATE = 0.95;
 // Match the API: each row/total rounds 95% of its own gross, not the sum of rounded child costs.
@@ -97,8 +98,9 @@ export async function GET(req: NextRequest) {
   if (type === "shifts") {
     const headers = [
       "Shift", "Terminal", "Opened At", "Closed At", "Opened By", "Closed By",
-      "Opening Total Tickets (shift-scoped)", "Tickets Sold", "Ending Active Stock (shift-scoped)",
-      "Gross Sales 100% ($)", "Cost 95% ($)", "Net Margin ($)", "Margin %",
+      "Opening Total Tickets (shift-scoped)", "Tickets Tracked", "Ending Active Stock (shift-scoped)",
+      "Ticket Value 100% ($)", "Cost 95% ($)", "Net Value Difference ($)", "Margin %",
+      "Register Scratch Off Sales ($)", "Difference (register minus system) ($)",
     ];
 
     const rows = (shifts as any[]).map((shift) => {
@@ -118,8 +120,8 @@ export async function GET(req: NextRequest) {
       return [
         shift.shiftNumber == null ? "Unnumbered" : `Shift ${shift.shiftNumber}`,
         shift.terminalId ?? "Not recorded",
-        shift.openedAt.toISOString(),
-        shift.closedAt?.toISOString() ?? "",
+        formatReportTimestamp(shift.openedAt),
+        shift.closedAt ? formatReportTimestamp(shift.closedAt) : "",
         shift.openedBy.name,
         shift.closedBy?.name ?? "",
         totalTickets,
@@ -129,6 +131,8 @@ export async function GET(req: NextRequest) {
         cogs.toFixed(2),
         net.toFixed(2),
         gross > 0 ? ((net / gross) * 100).toFixed(1) : "0.0",
+        shift.registerScratchOffSales == null ? "Not recorded" : Number(shift.registerScratchOffSales).toFixed(2),
+        shift.registerScratchOffSales == null ? "Not recorded" : roundCurrency(Number(shift.registerScratchOffSales) - gross).toFixed(2),
       ];
     });
     csv = buildCSV(headers, rows);
@@ -159,8 +163,8 @@ export async function GET(req: NextRequest) {
       }
     }
     const headers = [
-      "Game #", "Game Name", "Opening Total Tickets (shift-scoped)", "Tickets Sold",
-      "Ending Active Stock (shift-scoped)", "Gross Sales 100% ($)", "Cost 95% ($)", "Net Margin ($)", "Margin %",
+      "Game #", "Game Name", "Opening Total Tickets (shift-scoped)", "Tickets Tracked",
+      "Ending Active Stock (shift-scoped)", "Ticket Value 100% ($)", "Cost 95% ($)", "Net Value Difference ($)", "Margin %",
     ];
     const rows = Array.from(gameMap.values())
       .sort((a, b) => b.sales - a.sales)
@@ -212,7 +216,7 @@ export async function GET(req: NextRequest) {
       p.ticketQuantity ?? "",
       Number(p.cost).toFixed(2),
       Number(p.retailValue).toFixed(2),
-      p.receivedAt.toISOString(),
+      formatReportTimestamp(p.receivedAt),
     ]);
     rows.push(["", "", `Total packs: ${packs.length}`, "", "", "", "", "", ""]);
     csv = buildCSV(headers, rows);
@@ -235,7 +239,7 @@ export async function GET(req: NextRequest) {
         terminalId: string | null;
       };
       return [
-        new Date(entry.createdAt).toISOString(),
+        formatReportTimestamp(entry.createdAt),
         entry.action,
         entry.entityType,
         readableReportText(entry.detail),
@@ -254,14 +258,16 @@ export async function GET(req: NextRequest) {
       const rows = (shifts as any[]).flatMap((shift) => {
         const tickets = shift.lines.reduce((sum: number, line: any) => sum + Number(line.ticketsSold ?? 0), 0);
         const sales = shift.lines.reduce((sum: number, line: any) => sum + Number(line.salesAmount ?? 0), 0);
-        return [`${shift.shiftNumber == null ? "Unnumbered shift" : `Shift ${shift.shiftNumber}`} · ${shift.terminalId ?? "Terminal not recorded"} · ${shift.openedAt.toISOString()}`, `${shift.openedBy.name} → ${shift.closedBy?.name ?? "Not recorded"}`, `Tickets: ${tickets} | Sales: $${sales.toFixed(2)}`, ""];
+        const registerAmount = shift.registerScratchOffSales == null ? "Not recorded" : `$${Number(shift.registerScratchOffSales).toFixed(2)}`;
+        const difference = shift.registerScratchOffSales == null ? "Not recorded" : `$${roundCurrency(Number(shift.registerScratchOffSales) - sales).toFixed(2)}`;
+        return [`${shift.shiftNumber == null ? "Unnumbered shift" : `Shift ${shift.shiftNumber}`} · ${shift.terminalId ?? "Terminal not recorded"} · ${formatReportTimestamp(shift.openedAt)}`, `${shift.openedBy.name} → ${shift.closedBy?.name ?? "Not recorded"}`, `Tickets tracked: ${tickets} | System tracked ticket value: $${sales.toFixed(2)}`, `Register Scratch Off Sales: ${registerAmount} | Difference: ${difference}`, ""];
       });
       const pdf = buildSimplePdf("LottoOps Shift Report", `${fromDate.toISOString().slice(0, 10)} through ${toDate.toISOString().slice(0, 10)}`, rows);
       return new NextResponse(pdf as unknown as BodyInit, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="shifts_${fromDate.toISOString().slice(0, 10)}.pdf"` } });
     }
     if (type === "activity") {
       const logs = await queryInventoryActivity(session.storeId, { from: fromDate, to: toDate, limit: 2000 });
-      const rows = logs.map((entry: any) => `${new Date(entry.createdAt).toISOString()} | ${entry.action} | ${entry.performedByName ?? "Not recorded"} | ${readableReportText(entry.detail) ?? ""}`);
+      const rows = logs.map((entry: any) => `${formatReportTimestamp(entry.createdAt)} | ${entry.action} | ${entry.performedByName ?? "Not recorded"} | ${readableReportText(entry.detail) ?? ""}`);
       const pdf = buildSimplePdf("LottoOps Activity Log", `${fromDate.toISOString().slice(0, 10)} through ${toDate.toISOString().slice(0, 10)}`, rows);
       return new NextResponse(pdf as unknown as BodyInit, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="activity_${fromDate.toISOString().slice(0, 10)}.pdf"` } });
     }

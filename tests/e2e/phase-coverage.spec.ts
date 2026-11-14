@@ -111,7 +111,7 @@ test.describe("Authenticated POS workflow integration", () => {
     await page.getByRole("textbox", { name: "Password" }).fill(process.env.E2E_TEST_PASSWORD ?? "");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByText("Sell Tickets")).toBeVisible();
+    await expect(page.getByText("Track Tickets")).toBeVisible();
     await expect(page.getByText("Store Admin")).toBeVisible();
   });
 

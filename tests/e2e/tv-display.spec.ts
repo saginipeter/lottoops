@@ -349,6 +349,7 @@ for (const viewport of [
       const artwork = card.querySelector(".tv-artwork-crop") as HTMLElement | null;
       const cardRect = card.getBoundingClientRect();
       const displayRect = displayNumber.getBoundingClientRect();
+      const displayBadgeRect = displayBadge.getBoundingClientRect();
       const priceRect = priceBadge.getBoundingClientRect();
       const artworkStyle = artwork ? getComputedStyle(artwork) : null;
       return {
@@ -359,6 +360,7 @@ for (const viewport of [
         currentBackground: getComputedStyle(current).backgroundImage,
         nextBackground: getComputedStyle(next).backgroundImage,
         displayNumberInHeader: displayRect.top >= cardRect.top && displayRect.bottom <= cardRect.top + cardRect.height * .28,
+        displayBadgeCentered: Math.abs(displayBadgeRect.x + displayBadgeRect.width / 2 - (cardRect.x + cardRect.width / 2)) < 1.5,
         priceOnLeft: priceRect.x < displayRect.x,
         artworkCropped: Boolean(artworkStyle && artworkStyle.top.startsWith("-") && artworkStyle.overflow === "hidden"),
         priceBadgeCount: card.querySelectorAll(".tv-price-badge").length,
@@ -381,6 +383,7 @@ for (const viewport of [
     expect(visual.currentBackground).toContain("rgb(255, 154, 154)");
     expect(visual.nextBackground).toContain("rgb(255, 154, 154)");
     expect(visual.displayNumberInHeader).toBe(true);
+    expect(visual.displayBadgeCentered).toBe(true);
     expect(visual.priceOnLeft).toBe(true);
     expect(visual.artworkCropped).toBe(true);
     expect(visual.priceBadgeCount).toBe(1);

@@ -1,5 +1,6 @@
 import type { ReportDocument, ReportValue } from "./report-document";
 import { readablePackReferenceText, readableReportText } from "./report-readable-text";
+import { formatReportTimestamp } from "./report-timestamp";
 
 type Metadata = NonNullable<ReportDocument["metadata"]>;
 
@@ -40,7 +41,7 @@ export function buildInventoryAgingDocument(packs: ReadonlyArray<{
   return table("Inventory Aging", ["Pack", "Game", "Game number", "Status", "Display", "Received", "Activated", "Age (days)"],
     [...packs].sort((a, b) => b.ageDays - a.ageDays).map((pack) => [
       pack.serialNumber, pack.game, pack.gameNumber, pack.status.replaceAll("_", " "),
-      text(pack.display), pack.receivedAt, pack.activatedAt, pack.ageDays,
+      text(pack.display), formatReportTimestamp(pack.receivedAt), pack.activatedAt ? formatReportTimestamp(pack.activatedAt) : null, pack.ageDays,
     ]), [{ label: "Scope", value: "Loaded active and backstock packs" }, { label: "Order", value: "Oldest first" }]);
 }
 
@@ -53,7 +54,7 @@ export function buildDiscrepancyDocument(rows: ReadonlyArray<{
   return table("Discrepancy Review",
     ["Type", "Status", "Pack #", "Game", "Game #", "Display", "Expected", "Observed", "Variance", "Time", "Actor", "Reason", "Resolved by"],
     selected.map((row) => [row.type, row.status, row.pack, row.game, text(row.gameNumber), text(row.display), row.expected,
-      row.observed, row.variance, row.timestamp, text(row.actor), readablePackReferenceText(row.reason, row.pack, row.gameNumber), text(row.resolvedBy)]),
+      row.observed, row.variance, row.timestamp ? formatReportTimestamp(row.timestamp) : null, text(row.actor), readablePackReferenceText(row.reason, row.pack, row.gameNumber), text(row.resolvedBy)]),
     [{ label: "Status filter", value: filter }]);
 }
 
@@ -62,7 +63,7 @@ export function buildCorrectionDocument(corrections: ReadonlyArray<{
   newValue: string; reason: string; correctedByName: string | null; createdAt: string;
 }>): ReportDocument {
   return table("Correction History", ["Time", "Entity", "Field", "Original", "Corrected", "Reason", "Corrected by"],
-    corrections.map((row) => [row.createdAt, text(row.entityLabel) ?? row.entityType.replaceAll("_", " "), row.fieldName,
+    corrections.map((row) => [formatReportTimestamp(row.createdAt), text(row.entityLabel) ?? row.entityType.replaceAll("_", " "), row.fieldName,
       readableReportText(row.oldValue), readableReportText(row.newValue), readableReportText(row.reason), text(row.correctedByName)]));
 }
 
@@ -103,7 +104,7 @@ export function buildExceptionTrendsDocument(data: {
 }): ReportDocument {
   return {
     title: "Exception Trends", paper: "A4",
-    metadata: [{ label: "Period", value: "Last 30 days (loaded response)" }, { label: "Since", value: text(data.since) }],
+    metadata: [{ label: "Period", value: "Last 30 days (loaded response)" }, { label: "Since", value: data.since ? formatReportTimestamp(data.since) : null }],
     sections: [
       { title: "Summary", columns: ["Metric", "Count"], rows: [
         ["Audit variances", data.summary.auditVariances],
@@ -139,7 +140,7 @@ export function buildAiDiscrepancyDocument(analysis: {
 export function buildWhatsAppSummaryDocument(summary: string, sentAt: string | null): ReportDocument {
   return {
     title: "WhatsApp Daily Summary", paper: "A4",
-    metadata: [{ label: "Delivery confirmed at", value: sentAt }],
+    metadata: [{ label: "Delivery confirmed at", value: sentAt ? formatReportTimestamp(sentAt) : null }],
     sections: [{ title: "Sent summary", columns: ["Summary text"],
       rows: summary.split(/\r?\n/).map((line) => [text(line)]) }],
     notes: ["Existing sent summary only. Viewing or printing does not generate or send a message."],
@@ -151,7 +152,7 @@ export function buildTicketReportsDocument(reports: ReadonlyArray<{
   performedByName: string | null; createdAt: string;
 }>, title = "Employee Ticket Reports"): ReportDocument {
   return table(title, ["Store", "Reported at", "Reported by", "Detail"],
-    reports.map((report) => [text(report.storeName), report.createdAt,
+    reports.map((report) => [text(report.storeName), formatReportTimestamp(report.createdAt),
       text(report.performedByName), readableReportText(report.detail)]),
     [{ label: "Scope", value: "All loaded pending reports" }],
     ["Includes every loaded record, not only the first eight cards."]);
@@ -170,8 +171,8 @@ export function buildTicketReturnRequestsDocument(requests: ReadonlyArray<{
       request.status === "RETURNED_PENDING_REVIEW"
         ? `Already returned; review only. Reason: ${readableReportText(request.reason) ?? "Not recorded"}`
         : readableReportText(request.reason),
-      text(request.requestedByName), request.createdAt]),
-    [{ label: "Scope", value: "All loaded return reviews and legacy pending requests. Returned-ticket reviews do not change inventory or sales." }]);
+      text(request.requestedByName), formatReportTimestamp(request.createdAt)]),
+    [{ label: "Scope", value: "All loaded return reviews and legacy pending requests. Returned-ticket reviews do not change inventory or ticket tracking." }]);
 }
 
 export function buildShipmentOverridesDocument(notifications: ReadonlyArray<{
@@ -179,7 +180,7 @@ export function buildShipmentOverridesDocument(notifications: ReadonlyArray<{
   expectedPackQuantity?: number | null; recordedPackQuantity?: number | null;
 }>): ReportDocument {
   return table("Shipment Overrides", ["Store", "Time", "Approved by", "Expected Quantity (packs)", "Recorded Quantity (packs)", "Detail"],
-    notifications.map((notification) => [text(notification.storeName), notification.createdAt,
+    notifications.map((notification) => [text(notification.storeName), formatReportTimestamp(notification.createdAt),
       text(notification.performedByName), notification.expectedPackQuantity ?? null,
       notification.recordedPackQuantity ?? null, readableReportText(notification.detail)]),
     [{ label: "Quantity unit", value: "Pack counts at override approval" }],
@@ -197,7 +198,7 @@ export function buildStateReportArchiveDocument(report: {
       { label: "Week of Monday", value: text(context.weekStart) }, { label: "Report type", value: report.reportType },
     ],
     sections: [{ title: "Saved upload metadata", columns: ["File name", "Uploaded at", "CSV rows", "Verification status", "Original evidence URL"],
-      rows: [[report.fileName, report.uploadedAt, report.imageUrl ? null : report.rowCount,
+      rows: [[report.fileName, formatReportTimestamp(report.uploadedAt), report.imageUrl ? null : report.rowCount,
         text(report.verificationStatus), text(report.imageUrl)]] }],
     notes: [
       "Archive metadata only. Uploaded attachment contents and lottery metrics are not included in this report.",

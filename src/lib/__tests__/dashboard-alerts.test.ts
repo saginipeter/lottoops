@@ -51,7 +51,7 @@ test("security warnings are distinct from device failures and never fabricated",
 
 test("operational alert guidance gives practical next steps and points to the right module", () => {
   const mismatch = getAlertResolutionGuidance("TICKET_EXCEPTION");
-  assert.ok(mismatch.steps.some((step) => step.includes("No sale was recorded")));
+  assert.ok(mismatch.steps.some((step) => step.includes("No ticket was tracked")));
   assert.ok(mismatch.steps.some((step) => step.includes("expected ticket")));
   assert.equal(mismatch.href, "/shifts");
   assert.equal(getAlertResolutionGuidance("LOW_TICKETS").href, "/inventory/active");

@@ -18,7 +18,7 @@ BACK_STOCK: {
     className: "bg-green-100 text-green-700",
   },
   SOLD_OUT: {
-    label: "Sold Out",
+    label: "No Tickets Remaining",
     className: "bg-gray-100 text-gray-700",
   },
   RETURNED: {

@@ -77,7 +77,7 @@ export default function ShiftDashboard({
             <Clock className="mx-auto mb-4 text-gray-400" size={40} />
             <h2 className="text-2xl font-semibold">No Active Shift</h2>
             <p className="mt-2 text-sm text-gray-500">
-              Open shift on terminal {terminalId} to start ticket scanning and sales reconciliation.
+              Open shift on terminal {terminalId} to start ticket tracking and Register Scratch Off Sales reconciliation.
             </p>
             <Button
               className="mt-6"
@@ -201,7 +201,7 @@ export default function ShiftDashboard({
               className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-soft"
             >
               <ShoppingCart size={14} />
-              Sell Tickets
+              Track Tickets
             </Link>
             <Link
               href="/display-slots"
@@ -220,12 +220,12 @@ export default function ShiftDashboard({
           />
 
           <Stat
-            label="Tickets Sold"
+            label="Tickets Tracked"
             value={totalTickets}
           />
 
           <Stat
-            label="Sales"
+            label="Ticket Value"
             value={formatCurrency(totalSales)}
           />
         </div>
@@ -239,7 +239,7 @@ export default function ShiftDashboard({
 
       <Panel className="p-6">
         <h3 className="text-base font-semibold text-text">Employees active in this shift</h3>
-        <p className="mt-1 text-sm text-text-secondary">People recorded through sales, audit, or ticket activity.</p>
+        <p className="mt-1 text-sm text-text-secondary">People recorded through ticket tracking or audit activity.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {participants.length === 0 ? <span className="text-sm text-text-secondary">No handoff activity recorded yet.</span> : participants.map((participant) => <span key={participant.userId} className="rounded-full border border-border bg-surface-soft px-3 py-1.5 text-xs text-text">{participant.name}</span>)}
         </div>

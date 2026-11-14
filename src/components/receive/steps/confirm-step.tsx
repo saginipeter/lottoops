@@ -248,7 +248,7 @@ export function ConfirmStep({
               <div>
                 <div className="font-semibold">Active Display</div>
                 <div className="text-sm text-gray-600">
-                  Packs will be immediately placed on display and available for sale.
+                  Packs will be placed on display and ready for ticket tracking.
                 </div>
               </div>
             </label>
@@ -274,17 +274,17 @@ export function ConfirmStep({
         <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-hidden">
           <DialogHeader><DialogTitle>Activate packs on display</DialogTitle></DialogHeader>
           <div className="min-h-0 space-y-5 overflow-y-auto pr-1">
-            <p className="text-sm text-gray-600">These packs will be activated immediately and assigned to the next available displays. Confirm the ticket sell order before receiving them.</p>
+            <p className="text-sm text-gray-600">These packs will be activated immediately and assigned to the next available displays. Confirm the ticket tracking order before receiving them.</p>
             <div>
-              <label className="mb-2 block text-sm font-medium">Ticket Sell Order</label>
+              <label className="mb-2 block text-sm font-medium">Ticket Tracking Order</label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className={`flex min-h-12 items-center gap-3 border p-3 ${firstOrLastTicket === "FIRST" ? "border-purple-500 bg-purple-50" : "border-gray-200"}`}>
                   <input type="radio" name="receive-first-or-last" checked={firstOrLastTicket === "FIRST"} onChange={() => setFirstOrLastTicket("FIRST")} className="h-4 w-4" />
-                  <span className="text-sm font-semibold">Sell from First Ticket</span>
+                  <span className="text-sm font-semibold">Track from First Ticket</span>
                 </label>
                 <label className={`flex min-h-12 items-center gap-3 border p-3 ${firstOrLastTicket === "LAST" ? "border-purple-500 bg-purple-50" : "border-gray-200"}`}>
                   <input type="radio" name="receive-first-or-last" checked={firstOrLastTicket === "LAST"} onChange={() => setFirstOrLastTicket("LAST")} className="h-4 w-4" />
-                  <span className="text-sm font-semibold">Sell from Last Ticket</span>
+                  <span className="text-sm font-semibold">Track from Last Ticket</span>
                 </label>
               </div>
             </div>

@@ -7,6 +7,7 @@ import { Panel } from "@/components/ui/panel";
 import { ReportActions } from "@/components/reports/report-actions";
 import { loadShipmentReport } from "@/lib/shipment-report";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
+import { formatReportDate } from "@/lib/report-timestamp";
 
 interface ShipmentRecord {
   id: string;
@@ -82,7 +83,7 @@ export function ReceivingShipmentsReport({ dateRange }: { dateRange: ReportDateR
             </tr></thead>
             <tbody>
               {shipments.map((shipment) => <tr key={shipment.id} className="border-b border-border last:border-0">
-                <td className="py-2.5 pr-3">{shipment.shipmentDate ? new Date(shipment.shipmentDate).toLocaleDateString() : new Date(shipment.createdAt).toLocaleDateString()}</td>
+                <td className="py-2.5 pr-3">{shipment.shipmentDate ? formatReportDate(shipment.shipmentDate) : formatReportDate(shipment.createdAt)}</td>
                 <td className="py-2.5 pr-3 font-mono">{shipment.invoiceNumber}</td>
                 <td className="py-2.5 pr-3 font-mono">{shipment.shipmentConfirmationNumber || "—"}</td>
                 <td className="py-2.5 pr-3">{shipment.receivedBy?.name || "Not recorded"}</td>

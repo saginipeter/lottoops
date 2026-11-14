@@ -5,6 +5,7 @@ import { BarChart3, Bookmark, ChevronDown, FileBarChart2, History, Package, Refr
 import { FinancialReports } from "@/components/reports/financial-reports";
 import { ActivityReport } from "@/components/reports/activity-report";
 import { InventoryStatusReport } from "@/components/reports/inventory-status-report";
+import { BackStockSummaryReport } from "@/components/reports/back-stock-summary-report";
 import { InventoryAgingReport } from "@/components/reports/inventory-aging-report";
 import { DiscrepancyReport } from "@/components/reports/discrepancy-report";
 import { CorrectionReport } from "@/components/reports/correction-report";
@@ -20,7 +21,7 @@ import { StateReportsUploader } from "@/components/owner/state-reports-uploader"
 import { ReportDateFilter, type ReportDateRangeValue } from "@/components/reports/report-date-filter";
 
 type Role = "OWNER" | "MANAGER" | "EMPLOYEE" | "SHIFT_LEAD" | "PLATFORM_ADMIN" | "AUDITOR";
-type ReportKey = "shift-sales" | "activity" | "inventory" | "inventory-aging" | "discrepancies" | "corrections" | "lifecycle" | "exceptions" | "ai-review" | "whatsapp" | "ticket-reports" | "returns" | "shipment-overrides" | "receiving-shipments" | "state-uploads";
+type ReportKey = "shift-sales" | "activity" | "inventory" | "back-stock-summary" | "inventory-aging" | "discrepancies" | "corrections" | "lifecycle" | "exceptions" | "ai-review" | "whatsapp" | "ticket-reports" | "returns" | "shipment-overrides" | "receiving-shipments" | "state-uploads";
 
 interface ReportOption {
   key: ReportKey;
@@ -34,18 +35,19 @@ interface ReportOption {
 const roleRank: Record<Role, number> = { EMPLOYEE: 1, AUDITOR: 2, SHIFT_LEAD: 2, MANAGER: 3, OWNER: 4, PLATFORM_ADMIN: 5 };
 
 const reportOptions: ReportOption[] = [
-  { key: "shift-sales", label: "Shift Sales Report", description: "Sales, ticket counts, margin, and printable shift audit records.", group: "Sales & Operations", icon: TicketCheck },
-  { key: "activity", label: "Activity Report", description: "Understand who changed what, when, and from which store.", group: "Sales & Operations", icon: History },
+  { key: "shift-sales", label: "Shift Ticket Tracking Report", description: "Tickets tracked, ticket value, register scratch-off sales, and printable shift audit records.", group: "Ticket Tracking & Operations", icon: TicketCheck },
+  { key: "activity", label: "Activity Report", description: "Understand who changed what, when, and from which store.", group: "Ticket Tracking & Operations", icon: History },
   { key: "inventory", label: "Inventory Status", description: "Current stock, active displays, and pack-level inventory posture.", group: "Inventory", icon: Package },
+  { key: "back-stock-summary", label: "Back Stock Summary", description: "Total back-stock pack count, 100% retail value, and 95% cost payout.", group: "Inventory", icon: Package },
   { key: "inventory-aging", label: "Inventory Aging", description: "Identify stock that has remained in inventory too long.", group: "Inventory", icon: Store },
   { key: "discrepancies", label: "Discrepancies", description: "Review unresolved stock and sequence discrepancies.", group: "Controls", icon: ShieldAlert },
   { key: "corrections", label: "Manager Corrections", description: "Review protected overrides and manager-authorized corrections.", group: "Controls", icon: RefreshCw, minimumRole: "MANAGER" },
-  { key: "lifecycle", label: "Pack Lifecycle", description: "Track pack receiving, activation, sales, and completion.", group: "Analytics", icon: BarChart3 },
+  { key: "lifecycle", label: "Pack Lifecycle", description: "Track pack receiving, activation, ticket activity, and completion.", group: "Analytics", icon: BarChart3 },
   { key: "exceptions", label: "Exception Trends", description: "See recurring operational exceptions over time.", group: "Analytics", icon: BarChart3 },
   { key: "ai-review", label: "AI Discrepancy Review", description: "Generate a manager review of unusual discrepancies.", group: "Management", icon: ShieldAlert, minimumRole: "MANAGER" },
   { key: "whatsapp", label: "Daily Summary", description: "Send the current operational summary to the configured channel.", group: "Management", icon: Users, minimumRole: "MANAGER" },
   { key: "ticket-reports", label: "Employee Ticket Reports", description: "Review tickets reported by employees for manager action.", group: "Management", icon: FileBarChart2, minimumRole: "MANAGER" },
-  { key: "returns", label: "Ticket Return Requests", description: "Review tickets already returned for resale and resolve legacy return requests.", group: "Management", icon: RefreshCw, minimumRole: "MANAGER" },
+  { key: "returns", label: "Ticket Return Requests", description: "Review returned tickets and resolve return requests.", group: "Management", icon: RefreshCw, minimumRole: "MANAGER" },
   { key: "shipment-overrides", label: "Shipment Overrides", description: "Review receiving overrides and exception notifications.", group: "Management", icon: Package, minimumRole: "MANAGER" },
   { key: "receiving-shipments", label: "Receiving Shipments", description: "Search historical shipment records, receiver names, and pack counts.", group: "Inventory", icon: Package, minimumRole: "MANAGER" },
   { key: "state-uploads", label: "State Report Uploads", description: "Upload required state reports and supporting evidence.", group: "Management", icon: Upload, minimumRole: "MANAGER" },
@@ -94,6 +96,7 @@ export function ReportsWorkspace({ role }: { role: Role }) {
       case "shift-sales": return <FinancialReports dateRange={dateRange} />;
       case "activity": return <ActivityReport dateRange={dateRange} />;
       case "inventory": return <InventoryStatusReport dateRange={dateRange} />;
+      case "back-stock-summary": return <BackStockSummaryReport />;
       case "inventory-aging": return <InventoryAgingReport dateRange={dateRange} />;
       case "discrepancies": return <DiscrepancyReport dateRange={dateRange} />;
       case "corrections": return <CorrectionReport dateRange={dateRange} />;
@@ -134,7 +137,7 @@ export function ReportsWorkspace({ role }: { role: Role }) {
         </div>
         {favorites.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Quick access</span>{favorites.map((key) => { const option = available.find((item) => item.key === key); return option ? <button key={key} type="button" onClick={() => setSelected(key)} className={`border px-3 py-2 text-xs font-bold ${selected === key ? "border-[#087da8] bg-[#e0f6fc] text-[#087da8]" : "border-slate-200 text-slate-600 hover:border-[#087da8]"}`}>{option.label}</button> : null; })}</div>}
       </section>
-      <ReportDateFilter value={dateRange} onChange={setDateRange} />
+      {current.key !== "back-stock-summary" && <ReportDateFilter value={dateRange} onChange={setDateRange} />}
       <section aria-labelledby="selected-report-title">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-l-4 border-[#087da8] bg-[#17233f] px-4 py-3 text-white sm:items-center">
           <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#087da8] text-white"><Icon size={18} /></span><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8be2ff]">{current.group}</p><h2 id="selected-report-title" className="truncate text-lg font-black">{current.label}</h2></div></div>

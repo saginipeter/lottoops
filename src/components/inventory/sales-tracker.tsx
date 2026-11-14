@@ -38,19 +38,19 @@ export function SalesTracker({ sales, shiftStats }: SalesTrackerProps) {
   return (
     <Panel className="space-y-6 p-6">
       <div>
-        <h3 className="text-lg font-bold mb-4">Sales Summary</h3>
+        <h3 className="text-lg font-bold mb-4">Ticket Tracking Summary</h3>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-4">
           <div className="rounded-lg bg-green-50 border border-green-200 p-4">
-            <p className="text-xs font-medium text-green-600 mb-1">Total Revenue</p>
+            <p className="text-xs font-medium text-green-600 mb-1">Ticket Value</p>
             <p className="text-2xl font-bold text-green-900">
               ${shiftStats.revenueTotal.toFixed(2)}
             </p>
           </div>
 
           <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
-            <p className="text-xs font-medium text-emerald-600 mb-1">Store Profit (5%)</p>
+            <p className="text-xs font-medium text-emerald-600 mb-1">Store Share (5%)</p>
             <p className="text-2xl font-bold text-emerald-900">
               ${(shiftStats.profitTotal ?? shiftStats.revenueTotal * 0.05).toFixed(2)}
             </p>
@@ -64,7 +64,7 @@ export function SalesTracker({ sales, shiftStats }: SalesTrackerProps) {
           </div>
 
           <div className="rounded-lg bg-purple-50 border border-purple-200 p-4">
-            <p className="text-xs font-medium text-purple-600 mb-1">Packs Sold</p>
+            <p className="text-xs font-medium text-purple-600 mb-1">Packs with tracked tickets</p>
             <p className="text-2xl font-bold text-purple-900">
               {shiftStats.packsSold}
             </p>
@@ -75,7 +75,7 @@ export function SalesTracker({ sales, shiftStats }: SalesTrackerProps) {
         <div>
           <h4 className="text-sm font-bold mb-3 flex items-center gap-2">
             <TrendingUp size={16} className="text-blue-600" />
-            Recent Sales (Last 10)
+            Recent Ticket Tracking (Last 10)
           </h4>
 
           {sales.length > 0 ? (
@@ -113,9 +113,9 @@ export function SalesTracker({ sales, shiftStats }: SalesTrackerProps) {
             </div>
           ) : (
             <div className="rounded-lg bg-gray-50 border border-dashed border-gray-300 p-8 text-center">
-              <p className="text-sm text-gray-600">No sales recorded yet</p>
+              <p className="text-sm text-gray-600">No tickets tracked yet</p>
               <p className="text-xs text-gray-500 mt-1">
-                Scan tickets to record sales
+                Scan tickets to record tracking
               </p>
             </div>
           )}

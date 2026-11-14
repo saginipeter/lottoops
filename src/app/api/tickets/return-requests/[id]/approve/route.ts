@@ -109,7 +109,7 @@ export async function POST(
     }
     if (pack.status !== "ACTIVE" && pack.status !== "SOLD_OUT") {
       return NextResponse.json(
-        { error: "Only ACTIVE or SOLD_OUT packs can be returned." },
+        { error: "Only active packs or packs with no tickets remaining can be returned." },
         { status: 409 }
       );
     }

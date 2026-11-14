@@ -588,11 +588,11 @@ export function UsersManager({ currentUserRole }: { currentUserRole: Role }) {
             },
             {
               role: "Shift Lead", color: "bg-blue-100 text-blue-700 border-blue-200",
-              perms: ["Open & close shifts", "Live scan sales", "Extras granted by Manager", "Cannot make corrections"],
+              perms: ["Open & close shifts", "Live ticket tracking", "Extras granted by Manager", "Cannot make corrections"],
             },
             {
               role: "Employee", color: "bg-gray-100 text-gray-600 border-gray-200",
-              perms: ["Open & close shifts", "Live scan sales only", "No corrections allowed", "No reports, no settings"],
+              perms: ["Open & close shifts", "Live ticket tracking only", "No corrections allowed", "No reports, no settings"],
             },
           ].map((r) => (
             <div key={r.role} className={`rounded-lg border p-3 ${r.color}`}>

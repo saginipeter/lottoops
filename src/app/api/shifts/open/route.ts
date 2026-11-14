@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSessionMaxAge, SESSION_COOKIE, signSession } from "@/lib/session";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
@@ -9,6 +10,7 @@ import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
 import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 import { getNextAvailableShiftNumber, parseShiftNumber } from "@/lib/shift-number";
 import { normalizeTerminalId } from "@/lib/device-registry";
+import { bindLoginSessionToShift, ShiftAssignmentConflict } from "@/lib/shift-session-assignment";
 
 interface ActivePack {
   id: string;
@@ -42,8 +44,10 @@ export async function POST(req: NextRequest) {
       );
     }
     if (isReadOnly(session)) return NextResponse.json({ error: "Auditor accounts are read-only." }, { status: 403 });
-    if (!isManagerOrAbove(session)) return NextResponse.json({ error: "Only a manager or owner can open a numbered shift." }, { status: 403 });
-
+    const staffCanOpen = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+    if (!isManagerOrAbove(session) && !staffCanOpen) {
+      return NextResponse.json({ error: "You are not authorized to open a numbered shift." }, { status: 403 });
+    }
     if (!prisma) {
       return NextResponse.json(
         { error: "Database not connected" },
@@ -54,15 +58,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const terminalId = body?.terminalId === undefined ? "T1" : normalizeTerminalId(body.terminalId);
     if (!terminalId) return NextResponse.json({ error: "Choose a registered terminal such as T1 or T2." }, { status: 400 });
-    const openingCash = Number(body?.openingCash ?? 0);
+    const requestedShiftId = typeof body?.shiftId === "string" ? body.shiftId.trim() : "";
     const requestedShiftNumber = body?.shiftNumber === undefined ? null : parseShiftNumber(body.shiftNumber);
     if (body?.shiftNumber !== undefined && requestedShiftNumber === null) {
       return NextResponse.json({ error: "Choose Shift 1 or Shift 2." }, { status: 400 });
     }
-    if (!Number.isFinite(openingCash) || openingCash < 0) {
-      return NextResponse.json({ error: "Starting drawer cash must be a valid non-negative amount." }, { status: 400 });
-    }
-
     try {
       const registeredRows = await prisma.$queryRawUnsafe(`SELECT COUNT(*)::int AS count FROM store_devices WHERE store_id = $1`, session.storeId) as Array<{ count: number }>;
       if (Number(registeredRows[0]?.count ?? 0) > 0) {
@@ -70,9 +70,36 @@ export async function POST(req: NextRequest) {
         if (activeRows.length === 0) {
           return NextResponse.json({ error: `Terminal ${terminalId} is not registered or is inactive for this store.` }, { status: 403 });
         }
+      } else if (terminalId !== "T1" && terminalId !== "T2") {
+        return NextResponse.json({ error: `Terminal ${terminalId} is not authorized for this store.` }, { status: 403 });
       }
     } catch {
-      // The registry is optional for legacy stores and initializes on first use.
+      // A legacy store without a device registry may use the standard T1/T2 labels.
+      if (terminalId !== "T1" && terminalId !== "T2") {
+        return NextResponse.json({ error: `Terminal ${terminalId} is not authorized for this store.` }, { status: 403 });
+      }
+    }
+
+    if (requestedShiftId) {
+      const selected = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const rows = await tx.$queryRawUnsafe<Array<{ id: string; shiftNumber: number | null; terminalId: string | null }>>(
+          `SELECT id, shift_number AS "shiftNumber", "terminalId"
+           FROM shifts WHERE id = $1 AND "storeId" = $2 AND status = 'OPEN' FOR UPDATE`,
+          requestedShiftId,
+          session.storeId,
+        );
+        const openShift = rows[0];
+        const shiftNumber = parseShiftNumber(openShift?.shiftNumber);
+        if (!openShift || !shiftNumber || !openShift.terminalId) {
+          throw new ShiftOpenError("That shift is no longer open. Refresh and choose an available shift.");
+        }
+        if (openShift.terminalId !== terminalId) {
+          throw new ShiftOpenError("The selected shift does not belong to the chosen terminal.");
+        }
+        const loginSessionId = await bindLoginSessionToShift(tx, session, { id: openShift.id, terminalId });
+        return { shiftId: openShift.id, shiftNumber, terminalId, loginSessionId };
+      }, { isolationLevel: "Serializable" });
+      return respondWithShift(session, selected);
     }
 
     const existingRows: Array<{ id: string; shiftNumber: number | null }> = await prisma.shift.findMany({
@@ -91,7 +118,7 @@ export async function POST(req: NextRequest) {
     // The Shift and its inventory/audit snapshot are atomic and serializable
     // against ticket sales on other concurrent numbered shifts.
     let activePackCount = 0;
-    const shift = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const opened = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Use the same pack-row lock as sales before reading the shared inventory.
       await tx.$queryRawUnsafe(
         `SELECT id FROM packs WHERE "storeId" = $1 AND status = 'ACTIVE' ORDER BY id FOR UPDATE`,
@@ -126,7 +153,6 @@ export async function POST(req: NextRequest) {
           storeId: session.storeId,
           shiftNumber,
           terminalId,
-          openingCash,
           openedById: session.userId,
           status: "OPEN",
         },
@@ -174,8 +200,11 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      return createdShift;
+      const loginSessionId = await bindLoginSessionToShift(tx, session, { id: createdShift.id, terminalId });
+
+      return { shift: createdShift, loginSessionId };
     }, { isolationLevel: "Serializable" });
+    const shift = opened.shift;
 
     try {
       await logInventoryActivity({
@@ -192,15 +221,10 @@ export async function POST(req: NextRequest) {
       console.warn("Shift opened, but the supplementary activity log could not be written:", activityError);
     }
 
-    return NextResponse.json({
-      success: true,
-      shiftId: shift.id,
-      shiftNumber,
-      terminalId,
-    });
+    return respondWithShift(session, { shiftId: shift.id, shiftNumber, terminalId, loginSessionId: opened.loginSessionId });
 
   } catch (error) {
-    if (error instanceof ShiftOpenError) {
+    if (error instanceof ShiftOpenError || error instanceof ShiftAssignmentConflict) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error(error);
@@ -220,4 +244,30 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+async function respondWithShift(
+  session: NonNullable<Awaited<ReturnType<typeof getApiSession>>>,
+  assignment: { shiftId: string; shiftNumber: 1 | 2; terminalId: string; loginSessionId: string | null },
+) {
+  const response = NextResponse.json({ success: true, ...assignment, loginSessionId: undefined });
+  if (session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD") {
+    const loginSessionId = assignment.loginSessionId;
+    if (!loginSessionId) return NextResponse.json({ error: "Unable to attach this login to the selected shift." }, { status: 500 });
+    const token = await signSession({
+      ...session,
+      shiftId: assignment.shiftId,
+      shiftNumber: assignment.shiftNumber,
+      terminalId: assignment.terminalId,
+      loginSessionId,
+    });
+    response.cookies.set(SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: getSessionMaxAge(session.rememberMe),
+      path: "/",
+    });
+  }
+  return response;
 }

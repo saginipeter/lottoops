@@ -30,7 +30,7 @@ export interface AlertResolutionGuidance {
 
 export function getAlertResolutionGuidance(type: string): AlertResolutionGuidance {
   if (type === "LOW_TICKETS") return {
-    steps: ["Check the pack and ticket count at the named display.", "Prepare a replacement pack from Back Stock before the display sells out."],
+    steps: ["Check the pack and ticket count at the named display.", "Prepare a replacement pack from Back Stock before the display runs out."],
     href: "/inventory/active", linkLabel: "Open Active Stock",
   };
   if (type === "INCOMPLETE_AUDIT") return {
@@ -42,11 +42,11 @@ export function getAlertResolutionGuidance(type: string): AlertResolutionGuidanc
     href: "/shifts", linkLabel: "Review Shift Audits",
   };
   if (type === "TICKET_EXCEPTION" || type === "EXPECTED_TICKET_MISMATCH") return {
-    steps: ["No sale was recorded for the wrong ticket.", "Check the expected ticket number and scan that ticket next. Review the pack and shift if the numbers still do not match."],
+    steps: ["No ticket was tracked for the wrong ticket scan.", "Check the expected ticket number and scan that ticket next. Review the pack and shift if the numbers still do not match."],
     href: "/shifts", linkLabel: "Review Shifts",
   };
   if (type === "WRONG_PACK_OR_GAME") return {
-    steps: ["No sale was recorded because the barcode did not match an active display pack.", "Check the barcode and the Pack # / Game # on the ticket, then verify that the correct pack is active on the correct display."],
+    steps: ["No ticket was tracked because the barcode did not match an active display pack.", "Check the barcode and the Pack # / Game # on the ticket, then verify that the correct pack is active on the correct display."],
     href: "/inventory/active", linkLabel: "Open Active Stock",
   };
   if (type === "PACK_UPDATE") return {

@@ -154,7 +154,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackId
     const data = await response.json();
     setMessageType(response.ok ? "success" : "error");
     setMessage(response.ok
-      ? `Audit scan recorded. Variance: ${Number(data.variance) > 0 ? "+" : ""}${data.variance ?? 0}.${data.scannedSoldTicket ? " Sold ticket excluded from remaining inventory." : ""}`
+      ? `Audit scan recorded. Variance: ${Number(data.variance) > 0 ? "+" : ""}${data.variance ?? 0}.${data.scannedSoldTicket ? " Previously tracked ticket excluded from remaining inventory." : ""}`
       : data.error ?? "Unable to record audit scan.");
     if (response.ok) {
       setLocalLines((current) => {
@@ -180,7 +180,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackId
   return (
     <Panel className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h3 className="text-base font-semibold">Physical Inventory Audit</h3><p className="text-xs text-text-tertiary">Scan each display pack. Audit scans do not record sales.</p></div>
+        <div><h3 className="text-base font-semibold">Physical Inventory Audit</h3><p className="text-xs text-text-tertiary">Scan each display pack. Audit scans do not change tracked ticket totals.</p></div>
       {!audit && <Button onClick={beginAudit}>Begin Opening Audit</Button>}
       {audit && <ReportActions
         key={audit.id}
@@ -194,12 +194,12 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackId
         <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" className={beginningComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} onClick={() => setPhase("beginning")}>Opening Audit · {beginningComplete ? "Complete" : "Required"}</Button><Button size="sm" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit · {closingComplete ? "Complete" : "Required"}</Button><Button size="sm" aria-label="Complete Closing Audit" className="!border-red-700 !bg-red-700 !font-black !text-white enabled:hover:!bg-red-800 disabled:opacity-50" disabled={phase !== "ending" || closingScanned < activeCount} onClick={completeAudit}>Complete Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>
         {!beginningComplete && <p className="mt-2 text-xs font-medium text-amber-700">Complete the Opening Audit first. The Closing Audit becomes available afterward.</p>}
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]"><input ref={inputRef} autoFocus value={barcode} inputMode="numeric" onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void scan(); } }} placeholder={phase === "beginning" ? "Scan the current ticket for the Opening Audit" : "Scan the current ticket for the Closing Audit"} className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono text-lg tracking-wider" /><Button onClick={() => { void scan(); }} disabled={!barcode.trim()}>Record {phase === "beginning" ? "Opening" : "Closing"} Scan</Button></div>
-        <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before sales begin." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
+        <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before ticket tracking begins." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>
         <PhoneBarcodeScanner key={`${audit.id}-${phase}`} onScan={(value) => { setBarcode(value); void scan(value); }} />
       </>}
       {lines.length > 0 && <div className="mt-4 overflow-x-auto">
         <table className="w-full text-left text-xs" aria-label="Physical audit inventory counts">
-          <thead><tr><th className="p-2">Display / Pack</th><th className="p-2">Beginning tickets</th><th className="p-2">Sales</th><th className="p-2">Expected ending</th><th className="p-2">Unsold remaining</th><th className="p-2">Ticket variance</th><th className="p-2">Scan status</th></tr></thead>
+          <thead><tr><th className="p-2">Display / Pack</th><th className="p-2">Beginning tickets</th><th className="p-2">Tickets tracked</th><th className="p-2">Expected ending</th><th className="p-2">Remaining tickets</th><th className="p-2">Ticket variance</th><th className="p-2">Scan status</th></tr></thead>
           <tbody>{lines.map((line) => {
             const livePack = livePacks.find((item) => item.packId === line.packId);
             const stock = inventoryLines.find((item) => item.packId === line.packId) ?? (livePack ? {
@@ -231,11 +231,11 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackId
             </tr>;
           })}</tbody>
         </table>
-        <p className="mt-2 text-xs text-text-tertiary">Beginning − sales = expected ending in either direction. Sold tickets are excluded; ticket variance = scanned ID − expected ID.</p>
+        <p className="mt-2 text-xs text-text-tertiary">Beginning − tickets tracked = expected ending in either direction. Tracked tickets are excluded from remaining stock; ticket variance = scanned ID − expected ID.</p>
       </div>}
       {audit?.status === "COMPLETED" && <section className="mt-4 border border-border bg-surface-soft p-4" aria-label="Physical audit variance report">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div><h4 className="text-sm font-bold text-text">Physical audit reconciliation</h4><p className="mt-1 text-xs text-text-secondary">Observed closing ticket compared with the system ticket after recorded sales.</p></div>
+          <div><h4 className="text-sm font-bold text-text">Physical audit reconciliation</h4><p className="mt-1 text-xs text-text-secondary">Observed closing ticket compared with the system ticket after tracked tickets.</p></div>
           <span className={`border px-2 py-1 text-xs font-bold ${varianceLines.length ? "border-amber-300 bg-amber-50 text-amber-800" : "border-emerald-300 bg-emerald-50 text-emerald-800"}`}>
             {varianceLines.length ? `${varianceLines.length} pack variance${varianceLines.length === 1 ? "" : "s"}` : "All packs reconciled"}
           </span>

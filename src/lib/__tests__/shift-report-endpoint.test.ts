@@ -51,7 +51,7 @@ test("shift report endpoint authenticates, scopes exact IDs, and ignores dates f
       }
       assert.equal(values[0], "authorized-store");
       assert.deepEqual(values[1], ["historic-shift"]);
-      return [{ id: "historic-shift", record: { openingCash: "100", expectedCash: "160", countedCash: "155", cashVariance: "-5", terminalId: "T2" } }];
+      return [{ id: "historic-shift", record: { registerScratchOffSales: "155", registerSalesRecordedAt: "2020-01-01T16:00:00.000Z", registerSalesRecordedBy: "Manager" } }];
     },
   };
   // Replace the route's server dependencies only within this isolated test process.
@@ -89,7 +89,10 @@ test("shift report endpoint authenticates, scopes exact IDs, and ignores dates f
   assert.equal(data.shifts[0].grossSales, 60);
   assert.equal(data.shifts[0].ticketsSold, 12);
   assert.equal(data.shifts[0].cogs, 57);
-  assert.equal(data.shifts[0].cash.cashVariance, -5);
+  assert.equal(data.shifts[0].registerScratchOffSales, 155);
+  assert.equal(data.shifts[0].registerSalesRecordedBy, "Manager");
+  assert.equal("cash" in data.shifts[0], false, "reports do not expose historical drawer-cash values");
+  assert.equal("openingCash" in data.shifts[0], false);
   assert.equal(data.shifts[0].terminalId, "T2");
   assert.equal(data.shifts[0].operatorSessions.length, 2, "management can review every sign-in grouped by its terminal");
   assert.deepEqual(data.shifts[0].operatorSessions.map((item: { employeeName: string; terminalId: string }) => [item.employeeName, item.terminalId]), [["Other Cashier", "T1"], ["Cashier", "T2"]]);
@@ -108,7 +111,8 @@ test("shift report endpoint authenticates, scopes exact IDs, and ignores dates f
   assert.equal(staffData.shifts[0].operatorSessions[0].sessionId, "login-cashier");
   assert.deepEqual(staffData.shifts[0].packSales, []);
   assert.deepEqual(staffData.shifts[0].audit, []);
-  assert.equal(staffData.shifts[0].cash.openingCash, null, "a staff session report does not return shared drawer figures");
+  assert.equal(staffData.shifts[0].registerScratchOffSales, null, "employee session reports do not return shared register totals");
+  assert.equal("cash" in staffData.shifts[0], false);
 
   session = { storeId: "authorized-store", storeName: "Authorized Store", userId: "manager", name: "Manager", role: "MANAGER" };
   const emptyId = await GET(new NextRequest("http://localhost/api/reports/shifts?shiftId="));

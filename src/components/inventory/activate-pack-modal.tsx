@@ -156,7 +156,7 @@ export function ActivatePackModal({
           {/* First or Last Ticket */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              Ticket Sell Order
+              Ticket Tracking Order
             </label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export function ActivatePackModal({
                   onChange={() => setFirstOrLastTicket("FIRST")}
                   className="h-4 w-4"
                 />
-                <span className="text-sm">Sell from First Ticket</span>
+                <span className="text-sm">Track from First Ticket</span>
               </label>
               <label className="flex items-center gap-2">
                 <input
@@ -179,7 +179,7 @@ export function ActivatePackModal({
                   onChange={() => setFirstOrLastTicket("LAST")}
                   className="h-4 w-4"
                 />
-                <span className="text-sm">Sell from Last Ticket</span>
+                <span className="text-sm">Track from Last Ticket</span>
               </label>
             </div>
           </div>

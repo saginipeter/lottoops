@@ -2,6 +2,7 @@ import type { ReportDocument } from "./report-document";
 import { calculatePhysicalAuditVariance } from "./core-validation";
 import { compareDisplayNumberLabels, formatDisplayNumberLabel } from "./display-number-order";
 import type { OperatorSessionSales } from "./shift-session-sales";
+import { formatReportDate, formatReportTimestamp } from "./report-timestamp";
 
 export interface ShiftGameSummary {
   id?: string;
@@ -26,6 +27,9 @@ export interface ShiftReportData {
   grossSales: number;
   cogs?: number;
   ticketsSold: number;
+  registerScratchOffSales?: number | null;
+  registerSalesRecordedAt?: string | null;
+  registerSalesRecordedBy?: string | null;
   gameBreakdown: ShiftGameSummary[];
   packSales: Array<{
     pack: string; game: string; display: string;
@@ -44,19 +48,16 @@ export interface ShiftReportData {
   auditClosedBy: string | null;
   auditOpenedAt: string | null;
   auditClosedAt: string | null;
-  cash: {
-    openingCash: number | null; expectedCash: number | null; countedCash: number | null;
-    cashVariance: number | null; reconciledAt: string | null; reconciledBy: string | null;
-  };
 }
 
 const NOT_RECORDED = "Not recorded";
 const money = (value: number | null | undefined) => value == null
   ? NOT_RECORDED
   : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-const timestamp = (value: string | null) => value
-  ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
+const timestamp = (value: string | Date | null) => value
+  ? formatReportTimestamp(value)
   : NOT_RECORDED;
+const reportTimestamp = (value: string | Date | null) => value ? formatReportTimestamp(value) : NOT_RECORDED;
 
 function orderedPackSales(lines: ShiftReportData["packSales"]) {
   return [...lines].sort((left, right) =>
@@ -76,8 +77,8 @@ function salesSummary(shift: ShiftReportData): ReportDocument["sections"][number
       ? NOT_RECORDED
       : shift.gameBreakdown.reduce((sum, game) => sum + (game[field] ?? 0), 0);
   return {
-    title: "Sales Summary",
-    columns: ["Game / Game #", "Total Tickets", "Tickets Sold", "Active Stock", "Gross Sales (100%)", "Cost / Payout (95%)"],
+    title: "Ticket Tracking Summary",
+    columns: ["Game / Game #", "Total Tickets", "Tickets Tracked", "Active Stock", "Ticket Value (100%)", "Cost / Payout (95%)"],
     rows: shift.gameBreakdown.map((game) => [
       `${game.name}${game.gameNumber ? ` / ${game.gameNumber}` : ""}`,
       game.totalTickets ?? NOT_RECORDED, game.tickets, game.activeStock ?? NOT_RECORDED,
@@ -94,22 +95,22 @@ function operatorSessionSections(sessions: OperatorSessionSales[] | undefined, s
   if (!sessions) return [];
   return [
     {
-      title: "Sales by Employee Login & Terminal",
-      columns: ["Employee", "Terminal", "Shift", "Signed in", "Signed out", "Tickets", "Gross Sales", "Price source"],
+      title: "Ticket Tracking by Employee Login & Terminal",
+      columns: ["Employee", "Terminal", "Shift", "Signed in", "Signed out", "Tickets Tracked", "Ticket Value", "Price source"],
       rows: sessions.length ? sessions.map((session) => [
         session.employeeName,
         session.terminalId ?? NOT_RECORDED,
         shiftNumber == null ? NOT_RECORDED : `Shift ${shiftNumber}`,
-        session.signedInAt ? timestamp(new Date(session.signedInAt).toISOString()) : NOT_RECORDED,
-        session.endedAt ? timestamp(new Date(session.endedAt).toISOString()) : "Still signed in",
+        session.signedInAt ? reportTimestamp(session.signedInAt) : NOT_RECORDED,
+        session.endedAt ? reportTimestamp(session.endedAt) : "Still signed in",
         session.tickets,
         money(session.grossSales),
         session.hasEstimatedPrice ? "Backfilled estimate" : "Recorded",
-      ]) : [["No ticket sales recorded", NOT_RECORDED, NOT_RECORDED, NOT_RECORDED, NOT_RECORDED, 0, money(0), NOT_RECORDED]],
+      ]) : [["No tickets tracked", NOT_RECORDED, NOT_RECORDED, NOT_RECORDED, NOT_RECORDED, 0, money(0), NOT_RECORDED]],
     },
     {
-      title: "Employee & Terminal Pack Breakdown",
-      columns: ["Employee", "Terminal", "Display #", "Pack / Game", "Tickets", "Gross Sales", "First sale", "Last sale", "Price source"],
+      title: "Employee & Terminal Pack Tracking",
+      columns: ["Employee", "Terminal", "Display #", "Pack / Game", "Tickets Tracked", "Ticket Value", "First tracked", "Last tracked", "Price source"],
       rows: sessions.flatMap((session) => session.packs.map((pack) => [
         session.employeeName,
         session.terminalId ?? NOT_RECORDED,
@@ -117,8 +118,8 @@ function operatorSessionSections(sessions: OperatorSessionSales[] | undefined, s
         `${pack.pack} / ${pack.game}`,
         pack.tickets,
         money(pack.grossSales),
-        pack.firstSaleAt ? timestamp(new Date(pack.firstSaleAt).toISOString()) : NOT_RECORDED,
-        pack.lastSaleAt ? timestamp(new Date(pack.lastSaleAt).toISOString()) : NOT_RECORDED,
+        pack.firstSaleAt ? reportTimestamp(pack.firstSaleAt) : NOT_RECORDED,
+        pack.lastSaleAt ? reportTimestamp(pack.lastSaleAt) : NOT_RECORDED,
         pack.hasEstimatedPrice ? "Backfilled estimate" : "Recorded",
       ])),
     },
@@ -134,24 +135,24 @@ function buildLoginSessionReportDocument(shift: ShiftReportData, title: string):
       { label: "Employee", value: shift.operatorSessions?.[0]?.employeeName ?? shift.openedBy },
       { label: "Terminal", value: shift.terminalId ?? NOT_RECORDED },
       { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
-      { label: "Signed in", value: shift.operatorSessions?.[0]?.signedInAt ? timestamp(new Date(shift.operatorSessions[0].signedInAt).toISOString()) : NOT_RECORDED },
+      { label: "Signed in", value: shift.operatorSessions?.[0]?.signedInAt ? reportTimestamp(shift.operatorSessions[0].signedInAt) : NOT_RECORDED },
       { label: "Shift opened", value: timestamp(shift.openedAt) },
       { label: "Shift closed", value: timestamp(shift.closedAt) },
     ],
     sections: operatorSessionSections(shift.operatorSessions, shift.shiftNumber),
     notes: [
-      "This report is scoped to the authenticated employee login session. It does not include other employees' sales, shared shift totals, cash drawer values, or audit details.",
+      "This report is scoped to the authenticated employee login session. It does not include other employees' tracked tickets, shared shift totals, register reconciliation, or audit details.",
       ...(shift.operatorSessions?.some((session) => session.hasEstimatedPrice)
-        ? ["Some historical sale prices were backfilled from the pack's configured ticket price; those values are labeled as estimates."]
+        ? ["Some historical ticket prices were backfilled from the pack's configured ticket price; those values are labeled as estimates."]
         : []),
     ],
   };
 }
 
 export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument {
-  if (shift.operatorSessionsOnly) return buildLoginSessionReportDocument(shift, "Employee Login Sales Report");
+  if (shift.operatorSessionsOnly) return buildLoginSessionReportDocument(shift, "Employee Login Ticket Tracking Report");
   return {
-    title: "Shift Sales & Audit Report",
+    title: "Shift Ticket Tracking & Audit Report",
     subtitle: shift.storeName,
     paper: "A4",
     metadata: [
@@ -159,39 +160,33 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
       { label: "Terminal", value: shift.terminalId ?? NOT_RECORDED },
       { label: "Opened", value: timestamp(shift.openedAt) },
       { label: "Opened by", value: shift.openedBy },
-      { label: "Closed", value: timestamp(shift.closedAt) },
+      { label: "Closed", value: reportTimestamp(shift.closedAt) },
       { label: "Closed by", value: shift.closedBy ?? NOT_RECORDED },
       { label: "Opening audit operator", value: shift.auditOpenedBy ?? NOT_RECORDED },
       { label: "Opening audit time", value: timestamp(shift.auditOpenedAt) },
       { label: "Closing audit operator", value: shift.auditClosedBy ?? NOT_RECORDED },
-      { label: "Closing audit time", value: timestamp(shift.auditClosedAt) },
+      { label: "Closing audit time", value: reportTimestamp(shift.auditClosedAt) },
     ],
     sections: [
       salesSummary(shift),
       ...operatorSessionSections(shift.operatorSessions, shift.shiftNumber),
       {
-        title: "Pack Ticket Counts",
-        columns: ["Display #", "Pack / Game", "Opening remaining", "Closing remaining", "Tickets sold", "Sales"],
+        title: "Ticket Tracking by Display",
+        columns: ["Display #", "Pack / Game", "Opening remaining", "Closing remaining", "Tickets tracked", "Ticket value"],
         rows: orderedPackSales(shift.packSales).map((line) => [
           line.display, `${line.pack} / ${line.game}`, line.beginning,
           line.ending ?? NOT_RECORDED, line.tickets ?? NOT_RECORDED, money(line.sales),
         ]),
       },
       {
-        title: "Payment Recording",
-        columns: ["Category", "Amount"],
-        rows: [["Cash sales", NOT_RECORDED], ["Card sales", NOT_RECORDED], ["Returns", NOT_RECORDED], ["Voids", NOT_RECORDED]],
-      },
-      {
-        title: "Recorded Cash Reconciliation",
-        columns: ["Field", "Recorded value"],
+        title: "Register Scratch Off Sales",
+        columns: ["Field", "Amount"],
         rows: [
-          ["Opening drawer cash", money(shift.cash.openingCash)],
-          ["Recorded expected cash", money(shift.cash.expectedCash)],
-          ["Counted closing cash", money(shift.cash.countedCash)],
-          ["Recorded cash variance", money(shift.cash.cashVariance)],
-          ["Reconciled by", shift.cash.reconciledBy ?? NOT_RECORDED],
-          ["Reconciled at", timestamp(shift.cash.reconciledAt)],
+          ["System tracked ticket value", money(shift.grossSales)],
+          ["Register Scratch Off Sales", money(shift.registerScratchOffSales)],
+          ["Difference (register minus system)", shift.registerScratchOffSales == null ? NOT_RECORDED : money(shift.registerScratchOffSales - shift.grossSales)],
+          ["Recorded by", shift.registerSalesRecordedBy ?? NOT_RECORDED],
+          ["Recorded at", timestamp(shift.registerSalesRecordedAt ?? null)],
         ],
       },
       {
@@ -208,7 +203,7 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
       },
       {
         title: "Physical Audit Inventory Counts",
-        columns: ["Display # / Pack", "Beginning tickets", "Sales", "Expected ending", "Unsold remaining"],
+        columns: ["Display # / Pack", "Beginning tickets", "Tickets tracked", "Expected ending", "Remaining tickets"],
         rows: orderedAudit(shift.audit).map((line) => [
           `${line.display ?? NOT_RECORDED} / ${line.pack}`,
           line.beginningTickets ?? NOT_RECORDED, line.salesTickets ?? NOT_RECORDED,
@@ -217,17 +212,16 @@ export function buildShiftReportDocument(shift: ShiftReportData): ReportDocument
       },
     ],
     notes: [
-      "Total tickets are opening available stock; active stock is closing unsold stock for this shift. Cost / Payout is 95% of gross sales, not recorded prize payments.",
-      "Cash/card payment breakdown, returns, and voids are not recorded by this system. Total ticket sales must not be treated as cash sales.",
-      "Expected cash and cash variance above are recorded reconciliation values, not a payment-method breakdown.",
+      "Total tickets are opening available stock; active stock is the closing remaining count for this shift. Cost / Payout is 95% of tracked ticket value, not recorded prize payments.",
+      "LottoOps tracks tickets and their configured value. It does not track payment methods, returns, or voids.",
       "Ticket audit variance = closing physical ticket number minus closing expected ticket number. Ticket numbers follow the pack direction; remaining counts are shown separately.",
-      "Beginning tickets − sales = expected ending tickets in either direction. Already sold tickets are excluded from unsold remaining counts.",
+      "Beginning tickets − tickets tracked = expected ending tickets in either direction. Previously tracked tickets are excluded from remaining counts.",
     ],
   };
 }
 
 export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDocument {
-  if (shift.operatorSessionsOnly) return buildLoginSessionReportDocument(shift, "Employee Login Sales Report");
+  if (shift.operatorSessionsOnly) return buildLoginSessionReportDocument(shift, "Employee Login Ticket Tracking Report");
   const audits = orderedAudit(shift.audit).map((line) => ({
     ...line,
     variance: line.expected == null || line.ending == null
@@ -240,9 +234,9 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
     paper: "A4",
     metadata: [
       { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
-      { label: "Report date (UTC)", value: shift.closedAt?.slice(0, 10) ?? NOT_RECORDED },
+      { label: "Report date", value: shift.closedAt ? formatReportDate(shift.closedAt) : NOT_RECORDED },
       { label: "Opened", value: timestamp(shift.openedAt) },
-      { label: "Closed", value: timestamp(shift.closedAt) },
+      { label: "Closed", value: reportTimestamp(shift.closedAt) },
       { label: "Opened by", value: shift.openedBy },
       { label: "Closed by", value: shift.closedBy ?? NOT_RECORDED },
     ],
@@ -251,24 +245,25 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
         title: "Shift Statistics",
         columns: ["Statistic", "Total"],
         rows: [
-          ["Tickets sold", shift.ticketsSold],
-          ["Total sales", money(shift.grossSales)],
+          ["Tickets tracked", shift.ticketsSold],
+          ["Value of tracked tickets", money(shift.grossSales)],
         ],
       },
       ...operatorSessionSections(shift.operatorSessions, shift.shiftNumber),
       {
-        title: "Cash & Variance",
-        columns: ["Cash", "Amount"],
+        title: "Register Scratch Off Sales",
+        columns: ["Field", "Amount"],
         rows: [
-          ["Opening drawer cash", money(shift.cash.openingCash)],
-          ["Recorded expected cash", money(shift.cash.expectedCash)],
-          ["Counted closing cash", money(shift.cash.countedCash)],
-          ["Recorded cash variance", money(shift.cash.cashVariance)],
+          ["System tracked ticket value", money(shift.grossSales)],
+          ["Register Scratch Off Sales", money(shift.registerScratchOffSales)],
+          ["Difference (register minus system)", shift.registerScratchOffSales == null ? NOT_RECORDED : money(shift.registerScratchOffSales - shift.grossSales)],
+          ["Recorded by", shift.registerSalesRecordedBy ?? NOT_RECORDED],
+          ["Recorded at", timestamp(shift.registerSalesRecordedAt ?? null)],
         ],
       },
       {
-        title: "Pack Sales by Display",
-        columns: ["Display #", "Pack", "Game", "Beginning", "Ending", "Tickets Sold", "Gross Sales", "Cost (95%)"],
+        title: "Ticket Tracking by Display",
+        columns: ["Display #", "Pack", "Game", "Beginning", "Ending", "Tickets Tracked", "Ticket Value", "Cost (95%)"],
         rows: orderedPackSales(shift.packSales).map((line) => [
           formatDisplayNumberLabel(line.display), line.pack, line.game, line.beginning,
           line.ending ?? NOT_RECORDED, line.tickets ?? NOT_RECORDED,
@@ -289,9 +284,9 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
       audits.length
         ? `${audits.filter((line) => line.variance === 0).length} of ${audits.length} audited packs match. Only variances and incomplete counts are listed.`
         : "No physical ticket audit recorded.",
-      "Ticket variance = counted closing ticket number minus expected ticket number. Cash variance is the recorded reconciliation value.",
-      "Not recorded means unavailable, not zero. Cash/card sales, returns, and voids are not tracked separately.",
-      "Total tickets are opening available stock; active stock is closing unsold stock for this shift. Cost / Payout is 95% of gross sales, not recorded prize payments.",
+      "Ticket variance = counted closing ticket number minus expected ticket number. Register Scratch Off Sales is compared with ticket value tracked by LottoOps.",
+      "Not recorded means unavailable, not zero. LottoOps tracks tickets and their configured value; it does not track payment methods, returns, or voids.",
+      "Total tickets are opening available stock; active stock is the closing remaining count for this shift. Cost / Payout is 95% of tracked ticket value, not recorded prize payments.",
     ],
   };
 }

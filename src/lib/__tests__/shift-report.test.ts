@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildEndOfShiftReportDocument, buildShiftReportDocument, loadShiftReportDocument, type ShiftReportData } from "../shift-report";
-import { readShiftCashRecord, SHIFT_REPORT_CASH_QUERY } from "../shift-report-cash";
+import { readShiftRegisterSalesRecord, SHIFT_REPORT_REGISTER_SALES_QUERY } from "../shift-report-cash";
 import { shiftReportWhere } from "../shift-report-query";
 
 function fixture(): ShiftReportData {
@@ -15,20 +15,31 @@ function fixture(): ShiftReportData {
     audit: [{ pack: "P1", display: "1", direction: "FIRST", beginningExpected: 1, beginning: 1, expected: 13, ending: 15 }],
     auditOpenedBy: "Auditor", auditClosedBy: "Closer",
     auditOpenedAt: "2025-01-01T08:05:00Z", auditClosedAt: "2025-01-01T15:59:00Z",
-    cash: { openingCash: 100, expectedCash: 160, countedCash: 155, cashVariance: -5, reconciledAt: "2025-01-01T16:00:00Z", reconciledBy: "Closer" },
+    registerScratchOffSales: 58, registerSalesRecordedAt: "2025-01-01T16:00:00Z", registerSalesRecordedBy: "Closer",
   };
 }
 
-test("shift template uses finalized sales, counts, operators, and signed audit variance", () => {
+test("shift template uses tracked ticket values, operators, and signed audit variance", () => {
   const document = buildShiftReportDocument(fixture());
+  assert.equal(document.title, "Shift Ticket Tracking & Audit Report");
   assert.deepEqual(document.sections[0].totals, ["TOTAL SHIFT SUMMARY", "Not recorded", 12, "Not recorded", "$60.00", "$57.00"]);
   assert.deepEqual(document.sections[1].rows[0], ["1", "P1 / Game", 50, 38, 12, "$60.00"]);
-  assert.deepEqual(document.sections[4].rows[0], ["1 / P1", "FIRST", 1, 1, 13, 15, 2]);
+  assert.deepEqual(document.sections.find((section) => section.title === "Physical Ticket Audit")?.rows[0], ["1 / P1", "FIRST", 1, 1, 13, 15, 2]);
   assert.equal(document.metadata?.find((field) => field.label === "Shift")?.value, "Shift 2");
   assert.equal(document.metadata?.find((field) => field.label === "Shift")?.value, "Shift 2");
   assert.doesNotMatch(JSON.stringify(document), /shift-old/);
   assert.equal(document.metadata?.find((field) => field.label === "Opening audit operator")?.value, "Auditor");
-  assert.equal(document.metadata?.find((field) => field.label === "Closed")?.value, "2025-01-01 16:00:00 UTC");
+  assert.equal(document.metadata?.find((field) => field.label === "Closed")?.value, "Jan 1, 2025, 10:00 AM");
+  assert.equal(document.metadata?.find((field) => field.label === "Opened")?.value, "Jan 1, 2025, 2:00 AM");
+  assert.equal(document.metadata?.find((field) => field.label === "Opening audit time")?.value, "Jan 1, 2025, 2:05 AM");
+  const registerSection = document.sections.find((section) => section.title === "Register Scratch Off Sales")!;
+  assert.deepEqual(registerSection.rows.slice(0, 3), [
+    ["System tracked ticket value", "$60.00"],
+    ["Register Scratch Off Sales", "$58.00"],
+    ["Difference (register minus system)", "-$2.00"],
+  ]);
+  assert.equal(registerSection.rows.at(-1)?.[1], "Jan 1, 2025, 10:00 AM");
+  assert.doesNotMatch(JSON.stringify(document), /opening drawer cash|counted closing cash|cash variance/i);
 });
 
 test("financial summaries show bidirectional shift quantities and the 100/95 split", () => {
@@ -41,8 +52,8 @@ test("financial summaries show bidirectional shift quantities and the 100/95 spl
     { id: "wild", name: "Super Wild (Rev. 100-1)", totalTickets: 100, tickets: 15, activeStock: 85, sales: 75, cost: 71.25 },
   ];
   for (const build of [buildShiftReportDocument, buildEndOfShiftReportDocument]) {
-    const summary = build(shift).sections.find((section) => section.title === "Sales Summary")!;
-    assert.deepEqual(summary.columns, ["Game / Game #", "Total Tickets", "Tickets Sold", "Active Stock", "Gross Sales (100%)", "Cost / Payout (95%)"]);
+    const summary = build(shift).sections.find((section) => section.title === "Ticket Tracking Summary")!;
+    assert.deepEqual(summary.columns, ["Game / Game #", "Total Tickets", "Tickets Tracked", "Active Stock", "Ticket Value (100%)", "Cost / Payout (95%)"]);
     assert.deepEqual(summary.rows[0], ["Lucky 7s (Rev. 150-1)", 150, 10, 140, "$50.00", "$47.50"]);
     assert.deepEqual(summary.totals, ["TOTAL SHIFT SUMMARY", 450, 50, 400, "$250.00", "$237.50"]);
   }
@@ -77,31 +88,30 @@ test("audit report separates inventory balances from physical ticket IDs", () =>
   ]);
 });
 
-test("cash report preserves recorded values without deriving cash sales or reconciling again", () => {
+test("register report preserves its captured scratch-off sales total and compares it with system tracking", () => {
   const shift = fixture();
-  shift.cash.expectedCash = 125;
-  shift.cash.cashVariance = 30;
+  shift.registerScratchOffSales = 125;
   const document = buildShiftReportDocument(shift);
-  assert.deepEqual(document.sections[2].rows, [
-    ["Cash sales", "Not recorded"], ["Card sales", "Not recorded"], ["Returns", "Not recorded"], ["Voids", "Not recorded"],
-  ]);
-  assert.deepEqual(document.sections[3].rows.slice(0, 4), [
-    ["Opening drawer cash", "$100.00"], ["Recorded expected cash", "$125.00"],
-    ["Counted closing cash", "$155.00"], ["Recorded cash variance", "$30.00"],
+  assert.deepEqual(document.sections.find((section) => section.title === "Register Scratch Off Sales")?.rows.slice(0, 3), [
+    ["System tracked ticket value", "$60.00"],
+    ["Register Scratch Off Sales", "$125.00"],
+    ["Difference (register minus system)", "$65.00"],
   ]);
 });
 
-test("missing cash and physical audit data remain Not recorded, not zero", () => {
+test("missing register and physical audit data remain Not recorded, not zero", () => {
   const shift = fixture();
-  shift.cash = readShiftCashRecord(undefined).cash;
+  shift.registerScratchOffSales = readShiftRegisterSalesRecord(undefined).registerScratchOffSales;
   shift.audit[0].ending = null;
   shift.packSales[0].ending = null;
   shift.packSales[0].sales = null;
   const document = buildShiftReportDocument(shift);
-  assert.ok(document.sections[3].rows.every((row) => row[1] === "Not recorded"));
-  assert.equal(document.sections[4].rows[0][6], "Not recorded");
-  assert.equal(document.sections[1].rows[0][3], "Not recorded");
-  assert.equal(document.sections[1].rows[0][5], "Not recorded");
+  const registerRows = document.sections.find((section) => section.title === "Register Scratch Off Sales")!.rows;
+  assert.equal(registerRows[1][1], "Not recorded");
+  assert.equal(registerRows[2][1], "Not recorded");
+  assert.equal(document.sections.find((section) => section.title === "Physical Ticket Audit")?.rows[0][6], "Not recorded");
+  assert.equal(document.sections.find((section) => section.title === "Ticket Tracking by Display")?.rows[0][3], "Not recorded");
+  assert.equal(document.sections.find((section) => section.title === "Ticket Tracking by Display")?.rows[0][5], "Not recorded");
 });
 
 test("employee login sales are printed by employee, terminal, shift and sale-time display", () => {
@@ -113,16 +123,18 @@ test("employee login sales are printed by employee, terminal, shift and sale-tim
     packs: [{ packId: "pack-1", pack: "P1", game: "Game", display: "2", tickets: 3, grossSales: 6, firstSaleAt: "2025-01-01T09:15:00Z", lastSaleAt: "2025-01-01T10:10:00Z", hasEstimatedPrice: false }],
   }];
   const document = buildEndOfShiftReportDocument(shift);
-  const login = document.sections.find((section) => section.title === "Sales by Employee Login & Terminal");
-  const pack = document.sections.find((section) => section.title === "Employee & Terminal Pack Breakdown");
+  const login = document.sections.find((section) => section.title === "Ticket Tracking by Employee Login & Terminal");
+  const pack = document.sections.find((section) => section.title === "Employee & Terminal Pack Tracking");
   assert.deepEqual(login?.rows[0]?.slice(0, 3), ["Cashier One", "T2", "Shift 2"]);
+  assert.deepEqual(login?.rows[0]?.slice(3, 5), ["Jan 1, 2025, 3:00 AM", "Jan 1, 2025, 6:00 AM"]);
+  assert.deepEqual(pack?.rows[0]?.slice(6, 8), ["Jan 1, 2025, 3:15 AM", "Jan 1, 2025, 4:10 AM"]);
   assert.doesNotMatch(JSON.stringify(document), /login-session-12345678|shift-old/);
   assert.equal(login?.rows[0]?.[5], 3);
   assert.equal(login?.rows[0]?.[6], "$6.00");
   assert.deepEqual(pack?.rows[0]?.slice(0, 4), ["Cashier One", "T2", "2", "P1 / Game"]);
 });
 
-test("staff printable report mode excludes shared shift, cash, and audit data", () => {
+test("staff printable report mode excludes shared shift, register, and audit data", () => {
   const shift = fixture();
   shift.operatorSessionsOnly = true;
   shift.operatorSessions = [{
@@ -132,25 +144,25 @@ test("staff printable report mode excludes shared shift, cash, and audit data", 
   }];
   for (const build of [buildShiftReportDocument, buildEndOfShiftReportDocument]) {
     const document = build(shift);
-    assert.equal(document.title, "Employee Login Sales Report");
-    assert.deepEqual(document.sections.map((section) => section.title), ["Sales by Employee Login & Terminal", "Employee & Terminal Pack Breakdown"]);
-    assert.match(document.notes?.[0] ?? "", /does not include other employees' sales/i);
+    assert.equal(document.title, "Employee Login Ticket Tracking Report");
+    assert.deepEqual(document.sections.map((section) => section.title), ["Ticket Tracking by Employee Login & Terminal", "Employee & Terminal Pack Tracking"]);
+    assert.match(document.notes?.[0] ?? "", /does not include other employees' tracked tickets/i);
   }
 });
 
-test("safe cash extraction preserves zeros and negative variance and tolerates absent columns", () => {
-  assert.deepEqual(readShiftCashRecord({
-    terminalId: "T4", openingCash: "0.00", expectedCash: null, countedCash: "0",
-    cashVariance: "-2.50", cashReconciledBy: "Cashier",
+test("safe register-sales extraction preserves zero and never selects historical drawer cash", () => {
+  assert.deepEqual(readShiftRegisterSalesRecord({
+    registerScratchOffSales: "0.00", registerSalesRecordedAt: "2025-01-01T16:00:00Z", registerSalesRecordedBy: "Cashier",
   }), {
-    terminalId: "T4",
-    cash: { openingCash: 0, expectedCash: null, countedCash: 0, cashVariance: -2.5, reconciledAt: null, reconciledBy: "Cashier" },
+    registerScratchOffSales: 0,
+    registerSalesRecordedAt: "2025-01-01T16:00:00Z",
+    registerSalesRecordedBy: "Cashier",
   });
-
-  assert.equal(readShiftCashRecord({ openingCash: "invalid" }).cash.openingCash, null);
-  assert.match(SHIFT_REPORT_CASH_QUERY, /to_jsonb\(s\)->>'openingCash'/);
-  assert.match(SHIFT_REPORT_CASH_QUERY, /s\."storeId" = \$1 AND s\.id = ANY\(\$2::text\[\]\)/);
-  assert.doesNotMatch(SHIFT_REPORT_CASH_QUERY, /ALTER TABLE/);
+  assert.equal(readShiftRegisterSalesRecord({ registerScratchOffSales: "invalid" }).registerScratchOffSales, null);
+  assert.match(SHIFT_REPORT_REGISTER_SALES_QUERY, /to_jsonb\(s\)->>'registerScratchOffSales'/);
+  assert.match(SHIFT_REPORT_REGISTER_SALES_QUERY, /to_jsonb\(s\)->>'registerScratchOffSalesRecordedAt'/);
+  assert.match(SHIFT_REPORT_REGISTER_SALES_QUERY, /s\."storeId" = \$1 AND s\.id = ANY\(\$2::text\[\]\)/);
+  assert.doesNotMatch(SHIFT_REPORT_REGISTER_SALES_QUERY, /openingCash|expectedCash|countedCash|cashVariance|cashReconciled|ALTER TABLE/i);
 });
 
 test("employee shift report query is scoped to their selected shift", () => {
@@ -161,9 +173,9 @@ test("employee shift report query is scoped to their selected shift", () => {
 test("simple end-of-shift report shows selected shift statistics and signed variances", () => {
   const document = buildEndOfShiftReportDocument(fixture());
   assert.equal(document.title, "End of Shift Report");
-  assert.equal(document.metadata?.find((field) => field.label === "Report date (UTC)")?.value, "2025-01-01");
-  assert.deepEqual(document.sections[0].rows, [["Tickets sold", 12], ["Total sales", "$60.00"]]);
-  assert.deepEqual(document.sections[1].rows.at(-1), ["Recorded cash variance", "-$5.00"]);
+  assert.equal(document.metadata?.find((field) => field.label === "Report date")?.value, "Jan 1, 2025");
+  assert.deepEqual(document.sections[0].rows, [["Tickets tracked", 12], ["Value of tracked tickets", "$60.00"]]);
+  assert.deepEqual(document.sections.find((section) => section.title === "Register Scratch Off Sales")?.rows.slice(0, 3), [["System tracked ticket value", "$60.00"], ["Register Scratch Off Sales", "$58.00"], ["Difference (register minus system)", "-$2.00"]]);
   assert.deepEqual(document.sections[2].rows[0], ["1", "P1", "Game", 50, 38, 12, "$60.00", "$57.00"]);
   assert.deepEqual(document.sections[3].rows, [["1 / P1", 13, 15, 2]]);
   assert.match(document.notes![0], /selected shift only/);
@@ -173,19 +185,20 @@ test("simple report omits matching packs but preserves incomplete counts and zer
   const shift = fixture();
   shift.grossSales = 0;
   shift.ticketsSold = 0;
-  shift.cash = readShiftCashRecord({ cashVariance: 0 }).cash;
+  shift.registerScratchOffSales = 0;
   shift.packSales[0].ending = 0;
   shift.audit[0].ending = shift.audit[0].expected;
   let document = buildEndOfShiftReportDocument(shift);
   assert.deepEqual(document.sections[3].rows, []);
   assert.match(document.notes![1], /1 of 1 audited packs match/);
-  assert.deepEqual(document.sections[0].rows[1], ["Total sales", "$0.00"]);
-  assert.deepEqual(document.sections[1].rows.at(-1), ["Recorded cash variance", "$0.00"]);
+  assert.deepEqual(document.sections[0].rows[1], ["Value of tracked tickets", "$0.00"]);
+  assert.equal(document.sections.find((section) => section.title === "Register Scratch Off Sales")?.rows[2][1], "$0.00");
   shift.audit[0].ending = null;
   shift.packSales[0].ending = null;
+  shift.registerScratchOffSales = null;
   document = buildEndOfShiftReportDocument(shift);
   assert.deepEqual(document.sections[3].rows, [["1 / P1", 13, null, null]]);
-  assert.equal(document.sections[1].rows[0][1], "Not recorded");
+  assert.equal(document.sections.find((section) => section.title === "Register Scratch Off Sales")?.rows[1][1], "Not recorded");
 });
 
 test("simple report does not claim a clean audit when no audit exists", () => {
@@ -243,7 +256,7 @@ test("printed pack and audit tables use natural Display # order without renumber
   assert.equal(full.sections[4].columns[0], "Display # / Pack");
   assert.deepEqual(full.sections[1].rows.map((row) => row[0]), ["01", "2", "10", ""]);
   assert.deepEqual(full.sections[4].rows.map((row) => row[0]), ["01 / P01", "2 / P2", "10 / P10"]);
-  assert.deepEqual(full.sections[5].rows.map((row) => row[0]), ["01 / P01", "2 / P2", "10 / P10"]);
+  assert.deepEqual(full.sections[3].rows.map((row) => row[0]), ["01 / P01", "2 / P2", "10 / P10"]);
   const closing = buildEndOfShiftReportDocument(shift);
   assert.equal(closing.sections[2].columns[0], "Display #");
   assert.deepEqual(closing.sections[2].rows.map((row) => row[0]), ["01", "2", "10", "Backstock"]);

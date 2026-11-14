@@ -6,6 +6,7 @@ import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { ReportActions } from "@/components/reports/report-actions";
 import { buildStateReportArchiveDocument } from "@/lib/workspace-detail-report-documents";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 type ReportType = "SETTLED_PACK" | "ACTIVATED" | "INVENTORY";
 
@@ -154,7 +155,7 @@ export function StateReportsUploader() {
                     ) : <span className="text-xs text-text-tertiary">Manager upload required</span>}
                   </div>
                   {uploading === report.type && <p role="status" className="mt-2 text-xs text-text-secondary">Uploading {uploadingFileName}. Keep this page open.</p>}
-                  {current && <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-700"><CheckCircle2 size={13} /> Uploaded {new Date(current.uploadedAt).toLocaleString()}</p>}
+                  {current && <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-700"><CheckCircle2 size={13} /> Uploaded {formatReportTimestamp(current.uploadedAt)}</p>}
                   {current && <div className="mt-3">
                     <ReportActions
                       document={buildStateReportArchiveDocument(current, {

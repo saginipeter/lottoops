@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       });
       if (!pack) throw new ReverseSaleError("Pack not found.", 404);
       if (pack.status !== "ACTIVE" && pack.status !== "SOLD_OUT") {
-        throw new ReverseSaleError("Only ACTIVE or SOLD_OUT packs can be reversed.", 409);
+        throw new ReverseSaleError("Only active packs or packs with no tickets remaining can be corrected.", 409);
       }
 
       const latestSales = await tx.$queryRawUnsafe<LatestSale[]>(
@@ -80,12 +80,12 @@ export async function POST(req: NextRequest) {
         session.storeId, pack.id,
       );
       const latestSale = latestSales[0];
-      if (!latestSale) throw new ReverseSaleError("No recent sale to reverse for this pack.", 409);
+      if (!latestSale) throw new ReverseSaleError("No recent ticket tracking record to reverse for this pack.", 409);
       if (latestSale.shiftId !== shiftId) {
-        throw new ReverseSaleError("The most recent pack sale belongs to another numbered shift and cannot be reversed here.", 409);
+        throw new ReverseSaleError("The most recent ticket tracking record belongs to another numbered shift and cannot be reversed here.", 409);
       }
       if (!latestSale.ticketBarcode.startsWith(pack.serialNumber)) {
-        throw new ReverseSaleError("The latest sale does not match this pack's barcode.", 409);
+        throw new ReverseSaleError("The latest ticket tracking record does not match this pack's barcode.", 409);
       }
 
       const ticketQuantity = Number(pack.ticketQuantity ?? pack.game.ticketsPerPack ?? 0);
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
         `DELETE FROM live_scan_events WHERE id = $1 AND store_id = $2 AND shift_id = $3 AND pack_id = $4`,
         latestSale.id, session.storeId, shiftId, pack.id,
       );
-      if (deleted !== 1) throw new ReverseSaleError("The latest ticket sale changed before it could be reversed. Refresh and try again.", 409);
+      if (deleted !== 1) throw new ReverseSaleError("The latest ticket tracking record changed before it could be reversed. Refresh and try again.", 409);
       const remainingRows = await tx.$queryRawUnsafe<Array<{ ticketsSold: number | bigint }>>(
         `SELECT COUNT(*)::int AS "ticketsSold" FROM live_scan_events WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3`,
         session.storeId, shiftId, pack.id,
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
           action: "RETURNED",
           packId: pack.id,
           performedById: session.userId,
-          detail: `Rejected sale reversed for pack ${pack.serialNumber}. Restored to display ${line.slotNumber} on Shift ${lockedShift.shiftNumber ?? "unlabeled"}.`,
+          detail: `Rejected ticket tracking reversed for pack ${pack.serialNumber}. Restored to display ${line.slotNumber} on Shift ${lockedShift.shiftNumber ?? "unlabeled"}.`,
         },
       });
       return { packId: pack.id, shiftId, currentTicketNumber: restoredCurrent, slotNumber: line.slotNumber, ticketsSold, salesAmount };
@@ -155,8 +155,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof ReverseSaleError) return NextResponse.json({ error: error.message }, { status: error.status });
     const code = error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code) : "";
-    if (code === "P2034") return NextResponse.json({ error: "Ticket sales changed during reversal. Refresh and try again." }, { status: 409 });
+    if (code === "P2034") return NextResponse.json({ error: "Ticket tracking changed during reversal. Refresh and try again." }, { status: 409 });
     console.error("[POST /api/packs/reverse-sale]", error);
-    return NextResponse.json({ error: "Unable to reverse the last sale." }, { status: 500 });
+    return NextResponse.json({ error: "Unable to reverse the last ticket tracking record." }, { status: 500 });
   }
 }

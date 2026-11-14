@@ -36,14 +36,16 @@ test("shipment A4 template contains canonical supplier, receiver, timestamps, pa
   assert.doesNotMatch(JSON.stringify(report), /shipment-1|Shipment ID/);
   assert.equal(report.metadata?.find((item) => item.label === "Supplier")?.value, "State lottery");
   assert.equal(report.metadata?.find((item) => item.label === "Received by")?.value, "Canonical receiver");
-  assert.equal(report.metadata?.find((item) => item.label === "Confirmed at (UTC)")?.value, shipment.confirmedAt);
+  assert.equal(report.metadata?.find((item) => item.label === "Confirmed at")?.value, "Oct 14, 2026, 7:05 AM");
+  assert.equal(report.metadata?.find((item) => item.label === "Created at")?.value, "Oct 14, 2026, 7:00 AM");
+  assert.equal(report.metadata?.find((item) => item.label === "Shipment date")?.value, "Oct 13, 2026");
   assert.deepEqual(report.sections[0].rows[0], ["1234 / Lucky game", "567890 / 1234567890001", 1, 50, "$2.00", "$100.00", "$95.00", "BACK STOCK"]);
   assert.deepEqual(report.sections[0].totals, ["Totals", "1 packs", "", 50, "", "$100.00", "$95.00", ""]);
 });
 
 test("legacy missing supplier and timestamps are explicitly not recorded", () => {
   const report = buildShipmentReport({ ...shipment, supplierName: undefined, supplierDetails: null, receivedBy: null, confirmedAt: null, expectedInventoryCost: null, packs: [] });
-  for (const label of ["Supplier", "Supplier details", "Received by", "Confirmed at (UTC)", "Entered inventory cost"]) {
+  for (const label of ["Supplier", "Supplier details", "Received by", "Confirmed at", "Entered inventory cost"]) {
     assert.equal(report.metadata?.find((item) => item.label === label)?.value, "Not recorded");
   }
   assert.deepEqual(report.sections[0].rows, []);

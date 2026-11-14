@@ -28,6 +28,7 @@ interface NavSection { label: string; items: NavItem[]; }
 const navSections: NavSection[] = [
   { label: "Operations", items: [
     { href: "/shifts", label: "Shifts", icon: Clock },
+    { href: "/sales", label: "Track Tickets", icon: ScanLine },
   ] },
   { label: "Inventory", items: [
     { href: "/inventory/receive", label: "Receive Shipment", icon: ScanLine, permission: "RECEIVE_SHIPMENTS" },
@@ -37,7 +38,6 @@ const navSections: NavSection[] = [
     { href: "/inventory/returned", label: "Returned Tickets", icon: RotateCcw },
   ] },
   { label: "Reports", items: [
-    { href: "/sales", label: "Sales", icon: ScanLine },
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/alerts", label: "Alerts", icon: AlertTriangle, managerOnly: true },
     { href: "/documents", label: "Documents", icon: FileText },

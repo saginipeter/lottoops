@@ -34,7 +34,6 @@ export default function ShiftPackTable({ shift }: Props) {
   const lines = shift.lines as ShiftLine[];
 
   const [saving, setSaving] = useState(false);
-  const [closing, setClosing] = useState(false);
 
   function getAutoEndingTicket(line: ShiftLine) {
     const beginning = Number(line.beginningTicket);
@@ -85,48 +84,6 @@ export default function ShiftPackTable({ shift }: Props) {
     const ok = await persistLines();
     if (ok) {
       alert("Shift lines saved.");
-    }
-  }
-
-  async function saveAndCloseShift() {
-    try {
-      setClosing(true);
-      const saved = await persistLines();
-
-      if (!saved) {
-        return;
-      }
-
-      const res = await fetch("/api/shifts/close", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shiftId: shift.id,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Unable to close shift.");
-        return;
-      }
-
-      alert(
-        `Shift closed successfully!\n\nTickets Sold: ${data.totalTickets}\nSales: $${Number(data.totalSales).toFixed(2)}`
-      );
-      window.location.reload();
-    } catch (error) {
-      console.error(error);
-      if (error instanceof Error) {
-        alert(`Unable to close shift. ${error.message}`);
-      } else {
-        alert("Unable to close shift.");
-      }
-    } finally {
-      setClosing(false);
     }
   }
 
@@ -182,11 +139,11 @@ export default function ShiftPackTable({ shift }: Props) {
               </th>
 
               <th className="py-3 text-center">
-                Sold
+                Tickets Tracked
               </th>
 
               <th className="py-3 text-right">
-                Sales
+                Ticket Value
               </th>
             </tr>
           </thead>
@@ -246,7 +203,7 @@ export default function ShiftPackTable({ shift }: Props) {
       <div className="mt-8 grid grid-cols-2 gap-6">
         <div className="rounded-xl bg-green-50 p-5">
           <div className="text-sm text-gray-500">
-            Tickets Sold
+            Tickets Tracked
           </div>
 
           <div className="mt-2 text-3xl font-bold text-green-700">
@@ -256,7 +213,7 @@ export default function ShiftPackTable({ shift }: Props) {
 
         <div className="rounded-xl bg-purple-50 p-5">
           <div className="text-sm text-gray-500">
-            Sales
+            Ticket Value
           </div>
 
           <div className="mt-2 text-3xl font-bold text-purple-700">
@@ -271,21 +228,14 @@ export default function ShiftPackTable({ shift }: Props) {
         </p>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-3">
         <Button
           className="w-full"
           variant="secondary"
-          disabled={saving || closing}
+          disabled={saving}
           onClick={saveTickets}
         >
           {saving ? "Saving..." : "Save Reconciliation"}
-        </Button>
-        <Button
-          className="w-full"
-          disabled={saving || closing}
-          onClick={saveAndCloseShift}
-        >
-          {closing ? "Saving & Closing..." : "Save & Close Shift"}
         </Button>
       </div>
     </Panel>

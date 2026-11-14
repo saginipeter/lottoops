@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     ]);
     const tickets = shifts.reduce((sum: number, shift: { lines: Array<{ ticketsSold: number | null }> }) => sum + shift.lines.reduce((lineSum, line) => lineSum + Number(line.ticketsSold ?? 0), 0), 0);
     const sales = shifts.reduce((sum: number, shift: { lines: Array<{ salesAmount: unknown }> }) => sum + shift.lines.reduce((lineSum, line) => lineSum + Number(line.salesAmount ?? 0), 0), 0);
-    const message = `${store?.name ?? "LottoOps store"} summary (${range.from} through ${range.to})\nShifts: ${shifts.length}\nTickets sold: ${tickets}\nSales: $${sales.toFixed(2)}\nAudit variances: ${auditVariances}\nSequence locks: ${lockedPacks}`;
+    const message = `${store?.name ?? "LottoOps store"} summary (${range.from} through ${range.to})\nShifts: ${shifts.length}\nTickets tracked: ${tickets}\nTicket value: $${sales.toFixed(2)}\nAudit variances: ${auditVariances}\nSequence locks: ${lockedPacks}`;
     const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", to: recipient, type: "text", text: { body: message } }) });
     if (!response.ok) { const detail = await response.text(); console.error("[WhatsApp summary]", detail); return NextResponse.json({ error: "WhatsApp rejected the summary delivery." }, { status: 502 }); }
     return NextResponse.json({ success: true, message });

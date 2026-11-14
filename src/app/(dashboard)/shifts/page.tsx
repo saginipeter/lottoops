@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { getShiftParticipants } from "@/lib/shift-participants";
 import { ensureDeviceRegistrySchema } from "@/lib/device-registry";
+import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { redirect } from "next/navigation";
 
 interface ShiftsPageProps {
@@ -33,27 +34,33 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const staffBound = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
   let terminalOptions = ["T1", "T2"];
-  if (!staffBound) {
-    try {
-      await ensureDeviceRegistrySchema();
-      const devices = await prisma.$queryRawUnsafe(
-        `SELECT terminal_id AS "terminalId" FROM store_devices WHERE store_id = $1 ORDER BY terminal_id ASC`,
+  try {
+    await ensureDeviceRegistrySchema();
+    const [devices, registryRows] = await Promise.all([
+      prisma.$queryRawUnsafe(
+        `SELECT terminal_id AS "terminalId" FROM store_devices WHERE store_id = $1 AND active = TRUE ORDER BY terminal_id ASC`,
         session.storeId,
-      ) as Array<{ terminalId: string }>;
-      if (devices.length > 0) terminalOptions = devices.map((device) => device.terminalId);
-    } catch {
-      // Older stores can still operate using the standard T1/T2 terminal labels.
-    }
+      ) as Promise<Array<{ terminalId: string }>>,
+      prisma.$queryRawUnsafe(
+        `SELECT COUNT(*)::int AS count FROM store_devices WHERE store_id = $1`,
+        session.storeId,
+      ) as Promise<Array<{ count: number }>>,
+    ]);
+    if (Number(registryRows[0]?.count ?? 0) > 0) terminalOptions = devices.map((device) => device.terminalId);
+  } catch {
+    // Older stores can still operate using the standard T1/T2 terminal labels.
   }
   const requestedTerminal = typeof resolvedSearchParams.terminal === "string" ? resolvedSearchParams.terminal.trim().toUpperCase() : "";
-  let terminalId = staffBound ? session.terminalId ?? "" : terminalOptions.includes(requestedTerminal) ? requestedTerminal : terminalOptions[0] ?? "T1";
-  if (staffBound && !terminalId) redirect("/login?from=/shifts");
+  let terminalId = staffBound && session.shiftId
+    ? session.terminalId ?? ""
+    : terminalOptions.includes(requestedTerminal) ? requestedTerminal : terminalOptions[0] ?? "T1";
+  if (staffBound && session.shiftId && !terminalId) redirect("/login?from=/shifts");
 
   const allOpenShiftRows: Array<{ id: string; shiftNumber: number | null; terminalId: string | null; openedAt: Date }> = await prisma.shift.findMany({
     where: {
       storeId: session.storeId,
       status: "OPEN",
-      ...(staffBound
+      ...(staffBound && session.shiftId
         ? { id: session.shiftId ?? "__employee_has_no_selected_shift__" }
         : {}),
     },
@@ -190,16 +197,11 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       })
     : [];
   const activePackIds = activeDisplayPacks.map((pack) => pack.id);
-  const cashRows = openShift
-    ? await prisma.$queryRawUnsafe(
-        `SELECT COALESCE("openingCash", 0)::numeric AS "openingCash", "expectedCash", "countedCash", "cashVariance" FROM shifts WHERE id = $1 LIMIT 1`,
-        openShift.id
-      ) as Array<{ openingCash: string | number; expectedCash: string | number | null; countedCash: string | number | null; cashVariance: string | number | null }>
-    : [];
-  const cashState = cashRows[0] ?? { openingCash: 0, expectedCash: null, countedCash: null, cashVariance: null };
-  const hydratedShiftData = shiftData ? { ...shiftData, ...cashState } : null;
+  const hydratedShiftData = shiftData;
 
   return (
+    <>
+    <LivePageRefresh intervalMs={3000} />
     <ShiftPos
       shift={hydratedShiftData}
       recentClosedShift={recentClosedShift ? JSON.parse(JSON.stringify(recentClosedShift)) : null}
@@ -208,6 +210,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       terminalOptions={terminalOptions}
       selectedShiftId={openShift?.id ?? null}
       canManageShifts={session.role === "OWNER" || session.role === "MANAGER"}
+      canOpenShifts={session.role === "OWNER" || session.role === "MANAGER" || staffBound}
       isEmployee={session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"}
       activeDisplayPackCount={activePackIds.length}
       activeDisplayPackIds={activePackIds}
@@ -216,5 +219,6 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
       employeeName={session.name}
       storeName={session.storeName ?? "LottoOps Store"}
     />
+    </>
   );
 }

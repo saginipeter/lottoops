@@ -22,35 +22,35 @@ export function formatTicketScanBlockedMessage({
     const details = expected
       ? ` Expected ticket ${expected}${scanned ? `; ticket ${scanned} was scanned` : ""}.`
       : " Please scan the next expected ticket.";
-    return `Wrong ticket scanned in this shift, no sales recorded.${details}`;
+    return `Wrong ticket scanned in this shift. No ticket was tracked.${details}`;
   }
 
   if (code === "SEQUENCE_LOCKED") {
-    return "This pack needs manager assistance before another sale. No ticket was sold.";
+    return "This pack needs manager assistance before another ticket can be tracked. No ticket was tracked.";
   }
 
   if (code === "INVALID_TICKET_NUMBER") {
-    return "This barcode has an invalid ticket number. Scan a complete ticket barcode; no sale was recorded.";
+    return "This barcode has an invalid ticket number. Scan a complete ticket barcode; no ticket was tracked.";
   }
 
   if (code === "BEGINNING_AUDIT_REQUIRED") {
-    return "To protect the shift records, this scan is blocked until the opening audit is complete. No ticket was sold. Please ask a manager if you need help.";
+    return "To protect the shift records, no ticket was tracked because the opening audit is incomplete. Please ask a manager if you need help.";
   }
 
   if (code === "STORE_CHANGED") {
-    return "This terminal is now connected to a different store, so the scan was blocked and no ticket was sold. Please return to the correct store before scanning again.";
+    return "This terminal is now connected to a different store, so no ticket was tracked. Please return to the correct store before scanning again.";
   }
 
   if (/already scanned|duplicate/i.test(reason)) {
-    return "This ticket appears to have been scanned already, so we blocked a duplicate sale. No additional ticket was sold. If this looks incorrect, please ask a manager to check it.";
+    return "This ticket appears to have been scanned already. No additional ticket was tracked. If this looks incorrect, please ask a manager to check it.";
   }
 
   if (/no active display pack matches|does not match an active display/i.test(reason)) {
-    return "We couldn’t match this ticket to an active display, so it was not sold. Please check the barcode and ask a manager to confirm the pack is active.";
+    return "We couldn’t match this ticket to an active display, so it was not tracked. Please check the barcode and ask a manager to confirm the pack is active.";
   }
 
-  if (/sold out/i.test(reason)) {
-    return "This pack appears to be sold out, so the scan was blocked and no ticket was sold. Please ask a manager to check the pack before continuing.";
+  if (/sold out|no tickets remaining/i.test(reason)) {
+    return "This pack appears to have no tickets remaining, so no ticket was tracked. Please ask a manager to check the pack before continuing.";
   }
 
   if ((status ?? 0) >= 500 || /failed to check serial number|temporarily unavailable/i.test(reason)) {
@@ -58,8 +58,8 @@ export function formatTicketScanBlockedMessage({
   }
 
   if (reason) {
-    return `No ticket was sold. ${reason} If you’re unsure what to do next, please ask a manager for help.`;
+    return `No ticket was tracked. ${reason} If you’re unsure what to do next, please ask a manager for help.`;
   }
 
-  return "We couldn’t verify this ticket, so no sale was recorded. Please check the barcode or ask a manager for help.";
+  return "We couldn’t verify this ticket, so it was not tracked. Please check the barcode or ask a manager for help.";
 }

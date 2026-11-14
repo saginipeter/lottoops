@@ -21,6 +21,9 @@ test("mid-shift print document labels live values provisional and never calls th
   assert.equal(document.title, "Mid-Shift Audit Snapshot");
   assert.equal(document.metadata?.find((item) => item.label === "Shift status")?.value, "OPEN");
   assert.equal(document.metadata?.find((item) => item.label === "Shift")?.value, "Shift 2");
+  assert.equal(document.metadata?.find((item) => item.label === "Shift opened")?.value, "Nov 8, 2026, 2:00 AM");
+  assert.equal(document.metadata?.find((item) => item.label === "Audit begun")?.value, "Nov 8, 2026, 2:05 AM");
+  assert.equal(document.metadata?.find((item) => item.label === "Snapshot generated at")?.value, "Nov 8, 2026, 2:00 PM");
   assert.doesNotMatch(JSON.stringify(document), /shift-1|audit-1|Shift ID|Audit ID/);
   assert.deepEqual(document.sections[0].columns.slice(0, 2), ["Display #", "Pack"]);
   assert.deepEqual(document.sections[0].rows.map((row) => row[0]), ["2", "10"]);

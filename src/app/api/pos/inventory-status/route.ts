@@ -24,7 +24,7 @@ export async function GET() {
       const remaining = getRemainingTicketCount(pack.currentTicketNumber, quantity);
       return { id: pack.id, serial: pack.serialNumber, game: pack.game.name, gameNumber: pack.game.gameNumber, slotNumber: pack.slot?.slotNumber ?? null, remaining, quantity, price: Number(pack.ticketPrice ?? pack.game.price ?? 0), status: remaining === 0 ? "SOLD_OUT" : remaining <= LOW_STOCK_THRESHOLD ? "LOW" : "HEALTHY", direction: pack.firstOrLastTicket === "LAST" ? "LAST" : "FIRST" };
     });
-    const alerts = activePacks.filter((pack) => pack.status !== "HEALTHY").map((pack) => ({ id: `STOCK_${pack.id}`, severity: pack.status === "SOLD_OUT" ? "URGENT" : "HIGH", title: pack.status === "SOLD_OUT" ? "Display sold out" : "Low tickets remaining", detail: `${pack.game} at Display ${pack.slotNumber ?? "-"} has ${pack.remaining} ticket(s) remaining.`, packId: pack.id, slotNumber: pack.slotNumber, remaining: pack.remaining }));
+    const alerts = activePacks.filter((pack) => pack.status !== "HEALTHY").map((pack) => ({ id: `STOCK_${pack.id}`, severity: pack.status === "SOLD_OUT" ? "URGENT" : "HIGH", title: pack.status === "SOLD_OUT" ? "No tickets remaining" : "Low tickets remaining", detail: `${pack.game} at Display ${pack.slotNumber ?? "-"} has ${pack.remaining} ticket(s) remaining.`, packId: pack.id, slotNumber: pack.slotNumber, remaining: pack.remaining }));
     return NextResponse.json({ updatedAt: new Date().toISOString(), lowStockThreshold: LOW_STOCK_THRESHOLD, packs: activePacks, slots: slots.map((slot) => ({ id: slot.id, slotNumber: slot.slotNumber, packId: slot.packId })), alerts });
   } catch (error) {
     console.error("[GET /api/pos/inventory-status]", error);

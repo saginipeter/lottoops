@@ -3,7 +3,7 @@ import { getApiSession } from "@/lib/api-session";
 import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 import { calculatePhysicalAuditInventory, calculatePhysicalAuditVariance } from "@/lib/core-validation";
 import { prisma } from "@/lib/prisma";
-import { readShiftCashRecord, SHIFT_REPORT_CASH_QUERY } from "@/lib/shift-report-cash";
+import { readShiftRegisterSalesRecord, SHIFT_REPORT_REGISTER_SALES_QUERY } from "@/lib/shift-report-cash";
 import { shiftReportWhere } from "@/lib/shift-report-query";
 import { aggregateOperatorSessionSales, type ShiftSessionSaleRow } from "@/lib/shift-session-sales";
 
@@ -104,10 +104,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Closed shift not found." }, { status: 404 });
   }
 
-  const cashRows = (!shiftBoundRole && shifts.length ? await prisma.$queryRawUnsafe(
-    SHIFT_REPORT_CASH_QUERY, session.storeId, shifts.map((shift) => shift.id),
+  const registerRows = (!shiftBoundRole && shifts.length ? await prisma.$queryRawUnsafe(
+    SHIFT_REPORT_REGISTER_SALES_QUERY, session.storeId, shifts.map((shift) => shift.id),
   ) : []) as Array<{ id: string; record: Record<string, unknown> }>;
-  const cashByShift = new Map(cashRows.map((row) => [row.id, row.record]));
+  const registerByShift = new Map(registerRows.map((row) => [row.id, row.record]));
 
   const operatorSalesSql = `
     SELECT e.shift_id AS "shiftId", e.login_session_id AS "sessionId", e.scanned_by_id AS "employeeId",
@@ -179,8 +179,8 @@ export async function GET(req: NextRequest) {
       id: shift.id,
       shiftNumber: shift.shiftNumber,
       storeName: session.storeName,
-      ...readShiftCashRecord(cashByShift.get(shift.id)),
-      terminalId: shift.terminalId ?? readShiftCashRecord(cashByShift.get(shift.id)).terminalId,
+      ...readShiftRegisterSalesRecord(registerByShift.get(shift.id)),
+      terminalId: shift.terminalId ?? null,
       openedAt: shift.openedAt,
       closedAt: shift.closedAt,
       openedBy: shiftBoundRole ? session.name : shift.openedBy.name,

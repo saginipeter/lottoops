@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
       };
       const csvRows = [
-        ["Store", "Store Number", "Sales", "Tickets", "Active Packs", "Backstock Packs", "Locked Packs", "Open Shifts"],
+        ["Store", "Store Number", "Ticket Value", "Tickets Tracked", "Active Packs", "Backstock Packs", "Locked Packs", "Open Shifts"],
         ...rows.map((row) => [row.name, row.storeNumber ?? "", row.sales, row.tickets, row.activePacks, row.backstockPacks, row.lockedPacks, row.openShifts]),
       ];
       const csv = csvRows.map((row) => row.map(escape).join(",")).join("\r\n");

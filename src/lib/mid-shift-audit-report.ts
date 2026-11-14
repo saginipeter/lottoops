@@ -1,5 +1,6 @@
 import type { ReportDocument } from "./report-document";
 import { compareDisplayNumberLabels } from "./display-number-order";
+import { formatReportTimestamp } from "./report-timestamp";
 
 export interface MidShiftAuditSnapshot {
   generatedAt: string;
@@ -23,8 +24,10 @@ export interface MidShiftAuditSnapshot {
 
 function formatTimestamp(value: string | null): string {
   if (!value) return "Not recorded";
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? `${date.toISOString().replace("T", " ").replace(".000Z", " UTC")}` : "Not recorded";
+  return formatReportTimestamp(value);
+}
+function formatReportTime(value: string | null): string {
+  return value ? formatReportTimestamp(value) : "Not recorded";
 }
 
 export function buildMidShiftAuditSnapshotDocument(snapshot: MidShiftAuditSnapshot): ReportDocument {
@@ -55,9 +58,9 @@ export function buildMidShiftAuditSnapshotDocument(snapshot: MidShiftAuditSnapsh
       { label: "Audit status", value: snapshot.audit.status === "COMPLETED" ? "Closing audit complete; shift remains open" : "In progress" },
       { label: "Audit begun", value: formatTimestamp(snapshot.audit.begunAt) },
       { label: "Audit begun by", value: snapshot.audit.begunBy },
-      { label: "Audit ended", value: formatTimestamp(snapshot.audit.endedAt) },
+      { label: "Audit ended", value: formatReportTime(snapshot.audit.endedAt) },
       { label: "Audit ended by", value: snapshot.audit.endedBy ?? "Not recorded" },
-      { label: "Snapshot generated at", value: formatTimestamp(snapshot.generatedAt) },
+      { label: "Snapshot generated at", value: formatReportTime(snapshot.generatedAt) },
       { label: "Active displays in scope", value: snapshot.activeDisplayCount },
     ],
     sections: [{
@@ -69,7 +72,7 @@ export function buildMidShiftAuditSnapshotDocument(snapshot: MidShiftAuditSnapsh
       "This is a read-only snapshot of a shift that is still open. It does not close the shift or complete an audit.",
       "Active display membership, current expected ticket, physical scans, and variance are as of the generated timestamp above.",
       "Any closing physical scan and variance shown before shift close are provisional and may change; missing scans are not zero.",
-      "Opening expected and physical readings are the values recorded at the opening audit. This snapshot is not the finalized shift sales, cash, or end-of-shift report.",
+      "Opening expected and physical readings are the values recorded at the opening audit. This snapshot is not the finalized shift ticket-tracking or Register Scratch Off Sales report.",
     ],
   };
 }

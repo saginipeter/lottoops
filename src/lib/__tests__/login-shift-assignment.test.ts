@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
 import { MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE, SESSION_COOKIE, verifyMfaChallenge, verifySession } from "../session";
 
-test("login requires staff to choose an open numbered shift and preserves assignment through MFA", async (context) => {
+test("staff authenticate before choosing a shift, including through MFA", async (context) => {
   const require = createRequire(import.meta.url);
   const prismaPath = require.resolve("../prisma");
   const originalPrisma = require.cache[prismaPath];
@@ -13,7 +13,6 @@ test("login requires staff to choose an open numbered shift and preserves assign
   process.env.JWT_SECRET = "login-shift-test-secret";
 
   let role: "EMPLOYEE" | "SHIFT_LEAD" | "MANAGER" = "EMPLOYEE";
-  let openShifts = [{ id: "shift-2-T1", shiftNumber: 2, terminalId: "T1" }];
   let mfaRequired = false;
   const passwordHash = await bcrypt.hash("test-password", 4);
   const prisma = {
@@ -23,9 +22,6 @@ test("login requires staff to choose an open numbered shift and preserves assign
         passwordHash, role, storeId: "store-1", store: { name: "Test Store" }, grantedPermissions: [],
       }),
       update: async () => ({}),
-    },
-    shift: {
-      findMany: async () => openShifts,
     },
     $executeRawUnsafe: async () => 0,
     $queryRawUnsafe: async () => mfaRequired ? [{ enabled: true, required: true }] : [],
@@ -48,22 +44,30 @@ test("login requires staff to choose an open numbered shift and preserves assign
   for (const staffRole of ["EMPLOYEE", "SHIFT_LEAD"] as const) {
     role = staffRole;
     const noSelection = await login({});
-    assert.equal(noSelection.status, 409, `${staffRole} must select an open terminal shift`);
-    assert.equal((await noSelection.json()).openShifts[0].terminalId, "T1");
+    assert.equal(noSelection.status, 200, `${staffRole} can authenticate before choosing a shift`);
+    const unassignedPayload = await noSelection.json();
+    assert.equal(unassignedPayload.user.needsShiftSelection, true);
+    assert.equal(unassignedPayload.user.shiftNumber, null);
+    const unassignedToken = noSelection.cookies.get(SESSION_COOKIE)?.value;
+    assert.ok(unassignedToken);
+    const unassignedSession = await verifySession(unassignedToken);
+    assert.equal(unassignedSession?.shiftId, undefined);
+    assert.ok(unassignedSession?.loginSessionId);
 
     const response = await login({ shiftId: "shift-2-T1" });
     assert.equal(response.status, 200);
     assert.equal(response.cookies.get(MFA_CHALLENGE_COOKIE)?.maxAge, 0, "direct login clears a stale MFA challenge");
     assert.equal(response.cookies.get(PLATFORM_SESSION_BACKUP_COOKIE)?.maxAge, 0, "direct login clears a stale platform-session backup");
     const responsePayload = await response.json();
-    assert.equal(responsePayload.user.shiftNumber, 2);
-    assert.equal(responsePayload.user.terminalId, "T1");
+    assert.equal(responsePayload.user.needsShiftSelection, true, "a password-login request cannot bypass terminal authorization by supplying a shift ID");
+    assert.equal(responsePayload.user.shiftNumber, null);
+    assert.equal(responsePayload.user.terminalId, null);
     const token = response.cookies.get(SESSION_COOKIE)?.value;
     assert.ok(token);
     const session = await verifySession(token);
-    assert.equal(session?.shiftId, "shift-2-T1");
-    assert.equal(session?.shiftNumber, 2);
-    assert.equal(session?.terminalId, "T1");
+    assert.equal(session?.shiftId, undefined);
+    assert.equal(session?.shiftNumber, undefined);
+    assert.equal(session?.terminalId, undefined);
     assert.ok(session?.loginSessionId);
   }
 
@@ -76,9 +80,8 @@ test("login requires staff to choose an open numbered shift and preserves assign
   assert.equal((await verifySession(managerToken))?.shiftId, undefined);
 
   role = "EMPLOYEE";
-  openShifts = [{ id: "shift-1-T2", shiftNumber: 1, terminalId: "T2" }];
   mfaRequired = true;
-  const mfaResponse = await login({ shiftId: "shift-1-T2" });
+  const mfaResponse = await login({});
   assert.equal(mfaResponse.status, 202);
   assert.equal(mfaResponse.cookies.get(SESSION_COOKIE)?.maxAge, 0, "MFA transition clears the previous signed-in account");
   assert.equal(mfaResponse.cookies.get(PLATFORM_SESSION_BACKUP_COOKIE)?.maxAge, 0, "MFA transition clears a stale platform-session backup");
@@ -86,6 +89,6 @@ test("login requires staff to choose an open numbered shift and preserves assign
   const challenge = mfaResponse.cookies.get("lottoops_mfa_challenge")?.value;
   assert.ok(challenge);
   assert.deepEqual(await verifyMfaChallenge(challenge), {
-    userId: "staff-1", rememberMe: false, shiftId: "shift-1-T2", shiftNumber: 1, terminalId: "T2",
+    userId: "staff-1", rememberMe: false,
   });
 });

@@ -95,14 +95,14 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     },
     {
       label: "Opening physical audit",
-      description: "Scan each display pack and record its starting ticket before sales.",
+      description: "Scan each display pack and record its starting ticket before ticket tracking begins.",
       href: `/shifts?terminal=${terminalId}&shiftId=${openShift?.id ?? ""}#physical-audit`,
       state: beginningAuditComplete ? "complete" : shiftOpen ? "ready" : "locked",
       action: beginningAuditComplete ? "Done" : "Audit",
     },
     {
-      label: "Sell tickets",
-      description: "Scan and record lottery ticket sales.",
+      label: "Track tickets",
+      description: "Scan and record lottery ticket tracking.",
       href: openShift ? `/pos?shiftId=${encodeURIComponent(openShift.id)}` : "/shifts",
       state: shiftOpen ? "ready" : "locked",
       action: "Scan",
@@ -116,7 +116,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     },
     {
       label: "Close shift",
-      description: "Finalize sales and hand off any unresolved variance.",
+      description: "Finalize ticket tracking and hand off any unresolved variance.",
       href: `/shifts?terminal=${terminalId}&shiftId=${openShift?.id ?? ""}`,
       state: auditComplete ? "ready" : "locked",
       action: "Close",
@@ -179,7 +179,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
           <section className="mt-4" aria-label="Employee tools">
             <Link href={openShift ? `/pos?shiftId=${encodeURIComponent(openShift.id)}` : "/shifts"} className="group flex min-h-28 items-center gap-4 bg-[#17233f] p-4 text-white shadow-[0_6px_0_#0d1528] active:translate-y-0.5">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-white/25 bg-white/10"><ShoppingCart size={21} /></div>
-              <div className="min-w-0 flex-1"><h2 className="text-base font-semibold">Sell tickets</h2><p className="mt-1 text-xs text-white/70">Scan sales and return the most recent ticket with a reason.</p></div>
+              <div className="min-w-0 flex-1"><h2 className="text-base font-semibold">Track tickets</h2><p className="mt-1 text-xs text-white/70">Track tickets and return the most recently tracked ticket with a reason.</p></div>
               <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
             </Link>
           </section>

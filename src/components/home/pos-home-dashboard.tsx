@@ -15,7 +15,7 @@ export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, gran
   const canViewInventoryMap = isAdmin || role === "SHIFT_LEAD";
 
   const posActions: Action[] = isPlatformAdmin ? [] : [
-    { title: "Sell Tickets", description: "Open the cashier terminal", href: "/pos", icon: ShoppingCart, className: "bg-[#087da8]" },
+    { title: "Track Tickets", description: "Open the cashier terminal", href: "/pos", icon: ShoppingCart, className: "bg-[#087da8]" },
     { title: "Shift", description: "Clock in, audit, and reconcile", href: "/shifts", icon: ClipboardCheck, className: "bg-[#e87512]" },
     ...(canReceive ? [{ title: "Receive Stock", description: "Receive shipment inventory", href: "/inventory/receive", icon: PackagePlus, className: "bg-[#159447]" }] : []),
   ];

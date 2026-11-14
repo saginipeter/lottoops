@@ -96,7 +96,7 @@ export async function activatePackToDisplay(
     throw new ActivationAuditConflict("Pack has invalid ticket data. Set a valid first ticket and quantity before activation.");
   }
   const currentTicketNumber = remainingTicketsFromPhysicalTicket(firstTicket, quantity, startingTicket, direction);
-  if (currentTicketNumber === null) throw new ActivationAuditConflict("Pack has an invalid starting ticket for the selected sell direction.");
+  if (currentTicketNumber === null) throw new ActivationAuditConflict("Pack has an invalid starting ticket for the selected ticket-tracking direction.");
 
   const activated = await tx.pack.update({
     where: { id: pack.id },
@@ -191,7 +191,7 @@ export async function activatePacksToDisplays(
       throw new ActivationAuditConflict("A shipment pack has invalid ticket data and cannot be activated.");
     }
     const currentTicketNumber = remainingTicketsFromPhysicalTicket(firstTicket, quantity, startingTicket, direction);
-    if (currentTicketNumber === null) throw new ActivationAuditConflict("A shipment pack has an invalid starting ticket for the selected sell direction.");
+    if (currentTicketNumber === null) throw new ActivationAuditConflict("A shipment pack has an invalid starting ticket for the selected ticket-tracking direction.");
     const activated = await tx.pack.update({
       where: { id: pack.id },
       data: {

@@ -65,7 +65,7 @@ async function processBatchReturn({
   const tickets = Array.isArray(body.tickets) ? body.tickets as BatchReturnItem[] : [];
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
   if (tickets.length < 2 || tickets.length > 20) {
-    return NextResponse.json({ error: "Select between 2 and 20 sold tickets for a batch return." }, { status: 400 });
+    return NextResponse.json({ error: "Select between 2 and 20 tracked tickets for a batch return." }, { status: 400 });
   }
   if (reason.length < 6) {
     return NextResponse.json({ error: "A structured return reason is required for a batch return." }, { status: 400 });
@@ -108,7 +108,7 @@ async function processBatchReturn({
         const selectedIds = new Set(packTickets.map((ticket) => ticket.saleId));
         const latestSelected = latestEvents.slice(0, packTickets.length);
         if (latestSelected.length !== packTickets.length || latestSelected.some((event) => !selectedIds.has(event.id))) {
-          throw new ReturnError("Only the most recently sold tickets for each pack can be returned together.", 409);
+          throw new ReturnError("Only the most recently tracked tickets for each pack can be returned together.", 409);
         }
         for (const ticket of packTickets) {
           const event = latestEvents.find((item) => item.id === ticket.saleId);
@@ -125,11 +125,11 @@ async function processBatchReturn({
         });
         if (!pack || (pack.status !== "ACTIVE" && pack.status !== "SOLD_OUT")) throw new ReturnError("A selected pack is no longer available for return.", 409);
         const line = await tx.shiftLine.findFirst({ where: { shiftId, packId }, take: 1 });
-        if (!line) throw new ReturnError("A selected ticket has no shift sales line.", 409);
+        if (!line) throw new ReturnError("A selected ticket has no shift tracking record.", 409);
         const beginning = getSafeCurrentTicket({ currentTicketNumber: Number(line.beginningTicket ?? 0), firstTicket: pack.firstTicket, ticketQuantity: pack.ticketQuantity });
         const current = Number(pack.currentTicketNumber ?? beginning);
         const restoredCurrent = current + packTickets.length;
-        if (!Number.isInteger(current) || current < 0 || restoredCurrent > beginning) throw new ReturnError("The selected tickets exceed the pack's recorded sales.", 409);
+        if (!Number.isInteger(current) || current < 0 || restoredCurrent > beginning) throw new ReturnError("The selected tickets exceed the pack's tracked ticket count.", 409);
         const updatedPack = await tx.pack.updateMany({
           where: { id: pack.id, storeId: session.storeId, status: { in: ["ACTIVE", "SOLD_OUT"] }, currentTicketNumber: pack.currentTicketNumber },
           data: { status: "ACTIVE", currentTicketNumber: restoredCurrent, completedAt: null },
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!["EMPLOYEE", "SHIFT_LEAD", "MANAGER", "OWNER"].includes(session.role)) {
-    return NextResponse.json({ error: "Ticket sales access required." }, { status: 403 });
+    return NextResponse.json({ error: "Ticket tracking access required." }, { status: 403 });
   }
   if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
 
@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
       const latestScan = latestScans[0];
       if (!latestScan || latestScan.id !== saleId || !canReturnLatestTicket({
         role: session.role, requestedBarcode: ticketBarcode, latestBarcode: latestScan.ticketBarcode,
-      })) throw new ReturnError("Only the latest sold ticket for this pack can be returned.", 409);
+      })) throw new ReturnError("Only the latest tracked ticket for this pack can be returned.", 409);
 
       const beginning = getSafeCurrentTicket({
         currentTicketNumber: Number(line.beginningTicket ?? 0),
@@ -314,7 +314,7 @@ export async function POST(req: NextRequest) {
           (id, store_id, notification_type, entity_id, event_key, pack_id, title, detail, severity)
         VALUES ($1, $2, 'TICKET_RETURN_REVIEW', $3, $4, $5, $6, $7, 'MEDIUM')
       `, `notification_${id}`, session.storeId, id, `TICKET_RETURN_REVIEW:${id}`, pack.id, "Returned ticket needs manager review",
-      `${session.name} returned ticket ${ticketBarcode} from Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber} to Display ${line.slotNumber}. Available for sale immediately. Reason: ${reason}`);
+      `${session.name} returned ticket ${ticketBarcode} from Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber} to Display ${line.slotNumber}. Available for tracking immediately. Reason: ${reason}`);
       return { currentTicketNumber: restoredCurrent, ticketsSold, salesAmount };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json({ success: true, mode: "returned-pending-review", status: "RETURNED_PENDING_REVIEW", id, ...result });

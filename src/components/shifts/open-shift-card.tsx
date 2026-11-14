@@ -54,7 +54,7 @@ export default function OpenShiftCard() {
             </h2>
 
             <p className="text-gray-500">
-              Begin today's lottery sales shift.
+              Begin today's ticket-tracking shift.
             </p>
 
           </div>
@@ -101,7 +101,7 @@ export default function OpenShiftCard() {
             <li>• A new shift is created.</li>
             <li>• Every ACTIVE display pack is loaded into the shift.</li>
             <li>• Beginning ticket numbers are recorded.</li>
-            <li>• Sales tracking begins.</li>
+            <li>• Ticket tracking begins.</li>
           </ul>
 
         </div>

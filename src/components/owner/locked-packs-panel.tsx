@@ -52,7 +52,7 @@ export function LockedPacksPanel() {
     <Panel className="mt-5 border-red-200 bg-red-50 p-5">
       <div className="flex items-center gap-2">
         <AlertTriangle className="text-red-700" size={18} />
-        <div><h3 className="font-semibold text-red-900">Locked Packs Requiring Review</h3><p className="text-xs text-red-800">Sales remain blocked until each discrepancy is resolved.</p></div>
+        <div><h3 className="font-semibold text-red-900">Locked Packs Requiring Review</h3><p className="text-xs text-red-800">Ticket tracking remains unavailable until each discrepancy is resolved.</p></div>
       </div>
       <div className="mt-3 space-y-2">
         {packs.map((pack) => (

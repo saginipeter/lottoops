@@ -8,6 +8,7 @@ import { ReportActions } from "./report-actions";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildTicketReturnRequestsDocument } from "@/lib/workspace-detail-report-documents";
 import { readableReportText } from "@/lib/report-readable-text";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 interface ReturnRequest {
   id: string;
@@ -29,7 +30,7 @@ function formatRelativeTime(createdAt: string): string {
   const diffMs = Date.now() - timestamp;
 
   if (!Number.isFinite(diffMs) || diffMs < 0) {
-    return new Date(createdAt).toLocaleString();
+    return formatReportTimestamp(createdAt);
   }
 
   const minute = 60 * 1000;
@@ -164,8 +165,8 @@ export function TicketReturnRequestsPanel({
               </p>
               <p className="mt-1 text-xs text-text-secondary">
                 {request.status === "RETURNED_PENDING_REVIEW"
-                  ? "Already returned for resale. Approve or flag the review only; inventory and sales will not change."
-                  : "Legacy request awaiting approval. Approval restores the ticket; denial leaves the sale unchanged."}
+                  ? "Already returned to inventory. Approve or flag the review only; tracked totals will not change."
+                  : "Legacy request awaiting approval. Approval restores the ticket; denial leaves inventory unchanged."}
               </p>
 
               <div className="mt-2 flex gap-2">

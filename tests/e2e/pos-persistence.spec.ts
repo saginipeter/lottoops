@@ -16,7 +16,7 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await page.route("**/api/packs/check-serial", async (route) => {
     sales++;
     if (sales === 2) {
-      await route.fulfill({ status: 409, json: { code: "TICKET_SEQUENCE_MISMATCH", noSale: true, packId: "pack", expectedTicket: 50, scannedTicketNumber: 1, error: "Wrong ticket scanned in this shift, no sales recorded. The system expected ticket 50; ticket 1 was scanned." } });
+      await route.fulfill({ status: 409, json: { code: "TICKET_SEQUENCE_MISMATCH", noSale: true, packId: "pack", expectedTicket: 50, scannedTicketNumber: 1, error: "Wrong ticket scanned in this shift. No ticket was tracked. The system expected ticket 50; ticket 1 was scanned." } });
       return;
     }
     await route.fulfill({ json: {
@@ -35,8 +35,14 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await page.clock.pauseAt(new Date(now.getTime() + 1000));
   await input.fill("12341234567001");
   await input.press("Enter");
-  const success = page.getByRole("status").filter({ hasText: "First game sold successfully." });
+  const success = page.getByRole("status").filter({ hasText: "First game" });
   await expect(success).toBeVisible();
+  await expect(success).toContainText("Ticket Tracked Successfully");
+  await expect(success).toContainText("First game");
+  await expect(success).toHaveCSS("pointer-events", "none");
+  const successBounds = await success.boundingBox();
+  expect(successBounds?.height).toBeGreaterThanOrEqual(120);
+  expect(successBounds?.width).toBeGreaterThanOrEqual(320);
   await expect(input).toBeEnabled();
   await page.clock.runFor(3499);
   await expect(success).toBeVisible();
@@ -50,8 +56,8 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await input.fill("12341234567002");
   await input.press("Enter");
   const error = page.getByRole("alert").filter({ hasText: "Ticket scan error" });
-  await expect(error).toContainText("Ticket scan error · no sale recorded");
-  await expect(error).toContainText("Wrong ticket scanned in this shift, no sales recorded");
+  await expect(error).toContainText("Ticket scan error · no ticket tracked");
+  await expect(error).toContainText("Wrong ticket scanned in this shift. No ticket was tracked.");
   await expect(error).toContainText("Expected ticket 50; ticket 1 was scanned");
   await expect(error).not.toContainText("manager");
   const bounds = await error.boundingBox();
@@ -63,7 +69,7 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await input.fill("12341234567003");
   await input.press("Enter");
   await expect.poll(() => sales, { timeout: 2000 }).toBe(3);
-  await expect(page.getByRole("status").filter({ hasText: "Second game sold successfully." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Second game" })).toContainText("Ticket Tracked Successfully");
   await expect(error).toHaveCount(0);
   await expect(input).toBeEnabled();
   await expect(latest.getByText("Second game", { exact: true })).toBeVisible();
@@ -107,13 +113,13 @@ test("rapid ticket scans are queued in order while the first server check is pen
   await expect(input).toBeVisible();
   await expect(page.getByText("Online", { exact: true })).toBeVisible();
   await input.fill("12341234567001");
-  await expect(page.getByRole("button", { name: "Sell" })).toBeEnabled();
-  await page.getByRole("button", { name: "Sell" }).click();
+  await expect(page.getByRole("button", { name: "Track", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Track", exact: true }).click();
   await expect.poll(() => scanned.length).toBe(1);
   await expect(input).toBeEnabled();
   await input.fill("12341234567002");
-  await expect(page.getByRole("button", { name: "Sell" })).toBeEnabled();
-  await page.getByRole("button", { name: "Sell" }).click();
+  await expect(page.getByRole("button", { name: "Track", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Track", exact: true }).click();
   await expect.poll(() => scanned.length).toBe(2);
   await expect.poll(() => page.locator("aside").getByText("12341234567002", { exact: true }).count()).toBe(1);
   expect(scanned).toEqual(["12341234567001", "12341234567002"]);
@@ -146,7 +152,7 @@ test("offline wrong-ticket replay is consumed without manager reconciliation and
       await route.fulfill({ status: 409, json: {
         code: "TICKET_SEQUENCE_MISMATCH", noSale: true, packId: "pack",
         expectedTicket: 50, scannedTicketNumber: 1,
-        error: "Wrong ticket scanned in this shift, no sales recorded. The system expected ticket 50; ticket 1 was scanned.",
+        error: "Wrong ticket scanned in this shift. No ticket was tracked. The system expected ticket 50; ticket 1 was scanned.",
       } });
       return;
     }
@@ -168,19 +174,20 @@ test("offline wrong-ticket replay is consumed without manager reconciliation and
   await input.press("Enter");
   await input.fill("12341234567002");
   await input.press("Enter");
-  await expect(page.getByRole("button", { name: "2 sales waiting to sync" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "2 scans waiting to sync" })).toBeVisible();
 
   await context.setOffline(false);
   await secondScanStarted;
   const error = page.getByRole("alert").filter({ hasText: "Ticket scan error" });
-  await expect(error).toContainText("Wrong ticket scanned in this shift, no sales recorded");
+  await expect(error).toContainText("Wrong ticket scanned in this shift. No ticket was tracked.");
   await expect(error).toContainText("Expected ticket 50; ticket 1 was scanned");
   await expect(error).not.toContainText("manager");
   await expect.poll(() => scans.length).toBe(2);
   releaseSecondResponse();
-  await expect(page.getByRole("status").filter({ hasText: "Correct ticket sold successfully." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Correct ticket" })).toContainText("Ticket Tracked Successfully");
+  await expect(page.getByText("Ticket Value", { exact: true })).toBeVisible();
   await expect(error).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /sales waiting to sync|conflict.*needs review/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /scans waiting to sync|conflict.*needs review/ })).toHaveCount(0);
   expect(reconciliationPosts).toBe(0);
 });
 
@@ -198,10 +205,10 @@ test("remembered manager stays signed in beyond the short inactivity cutoff", as
   const now = new Date();
   await page.clock.install({ time: now });
   await page.goto("/pos?shiftId=shift&terminal=T1");
-  await expect(page.getByRole("heading", { name: "Sell Tickets" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Track Tickets" })).toBeVisible();
   await page.clock.runFor(11 * 60 * 1000);
   await expect(page).toHaveURL(/\/pos\?shiftId=shift&terminal=T1$/);
-  await expect(page.getByRole("heading", { name: "Sell Tickets" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Track Tickets" })).toBeVisible();
   await expect(page.getByRole("alertdialog", { name: "Inactivity warning" })).toHaveCount(0);
 });
 
@@ -226,7 +233,7 @@ test("sign out clears session and gives the next user an isolated, revalidated d
   await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
   await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
   const firstResponse = await page.goto("/pos?shiftId=shift&terminal=T1");
-  await expect(page.getByRole("heading", { name: "Sell Tickets" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Track Tickets" })).toBeVisible();
   expect(firstResponse?.headers()["cache-control"]).toMatch(/no-cache|no-store/);
   expect(firstResponse?.headers()["cache-control"]).toContain("must-revalidate");
   await page.goto("/");

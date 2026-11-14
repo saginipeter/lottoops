@@ -15,7 +15,7 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
   if (!session) {
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header title="Sales" subtitle="Not authenticated" />
+        <Header title="Ticket Tracking" subtitle="Not authenticated" />
         <div className="flex-1 overflow-y-auto p-6">
           <div className="rounded-lg border-2 border-dashed border-red-300 bg-red-50 p-6 text-center">
             <p className="text-red-600 font-medium">Not authenticated</p>
@@ -28,7 +28,7 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
   if (!prisma) {
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header title="Sales" subtitle="Database unavailable" />
+        <Header title="Ticket Tracking" subtitle="Database unavailable" />
         <div className="flex-1 overflow-y-auto p-6">
           <div className="rounded-lg border-2 border-dashed border-yellow-300 bg-yellow-50 p-6 text-center">
             <p className="text-yellow-800 font-medium">Database not connected</p>
@@ -136,8 +136,8 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <LivePageRefresh intervalMs={3000} />
         <Header
-        title="Sales"
-        subtitle={shiftBoundRole ? "Your ticket sales for this sign-in only" : "Operational sales center for terminal shifts and reconciliation"}
+        title="Ticket Tracking"
+        subtitle={shiftBoundRole ? "Your tracked tickets for this sign-in only" : "Ticket tracking by terminal shift"}
       />
 
       <PageToolbar
@@ -152,17 +152,17 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
             <StatCard
               label="Shift Status"
               value={openShift ? "OPEN" : "CLOSED"}
-              hint={openShift ? "Sales are in progress" : "Open shift to start sales"}
+              hint={openShift ? "Ticket tracking is in progress" : "Open a shift to begin tracking tickets"}
             />
             <StatCard
-              label={shiftBoundRole ? "Your Login Sales" : "Current Shift Sales"}
+              label={shiftBoundRole ? "Your Login Ticket Value" : "Current Shift Ticket Value"}
               value={formatCurrency(currentSales)}
-              hint={`${currentTickets} tickets sold${shiftBoundRole ? " in this sign-in" : " in the selected shift"}`}
+              hint={`${currentTickets} tickets tracked${shiftBoundRole ? " in this sign-in" : " in the selected shift"}`}
             />
             <StatCard
-              label="Store Profit (5%)"
+              label="Store Share (5%)"
               value={formatCurrency(currentProfit)}
-              hint={shiftBoundRole ? "Your session profit (5%)" : "Current shift store profit"}
+              hint={shiftBoundRole ? "Your session share (5%)" : "Current shift store share"}
             />
             <StatCard
               label="Active Packs"
@@ -170,32 +170,32 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
               hint="Packs available on display"
             />
             {!shiftBoundRole && <StatCard
-              label="Last 7 Shift Sales"
+              label="Last 7 Shifts · Ticket Value"
               value={formatCurrency(weekSales)}
-              hint={`${recentClosedShifts.length} closed shifts · profit ${formatCurrency(weekProfit)}`}
+              hint={`${recentClosedShifts.length} closed shifts · store share ${formatCurrency(weekProfit)}`}
             />}
           </div>
 
           <Panel className="p-4">
             <div className="flex flex-wrap gap-2">
               {openShifts.length > 1 && !shiftBoundRole && openShifts.map((item) => <QuickLink key={item.id} href={`/sales?terminal=${encodeURIComponent(item.terminalId ?? "")}&shiftId=${encodeURIComponent(item.id)}`} label={`${item.terminalId ?? "Terminal"} · Shift ${item.shiftNumber ?? "—"}`} />)}
-              {openShift?.status === "OPEN" && <QuickLink href={`/pos?terminal=${encodeURIComponent(openShift.terminalId ?? session.terminalId ?? "")}&shiftId=${encodeURIComponent(openShift.id)}`} label="Sell Tickets" />}
+              {openShift?.status === "OPEN" && <QuickLink href={`/pos?terminal=${encodeURIComponent(openShift.terminalId ?? session.terminalId ?? "")}&shiftId=${encodeURIComponent(openShift.id)}`} label="Track Tickets" />}
               {!shiftBoundRole && <QuickLink href="/reports" label="Open Reports" />}
             </div>
           </Panel>
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
             <Panel className="xl:col-span-2 p-4">
-              <h3 className="text-base font-semibold text-text">{shiftBoundRole ? "Your Sales This Sign-in" : "Current Shift Sales by Pack"}</h3>
+              <h3 className="text-base font-semibold text-text">{shiftBoundRole ? "Your Ticket Tracking This Sign-in" : "Current Shift Tracking by Pack"}</h3>
               {shiftBoundRole ? !session.loginSessionId ? (
-                <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This sign-in predates sales-session tracking. Sign out and sign in again to start a separate employee sales record.</p>
+                <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This sign-in predates ticket-session tracking. Sign out and sign in again to start a separate employee tracking record.</p>
               ) : sessionPackSales.length === 0 ? (
-                <p className="mt-3 text-sm text-text-secondary">No ticket sales have been recorded in this login session yet.</p>
+                <p className="mt-3 text-sm text-text-secondary">No tickets have been tracked in this login session yet.</p>
               ) : (
                 <SessionPackSalesTable rows={sessionPackSales} terminalId={session.terminalId ?? "—"} shiftNumber={session.shiftNumber ?? null} />
               ) : !openShift ? (
                 <p className="mt-3 text-sm text-text-secondary">
-                  No open shift. Open a shift to track live sales.
+                  No open shift. Open a shift to track tickets.
                 </p>
               ) : currentLines.length === 0 ? (
                 <p className="mt-3 text-sm text-text-secondary">
@@ -210,8 +210,8 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
                         <th className="py-2 pr-4">Game</th>
                         <th className="py-2 pr-4">Pack</th>
                         <th className="py-2 pr-4 text-right">Tickets</th>
-                        <th className="py-2 pr-4 text-right">Sales</th>
-                        <th className="py-2 text-right">Profit (5%)</th>
+                        <th className="py-2 pr-4 text-right">Ticket Value</th>
+                        <th className="py-2 text-right">Store Share (5%)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -254,9 +254,9 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
             </Panel>
 
             <Panel className="p-4">
-              <h3 className="text-base font-semibold text-text">{shiftBoundRole ? "Sales visibility" : "Recent Closed Shifts"}</h3>
+              <h3 className="text-base font-semibold text-text">{shiftBoundRole ? "Ticket Tracking Visibility" : "Recent Closed Shifts"}</h3>
               {shiftBoundRole ? (
-                <p className="mt-3 text-sm text-text-secondary">This page shows only sales from your current sign-in. Store-wide and other employee reports are reserved for managers and owners.</p>
+                <p className="mt-3 text-sm text-text-secondary">This page shows only tickets tracked in your current sign-in. Store-wide and other employee reports are reserved for managers and owners.</p>
               ) : recentClosedShifts.length === 0 ? (
                 <p className="mt-3 text-sm text-text-secondary">
                   No closed shifts yet.
@@ -282,7 +282,7 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
                           Shift {shift.shiftNumber ?? "—"} · {formatCurrency(shiftSales)}
                         </p>
                         <p className="text-xs text-text-secondary">
-                          {shiftTickets} tickets
+                          {shiftTickets} tickets tracked · {formatCurrency(shiftSales)} ticket value
                         </p>
                       </div>
                     );
@@ -295,8 +295,8 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
       </div>
 
       <StatusBar
-        left={<span>Shift Tickets: {currentTickets}</span>}
-        center={<span>{shiftBoundRole ? "Your login sales" : "Shift Sales"}: {formatCurrency(currentSales)}{shiftBoundRole ? "" : ` | Week Sales: ${formatCurrency(weekSales)}`}</span>}
+        left={<span>Tickets Tracked This Shift: {currentTickets}</span>}
+        center={<span>{shiftBoundRole ? "Your login ticket value" : "Shift ticket value"}: {formatCurrency(currentSales)}{shiftBoundRole ? "" : ` | Week ticket value: ${formatCurrency(weekSales)}`}</span>}
         right={<span>{shiftBoundRole ? `${currentTickets} tickets · this sign-in` : `${recentClosedShifts.length} closed shifts loaded`}</span>}
       />
     </div>
@@ -340,7 +340,7 @@ function SessionPackSalesTable({ rows, terminalId, shiftNumber }: {
   return <div className="mt-4 overflow-x-auto">
     <table className="w-full min-w-[680px] text-sm">
       <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
-        <th className="py-2 pr-4">Terminal / Shift</th><th className="py-2 pr-4">Display #</th><th className="py-2 pr-4">Game / Pack</th><th className="py-2 pr-4 text-right">Tickets</th><th className="py-2 text-right">Your Sales</th>
+        <th className="py-2 pr-4">Terminal / Shift</th><th className="py-2 pr-4">Display #</th><th className="py-2 pr-4">Game / Pack</th><th className="py-2 pr-4 text-right">Tickets Tracked</th><th className="py-2 text-right">Your Ticket Value</th>
       </tr></thead>
       <tbody>{rows.map((row) => <tr key={row.packId} className="border-b border-border">
         <td className="py-2 pr-4">{terminalId} · Shift {shiftNumber ?? "—"}</td>

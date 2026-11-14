@@ -34,11 +34,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (pack.status !== "ACTIVE") {
-      return NextResponse.json({ error: "Only ACTIVE packs can be marked sold out." }, { status: 409 });
+      return NextResponse.json({ error: "Only active packs can be marked as having no tickets remaining." }, { status: 409 });
     }
 
     if (pack.sequenceLocked) {
-      return NextResponse.json({ error: "Pack is locked pending manager review." }, { status: 409 });
+      return NextResponse.json({ error: "This pack has a manager-set tracking hold." }, { status: 409 });
     }
 
     await prisma.$transaction([
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
           action: "SOLD_OUT",
           packId: pack.id,
           performedById: session.userId,
-          detail: `Pack ${pack.serialNumber} marked sold out from pack view.`,
+          detail: `Pack ${pack.serialNumber} marked as having no tickets remaining from pack view.`,
         },
       }),
     ]);
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[POST /api/packs/mark-sold-out]", error);
-    return NextResponse.json({ error: "Unable to mark pack sold out." }, { status: 500 });
+    return NextResponse.json({ error: "Unable to update the pack status." }, { status: 500 });
   }
 }
 

@@ -45,6 +45,11 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, /tv-display-badge/);
     assert.match(html, /tv-display-number/);
     assert.match(html, /\.tv-display-kicker \{ font-size:min\(5cqi,12px\); \}/);
+    assert.match(html, /\.tv-card-meta \{[^}]*display:grid; grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\);/);
+    assert.match(html, /\.tv-display-badge \{ grid-column:2; justify-self:center; max-width:100%; box-sizing:border-box; overflow:hidden;/);
+    assert.match(html, /\.tv-price-badge \{ align-items:flex-start; justify-self:start; max-width:100%; box-sizing:border-box; overflow:hidden;/);
+    assert.match(html, /\.tv-price-kicker,\.tv-display-kicker \{ font-size:min\(3cqi,8px\);/);
+    assert.match(html, /\.tv-price-value \{ margin-top:min\(\.8cqi,2px\); font-size:min\(8cqi,18px\);[^}]*white-space:nowrap;/);
     assert.match(html, /class="tv-display-number">#001<\/strong>/);
     assert.match(html, /class="tv-display-number">#002<\/strong>/);
     assert.match(html, /--current-ticket-digit-divisor:1\.6/);
@@ -54,8 +59,8 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.doesNotMatch(html, /\.tv-ticket-badge-next \.tv-ticket-number \{/);
     assert.match(html, /\.tv-ticket-label \{[^}]*font-size:min\(7cqi,21px\);[^}]*letter-spacing:-\.06em;/);
     assert.match(html, />\$1</);
-    assert.match(html, /\.tv-price-badge \{ align-items:flex-start; border-color:#fff; border-radius:3px; background:#fff; color:#050505;/);
-    assert.match(html, /\.tv-display-badge \{ align-items:flex-end; border-color:#fff; border-radius:3px; background:#fff; color:#050505;/);
+    assert.match(html, /\.tv-price-badge \{[^}]*border-color:#fff; border-radius:3px; background:#fff; color:#050505;/);
+    assert.match(html, /\.tv-display-badge \{ grid-column:2; justify-self:center;[^}]*align-items:flex-end; border-color:#fff; border-radius:3px; background:#fff; color:#050505;/);
     assert.match(html, /\.tv-ticket-face \{ position:relative; display:grid; width:100%; height:100%; place-items:center; box-sizing:border-box; border:min\(1\.5cqi,4\.2px\) solid #fff; border-radius:50%; background:#fff;/);
     assert.doesNotMatch(html, /border:min\(1\.5cqi,4\.2px\) solid #100d06/);
     assert.match(html, /\.tv-artwork-crop \{ position:absolute; inset:-18% 0 0;/);

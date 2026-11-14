@@ -4,7 +4,6 @@ import bcrypt from "bcryptjs";
 import { getSessionMaxAge, signMfaChallenge, signSession, MFA_CHALLENGE_COOKIE, SESSION_COOKIE } from "@/lib/session";
 import { isMfaRequired } from "@/lib/mfa";
 import { findMockUser } from "@/lib/mock-users";
-import { parseShiftNumber } from "@/lib/shift-number";
 import { clearAuthenticationCookies } from "@/lib/auth-cookies";
 import { createLoginSessionId, endLoginSession, startLoginSession } from "@/lib/login-session";
 import { verifySession } from "@/lib/session";
@@ -20,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
     }
-    const { email, password, rememberMe: requestedRememberMe, shiftId: requestedShiftId } = body as { email?: unknown; password?: unknown; rememberMe?: unknown; shiftId?: unknown };
+    const { email, password, rememberMe: requestedRememberMe } = body as { email?: unknown; password?: unknown; rememberMe?: unknown };
     const rememberMe = requestedRememberMe === true;
 
     if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
@@ -122,41 +121,13 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    let shiftAssignment: { shiftId: string; shiftNumber: 1 | 2 | 3; terminalId: string } | undefined;
-    if (authResult.role === "EMPLOYEE" || authResult.role === "SHIFT_LEAD") {
-      if (!prisma) {
-        return NextResponse.json({ error: "Shift login requires a live store connection. Please try again when the system is online." }, { status: 503 });
-      }
-      const openShifts: Array<{ id: string; shiftNumber: number | null; terminalId: string | null }> = await prisma.shift.findMany({
-        where: { storeId: authResult.storeId, status: "OPEN", shiftNumber: { in: [1, 2] }, terminalId: { not: null } },
-        select: { id: true, shiftNumber: true, terminalId: true },
-        orderBy: [{ terminalId: "asc" }, { shiftNumber: "asc" }],
-      });
-      if (typeof requestedShiftId !== "string" || !requestedShiftId.trim()) {
-        return NextResponse.json({
-          code: "SHIFT_SELECTION_REQUIRED",
-          error: openShifts.length ? "Choose an open terminal and shift before signing in." : "No Shift 1 or Shift 2 is open on any terminal. Ask a manager to open one.",
-          openShifts,
-        }, { status: 409 });
-      }
-      const selected = openShifts.find((shift) => shift.id === requestedShiftId.trim());
-      if (!selected || !selected.terminalId || !parseShiftNumber(selected.shiftNumber)) {
-        return NextResponse.json({
-          code: "SHIFT_NOT_OPEN",
-          error: "That terminal shift is no longer open. Choose an available option or ask a manager to reopen it.",
-          openShifts,
-        }, { status: 409 });
-      }
-      shiftAssignment = { shiftId: selected.id, shiftNumber: selected.shiftNumber as 1 | 2, terminalId: selected.terminalId };
-    }
-
     const previousToken = req.cookies.get(SESSION_COOKIE)?.value;
     const previousSession = previousToken ? await verifySession(previousToken) : null;
     if (previousSession?.loginSessionId) await endLoginSession(previousSession.loginSessionId);
 
     if (prisma && await isMfaRequired(authResult.userId)) {
       const response = clearAuthenticationCookies(NextResponse.json({ mfaRequired: true }, { status: 202 }));
-      response.cookies.set(MFA_CHALLENGE_COOKIE, await signMfaChallenge(authResult.userId, rememberMe, shiftAssignment), {
+      response.cookies.set(MFA_CHALLENGE_COOKIE, await signMfaChallenge(authResult.userId, rememberMe), {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
@@ -167,11 +138,7 @@ export async function POST(req: NextRequest) {
     }
 
     const loginSessionId = createLoginSessionId();
-    await startLoginSession(loginSessionId, {
-      storeId: authResult.storeId,
-      userId: authResult.userId,
-      ...(shiftAssignment ? { shiftId: shiftAssignment.shiftId, terminalId: shiftAssignment.terminalId } : {}),
-    });
+    await startLoginSession(loginSessionId, { storeId: authResult.storeId, userId: authResult.userId });
     const token = await signSession({
       userId: authResult.userId,
       storeId: authResult.storeId,
@@ -181,7 +148,6 @@ export async function POST(req: NextRequest) {
       role: authResult.role,
       grantedPermissions: authResult.grantedPermissions,
       rememberMe,
-      ...shiftAssignment,
       loginSessionId,
     });
 
@@ -192,8 +158,9 @@ export async function POST(req: NextRequest) {
         email: authResult.email,
         role: authResult.role,
         storeName: authResult.storeName,
-        shiftNumber: shiftAssignment?.shiftNumber ?? null,
-        terminalId: shiftAssignment?.terminalId ?? null,
+        shiftNumber: null,
+        terminalId: null,
+        needsShiftSelection: authResult.role === "EMPLOYEE" || authResult.role === "SHIFT_LEAD",
       },
     }));
 

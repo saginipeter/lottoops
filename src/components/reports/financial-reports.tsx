@@ -8,6 +8,7 @@ import { ReportActions } from "@/components/reports/report-actions";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildEndOfShiftReportDocument, type ShiftGameSummary, type ShiftReportData } from "@/lib/shift-report";
 import { compareDisplayNumberLabels, formatDisplayNumberLabel } from "@/lib/display-number-order";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 interface GameRow extends ShiftGameSummary { netMargin: number; marginPct: number; }
 interface ShiftRow extends ShiftReportData {
@@ -29,9 +30,6 @@ interface ReportData {
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
-}
-function fmtDate(iso: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
 }
 function fmtDay(d: string) {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(new Date(d + "T12:00:00"));
@@ -143,13 +141,13 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
       {data && (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-            <StatCard label="Gross Sales (100%)" value={fmt(data.summary.totalGross)} up={true} sub="Total revenue" />
-            <StatCard label="Cost / Payout (95%)" value={fmt(data.summary.totalCogs)} sub="95% of gross sales" />
+            <StatCard label="Ticket Value (100%)" value={fmt(data.summary.totalGross)} up={true} sub="Value of tracked tickets" />
+            <StatCard label="Cost / Payout (95%)" value={fmt(data.summary.totalCogs)} sub="95% of tracked ticket value" />
             <StatCard label="Net Margin" value={fmt(data.summary.totalNet)}
               up={data.summary.totalNet >= 0} sub={`${data.summary.avgMarginPct}% avg margin`} />
-            <StatCard label="Tickets Sold" value={data.summary.totalTickets.toLocaleString()} sub="Across all shifts" />
+            <StatCard label="Tickets Tracked" value={data.summary.totalTickets.toLocaleString()} sub="Across all shifts" />
             <StatCard label="Shifts" value={String(data.summary.shiftCount)} sub="Closed in period" />
-            <StatCard label="Avg / Shift" value={data.summary.shiftCount > 0 ? fmt(data.summary.totalGross / data.summary.shiftCount) : "$0"} sub="Gross per shift" />
+            <StatCard label="Avg / Shift" value={data.summary.shiftCount > 0 ? fmt(data.summary.totalGross / data.summary.shiftCount) : "$0"} sub="Average tracked ticket value per shift" />
           </div>
 
           {/* Tabs */}
@@ -179,10 +177,10 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                         <th className="py-2 pr-4">Terminal</th>
                         <th className="py-2 pr-4">Opened By</th>
                         <th className="py-2 pr-4">Closed By</th>
-                        <th className="py-2 pr-4 text-right">Tickets</th>
-                        <th className="py-2 pr-4 text-right">Gross</th>
+                        <th className="py-2 pr-4 text-right">Tickets Tracked</th>
+                        <th className="py-2 pr-4 text-right">Ticket Value</th>
                         <th className="py-2 pr-4 text-right">Cost / Payout (95%)</th>
-                        <th className="py-2 pr-4 text-right">Net</th>
+                        <th className="py-2 pr-4 text-right">Net Value</th>
                         <th className="py-2 pr-3 text-right">Margin</th>
                         <th className="py-2 text-right">Report</th>
                       </tr>
@@ -197,8 +195,8 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                               {expandedShift === shift.id ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                             </td>
                             <td className="py-2.5 pr-4">
-                              <p className="font-medium text-text">{shift.closedAt ? fmtDate(shift.closedAt) : "—"}</p>
-                              <p className="text-xs text-text-tertiary">Opened {fmtDate(shift.openedAt)}</p>
+                              <p className="font-medium text-text">{shift.closedAt ? formatReportTimestamp(shift.closedAt) : "—"}</p>
+                              <p className="text-xs text-text-tertiary">Opened {formatReportTimestamp(shift.openedAt)}</p>
                             </td>
                             <td className="py-2.5 pr-4 font-semibold text-text">{shift.shiftNumber == null ? "Unnumbered" : `Shift ${shift.shiftNumber}`}</td>
                             <td className="py-2.5 pr-4 text-text-secondary">{shift.terminalId ?? "Not recorded"}</td>
@@ -213,16 +211,26 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                             <td className="py-2.5 pr-3 text-right"><MarginBar pct={shift.marginPct} /></td>
                             <td className="py-2.5 text-right" onClick={(event) => event.stopPropagation()}><ReportActions document={buildEndOfShiftReportDocument(shift)} /></td>
                           </tr>
-                          {expandedShift === shift.id && shift.gameBreakdown.length > 0 && (
+                          {expandedShift === shift.id && (
                             <tr key={`${shift.id}-expand`} className="bg-surface-soft">
                               <td colSpan={12} className="px-4 pb-3 pt-1">
+                                <section className="mb-4 rounded-md border border-border bg-surface p-3" aria-label="Register Scratch Off Sales">
+                                  <h4 className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Register Scratch Off Sales</h4>
+                                  <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
+                                    <p>System tracked ticket value: <strong>{fmt(shift.grossSales)}</strong></p>
+                                    <p>Register Scratch Off Sales: <strong>{shift.registerScratchOffSales == null ? "Not recorded" : fmt(shift.registerScratchOffSales)}</strong></p>
+                                    <p>Difference: <strong>{shift.registerScratchOffSales == null ? "Not recorded" : fmt(shift.registerScratchOffSales - shift.grossSales)}</strong></p>
+                                  </div>
+                                  {shift.registerSalesRecordedBy && <p className="mt-2 text-xs text-text-secondary">Recorded by {shift.registerSalesRecordedBy}{shift.registerSalesRecordedAt ? ` · ${formatReportTimestamp(shift.registerSalesRecordedAt)}` : ""}</p>}
+                                </section>
+                                {shift.gameBreakdown.length === 0 ? <p className="rounded-md bg-surface p-3 text-sm text-text-secondary">No game breakdown is available for this shift.</p> : <>
                                 <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-2">Game Breakdown</p>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-xs">
                                     <thead><tr className="text-left">
                                       <th className="p-2">Game / Game #</th><th className="p-2">Total Tickets</th>
-                                      <th className="p-2">Tickets Sold</th><th className="p-2">Active Stock</th>
-                                      <th className="p-2">Gross Sales (100%)</th><th className="p-2">Cost / Payout (95%)</th>
+                                      <th className="p-2">Tickets Tracked</th><th className="p-2">Active Stock</th>
+                                      <th className="p-2">Ticket Value (100%)</th><th className="p-2">Cost / Payout (95%)</th>
                                     </tr></thead>
                                     <tbody>{shift.gameBreakdown.map((g) => (
                                       <tr key={g.id ?? g.name}>
@@ -241,14 +249,14 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                                     </tr></tfoot>
                                   </table>
                                 </div>
-                                <p className="mt-2 text-xs text-text-secondary">Total tickets = opening available stock; active stock = closing unsold stock. Cost / Payout is a 95% sales obligation, not recorded prize payments.</p>
-                                <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Pack Sales by Display</p>
+                                <p className="mt-2 text-xs text-text-secondary">Total tickets = opening available stock; active stock = closing remaining stock. Cost / Payout is 95% of tracked ticket value, not recorded prize payments.</p>
+                                <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Ticket Tracking by Display</p>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-xs">
                                     <thead><tr className="text-left">
                                       <th className="p-2">Display #</th><th className="p-2">Pack</th><th className="p-2">Game</th>
                                       <th className="p-2 text-right">Beginning</th><th className="p-2 text-right">Ending</th>
-                                      <th className="p-2 text-right">Tickets Sold</th><th className="p-2 text-right">Gross Sales</th><th className="p-2 text-right">Cost (95%)</th>
+                                      <th className="p-2 text-right">Tickets Tracked</th><th className="p-2 text-right">Ticket Value</th><th className="p-2 text-right">Cost (95%)</th>
                                     </tr></thead>
                                     <tbody>{[...shift.packSales].sort((a, b) => compareDisplayNumberLabels(a.display, b.display)).map((pack) => (
                                       <tr key={`${pack.display}-${pack.pack}`} className="border-t border-border">
@@ -259,16 +267,16 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                                     ))}</tbody>
                                   </table>
                                 </div>
-                                <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Sales by Employee Login &amp; Terminal</p>
-                                {!shift.operatorSessions?.length ? <p className="rounded-md bg-surface-soft p-3 text-xs text-text-secondary">No employee-session sales were recorded for this shift.</p> : <div className="overflow-x-auto">
+                                <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Ticket Tracking by Employee Login &amp; Terminal</p>
+                                {!shift.operatorSessions?.length ? <p className="rounded-md bg-surface-soft p-3 text-xs text-text-secondary">No employee-session ticket tracking was recorded for this shift.</p> : <div className="overflow-x-auto">
                                   <table className="w-full min-w-[760px] text-xs">
                                     <thead><tr className="text-left">
-                                      <th className="p-2">Employee</th><th className="p-2">Terminal</th><th className="p-2">Shift</th><th className="p-2">Signed in / out</th><th className="p-2 text-right">Tickets</th><th className="p-2 text-right">Gross Sales</th><th className="p-2">Price source</th>
+                                      <th className="p-2">Employee</th><th className="p-2">Terminal</th><th className="p-2">Shift</th><th className="p-2">Signed in / out</th><th className="p-2 text-right">Tickets</th><th className="p-2 text-right">Ticket Value</th><th className="p-2">Price source</th>
                                     </tr></thead>
                                     <tbody>{shift.operatorSessions.map((operator, index) => <Fragment key={`${operator.shiftId}-${operator.sessionId ?? operator.employeeId}-${operator.terminalId}-${index}`}>
                                       <tr className="border-t border-border">
                                         <td className="p-2 font-semibold">{operator.employeeName}{operator.legacyAttribution ? " · historical" : ""}</td><td className="p-2">{operator.terminalId ?? "Not recorded"}</td><td className="p-2">{shift.shiftNumber == null ? "Not recorded" : `Shift ${shift.shiftNumber}`}</td>
-                                        <td className="p-2">{operator.signedInAt ? new Date(operator.signedInAt).toLocaleString() : "Not recorded"}{operator.endedAt ? ` – ${new Date(operator.endedAt).toLocaleString()}` : " – Still signed in"}</td><td className="p-2 text-right tabular-nums">{operator.tickets}</td><td className="p-2 text-right tabular-nums font-semibold">{fmt(operator.grossSales)}</td><td className="p-2">{operator.hasEstimatedPrice ? "Backfilled estimate" : operator.legacyAttribution ? "Historical price" : "Recorded"}</td>
+                                        <td className="p-2">{operator.signedInAt ? formatReportTimestamp(operator.signedInAt) : "Not recorded"}{operator.endedAt ? ` – ${formatReportTimestamp(operator.endedAt)}` : " – Still signed in"}</td><td className="p-2 text-right tabular-nums">{operator.tickets}</td><td className="p-2 text-right tabular-nums font-semibold">{fmt(operator.grossSales)}</td><td className="p-2">{operator.hasEstimatedPrice ? "Backfilled estimate" : operator.legacyAttribution ? "Historical price" : "Recorded"}</td>
                                       </tr>
                                       {operator.packs.map((pack) => <tr key={`${operator.sessionId}-${pack.packId}`} className="border-t border-border/60 bg-surface-soft/50">
                                         <td className="py-1.5 pl-6 pr-2 text-text-secondary">↳ Pack {pack.pack}</td><td className="p-2">Display {formatDisplayNumberLabel(pack.display)}</td><td className="p-2" colSpan={2}>{pack.game}</td><td className="p-2 text-right">{pack.tickets}</td><td className="p-2 text-right">{fmt(pack.grossSales)}</td><td className="p-2">{pack.hasEstimatedPrice ? "Estimate" : "Recorded"}</td>
@@ -276,6 +284,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                                     </Fragment>)}</tbody>
                                   </table>
                                 </div>}
+                                </>}
                               </td>
                             </tr>
                           )}
@@ -294,8 +303,8 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                   <>
                   <div className="mb-5 rounded-lg border border-border bg-surface-soft p-3 sm:p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-text">Sales trend</p>
-                      <p className="text-xs text-text-tertiary">Daily gross sales</p>
+                      <p className="text-sm font-semibold text-text">Ticket value trend</p>
+                      <p className="text-xs text-text-tertiary">Daily ticket value</p>
                     </div>
                     <div className="flex h-36 items-end gap-1 overflow-x-auto sm:gap-2">
                       {[...data.dailyTotals].slice(-30).map((day) => {
@@ -317,8 +326,8 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
                         <th className="py-2 pr-4">Date</th>
                         <th className="py-2 pr-4 text-right">Shifts</th>
-                        <th className="py-2 pr-4 text-right">Tickets Sold</th>
-                        <th className="py-2 text-right">Gross Sales</th>
+                        <th className="py-2 pr-4 text-right">Tickets Tracked</th>
+                        <th className="py-2 text-right">Ticket Value</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -352,7 +361,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
               {/* Games Tab */}
               {activeTab === "games" && (
                 data.gamePerformance.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-text-secondary">No game sales in this date range.</p>
+                  <p className="py-8 text-center text-sm text-text-secondary">No tracked tickets in this date range.</p>
                 ) : (
                   <>
                   <div className="mb-5 grid gap-3 sm:grid-cols-2">
@@ -370,9 +379,9 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
                         <th className="py-2 pr-4">Game / Game #</th>
                         <th className="py-2 pr-4 text-right">Total Tickets</th>
-                        <th className="py-2 pr-4 text-right">Tickets Sold</th>
+                        <th className="py-2 pr-4 text-right">Tickets Tracked</th>
                         <th className="py-2 pr-4 text-right">Active Stock</th>
-                        <th className="py-2 pr-4 text-right">Gross Sales (100%)</th>
+                        <th className="py-2 pr-4 text-right">Ticket Value (100%)</th>
                         <th className="py-2 pr-4 text-right">Cost / Payout (95%)</th>
                         <th className="py-2 pr-4 text-right">Net</th>
                         <th className="py-2 text-right">Margin</th>
@@ -412,7 +421,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                       <td className="py-2.5 text-right"><MarginBar pct={data.summary.avgMarginPct} /></td>
                     </tr></tfoot>
                   </table>
-                  <p className="mt-2 text-xs text-text-secondary">Inventory counts are summed shift opening/closing balances, not a current stock snapshot; the same pack may appear in multiple shifts. Cost / Payout is 95% of gross sales, not recorded prize payments.</p>
+                  <p className="mt-2 text-xs text-text-secondary">Inventory counts are summed shift opening/closing balances, not a current stock snapshot; the same pack may appear in multiple shifts. Cost / Payout is 95% of tracked ticket value, not recorded prize payments.</p>
                   </>
                 )
               )}

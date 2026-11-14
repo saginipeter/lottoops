@@ -31,6 +31,7 @@ test("activity document uses the displayed filtered rows for totals and includes
     { label: "Action", value: "Sequence issue resolved" },
   ]);
   assert.deepEqual(report.sections[0].rows, [[1, 1, 0, 1, 1]]);
+  assert.equal(report.sections[1].rows[0][0], "Oct 14, 2026, 4:00 AM");
   assert.deepEqual(report.sections[1].rows[0].slice(1), [
     "Sequence issue resolved", "Not recorded", "—", "Needs review",
     "Manager confirmed physical ticket <21>",

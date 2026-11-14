@@ -14,14 +14,14 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   let session: typeof staff | null = staff;
   const initial = () => ({
     pack: { id: "pack", storeId: "store", serialNumber: "P1", packNumber: "P1", status: "ACTIVE", currentTicketNumber: 9, firstTicket: 1, ticketQuantity: 10, ticketPrice: null as number | null, game: { price: 5, gameNumber: "1234" }, completedAt: null },
-    shift: { id: "shift", storeId: "store", status: "OPEN", shiftNumber: 1, terminalId: "T1", lines: [{ id: "line", packId: "pack", slotNumber: "1", beginningTicket: 10, endingTicket: 9, ticketsSold: 1, salesAmount: 5 }] },
+    shift: { id: "shift", storeId: "store", status: "OPEN", shiftNumber: 1, terminalId: "T1", registerScratchOffSales: null as number | null, registerScratchOffSalesRecordedAt: null as Date | null, registerScratchOffSalesRecordedById: null as string | null, openingCash: 0, expectedCash: null, countedCash: null, cashVariance: null, cashReconciledAt: new Date("2019-01-01T00:00:00.000Z"), cashReconciledById: "historic-cash-user", lines: [{ id: "line", packId: "pack", slotNumber: "1", beginningTicket: 10, endingTicket: 9, ticketsSold: 1, salesAmount: 5 }] },
     slot: { id: "slot", storeId: "store", packId: "pack" as string | null },
     // Deliberately older than two minutes and sold by somebody else.
-    events: [{ id: "sale", ticketBarcode: "barcode", scannedAt: new Date("2020-01-01"), scannedById: "other-staff", terminalId: "T1", loginSessionId: null }] as Array<{ id: string; ticketBarcode: string; scannedAt: Date; scannedById: string; terminalId?: string | null; loginSessionId?: string | null; clientRequestId?: string | null }>,
+    events: [{ id: "sale", ticketBarcode: "barcode", scannedAt: new Date("2020-01-01"), scannedById: "other-staff", terminalId: "T1", loginSessionId: null, ticketPrice: 5 }] as Array<{ id: string; ticketBarcode: string; scannedAt: Date; scannedById: string; terminalId?: string | null; loginSessionId?: string | null; clientRequestId?: string | null; ticketPrice?: number }>,
     loginSessions: [{ id: "login-session", storeId: "store", shiftId: "shift", endedAt: null as Date | null }, { id: "other-session", storeId: "store", shiftId: "other-shift", endedAt: null as Date | null }],
     requests: [] as Array<{ id: string; storeId: string; shiftId: string; packId: string; status: string; saleEventId?: string; ticketBarcode?: string }>,
     notifications: [] as Array<{ id: string; entityId: string; notificationType: string; eventKey: string; packId?: string | null; title: string; detail: string; severity: string; createdAt: Date }>,
-    cash: { expectedCash: 0, countedCash: 0, cashVariance: 0 },
+    shiftRegisterSales: null as number | null,
     audit: { id: "audit", status: "COMPLETED", lines: [{ packId: "pack", beginningPhysicalTicket: 1 as number | null, endingPhysicalTicket: 2 as number | null, active: true }] },
   });
   let state = initial();
@@ -84,6 +84,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       update: async ({ data }: Query) => {
         assert.equal(insideTransaction, true);
         Object.assign(state.shift, data);
+        if (data?.registerScratchOffSales !== undefined) state.shiftRegisterSales = Number(data.registerScratchOffSales);
       },
     },
     shipment: { findMany: async () => [] },
@@ -158,18 +159,17 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         }
         if (sql.includes("GROUP BY pack_id")) {
           assert.deepEqual(values, [session?.storeId, "shift"]);
-          return state.events.length ? [{ packId: "pack", ticketsSold: state.events.length }] : [];
+          return state.events.length ? [{ packId: "pack", ticketsSold: state.events.length, ticketValue: state.events.reduce((sum, event) => sum + (event.ticketPrice ?? state.pack.game.price), 0) }] : [];
         }
         if (sql.includes("COUNT(*)")) {
           assert.deepEqual(values, [session?.storeId, "shift", "pack"]);
-          return [{ ticketsSold: state.events.length }];
+          return [{ ticketsSold: state.events.length, ticketValue: state.events.reduce((sum, event) => sum + (event.ticketPrice ?? state.pack.game.price), 0) }];
         }
         assert.deepEqual(values, [session?.storeId, "pack"]);
         assert.match(sql, /ORDER BY scanned_at DESC, id DESC/);
         return state.events.slice(-1);
       }
       if (sql.includes("FROM shifts")) {
-        if (sql.includes('"openingCash"')) return [{ terminalId: "T1", openingCash: 100 }];
         return state.shift.status === "OPEN" ? [{ id: state.shift.id }] : [];
       }
       if (sql.includes("sale_event_id = $2")) {
@@ -204,13 +204,8 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       }
       calls.push("execute");
       if (sql.includes("INSERT INTO shift_participants") || sql.includes("INSERT INTO inventory_activity_logs")) return 1;
-      if (sql.includes("UPDATE shifts")) {
-        assert.equal(insideTransaction, true);
-        state.cash = { expectedCash: Number(values[0]), countedCash: Number(values[1]), cashVariance: Number(values[2]) };
-        return 1;
-      }
       if (sql.includes("INSERT INTO live_scan_events")) {
-        state.events.push({ id: String(values[0]), ticketBarcode: String(values[4]), scannedAt: new Date(), clientRequestId: values[5] == null ? null : String(values[5]), scannedById: String(values[6]), terminalId: String(values[7]), loginSessionId: String(values[8]) });
+        state.events.push({ id: String(values[0]), ticketBarcode: String(values[4]), scannedAt: new Date(), clientRequestId: values[5] == null ? null : String(values[5]), scannedById: String(values[6]), terminalId: String(values[7]), loginSessionId: String(values[8]), ticketPrice: Number(values[9]) });
         return 1;
       }
       if (sql.includes("INSERT INTO inventory_notifications")) {
@@ -376,7 +371,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal(alerts.length, 1);
     assert.equal(alerts[0].entityId, id);
     assert.equal(alerts[0].title, "Returned ticket needs manager review");
-    assert.match(alerts[0].detail, /Available for sale immediately/);
+    assert.match(alerts[0].detail, /Available for tracking immediately/);
     assert.match(alerts[0].detail, /Reason: Customer declined/);
     assert.deepEqual(filterAndSortAlerts(alerts, "ALL", "SEVERITY"), alerts);
   });
@@ -445,7 +440,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     ]);
     assert.equal(document.sections[0].rows[0][8], "Already returned; review only. Reason: Customer declined");
     assert.equal(document.sections[0].rows[1][8], "Customer declined");
-    assert.match(String(document.metadata?.[0].value), /reviews do not change inventory or sales/);
+    assert.match(String(document.metadata?.[0].value), /reviews do not change inventory or ticket tracking/);
   });
 
   await context.test("both new reviews and legacy requests list under store/owner scope", async () => {
@@ -629,7 +624,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
 
   const closeRequest = (overrides: Record<string, unknown> = {}) => new NextRequest("http://localhost/api/shifts/close", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shiftId: "shift", countedCash: 100, ...overrides }),
+    body: JSON.stringify({ shiftId: "shift", registerScratchOffSales: 100, ...overrides }),
   });
 
   await context.test("shift close calculates fresh counts after return, or rejects the return after close acquires the shift", async () => {
@@ -656,20 +651,27 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       assert.equal(state.pack.currentTicketNumber, first === "return" ? 10 : 9);
       assert.equal(state.shift.lines[0].endingTicket, state.pack.currentTicketNumber);
       assert.equal(state.shift.lines[0].ticketsSold, first === "return" ? 0 : 1);
-      assert.equal(totals.totalSales, first === "return" ? 0 : 5);
-      assert.equal(state.cash.expectedCash, first === "return" ? 100 : 105);
+      assert.equal(totals.systemTrackedSales, first === "return" ? 0 : 5);
+      assert.equal(totals.registerScratchOffSales, 100);
+      assert.equal(totals.salesVariance, first === "return" ? 100 : 95);
+      assert.equal(state.shiftRegisterSales, 100);
+      assert.equal(state.shift.registerScratchOffSales, 100);
+      assert.ok(state.shift.registerScratchOffSalesRecordedAt instanceof Date);
+      assert.equal(state.shift.registerScratchOffSalesRecordedById, "staff");
+      assert.equal(state.shift.cashReconciledById, "historic-cash-user", "new close does not overwrite legacy cash audit metadata");
+      assert.equal(state.shift.cashReconciledAt.toISOString(), "2019-01-01T00:00:00.000Z");
       assert.equal(state.loginSessions[0].endedAt?.toISOString(), "2026-11-09T10:00:00.000Z");
       assert.equal(state.loginSessions[1].endedAt, null, "closing this shift must not end a session assigned to another terminal shift");
       assert.equal(state.requests.length, first === "return" ? 1 : 0);
     }
   });
 
-  await context.test("transactional shift close retains authentication, store scope, cash, audit and count validation", async () => {
+  await context.test("transactional shift close retains authentication, store scope, register sales, audit and count validation", async () => {
     reset(); session = null;
     assert.equal((await closeShift(closeRequest())).status, 401);
     session = { ...staff, role: "AUDITOR" };
     assert.equal((await closeShift(closeRequest())).status, 403);
-    for (const scenario of ["store", "closed", "cash", "opening-audit", "closing-audit", "missing-active-pack-line", "invalid-count"]) {
+    for (const scenario of ["store", "closed", "register-sales", "opening-audit", "closing-audit", "missing-active-pack-line", "invalid-count"]) {
       reset();
       if (scenario === "store") session = { ...staff, storeId: "foreign" };
       if (scenario === "closed") state.shift.status = "CLOSED";
@@ -678,15 +680,29 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       if (scenario === "missing-active-pack-line") state.audit.lines = [];
       if (scenario === "invalid-count") state.pack.currentTicketNumber = 11;
       const before = structuredClone(state);
-      const response = await closeShift(closeRequest(scenario === "cash" ? { countedCash: undefined } : {}));
+      const response = await closeShift(closeRequest(scenario === "register-sales" ? { registerScratchOffSales: undefined } : {}));
       assert.equal(response.status, scenario === "store" ? 403 : scenario === "closed" ? 400 : 409, scenario);
       assert.deepEqual(state, before, scenario);
     }
     reset(); state.pack.status = "SOLD_OUT"; state.pack.currentTicketNumber = 0; state.slot.packId = null;
     state.audit.status = "OPEN"; state.audit.lines = [];
-    assert.equal((await closeShift(closeRequest({ countedCash: 150 }))).status, 200);
-    assert.equal(state.cash.expectedCash, 105, "only this shift's single recorded sale contributes to cash expectations");
+    assert.equal((await closeShift(closeRequest({ registerScratchOffSales: 150 }))).status, 200);
+    assert.equal(state.shiftRegisterSales, 150);
+    assert.equal(state.shift.lines[0].salesAmount, 5, "the register value is separate from tracked ticket value");
     assert.equal(state.shift.lines[0].ticketsSold, 1, "global stock may be depleted by sales on another concurrent shift");
+
+    for (const invalidRegisterAmount of [null, "", "   ", false, -1]) {
+      reset();
+      const before = structuredClone(state);
+      const response = await closeShift(closeRequest({ registerScratchOffSales: invalidRegisterAmount }));
+      assert.equal(response.status, 409, `invalid register amount ${JSON.stringify(invalidRegisterAmount)}`);
+      assert.deepEqual(state, before, `invalid register amount ${JSON.stringify(invalidRegisterAmount)} must not mutate the shift`);
+    }
+
+    reset();
+    state.pack.game.price = 9;
+    assert.equal((await closeShift(closeRequest({ registerScratchOffSales: 5 }))).status, 200);
+    assert.equal(state.shift.lines[0].salesAmount, 5, "tracked value comes from the $5 ticket price recorded at scan time, not today's $9 configured price");
 
     reset();
     state.events = [];
@@ -698,7 +714,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     state.shift.lines[0].ticketsSold = 0;
     state.audit.lines[0].beginningPhysicalTicket = 50;
     state.audit.lines[0].endingPhysicalTicket = 50;
-    assert.equal((await closeShift(closeRequest({ countedCash: 100 }))).status, 200, "26 sellable tickets from ticket 25 through 50 is a valid, closable LAST pack position");
+    assert.equal((await closeShift(closeRequest({ registerScratchOffSales: 100 }))).status, 200, "26 trackable tickets from ticket 25 through 50 is a valid, closable LAST pack position");
 
     reset();
     state.audit.lines.push({ packId: "retired-pack", beginningPhysicalTicket: 1, endingPhysicalTicket: null, active: false });

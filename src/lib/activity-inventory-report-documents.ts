@@ -1,5 +1,6 @@
 import type { ReportDocument } from "@/lib/report-document";
 import { readableReportText } from "@/lib/report-readable-text";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 export interface ActivityRow {
   id: number;
@@ -32,7 +33,7 @@ export interface InventoryReportRow {
 
 const ACTION_LABELS: Record<string, string> = {
   LIVE_TICKET_SCAN: "Ticket scanned", SEQUENCE_LOCK_SELF_RESOLVED: "Employee corrected sequence", SEQUENCE_LOCK_RESOLVED: "Sequence issue resolved",
-  SHIFT_OPEN: "Shift opened", SHIFT_CLOSE: "Shift closed", UPDATE_TICKET_NUMBER: "Ticket position corrected", RECEIVED: "Pack received", ACTIVATED: "Pack activated", SOLD_OUT: "Pack sold out",
+  SHIFT_OPEN: "Shift opened", SHIFT_CLOSE: "Shift closed", UPDATE_TICKET_NUMBER: "Ticket position corrected", RECEIVED: "Pack received", ACTIVATED: "Pack activated", SOLD_OUT: "Pack completed — no tickets remaining",
 };
 const CORRECTION_ACTIONS = new Set(["SEQUENCE_LOCK_SELF_RESOLVED", "SEQUENCE_LOCK_RESOLVED", "UPDATE_TICKET_NUMBER"]);
 const EXCEPTION_ACTIONS = new Set(["SEQUENCE_LOCK_SELF_RESOLVED", "SEQUENCE_LOCK_RESOLVED"]);
@@ -73,7 +74,7 @@ export function createActivityReportDocument(rows: ActivityRow[], filters: { fro
         title: "Activity details",
         columns: ["When", "What happened", "Completed by", "Terminal", "Status", "Details"],
         rows: rows.map((row) => [
-          new Date(row.createdAt).toLocaleString(), readableActivityAction(row.action),
+          formatReportTimestamp(row.createdAt), readableActivityAction(row.action),
           row.performedByName ?? "Not recorded", row.terminalId ?? "—", activityRowStatus(row.action).label,
           readableReportText(row.detail),
         ]),

@@ -3,7 +3,7 @@ import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_PLANS = [
-  { key: "CORE", name: "CORE", description: "Core single-store receiving, inventory, shifts, and standard reports.", features: ["Pack receiving and back stock", "Activation and display assignment", "Shift readings and sales", "Standard operational reports", "Individual employee access"], monthlyPriceCents: 3999 },
+  { key: "CORE", name: "CORE", description: "Core single-store receiving, inventory, shifts, and standard reports.", features: ["Pack receiving and back stock", "Activation and display assignment", "Shift readings and ticket tracking", "Standard operational reports", "Individual employee access"], monthlyPriceCents: 3999 },
   { key: "CONTROL", name: "CONTROL", description: "Live ticket control, exceptions, protected corrections, and accountability.", features: ["Everything in CORE", "Live expected-ticket controls", "Exception alerts and resolution", "Audit and correction history", "Standard price $79/month; founding offer $59/month for 12 months when eligible"], monthlyPriceCents: 7900 },
   { key: "COMMAND", name: "COMMAND", description: "Multi-store oversight, customer display, and advanced operational visibility.", features: ["Everything in CONTROL", "Multiple store locations", "Consolidated owner dashboard", "Customer-facing Live display", "Cross-store reports and analytics"], monthlyPriceCents: 7999 },
 ];

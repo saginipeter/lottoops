@@ -19,7 +19,7 @@ const HELP_ARTICLES = [
   { title: "Phone camera scanning", category: "Scanner", body: "Use the Scan with Camera button on Live Scan, allow camera access, and keep the barcode inside the targeting frame. Manual entry remains available if camera access is unavailable." },
   { title: "Receiving an invoice", category: "Receiving", body: "Enter the invoice details, scan each pack, review the shipment, then confirm it into Back Stock or an assigned display." },
   { title: "Resuming an unfinished invoice", category: "Receiving", body: "Return to Receive Shipment on the same device and browser. The saved shipment draft resumes at its last step." },
-  { title: "Opening and closing a shift", category: "Shifts", body: "Open the shift before sales activity. Complete the beginning and ending physical audits before closing so ticket differences can be attributed to the correct employee." },
+  { title: "Opening and closing a shift", category: "Shifts", body: "Open the shift before tracking tickets. Complete the beginning and ending physical audits before closing so ticket differences can be attributed to the correct employee." },
   { title: "Passwords and staff accounts", category: "Accounts", body: "Each staff account needs its own unique password. Owners and Managers can create accounts from Settings and reset passwords from the Staff page." },
 ];
 

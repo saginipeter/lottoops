@@ -8,6 +8,7 @@ import { ReportActions } from "./report-actions";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildTicketReportsDocument } from "@/lib/workspace-detail-report-documents";
 import { readableReportText } from "@/lib/report-readable-text";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 interface TicketReport {
   id: string;
@@ -45,7 +46,7 @@ function formatRelativeTime(createdAt: string): string {
   const diffMs = Date.now() - timestamp;
 
   if (!Number.isFinite(diffMs) || diffMs < 0) {
-    return new Date(createdAt).toLocaleString();
+    return formatReportTimestamp(createdAt);
   }
 
   const minute = 60 * 1000;

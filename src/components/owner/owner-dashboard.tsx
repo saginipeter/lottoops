@@ -12,6 +12,7 @@ import { TicketReturnRequestsPanel } from "@/components/reports/ticket-return-re
 import { ShipmentOverrideNotifications } from "@/components/reports/shipment-override-notifications";
 import { StateReportsUploader } from "@/components/owner/state-reports-uploader";
 import { StoreComparisonPanel } from "@/components/owner/store-comparison-panel";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 import { CompanyExceptionsPanel } from "@/components/owner/company-exceptions-panel";
 import { CompanyInventoryPanel } from "@/components/owner/company-inventory-panel";
 import { TvDisplayLauncher } from "@/components/home/tv-display-launcher";
@@ -272,7 +273,7 @@ export function OwnerDashboard({ view = "overview", currentStoreId }: { view?: "
           </div>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           {[
-            { label: "Lottery Sales Today", value: fmt(summary.salesToday), hint: `${summary.ticketsToday} tickets`, icon: TrendingUp, color: "text-green-600 bg-green-50" },
+            { label: "Ticket Value Today", value: fmt(summary.salesToday), hint: `${summary.ticketsToday} tickets tracked`, icon: TrendingUp, color: "text-green-600 bg-green-50" },
             { label: "Active Packs", value: summary.activePacks.toLocaleString(), hint: "On display", icon: Package, color: "text-blue-600 bg-blue-50" },
             { label: "Back Stock Packs", value: summary.backstockPacks.toLocaleString(), hint: "Not activated", icon: Package, color: "text-purple-600 bg-purple-50" },
             { label: "Locked Packs", value: summary.lockedPacks.toLocaleString(), hint: "Needs review", icon: AlertCircle, color: "text-red-600 bg-red-50" },
@@ -307,7 +308,7 @@ export function OwnerDashboard({ view = "overview", currentStoreId }: { view?: "
             {recentOverrides.slice(0, 5).map((override) => (
               <div key={`${override.storeId}-${override.entityId}-${override.createdAt}`} className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2 text-xs last:border-0 last:pb-0">
                 <span className="font-medium text-text">{override.entityType} · {override.fieldName}</span>
-                <span className="text-text-secondary">{override.correctedByName ?? "Manager"} · {new Date(override.createdAt).toLocaleString()}</span>
+                <span className="text-text-secondary">{override.correctedByName ?? "Manager"} · {formatReportTimestamp(override.createdAt)}</span>
               </div>
             ))}
           </div>

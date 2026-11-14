@@ -75,7 +75,7 @@ export function InventoryStatusReport({ dateRange }: { dateRange: ReportDateRang
           >
             {["ALL", "BACK_STOCK", "ACTIVE", "RETURNED", "SOLD_OUT", "COMPLETED"].map((value) => (
               <option key={value} value={value}>
-                {value.replaceAll("_", " ")}
+                {value === "SOLD_OUT" ? "No Tickets Remaining" : value.replaceAll("_", " ")}
               </option>
             ))}
           </select>
@@ -98,7 +98,7 @@ export function InventoryStatusReport({ dateRange }: { dateRange: ReportDateRang
       <div className="mb-3 flex flex-wrap gap-2 text-xs text-text-secondary">
         {Object.entries(counts).map(([key, value]) => (
           <span key={key} className="rounded-full bg-surface-soft px-2 py-1">
-            {key.replaceAll("_", " ")}: {value}
+            {key === "SOLD_OUT" ? "No Tickets Remaining" : key.replaceAll("_", " ")}: {value}
           </span>
         ))}
         <span className="rounded-full bg-surface-soft px-2 py-1 font-semibold text-text">

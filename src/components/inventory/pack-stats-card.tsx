@@ -17,7 +17,7 @@ export function PackStatsCard({ pack }: { pack: PackStats }) {
   return (
     <Panel className="p-6">
       <h2 className="mb-5 font-semibold">Statistics</h2>
-      <Stat label="Tickets Sold" value={sold} />
+      <Stat label="Tickets Tracked" value={sold} />
       <Stat label="Tickets Remaining" value={remaining} />
       <Stat label="Retail Value" value={`$${pack.retailValue ?? 0}`} />
       <Stat label="Cost" value={`$${pack.cost ?? 0}`} />

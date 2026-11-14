@@ -23,7 +23,7 @@ export default function CloseShiftCard({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [closed, setClosed] = useState(false);
-  const [countedCash, setCountedCash] = useState("");
+  const [registerScratchOffSales, setRegisterScratchOffSales] = useState("");
 
   async function closeShift() {
     try {
@@ -36,7 +36,7 @@ export default function CloseShiftCard({
         },
         body: JSON.stringify({
           shiftId: shift.id,
-          countedCash: Number(countedCash),
+          registerScratchOffSales: Number(registerScratchOffSales),
         }),
       });
 
@@ -60,7 +60,7 @@ export default function CloseShiftCard({
     return (
       <Panel className="space-y-4 p-6">
         <h2 className="text-2xl font-bold">Shift closed</h2>
-        <p className="text-sm text-text-secondary">View or print the finalized sales and audit report.</p>
+        <p className="text-sm text-text-secondary">View or print the finalized ticket tracking and audit report.</p>
         <ReportActions key={shift.id} loadDocument={() => loadShiftReportDocument(shift.id)} />
         <Button variant="outline" onClick={() => window.location.reload()}>Continue</Button>
       </Panel>
@@ -105,14 +105,14 @@ export default function CloseShiftCard({
 
       <Panel className="p-6">
         <label className="mb-4 block text-sm font-medium">
-          Counted closing drawer cash
-          <input type="number" min="0" step="0.01" value={countedCash}
-            onChange={(event) => setCountedCash(event.target.value)}
+          Register Scratch Off Sales
+          <input type="number" min="0" step="0.01" value={registerScratchOffSales}
+            onChange={(event) => setRegisterScratchOffSales(event.target.value)}
             className="mt-2 block w-full rounded-md border border-border px-3 py-2" />
         </label>
         <Button
           className="w-full"
-          disabled={loading || countedCash === "" || !Number.isFinite(Number(countedCash)) || Number(countedCash) < 0}
+          disabled={loading || registerScratchOffSales === "" || !Number.isFinite(Number(registerScratchOffSales)) || Number(registerScratchOffSales) < 0}
           onClick={closeShift}
         >
 

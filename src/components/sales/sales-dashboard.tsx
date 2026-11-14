@@ -16,7 +16,7 @@ export default function SalesDashboard() {
           </h2>
 
           <p className="mb-6 text-sm text-gray-500">
-            Scan a lottery ticket barcode to register a sale.
+            Scan a lottery ticket barcode to track the ticket.
           </p>
 
           <TicketScanner />
@@ -28,18 +28,18 @@ export default function SalesDashboard() {
       <Panel className="p-6">
 
         <h3 className="font-semibold mb-4">
-          Today's Sales
+          Today's Ticket Tracking
         </h3>
 
         <div className="space-y-4">
 
           <Stat
-            label="Tickets Sold"
+            label="Tickets Tracked"
             value="0"
           />
 
           <Stat
-            label="Revenue"
+            label="Ticket Value"
             value="$0.00"
           />
 

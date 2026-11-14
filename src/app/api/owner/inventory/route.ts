@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { getPlanAccess } from "@/lib/plan-access";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 export async function GET(request: NextRequest) {
   const session = await getApiSession();
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     const rows = packs.map((pack) => ({ store: storeNames.get(pack.storeId) ?? "Unknown store", gameNumber: pack.game.gameNumber, game: pack.game.name, serialNumber: pack.serialNumber, status: pack.status, display: pack.slot?.slotNumber ?? "", receivedAt: pack.receivedAt, activatedAt: pack.activatedAt, currentTicket: pack.currentTicketNumber, quantity: pack.ticketQuantity, price: Number(pack.game.price), estimatedValue: Number(pack.retailValue ?? 0), ageDays: Math.floor((now - pack.receivedAt.getTime()) / 86400000) })).filter((pack) => !Number.isFinite(agingDays) || agingDays <= 0 || pack.ageDays >= agingDays);
     if (request.nextUrl.searchParams.get("format") === "csv") {
       const escape = (value: unknown) => { const text = String(value ?? ""); return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; };
-      const csv = [["Store", "Game #", "Game", "Pack", "Status", "Display", "Received", "Activated", "Age Days", "Estimated Value", "Current Ticket", "Quantity", "Price"], ...rows.map((row) => [row.store, row.gameNumber, row.game, row.serialNumber, row.status, row.display, row.receivedAt, row.activatedAt ?? "", row.ageDays, row.estimatedValue, row.currentTicket ?? "", row.quantity ?? "", row.price])].map((row) => row.map(escape).join(",")).join("\r\n");
+      const csv = [["Store", "Game #", "Game", "Pack", "Status", "Display", "Received", "Activated", "Age Days", "Estimated Value", "Current Ticket", "Quantity", "Price"], ...rows.map((row) => [row.store, row.gameNumber, row.game, row.serialNumber, row.status, row.display, formatReportTimestamp(row.receivedAt), row.activatedAt ? formatReportTimestamp(row.activatedAt) : "", row.ageDays, row.estimatedValue, row.currentTicket ?? "", row.quantity ?? "", row.price])].map((row) => row.map(escape).join(",")).join("\r\n");
       return new NextResponse(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": "attachment; filename=company-inventory.csv" } });
     }
     return NextResponse.json({ multiStoreEnabled: access.allowed, packs: rows });

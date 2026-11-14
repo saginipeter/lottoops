@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Your signed-in terminal assignment is missing or changed. Sign in again and choose the correct terminal shift." }, { status: 409 });
     }
     if (liveScan === true && (!session.loginSessionId || !requestedLoginSessionId)) {
-      return NextResponse.json({ error: "Your login session has expired. Sign out and sign in again before selling tickets." }, { status: 409 });
+      return NextResponse.json({ error: "Your login session has expired. Sign out and sign in again before tracking tickets." }, { status: 409 });
     }
     const deviceAuthorization = await authorizeRegisteredDevice(session.storeId, terminalId, deviceKey);
     if (!deviceAuthorization.authorized) {
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
           where: { id: committed.packId, storeId: session.storeId },
           include: { game: true, slot: true },
         });
-        if (!committedPack) return NextResponse.json({ error: "The recorded sale exists, but its pack is no longer available." }, { status: 409 });
+        if (!committedPack) return NextResponse.json({ error: "The ticket tracking record exists, but its pack is no longer available." }, { status: 409 });
         const committedLine = await prisma.shiftLine.findUnique({
           where: { shiftId_packId: { shiftId: committed.shiftId, packId: committed.packId } },
         });
@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
         });
         if (!selectedShiftId && openShifts.length === 1) selectedShiftId = openShifts[0].id;
         if (!selectedShiftId && openShifts.length > 1) {
-          return NextResponse.json({ error: "Select the numbered shift for this sale." }, { status: 409 });
+          return NextResponse.json({ error: "Select the numbered shift for ticket tracking." }, { status: 409 });
         }
         const selectedShift = openShifts.find((item) => item.id === selectedShiftId);
         const openShift = selectedShift
@@ -266,7 +266,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (!session.loginSessionId || requestedLoginSessionId !== session.loginSessionId) {
-          throw new LiveScanError("Sign out and sign in again to start an attributed sales session.", 409, "LOGIN_SESSION_REQUIRED");
+          throw new LiveScanError("Sign out and sign in again to start an attributed ticket tracking session.", 409, "LOGIN_SESSION_REQUIRED");
         }
         const loginSessionRows = await prisma.$queryRawUnsafe(`
           SELECT id, shift_id AS "shiftId", terminal_id AS "terminalId"
@@ -345,8 +345,8 @@ export async function POST(req: NextRequest) {
           if (!openingAuditComplete) {
             throw new LiveScanError(
               audit?.status === "COMPLETED"
-                ? "The Closing Audit is complete. No more tickets can be sold on this shift."
-                : "Complete the Opening Audit for every active display pack before selling tickets.",
+                ? "The Closing Audit is complete. No more tickets can be tracked on this shift."
+                : "Complete the Opening Audit for every active display pack before tracking tickets.",
               409,
               "BEGINNING_AUDIT_REQUIRED",
             );
@@ -357,7 +357,7 @@ export async function POST(req: NextRequest) {
           );
           const line = await tx.shiftLine.findUnique({ where: { shiftId_packId: { shiftId: openShift.id, packId: pack.id } } });
           if (!auditLine || !line) {
-            throw new LiveScanError("Record this pack in the Opening Audit before selling tickets.", 409, "BEGINNING_AUDIT_REQUIRED");
+            throw new LiveScanError("Record this pack in the Opening Audit before tracking tickets.", 409, "BEGINNING_AUDIT_REQUIRED");
           }
 
           const beginning = getSafeCurrentTicket({
@@ -386,7 +386,7 @@ export async function POST(req: NextRequest) {
             Number(currentTicket),
             pack.firstOrLastTicket,
           );
-          if (currentTicket <= 0) throw new LiveScanError("Pack is already sold out.", 400);
+          if (currentTicket <= 0) throw new LiveScanError("Pack has no tickets remaining.", 400);
 
           if (scannedTicketNumber !== null && expectedPhysical !== null && scannedTicketNumber !== expectedPhysical) {
             return { kind: "mismatch" as const, pack, expectedPhysical, scannedTicketNumber, shiftNumber: lockedShifts[0].shiftNumber };
@@ -395,7 +395,7 @@ export async function POST(req: NextRequest) {
           let sequenceLockResolved = false;
           if (pack.sequenceLocked) {
             if (!canSelfResolveSequenceLock(pack.sequenceLocked, pack.sequenceLockExpectedTicket, scannedTicketNumber)) {
-              throw new LiveScanError("This ticket cannot be sold until the existing pack review is resolved.", 409, "SEQUENCE_LOCKED");
+              throw new LiveScanError("This ticket cannot be tracked until the existing pack review is resolved.", 409, "SEQUENCE_LOCKED");
             }
             await tx.pack.update({ where: { id: pack.id }, data: {
               sequenceLocked: false, sequenceLockExpectedTicket: null, sequenceLockScannedTicket: null,
@@ -418,12 +418,12 @@ export async function POST(req: NextRequest) {
             INSERT INTO live_scan_events (id, store_id, shift_id, pack_id, ticket_barcode, client_request_id, scanned_by_id, terminal_id, login_session_id, ticket_price, display_number)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           `, scanEventId, session.storeId, openShift.id, pack.id, normalizedSerial, clientRequestId, session.userId, terminalId, requestedLoginSessionId, Number(pack.ticketPrice ?? pack.game.price ?? 0), pack.slot?.slotNumber ?? null);
-          const shiftCounts = await tx.$queryRawUnsafe<Array<{ ticketsSold: number | bigint }>>(
-            `SELECT COUNT(*)::int AS "ticketsSold" FROM live_scan_events WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3`,
+          const shiftCounts = await tx.$queryRawUnsafe<Array<{ ticketsSold: number | bigint; ticketValue: number | string }>>(
+            `SELECT COUNT(*)::int AS "ticketsSold", COALESCE(SUM(ticket_price), 0)::numeric AS "ticketValue" FROM live_scan_events WHERE store_id = $1 AND shift_id = $2 AND pack_id = $3`,
             session.storeId, openShift.id, pack.id,
           );
           const shiftTicketsSold = Number(shiftCounts[0]?.ticketsSold ?? 0);
-          const shiftSalesAmount = shiftTicketsSold * ticketPrice;
+          const shiftSalesAmount = Number(shiftCounts[0]?.ticketValue ?? 0);
           const shiftEndingTicket = Math.max(Number(line.beginningTicket) - shiftTicketsSold, 0);
           await tx.shiftLine.update({
             where: { id: line.id },
@@ -442,7 +442,7 @@ export async function POST(req: NextRequest) {
             await tx.scanLogEntry.create({
               data: {
                 storeId: session.storeId, action: "SOLD_OUT", performedById: session.userId,
-                packId: pack.id, detail: `Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber} sold out during live scan.`,
+                packId: pack.id, detail: `Pack #${pack.packNumber ?? "not recorded"} · Game #${pack.game.gameNumber} reached its final ticket during tracking.`,
               },
             });
           }
@@ -473,12 +473,12 @@ export async function POST(req: NextRequest) {
             eventKey,
             packId: saleResult.pack.id,
             title: "Out-of-sequence ticket scan",
-            detail: `${session.name} scanned ticket ${saleResult.scannedTicketNumber} for Pack #${saleResult.pack.packNumber ?? "not recorded"} · Game #${saleResult.pack.game.gameNumber} at Display ${saleResult.pack.slot?.slotNumber ?? "—"}, Shift ${saleResult.shiftNumber ?? "—"}, Terminal ${terminalId}. Expected ticket ${saleResult.expectedPhysical}. No sale was recorded.`,
+            detail: `${session.name} scanned ticket ${saleResult.scannedTicketNumber} for Pack #${saleResult.pack.packNumber ?? "not recorded"} · Game #${saleResult.pack.game.gameNumber} at Display ${saleResult.pack.slot?.slotNumber ?? "—"}, Shift ${saleResult.shiftNumber ?? "—"}, Terminal ${terminalId}. Expected ticket ${saleResult.expectedPhysical}. No ticket was tracked.`,
             severity: "HIGH",
           }).catch((error) => console.warn("Unable to persist ticket sequence exception alert", error));
           return NextResponse.json({
             code: "TICKET_SEQUENCE_MISMATCH",
-            error: `Wrong ticket scanned in this shift, no sales recorded. The system expected ticket ${saleResult.expectedPhysical}; ticket ${saleResult.scannedTicketNumber} was scanned.`,
+            error: `Wrong ticket scanned in this shift. No ticket was tracked. The system expected ticket ${saleResult.expectedPhysical}; ticket ${saleResult.scannedTicketNumber} was scanned.`,
             expectedTicket: saleResult.expectedPhysical,
             scannedTicketNumber: saleResult.scannedTicketNumber,
             packId: saleResult.pack.id,
@@ -533,7 +533,7 @@ export async function POST(req: NextRequest) {
         type: "WRONG_PACK_OR_GAME",
         entityId: normalizedSerial,
         title: "Wrong pack or game scan",
-        detail: "A scanned ticket could not be matched to an active display pack for this store. No sale was recorded.",
+        detail: "A scanned ticket could not be matched to an active display pack for this store. No ticket was tracked.",
         severity: "HIGH",
       });
       return NextResponse.json(

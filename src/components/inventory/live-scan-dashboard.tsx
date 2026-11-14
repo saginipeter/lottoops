@@ -352,7 +352,7 @@ function StoreLiveScanDashboard({
     }
 
     if (!currentShift.beginningAuditComplete) {
-      setScanError("Complete the beginning physical audit before selling tickets.");
+      setScanError("Complete the beginning physical audit before tracking tickets.");
       return;
     }
 
@@ -560,7 +560,7 @@ function StoreLiveScanDashboard({
           shiftId: currentShift.id,
           ticketBarcode: lastScan.ticketBarcode,
           saleId: lastScan.saleId,
-          reason: "Customer rejected the ticket at time of sale.",
+          reason: "Customer rejected the ticket at time of scan.",
         }),
       });
       const data = await res.json().catch(() => null);
@@ -571,7 +571,7 @@ function StoreLiveScanDashboard({
       }
 
       setReturnRequestStatus("success");
-      setReturnRequestMessage("Ticket returned and available for sale immediately. Removed from this shift's sales; manager notified for review.");
+      setReturnRequestMessage("Ticket returned and available for tracking immediately. It is no longer counted in this shift's tracked total; a manager has been notified for review.");
       setLastRefreshTime(new Date());
       router.refresh();
     } catch (error) {
@@ -605,7 +605,7 @@ function StoreLiveScanDashboard({
               {currentShift
                 ? currentShift.beginningAuditComplete
                   ? `Scan the ticket barcode for terminal ${terminalId}.`
-                  : "Complete the Opening Audit before selling tickets."
+                  : "Complete the Opening Audit before tracking tickets."
                 : "Open a shift before scanning tickets."}
             </p>
           </div>
@@ -650,9 +650,9 @@ function StoreLiveScanDashboard({
         {lastScan && !showScanResult && <div className="mt-4 border border-emerald-200 bg-emerald-50 p-4" aria-label="Latest scan">
           <p className="font-bold text-emerald-900">{lastScan.gameName ?? lastScan.gameNumber ?? "Lottery ticket"}</p>
           <p className="break-all font-mono text-sm">{lastScan.ticketBarcode ?? lastScan.serialNumber}</p>
-          <p className="text-sm">Next ticket: {lastScan.nextTicketNumber ?? "Sold out"} · Display {lastScan.slot?.slotNumber ?? "—"}</p>
+          <p className="text-sm">Next ticket: {lastScan.nextTicketNumber ?? "No tickets remaining"} · Display {lastScan.slot?.slotNumber ?? "—"}</p>
         </div>}
-        {showScanResult && lastScan && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Ticket scan result"><Panel className="w-full max-w-lg border-2 border-emerald-500 bg-white p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Ticket accepted</p><h3 className="mt-1 text-2xl font-bold text-[#17233f]">Sale recorded</h3></div><Button variant="ghost" size="icon" onClick={() => { setShowScanResult(false); requestAnimationFrame(() => scanInputRef.current?.focus()); }} aria-label="Close ticket result"><X size={20} /></Button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="col-span-2 border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Game</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.gameName ?? lastScan.gameNumber ?? "Lottery ticket"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Ticket</p><p className="mt-1 break-all font-mono text-sm font-bold text-[#17233f]">{lastScan.ticketBarcode ?? lastScan.serialNumber ?? "—"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Next ticket</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.nextTicketNumber ?? "Sold out"}</p></div></div><Button onClick={() => { setShowScanResult(false); requestAnimationFrame(() => scanInputRef.current?.focus()); }} className="mt-5 min-h-14 w-full text-lg font-bold">Done · Scan Next Ticket</Button></Panel></div>}
+        {showScanResult && lastScan && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17233f]/55 p-4" role="dialog" aria-modal="true" aria-label="Ticket scan result"><Panel className="w-full max-w-lg border-2 border-emerald-500 bg-white p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Ticket tracked</p><h3 className="mt-1 text-2xl font-bold text-[#17233f]">Ticket tracked</h3></div><Button variant="ghost" size="icon" onClick={() => { setShowScanResult(false); requestAnimationFrame(() => scanInputRef.current?.focus()); }} aria-label="Close ticket result"><X size={20} /></Button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="col-span-2 border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Game</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.gameName ?? lastScan.gameNumber ?? "Lottery ticket"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Ticket</p><p className="mt-1 break-all font-mono text-sm font-bold text-[#17233f]">{lastScan.ticketBarcode ?? lastScan.serialNumber ?? "—"}</p></div><div className="border border-[#cbd5e1] bg-[#f8fafc] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Next ticket</p><p className="mt-1 text-lg font-bold text-[#17233f]">{lastScan.nextTicketNumber ?? "No tickets remaining"}</p></div></div><Button onClick={() => { setShowScanResult(false); requestAnimationFrame(() => scanInputRef.current?.focus()); }} className="mt-5 min-h-14 w-full text-lg font-bold">Done · Scan Next Ticket</Button></Panel></div>}
       </div>
     );
   }
@@ -723,7 +723,7 @@ function StoreLiveScanDashboard({
                 {currentShift
                   ? currentShift.beginningAuditComplete
                     ? `Shift open on ${terminalId}. Scanner is ready.`
-                    : `Complete the beginning physical audit before scanning sales.`
+                    : `Complete the beginning physical audit before tracking tickets.`
                   : `Open shift on ${terminalId} to begin scanning.`}
               </p>
             </div>
@@ -750,7 +750,7 @@ function StoreLiveScanDashboard({
                     handleScan();
                   }
                 }}
-                placeholder="Scan barcode to sell"
+                placeholder="Scan barcode to track"
                 className={`w-full border-2 border-[#94a3b8] px-3 py-4 text-center font-mono text-2xl tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-[#314a8a]/30 sm:px-5 sm:py-5 sm:text-3xl ${
                   scanError ? "border-red-600 bg-white" : "border-border"
                 }`}
@@ -775,9 +775,9 @@ function StoreLiveScanDashboard({
 
             {lastScan && (
               <div className="mx-auto w-full max-w-2xl border border-emerald-300 bg-emerald-50 p-3 text-left">
-                <p className="text-sm font-medium text-green-900">Ticket accepted · Game {lastScan.gameNumber}</p>
+                <p className="text-sm font-medium text-green-900">Ticket tracked · Game {lastScan.gameNumber}</p>
                 <p className="mt-1 text-xl font-bold text-green-950">
-                  Next ticket: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.nextTicketNumber ?? "-"}
+                  Next ticket: {lastScan.packStatus === "SOLD_OUT" ? "NO TICKETS REMAINING" : lastScan.nextTicketNumber ?? "-"}
                 </p>
                 <p className="text-xs text-green-800">Scanned from Display {lastScan.slot?.slotNumber ?? "-"} · Pack {lastScan.serialNumber}</p>
                 <Button
@@ -908,7 +908,7 @@ function StoreLiveScanDashboard({
             <div className="mb-1.5 flex items-center gap-2">
               <Radio size={16} className="text-text-secondary" />
               <span className="text-[11px] font-medium text-text-tertiary">
-                TICKETS SOLD
+                TICKETS TRACKED
               </span>
             </div>
             <div className="text-xl font-bold text-text">
@@ -929,14 +929,14 @@ function StoreLiveScanDashboard({
               {activePacks.length}
             </div>
             <p className="mt-1 text-[11px] text-text-tertiary">
-              Available for sale
+              Tickets remaining
             </p>
           </Panel>
         </div>
       ) : (
         <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-center">
           <p className="text-sm font-medium text-yellow-900">
-            No active shift. Please open a shift first.
+            No active shift. Select or open a shift first.
           </p>
         </div>
       )}
@@ -947,14 +947,14 @@ function StoreLiveScanDashboard({
           <label className="block">
             <span className="text-sm font-medium">Scan Ticket Barcode</span>
             <p className="mb-2 text-xs text-text-tertiary">
-              Scan barcode to sell
+              Scan barcode to track
             </p>
           </label>
 
           {scanError && (
             <div role="alert" className="flex items-center gap-2 rounded-md border-2 border-red-600 bg-red-600 px-3 py-3 text-sm font-bold text-white">
               <AlertTriangle size={20} aria-hidden="true" />
-              <span>TICKET MISMATCH / SCAN BLOCKED: {scanError}</span>
+              <span>TICKET MISMATCH: {scanError}</span>
             </div>
           )}
 
@@ -973,7 +973,7 @@ function StoreLiveScanDashboard({
                   handleScan();
                 }
               }}
-              placeholder="Scan barcode to sell"
+              placeholder="Scan barcode to track"
               className={`flex-1 rounded-md border-2 px-3 py-3 text-lg font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${scanError ? "border-red-600 bg-white" : "border-border"}`}
               autoFocus
             />
@@ -993,17 +993,17 @@ function StoreLiveScanDashboard({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-green-900">
-                    Ticket accepted · Game {lastScan.gameNumber}
+                    Ticket tracked · Game {lastScan.gameNumber}
                   </p>
                   <p className="mt-1 text-xl font-bold text-green-950 sm:text-2xl">
-                    EXPECTED NEXT TICKET: {lastScan.packStatus === "SOLD_OUT" ? "PACK SOLD OUT" : lastScan.nextTicketNumber ?? "—"}
+                    EXPECTED NEXT TICKET: {lastScan.packStatus === "SOLD_OUT" ? "NO TICKETS REMAINING" : lastScan.nextTicketNumber ?? "—"}
                   </p>
                   <p className="text-xs text-green-800">
                     Scanned from Display {lastScan.slot?.slotNumber ?? "—"} · Pack {lastScan.serialNumber}
                   </p>
                 </div>
                 <div className="rounded-md border border-emerald-300 bg-white px-4 py-2 text-right">
-                  <p className="text-[11px] font-semibold uppercase text-text-tertiary">Live lottery sales</p>
+              <p className="text-[11px] font-semibold uppercase text-text-tertiary">Live ticket tracking</p>
                   <p className="text-lg font-bold text-text">${shiftStats.revenueTotal.toFixed(2)}</p>
                   <p className="text-xs leading-5 text-[#64748b]">{shiftStats.ticketsSold} tickets scanned</p>
                 </div>

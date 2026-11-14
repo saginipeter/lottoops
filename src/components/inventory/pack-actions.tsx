@@ -131,11 +131,11 @@ export function PackActions({
 
   async function handleMarkSoldOut() {
     if (pack.status !== "ACTIVE") {
-      alert("Only ACTIVE packs can be marked sold out.");
+      alert("Only active packs can be marked as having no tickets remaining.");
       return;
     }
 
-    const confirmed = window.confirm("Mark this pack as sold out?");
+    const confirmed = window.confirm("Mark this pack as having no tickets remaining?");
     if (!confirmed) return;
 
     try {
@@ -147,13 +147,13 @@ export function PackActions({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Unable to mark pack sold out.");
+        alert(data.error || "Unable to update the pack status.");
         return;
       }
       router.refresh();
     } catch (error) {
       console.error(error);
-      alert("Unable to mark pack sold out.");
+      alert("Unable to update the pack status.");
     } finally {
       setMarkingSoldOut(false);
     }
@@ -180,7 +180,7 @@ export function PackActions({
         onClick={handleMarkSoldOut}
         disabled={markingSoldOut}
       >
-        {markingSoldOut ? "Marking..." : "Mark Sold Out"}
+        {markingSoldOut ? "Marking..." : "Mark No Tickets Remaining"}
       </Button>
     </Panel>
   );
