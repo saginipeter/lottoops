@@ -28,6 +28,7 @@ export function BarcodeScanner({
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraMessage, setCameraMessage] = useState("");
   const [inputValue, setInputValue] = useState(barcode);
+  const inputValueRef = useRef(barcode);
 
   useEffect(() => {
     return () => {
@@ -51,7 +52,6 @@ export function BarcodeScanner({
     if (observedResumeKeyRef.current === resumeKey) return;
     observedResumeKeyRef.current = resumeKey;
     capturedBarcodeRef.current = false;
-    setInputValue("");
     inputRef.current?.focus();
     if (!cameraOpen || !scannerRef.current) return;
     try {
@@ -206,19 +206,32 @@ export function BarcodeScanner({
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setInputValue(e.target.value);
+    const value = e.target.value;
+    inputValueRef.current = value;
+    setInputValue(value);
+
+    const cleaned = normalizeBarcodeInput(value).replace(/\D/g, "");
+    if (!isValidPackBarcode(cleaned)) return;
+
+    // Some barcode wedges append Enter. Clear synchronously to ensure that
+    // suffix cannot submit the same pack a second time.
+    inputValueRef.current = "";
+    setInputValue("");
+    onScan(cleaned);
+    inputRef.current?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter") return;
 
-    const cleaned = normalizeBarcodeInput(inputValue ?? "");
+    const cleaned = normalizeBarcodeInput(inputValueRef.current);
     if (!cleaned) {
       e.preventDefault();
       return;
     }
 
     e.preventDefault();
+    inputValueRef.current = "";
     setInputValue("");
     onScan(cleaned);
     inputRef.current?.focus();
@@ -313,7 +326,7 @@ export function BarcodeScanner({
           </div>
 
           <p className="text-sm text-gray-500">
-            Type digits only and press Enter.
+            Type the complete 14-digit code; game detection starts automatically. Press Enter to submit an incomplete entry for validation.
           </p>
 
         </div>

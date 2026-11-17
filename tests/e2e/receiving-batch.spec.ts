@@ -108,14 +108,15 @@ test.describe("batch shipment receiving", () => {
     const notice = page.getByRole("status").filter({ hasText: /added to the scanned list/ });
 
     async function scan(barcode: string) {
-      await barcodeInput.fill(barcode);
-      await barcodeInput.press("Enter");
+      await barcodeInput.pressSequentially(barcode);
       await expect(barcodeInput).toHaveValue("");
     }
 
     await scan("24240089877001");
     await expect(notice).toBeVisible();
     await expect(barcodeInput).toBeFocused();
+    await barcodeInput.press("Enter");
+    await expect.poll(() => detectedGameRequests.length).toBe(1);
     await page.clock.fastForward(3000);
     await expect(notice).toBeVisible();
 
