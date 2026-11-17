@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
-import { isValidPackBarcode, parseBarcode } from "@/lib/barcode";
+import { isValidPackBarcode, normalizeBarcodeInput, parseBarcode } from "@/lib/barcode";
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -13,12 +13,9 @@ import { TicketPriceOnly } from "../ticket-price-only";
 import { InvoiceUpload } from "../invoice-upload";
 import { ScannedPackTable } from "../scanned-pack-table";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
+import { DRAFT_PACK_PREFIX, isDraftPack } from "@/lib/receiving-draft";
 
-export const DRAFT_PACK_PREFIX = "draft-";
-
-export function isDraftPack(pack: Pick<PackWithGame, "id">) {
-  return pack.id.startsWith(DRAFT_PACK_PREFIX);
-}
+export { DRAFT_PACK_PREFIX, isDraftPack } from "@/lib/receiving-draft";
 
 interface DetectedGame {
   source: "store" | "catalog";
@@ -51,7 +48,8 @@ interface ScanStepProps {
     }>
   >;
   addPack: (pack: PackWithGame) => void;
-  removePack: (id: string) => void;
+  removePack: (id: string) => void | Promise<void>;
+  persistSelectedPacks: (packIds: string[]) => Promise<{ success: boolean; message?: string }>;
   nextStep: () => void;
   savingPacks?: boolean;
   previousStep: () => void;
@@ -65,6 +63,7 @@ export function ScanStep({
   setScanDraft,
   addPack,
   removePack,
+  persistSelectedPacks,
   nextStep,
   savingPacks = false,
   previousStep,
@@ -84,18 +83,52 @@ export function ScanStep({
   const [detecting, setDetecting] = useState(false);
   const [detectedGame, setDetectedGame] = useState<DetectedGame | null>(null);
   const [detectionError, setDetectionError] = useState<string | null>(null);
-  const [justAdded, setJustAdded] = useState(false);
+  const [scanNotice, setScanNotice] = useState<{ message: string; kind: "success" | "error" } | null>(null);
+  const [selectedPackIds, setSelectedPackIds] = useState<string[]>([]);
+  const [addingSelected, setAddingSelected] = useState(false);
   const [savingPack, setSavingPack] = useState(false);
+  const [autoStageDetectedPacks, setAutoStageDetectedPacks] = useState(true);
+  const [cameraResumeKey, setCameraResumeKey] = useState(0);
+  const scanNoticeTimer = useRef<number | null>(null);
+  const scanQueueRef = useRef<string[]>([]);
+  const processingScanRef = useRef(false);
+  const waitingForManualRef = useRef(false);
+  const processScanQueueRef = useRef<() => void>(() => undefined);
+  const activeBarcodeRef = useRef<string | null>(null);
+  const pendingManualBarcodeRef = useRef<string | null>(null);
+  const reservedPackBarcodesRef = useRef(new Set(packs.map((pack) => pack.serialNumber)));
+  const stagedPackCountRef = useRef(packs.length);
+  const [queuedScanCount, setQueuedScanCount] = useState(0);
   const [quantityOverrideEnabled, setQuantityOverrideEnabled] = useState(false);
   const [manualOverrideEnabled, setManualOverrideEnabled] = useState(false);
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
   const shipmentReady = Boolean(shipment.id) && expectedPacks > 0;
   const validBarcode = isValidPackBarcode(barcode);
+  const draftPacks = packs.filter(isDraftPack);
+  const selectedDraftPacks = draftPacks.filter((pack) => selectedPackIds.includes(pack.id));
+
+  const showScanNotice = useCallback((message: string, kind: "success" | "error") => {
+    if (scanNoticeTimer.current !== null) window.clearTimeout(scanNoticeTimer.current);
+    setScanNotice({ message, kind });
+    scanNoticeTimer.current = window.setTimeout(() => {
+      setScanNotice(null);
+      scanNoticeTimer.current = null;
+    }, 4500);
+  }, []);
+
+  useEffect(() => () => {
+    if (scanNoticeTimer.current !== null) window.clearTimeout(scanNoticeTimer.current);
+  }, []);
+
+  useEffect(() => {
+    stagedPackCountRef.current = packs.length;
+    for (const pack of packs) reservedPackBarcodesRef.current.add(pack.serialNumber);
+  }, [packs]);
 
   // After a barcode is parsed, auto-detect the game
-  const detectGame = useCallback(async (gn: string) => {
-    if (!gn) return;
+  const detectGame = useCallback(async (gn: string): Promise<DetectedGame | null> => {
+    if (!gn) return null;
     setDetecting(true);
     setDetectedGame(null);
     setDetectionError(null);
@@ -103,7 +136,8 @@ export function ScanStep({
       const res = await fetch(`/api/packs/detect-game?gameNumber=${encodeURIComponent(gn)}`);
       const data = await res.json();
       if (res.ok && data.found) {
-        setDetectedGame(data as DetectedGame);
+        const detected = data as DetectedGame;
+        setDetectedGame(detected);
         setManualOverrideEnabled(false);
         setQuantityOverrideEnabled(false);
         setScanDraft((prev) => ({
@@ -111,122 +145,246 @@ export function ScanStep({
           ticketPrice: data.price,
           ticketQuantity: data.ticketsPerPack,
         }));
+        return detected;
       } else {
         setDetectionError("Game not found in catalog — please select price & quantity manually.");
         setManualOverrideEnabled(true);
+        return null;
       }
     } catch {
       setDetectionError("Could not reach server for auto-detect.");
+      setManualOverrideEnabled(true);
+      return null;
     } finally {
       setDetecting(false);
     }
   }, [setScanDraft]);
 
-  function handleScan(value: string) {
-    if (!shipmentReady) {
-      setDetectionError("Save the shipment details and expected pack count before scanning packs.");
-      previousStep();
-      return;
+  function updateQueuedScanCount() {
+    setQueuedScanCount(
+      scanQueueRef.current.length +
+      Number(activeBarcodeRef.current !== null) +
+      Number(pendingManualBarcodeRef.current !== null)
+    );
+  }
+
+  function resetCurrentScan() {
+    activeBarcodeRef.current = null;
+    pendingManualBarcodeRef.current = null;
+    waitingForManualRef.current = false;
+    setScanDraft((prev) => ({ ...prev, barcode: "", gameNumber: "", packNumber: "", firstTicket: "", packImage: "" }));
+    setDetectedGame(null);
+    setDetectionError(null);
+    setCameraResumeKey((prev) => prev + 1);
+    updateQueuedScanCount();
+  }
+
+  function stagePack(details: {
+    barcode: string;
+    ticketPrice: number;
+    ticketQuantity: number;
+    firstTicket: number;
+    gameName?: string;
+    packImage?: string | null;
+  }): boolean {
+    const normalizedBarcode = details.barcode.replace(/\D/g, "").slice(0, 11);
+    if (stagedPackCountRef.current >= expectedPacks) {
+      showScanNotice(`This shipment already reached expected packs (${expectedPacks}).`, "error");
+      return false;
+    }
+    if (reservedPackBarcodesRef.current.has(normalizedBarcode) && activeBarcodeRef.current !== details.barcode && pendingManualBarcodeRef.current !== details.barcode) {
+      showScanNotice(`Pack ${normalizedBarcode} is already in this shipment or scan queue.`, "error");
+      return false;
+    }
+    if (!Number.isFinite(details.ticketPrice) || details.ticketPrice <= 0 || !Number.isInteger(details.ticketQuantity) || details.ticketQuantity <= 0 || !Number.isInteger(details.firstTicket) || details.firstTicket < 1 || details.firstTicket > details.ticketQuantity) {
+      showScanNotice("Check the pack's ticket price, quantity, and first ticket before staging it.", "error");
+      return false;
     }
 
-    const parsed = parseBarcode(value);
+    const gameNumberForPack = normalizedBarcode.slice(0, 4);
+    const draftPack = {
+      id: `${DRAFT_PACK_PREFIX}${normalizedBarcode}-${Date.now()}`,
+      serialNumber: normalizedBarcode,
+      gameNumber: gameNumberForPack,
+      packNumber: normalizedBarcode.slice(4, 11),
+      firstTicket: details.firstTicket,
+      ticketPrice: details.ticketPrice,
+      ticketQuantity: details.ticketQuantity,
+      packImage: details.packImage || null,
+      status: "SCANNED",
+      game: {
+        gameNumber: gameNumberForPack,
+        name: details.gameName || `Game ${gameNumberForPack}`,
+        price: details.ticketPrice,
+        ticketsPerPack: details.ticketQuantity,
+      },
+    } as unknown as PackWithGame;
+
+    setSavingPack(true);
+    addPack(draftPack);
+    stagedPackCountRef.current += 1;
+    reservedPackBarcodesRef.current.add(normalizedBarcode);
+    setSelectedPackIds((prev) => [...prev, draftPack.id]);
+    resetCurrentScan();
+    showScanNotice(`Pack ${draftPack.serialNumber} added to the scanned list. Continue scanning; add selected packs to the shipment when ready.`, "success");
+    setSavingPack(false);
+    return true;
+  }
+
+  async function processScanQueue() {
+    if (processingScanRef.current || waitingForManualRef.current || scanQueueRef.current.length === 0) return;
+    processingScanRef.current = true;
+    const rawBarcode = scanQueueRef.current.shift()!;
+    activeBarcodeRef.current = rawBarcode;
+    updateQueuedScanCount();
+
+    const parsed = parseBarcode(rawBarcode);
     setScanDraft((prev) => ({
       ...prev,
-      barcode: value,
+      barcode: rawBarcode,
       gameNumber: parsed.gameNumber,
       packNumber: parsed.packNumber,
       firstTicket: parsed.firstTicket,
+      ticketPrice: 10,
+      ticketQuantity: 50,
+      packImage: "",
     }));
-    setJustAdded(false);
+    setManualOverrideEnabled(false);
+    setQuantityOverrideEnabled(false);
+    showScanNotice(`Checking pack ${rawBarcode.slice(0, 11)}…`, "success");
 
-    if (parsed.gameNumber) {
-      detectGame(parsed.gameNumber);
-    } else {
-      setDetectedGame(null);
-      setDetectionError(null);
-      setManualOverrideEnabled(false);
+    try {
+      const game = await detectGame(parsed.gameNumber);
+      if (game && autoStageDetectedPacks) {
+        stagePack({
+          barcode: rawBarcode,
+          ticketPrice: game.price,
+          ticketQuantity: game.ticketsPerPack,
+          firstTicket: Number(parsed.firstTicket),
+          gameName: game.name,
+        });
+      } else {
+        setDetectedGame(game);
+        setManualOverrideEnabled(!game);
+        pendingManualBarcodeRef.current = rawBarcode;
+        waitingForManualRef.current = true;
+        activeBarcodeRef.current = null;
+        setScanDraft((prev) => ({
+          ...prev,
+          barcode: rawBarcode,
+          gameNumber: parsed.gameNumber,
+          packNumber: parsed.packNumber,
+          firstTicket: parsed.firstTicket,
+          ticketPrice: game?.price ?? 10,
+          ticketQuantity: game?.ticketsPerPack ?? 50,
+        }));
+        showScanNotice(
+          game
+            ? `Pack ${rawBarcode.slice(0, 11)} is ready. Review or override the details, then add it to the scanned list.`
+            : `Game ${parsed.gameNumber} was not found. Enter the correct price and quantity, then add pack ${rawBarcode.slice(0, 11)}.`,
+          "success"
+        );
+      }
+    } finally {
+      processingScanRef.current = false;
+      updateQueuedScanCount();
+      if (!waitingForManualRef.current && scanQueueRef.current.length > 0) {
+        window.setTimeout(() => processScanQueueRef.current(), 0);
+      }
     }
+  }
+
+  useEffect(() => {
+    processScanQueueRef.current = () => { void processScanQueue(); };
+  });
+
+  function handleScan(value: string) {
+    const cleanedBarcode = normalizeBarcodeInput(value).replace(/\D/g, "");
+    if (!shipmentReady) {
+      showScanNotice("Save the shipment details and expected pack count before scanning packs.", "error");
+      previousStep();
+      return;
+    }
+    if (!isValidPackBarcode(cleanedBarcode)) {
+      showScanNotice("Scan the complete 14-digit pack barcode (11 pack digits plus 3 ticket digits).", "error");
+      return;
+    }
+
+    const serialNumber = cleanedBarcode.slice(0, 11);
+    if (reservedPackBarcodesRef.current.has(serialNumber)) {
+      showScanNotice(`Pack ${serialNumber} has already been scanned for this shipment.`, "error");
+      return;
+    }
+    const inProgressCount = Number(activeBarcodeRef.current !== null) + Number(pendingManualBarcodeRef.current !== null) + scanQueueRef.current.length;
+    if (stagedPackCountRef.current + inProgressCount >= expectedPacks) {
+      showScanNotice(`This shipment has space for only ${expectedPacks} packs.`, "error");
+      return;
+    }
+
+    reservedPackBarcodesRef.current.add(serialNumber);
+    scanQueueRef.current.push(cleanedBarcode);
+    updateQueuedScanCount();
+    showScanNotice(`Pack ${serialNumber} scanned. Looking up its game details.`, "success");
+    processScanQueueRef.current();
   }
 
   function handleAddPack() {
     if (savingPack || detecting) return;
     if (!shipment.id) {
-      alert("Save the shipment details before scanning packs.");
+      showScanNotice("Save the shipment details before scanning packs.", "error");
       previousStep();
       return;
     }
-
-    if (atExpectedLimit) {
-      alert(`This shipment already reached expected packs (${expectedPacks}).`);
-      return;
-    }
-
     const cleanedBarcode = barcode.replace(/\D/g, "");
     if (!isValidPackBarcode(cleanedBarcode)) {
-      alert("Scan the complete 14-digit ticket barcode: 11 pack digits plus 3 ticket digits (for example, 24240089877001).");
+      showScanNotice("Scan the complete 14-digit pack barcode (11 pack digits plus 3 ticket digits).", "error");
       return;
     }
-
-    const normalizedBarcode = cleanedBarcode.slice(0, 11);
-
-    if (packs.some((pack) => pack.serialNumber === normalizedBarcode)) {
-      alert("This pack is already in the current shipment draft.");
+    if (!gameNumber || !packNumber || !/^[0-9]{7}$/.test(packNumber)) {
+      showScanNotice("Check the game and pack numbers before staging this pack.", "error");
       return;
     }
-
-    if (!gameNumber || !packNumber) return;
-    if (!/^\d{7}$/.test(packNumber)) { alert("Pack number must be exactly 7 digits."); return; }
-
-    const normalizedPrice = Number(ticketPrice);
-    const normalizedQuantity = Number(ticketQuantity);
-    const normalizedFirstTicket = Number(firstTicket);
-    if (!Number.isFinite(normalizedPrice) || normalizedPrice <= 0) { alert("Ticket price must be greater than zero."); return; }
-    if (!Number.isInteger(normalizedQuantity) || normalizedQuantity <= 0) { alert("Ticket quantity must be a whole number greater than zero."); return; }
-    if (!Number.isInteger(normalizedFirstTicket) || normalizedFirstTicket < 1 || normalizedFirstTicket > normalizedQuantity) {
-      alert(`First ticket must be between 1 and ${normalizedQuantity}.`);
+    if (pendingManualBarcodeRef.current && pendingManualBarcodeRef.current !== cleanedBarcode) {
+      showScanNotice("Finish the current pack details before continuing the scan queue.", "error");
       return;
     }
-
-    const draftGameNumber = normalizedBarcode.slice(0, 4);
-    const draftPack = {
-      id: `${DRAFT_PACK_PREFIX}${normalizedBarcode}-${Date.now()}`,
-      serialNumber: normalizedBarcode,
-      gameNumber: draftGameNumber,
-      packNumber: normalizedBarcode.slice(4, 11),
-      firstTicket: normalizedFirstTicket,
-      ticketPrice: normalizedPrice,
-      ticketQuantity: normalizedQuantity,
+    const staged = stagePack({
+      barcode: cleanedBarcode,
+      ticketPrice: Number(ticketPrice),
+      ticketQuantity: Number(ticketQuantity),
+      firstTicket: Number(firstTicket),
+      gameName: detectedGame?.name,
       packImage: packImage || null,
-      status: "SCANNED",
-      game: {
-        gameNumber: draftGameNumber,
-        name: detectedGame?.name ?? `Game ${draftGameNumber}`,
-        price: normalizedPrice,
-        ticketsPerPack: normalizedQuantity,
-      },
-    } as unknown as PackWithGame;
-
-    try {
-      setSavingPack(true);
-      addPack(draftPack);
-
-      // Reset for next pack
-      setScanDraft((prev) => ({
-        ...prev,
-        barcode: "",
-        gameNumber: "",
-        packNumber: "",
-        firstTicket: "",
-        packImage: "",
-      }));
-      setDetectedGame(null); setDetectionError(null);
-      setJustAdded(true);
-    } catch (err) {
-      console.error(err);
-      alert("Unable to add pack to the draft.");
-    } finally {
-      setSavingPack(false);
+    });
+    if (staged && scanQueueRef.current.length > 0) {
+      window.setTimeout(() => processScanQueueRef.current(), 0);
     }
+  }
+
+  async function handleAddSelectedPacks() {
+    if (addingSelected || savingPacks || selectedDraftPacks.length === 0) return;
+    setAddingSelected(true);
+    const selectedIds = selectedDraftPacks.map((pack) => pack.id);
+    try {
+      const result = await persistSelectedPacks(selectedIds);
+      if (!result.success) {
+        showScanNotice(result.message || "Unable to add the selected packs to this shipment.", "error");
+        return;
+      }
+      setSelectedPackIds((prev) => prev.filter((id) => !selectedIds.includes(id)));
+      showScanNotice(`${selectedIds.length} pack${selectedIds.length === 1 ? "" : "s"} added to the shipment.`, "success");
+    } finally {
+      setAddingSelected(false);
+    }
+  }
+
+  async function removeScannedPack(id: string) {
+    await removePack(id);
+    const removedPack = packs.find((pack) => pack.id === id);
+    if (removedPack) reservedPackBarcodesRef.current.delete(removedPack.serialNumber);
+    stagedPackCountRef.current = Math.max(0, stagedPackCountRef.current - 1);
+    setSelectedPackIds((prev) => prev.filter((packId) => packId !== id));
+    updateQueuedScanCount();
   }
 
   return (
@@ -235,7 +393,22 @@ export function ScanStep({
         {/* Scan packs */}
         <Panel className="p-5">
           <h2 className="mb-5 text-xl font-semibold">Scan Pack</h2>
-          <BarcodeScanner barcode={barcode} onChange={handleScan} />
+          <label className="mb-4 flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={autoStageDetectedPacks}
+              onChange={(event) => setAutoStageDetectedPacks(event.target.checked)}
+              className="h-4 w-4"
+            />
+            Automatically add catalog-matched packs to the scanned list
+          </label>
+          <p className="mb-4 text-xs text-text-secondary">Turn this off to review or override price and quantity before each pack is staged.</p>
+          <BarcodeScanner barcode={barcode} onScan={handleScan} resumeKey={cameraResumeKey} />
+          {queuedScanCount > 0 && (
+            <p role="status" className="mt-2 text-xs font-medium text-blue-700">
+              Processing {queuedScanCount} scanned pack{queuedScanCount === 1 ? "" : "s"} in order.
+            </p>
+          )}
 
           {/* Auto-detection result */}
           {gameNumber && (
@@ -368,8 +541,8 @@ export function ScanStep({
 
         {/* Add Pack — appears after the optional override action */}
         <Panel className="p-5 lg:col-span-2">
-          <Button className="w-full" onClick={handleAddPack} disabled={!shipmentReady || !validBarcode || !gameNumber || !packNumber || detecting || savingPack || atExpectedLimit}>
-            {detecting ? "Detecting Game..." : "Add Pack to Shipment"}
+          <Button className="w-full" onClick={handleAddPack} disabled={!shipmentReady || !validBarcode || !gameNumber || !packNumber || detecting || savingPack || atExpectedLimit || (autoStageDetectedPacks && Boolean(detectedGame) && !manualOverrideEnabled)}>
+            {detecting ? "Detecting Game..." : "Add to Scanned List"}
           </Button>
           {!shipmentReady && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -384,14 +557,26 @@ export function ScanStep({
           )}
         </Panel>
 
-        <div className="lg:col-span-2"><ScannedPackTable packs={packs} removePack={removePack} /></div>
+        <div className="lg:col-span-2">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-text-secondary">Scan several packs, select the rows you want, and add them together.</p>
+            <Button type="button" onClick={() => void handleAddSelectedPacks()} disabled={selectedDraftPacks.length === 0 || addingSelected || savingPack || savingPacks}>
+              {addingSelected ? "Adding Selected..." : `Add Selected to Shipment${selectedDraftPacks.length ? ` (${selectedDraftPacks.length})` : ""}`}
+            </Button>
+          </div>
+          <ScannedPackTable
+            packs={packs}
+            removePack={removeScannedPack}
+            selectable
+            selectedPackIds={selectedPackIds}
+            onSelectionChange={setSelectedPackIds}
+          />
+        </div>
 
         <div className="space-y-3 border-t border-border pt-4 lg:col-span-2">
-          {justAdded && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              {(shipment.expectedPacks ?? 0) > packs.length
-                ? `Pack added successfully. Scan the next pack (${packs.length}/${shipment.expectedPacks ?? 0}).`
-                : "Pack added successfully. Review the shipment details."}
+          {scanNotice && (
+            <div role={scanNotice.kind === "error" ? "alert" : "status"} className={`rounded-lg border px-4 py-3 text-sm ${scanNotice.kind === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800"}`}>
+              {scanNotice.message}
             </div>
           )}
 

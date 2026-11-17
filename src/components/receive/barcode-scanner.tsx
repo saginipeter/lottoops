@@ -7,32 +7,64 @@ import { isValidPackBarcode, normalizeBarcodeInput } from "@/lib/barcode";
 
 interface BarcodeScannerProps {
   barcode: string;
-  onChange: (value: string) => void;
+  onScan: (value: string) => void;
+  resumeKey?: number;
 }
 
 export function BarcodeScanner({
   barcode,
-  onChange,
+  onScan,
+  resumeKey = 0,
 }: BarcodeScannerProps) {
   const readerId = `lottoops-receive-barcode-reader-${useId().replace(/:/g, "")}`;
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const operationRef = useRef(false);
   const cancelStartRef = useRef(false);
+  const capturedBarcodeRef = useRef(false);
+  const observedResumeKeyRef = useRef(resumeKey);
+  const cameraMessageTimerRef = useRef<number | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraMessage, setCameraMessage] = useState("");
+  const [inputValue, setInputValue] = useState(barcode);
 
   useEffect(() => {
     return () => {
+      if (cameraMessageTimerRef.current !== null) window.clearTimeout(cameraMessageTimerRef.current);
       const scanner = scannerRef.current;
       scannerRef.current = null;
       if (scanner) void scanner.stop().catch(() => undefined).finally(() => scanner.clear());
     };
   }, []);
 
+  const showCameraMessage = useCallback((message: string) => {
+    if (cameraMessageTimerRef.current !== null) window.clearTimeout(cameraMessageTimerRef.current);
+    setCameraMessage(message);
+    cameraMessageTimerRef.current = window.setTimeout(() => {
+      setCameraMessage("");
+      cameraMessageTimerRef.current = null;
+    }, 4500);
+  }, []);
+
+  useEffect(() => {
+    if (observedResumeKeyRef.current === resumeKey) return;
+    observedResumeKeyRef.current = resumeKey;
+    capturedBarcodeRef.current = false;
+    setInputValue("");
+    inputRef.current?.focus();
+    if (!cameraOpen || !scannerRef.current) return;
+    try {
+      scannerRef.current.resume();
+      showCameraMessage("Camera ready for the next pack.");
+    } catch {
+      showCameraMessage("Camera could not resume. Close it and start the scanner again.");
+    }
+  }, [cameraOpen, resumeKey, showCameraMessage]);
+
   const stopCamera = useCallback(async () => {
     cancelStartRef.current = true;
+    capturedBarcodeRef.current = false;
     const scanner = scannerRef.current;
     scannerRef.current = null;
     setCameraOpen(false);
@@ -112,12 +144,14 @@ export function BarcodeScanner({
           if (scannerRef.current !== scanner) return;
           const normalized = normalizeBarcodeInput(decodedText);
           if (!isValidPackBarcode(normalized)) {
-            setCameraMessage("Barcode detected, but it is not a complete 14-digit pack code. Move closer and keep the full barcode inside the guide.");
+            showCameraMessage("Barcode detected, but it is not a complete 14-digit pack code. Move closer and keep the full barcode inside the guide.");
             return;
           }
-          await stopCamera();
-          onChange(normalized);
-          inputRef.current?.focus();
+          if (capturedBarcodeRef.current) return;
+          capturedBarcodeRef.current = true;
+          try { scanner.pause(true); } catch { /* The scanner callback is already handling this capture. */ }
+          setInputValue("");
+          onScan(normalized);
         };
 
         scannerRef.current = scanner;
@@ -153,7 +187,7 @@ export function BarcodeScanner({
         setCameraOpen(false);
         setCameraStarting(false);
         const reason = error instanceof Error ? error.message : "Permission was denied or no camera was found.";
-        setCameraMessage(`Camera unavailable (${reason}). Allow camera access, then try again.`);
+        showCameraMessage(`Camera unavailable (${reason}). Allow camera access, then try again.`);
         inputRef.current?.focus();
       }
     } finally {
@@ -172,21 +206,22 @@ export function BarcodeScanner({
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    onChange(e.target.value);
+    setInputValue(e.target.value);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter") return;
 
-    const cleaned = normalizeBarcodeInput(barcode ?? "");
+    const cleaned = normalizeBarcodeInput(inputValue ?? "");
     if (!cleaned) {
       e.preventDefault();
       return;
     }
 
     e.preventDefault();
-    onChange(cleaned);
-    inputRef.current?.blur();
+    setInputValue("");
+    onScan(cleaned);
+    inputRef.current?.focus();
   }
 
   return (
@@ -223,7 +258,7 @@ export function BarcodeScanner({
         autoFocus
         inputMode="numeric"
         pattern="[0-9]*"
-        value={barcode}
+        value={inputValue}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder="Scan Pack"

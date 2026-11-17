@@ -1,18 +1,22 @@
 "use client";
 
 import { Trash2, CheckCircle2, Clock3, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { PackWithGame } from "@/lib/types";
+import { isDraftPack } from "@/lib/receiving-draft";
 
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 
 interface Props {
   packs: PackWithGame[];
-  removePack?: (id: string) => void;
+  removePack?: (id: string) => void | Promise<void>;
   editable?: boolean;
   onUpdatePack?: (pack: PackWithGame) => void;
+  selectable?: boolean;
+  selectedPackIds?: string[];
+  onSelectionChange?: (packIds: string[]) => void;
 }
 
 export function ScannedPackTable({
@@ -20,8 +24,50 @@ export function ScannedPackTable({
   removePack,
   editable = false,
   onUpdatePack,
+  selectable = false,
+  selectedPackIds = [],
+  onSelectionChange,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  const draftPacks = packs.filter(isDraftPack);
+  const selectedDraftCount = draftPacks.filter((pack) => selectedPackIds.includes(pack.id)).length;
+  const allDraftsSelected = draftPacks.length > 0 && selectedDraftCount === draftPacks.length;
+  const someDraftsSelected = selectedDraftCount > 0 && !allDraftsSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someDraftsSelected;
+  }, [someDraftsSelected]);
+
+  function toggleAllDraftPacks() {
+    if (!onSelectionChange) return;
+    onSelectionChange(allDraftsSelected ? [] : draftPacks.map((pack) => pack.id));
+  }
+
+  function togglePack(packId: string) {
+    if (!onSelectionChange) return;
+    onSelectionChange(
+      selectedPackIds.includes(packId)
+        ? selectedPackIds.filter((id) => id !== packId)
+        : [...selectedPackIds, packId]
+    );
+  }
+
+  async function handleRemove(packId: string) {
+    if (!removePack || removingId) return;
+    setRemovingId(packId);
+    setActionError("");
+    try {
+      await removePack(packId);
+    } catch (error) {
+      console.error("Unable to remove scanned pack:", error);
+      setActionError(error instanceof Error ? error.message : "Unable to remove this pack from the shipment.");
+    } finally {
+      setRemovingId(null);
+    }
+  }
 
   async function handleEdit(pack: PackWithGame) {
     const firstTicket = window.prompt(
@@ -101,18 +147,33 @@ export function ScannedPackTable({
             {packs.length} pack{packs.length !== 1 && "s"} scanned
           </p>
         </div>
+        {selectable && draftPacks.length > 0 && (
+          <label className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              aria-label="Select all scanned packs"
+              checked={allDraftsSelected}
+              onChange={toggleAllDraftPacks}
+              className="h-4 w-4"
+            />
+            Select All
+          </label>
+        )}
       </div>
 
       <div className="overflow-x-auto">
+        {actionError && <p role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</p>}
         <table className="w-full">
 
           <thead>
             <tr className="border-b">
+              {selectable && <th className="w-12 py-3 text-left text-sm font-semibold" aria-label="Selection" />}
               <th className="py-3 text-left text-sm font-semibold">
                 Game
               </th>
 
-              <th className="py-3 text-left text-sm font-semibold">Pack</th>
+              <th className="py-3 text-left text-sm font-semibold">Pack Barcode</th>
 
               <th className="py-3 text-left text-sm font-semibold">
                 First Ticket
@@ -141,7 +202,7 @@ export function ScannedPackTable({
             {packs.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={7 + Number(selectable)}
                   className="py-12 text-center text-gray-400"
                 >
                   No packs scanned yet.
@@ -155,6 +216,18 @@ export function ScannedPackTable({
                 key={pack.id}
                 className="border-b hover:bg-gray-50"
               >
+                {selectable && (
+                  <td className="py-4">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select pack ${pack.serialNumber}`}
+                      checked={selectedPackIds.includes(pack.id)}
+                      disabled={!isDraftPack(pack)}
+                      onChange={() => togglePack(pack.id)}
+                      className="h-4 w-4"
+                    />
+                  </td>
+                )}
 
                 <td className="py-4">
 
@@ -172,7 +245,9 @@ export function ScannedPackTable({
 
                 </td>
 
-                <td className="font-mono">****</td>
+                <td className="max-w-48 break-all py-4 font-mono text-sm" aria-label={`Pack barcode ${pack.serialNumber}`}>
+                  {pack.serialNumber}
+                </td>
 
                 <td className="font-mono">
                   {pack.firstTicket}
@@ -232,8 +307,9 @@ export function ScannedPackTable({
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={editingId === pack.id}
-                      onClick={() => removePack(pack.id)}
+                      aria-label={`Remove pack ${pack.serialNumber}`}
+                      disabled={editingId === pack.id || removingId !== null}
+                      onClick={() => void handleRemove(pack.id)}
                     >
                       <Trash2
                         size={18}

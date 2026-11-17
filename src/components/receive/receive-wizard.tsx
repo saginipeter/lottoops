@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
+import { isDraftPack } from "@/lib/receiving-draft";
 import { PageToolbar } from "@/components/ui/page-toolbar";
 import { StatusBar } from "@/components/ui/status-bar";
 import { Button } from "@/components/ui/button";
 
 import { ProgressStepper } from "./progress-stepper";
 import { InvoiceStep } from "./steps/invoice-step";
-import { ScanStep, isDraftPack } from "./steps/scan-step";
+import { ScanStep } from "./steps/scan-step";
 import { ReviewStep } from "./steps/review-step";
 import { ConfirmStep } from "./steps/confirm-step";
 
@@ -178,9 +179,8 @@ function StoreReceiveWizard({ storeId, initialStep = 1, receiverName = "" }: Rec
 
   const [savingPacks, setSavingPacks] = useState(false);
 
-  // Packs scanned in Step 2 live only in the local draft. They are written to
-  // the server when the user moves on to Review, so adding/removing packs in
-  // Step 2 never counts against the shipment's expected-pack limit.
+  // Packs can be added to the shipment in selected batches or saved together
+  // when the operator moves on to Review.
   async function persistDraftPacks(): Promise<boolean> {
     if (!shipment.id) {
       alert("Save the shipment details before reviewing it.");
@@ -202,13 +202,60 @@ function StoreReceiveWizard({ storeId, initialStep = 1, receiverName = "" }: Rec
         return false;
       }
 
-      for (const pack of packs) {
-        if (!isDraftPack(pack)) continue;
-        const response = await fetch("/api/packs", {
+      const draftPacks = packs.filter(isDraftPack);
+      if (draftPacks.length > 0) {
+        const response = await fetch("/api/packs/batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             shipmentId: shipment.id,
+            packs: draftPacks.map((pack) => ({
+              barcode: pack.serialNumber,
+              gameNumber: pack.gameNumber,
+              packNumber: pack.packNumber,
+              firstTicket: pack.firstTicket,
+              ticketPrice: Number(pack.ticketPrice),
+              ticketQuantity: pack.ticketQuantity,
+              packImage: pack.packImage || null,
+            })),
+          }),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !Array.isArray(data?.packs) || data.packs.length !== draftPacks.length) {
+          alert(data?.error || `Unable to save all scanned packs (HTTP ${response.status}).`);
+          return false;
+        }
+        const savedByBarcode = new Map<string, PackWithGame>(
+          (data.packs as PackWithGame[]).map((pack) => [pack.serialNumber, pack])
+        );
+        setPacks((prev) => prev.map((item) => {
+          if (!isDraftPack(item)) return item;
+          return savedByBarcode.get(item.serialNumber) ?? item;
+        }));
+      }
+      return true;
+    } catch (error) {
+      console.error("Unable to save scanned packs:", error);
+      alert("Unable to save scanned packs. Check the connection and try again.");
+      return false;
+    } finally {
+      setSavingPacks(false);
+    }
+  }
+
+  async function persistSelectedDraftPacks(packIds: string[]): Promise<{ success: boolean; message?: string }> {
+    if (!shipment.id) return { success: false, message: "Save the shipment details before adding packs." };
+    const selectedDrafts = packs.filter((pack) => isDraftPack(pack) && packIds.includes(pack.id));
+    if (selectedDrafts.length === 0) return { success: false, message: "Select at least one scanned pack." };
+
+    setSavingPacks(true);
+    try {
+      const response = await fetch("/api/packs/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shipmentId: shipment.id,
+          packs: selectedDrafts.map((pack) => ({
             barcode: pack.serialNumber,
             gameNumber: pack.gameNumber,
             packNumber: pack.packNumber,
@@ -216,25 +263,22 @@ function StoreReceiveWizard({ storeId, initialStep = 1, receiverName = "" }: Rec
             ticketPrice: Number(pack.ticketPrice),
             ticketQuantity: pack.ticketQuantity,
             packImage: pack.packImage || null,
-          }),
-        });
-        const saved = await response.json().catch(() => null);
-        if (!response.ok || !saved?.id) {
-          const failure = [
-            `Pack ${pack.gameNumber}-${pack.packNumber}: ${saved?.error || `Unable to save pack (HTTP ${response.status}).`}`,
-            typeof saved?.code === "string" ? `Code: ${saved.code}` : "",
-            typeof saved?.details === "string" ? saved.details : "",
-          ].filter(Boolean).join("\n");
-          alert(failure);
-          return false;
-        }
-        setPacks((prev) => prev.map((item) => (item.id === pack.id ? (saved as PackWithGame) : item)));
+          })),
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !Array.isArray(data?.packs) || data.packs.length !== selectedDrafts.length) {
+        return { success: false, message: data?.error || `Unable to add selected packs (HTTP ${response.status}).` };
       }
-      return true;
+
+      const savedByBarcode = new Map<string, PackWithGame>(
+        (data.packs as PackWithGame[]).map((pack) => [pack.serialNumber, pack])
+      );
+      setPacks((prev) => prev.map((item) => savedByBarcode.get(item.serialNumber) ?? item));
+      return { success: true };
     } catch (error) {
-      console.error("Unable to save scanned packs:", error);
-      alert("Unable to save scanned packs. Check the connection and try again.");
-      return false;
+      console.error("Unable to add selected packs:", error);
+      return { success: false, message: "Unable to reach the server. Scanned packs remain in the local draft; try again." };
     } finally {
       setSavingPacks(false);
     }
@@ -266,7 +310,18 @@ function StoreReceiveWizard({ storeId, initialStep = 1, receiverName = "" }: Rec
     }));
   }
 
-  function removePack(id: string) {
+  async function removePack(id: string) {
+    const pack = packs.find((item) => item.id === id);
+    if (!pack) return;
+    if (!isDraftPack(pack)) {
+      const response = await fetch("/api/packs", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId: id, shipmentId: shipment.id }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "Unable to remove this pack from the shipment.");
+    }
     setPacks((prev) => prev.filter((p) => p.id !== id));
 
     setShipment((prev) => ({
@@ -408,6 +463,7 @@ function StoreReceiveWizard({ storeId, initialStep = 1, receiverName = "" }: Rec
                 setScanDraft={setScanDraft}
                 addPack={addPack}
                 removePack={removePack}
+                persistSelectedPacks={persistSelectedDraftPacks}
                 nextStep={goToReview}
                 savingPacks={savingPacks}
                 previousStep={previousStep}
