@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Panel } from "@/components/ui/panel";
 import { PageToolbar } from "@/components/ui/page-toolbar";
@@ -8,6 +9,7 @@ import { getSession } from "@/lib/get-session";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
+import { sortByDisplayNumber } from "@/lib/display-number-order";
 
 export default async function SalesPage({ searchParams }: { searchParams?: Promise<{ shiftId?: string; terminal?: string }> }) {
   const session = await getSession();
@@ -25,6 +27,9 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
     );
   }
 
+  const shiftBoundRole = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+  if (shiftBoundRole && !session.shiftId) redirect("/shifts");
+
   if (!prisma) {
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -39,7 +44,6 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
   }
 
   const params = searchParams ? await searchParams : {};
-  const shiftBoundRole = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
   const terminalFilter = shiftBoundRole ? session.terminalId : params.terminal?.trim().toUpperCase();
   const openShifts: Array<{ id: string; shiftNumber: number | null; terminalId: string | null }> = await prisma.shift.findMany({
     where: { storeId: session.storeId, status: "OPEN", ...(terminalFilter ? { terminalId: terminalFilter } : {}) },
@@ -206,7 +210,7 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
-                        <th className="py-2 pr-4">Slot</th>
+                        <th className="py-2 pr-4">Display #</th>
                         <th className="py-2 pr-4">Game</th>
                         <th className="py-2 pr-4">Pack</th>
                         <th className="py-2 pr-4 text-right">Tickets</th>
@@ -215,7 +219,7 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
                       </tr>
                     </thead>
                     <tbody>
-                      {currentLines.map((line: any) => {
+                      {sortByDisplayNumber(currentLines, (line: any) => line.slotNumber).map((line: any) => {
                         const sold = Number(
                           line.ticketsSold ??
                             Math.max(
@@ -342,7 +346,7 @@ function SessionPackSalesTable({ rows, terminalId, shiftNumber }: {
       <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
         <th className="py-2 pr-4">Terminal / Shift</th><th className="py-2 pr-4">Display #</th><th className="py-2 pr-4">Game / Pack</th><th className="py-2 pr-4 text-right">Tickets Tracked</th><th className="py-2 text-right">Your Ticket Value</th>
       </tr></thead>
-      <tbody>{rows.map((row) => <tr key={row.packId} className="border-b border-border">
+      <tbody>{sortByDisplayNumber(rows, (row) => row.displayNumber).map((row) => <tr key={row.packId} className="border-b border-border">
         <td className="py-2 pr-4">{terminalId} · Shift {shiftNumber ?? "—"}</td>
         <td className="py-2 pr-4">{row.displayNumber ?? "Backstock"}</td>
         <td className="py-2 pr-4"><span className="font-medium text-text">{row.gameName}</span><span className="block text-xs text-text-secondary">Game {row.gameNumber} · Pack #{row.packNumber ?? "—"}</span></td>

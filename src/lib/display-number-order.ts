@@ -20,3 +20,10 @@ export function compareDisplayNumberLabels(
 export function formatDisplayNumberLabel(label: string | null | undefined): string {
   return label?.trim() || "Backstock";
 }
+
+export function sortByDisplayNumber<T>(
+  rows: readonly T[],
+  getLabel: (row: T) => string | null | undefined,
+): T[] {
+  return [...rows].sort((left, right) => compareDisplayNumberLabels(getLabel(left), getLabel(right)));
+}

@@ -21,6 +21,7 @@ test("Auditor can review reports but cannot manage inventory", () => {
 
 test("employees cannot mutate inventory or display state", () => {
   const employee = { ...auditor, role: "EMPLOYEE" } satisfies SessionPayload;
+  assert.equal(isReadOnly(employee), false, "Employee live ticket tracking is a permitted operational write");
   assert.equal(hasPermission(employee, "RECEIVE_SHIPMENTS"), false);
   assert.equal(canManageBackstock(employee), false);
   assert.equal(canManageDisplay(employee), false);

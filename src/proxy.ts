@@ -72,6 +72,7 @@ export async function proxy(req: NextRequest) {
       pathname === "/" ||
       pathname.startsWith("/employee") ||
       pathname.startsWith("/shifts") ||
+      pathname.startsWith("/sales") ||
       pathname.startsWith("/pos");
     if (!allowed) return privateResponse(NextResponse.redirect(new URL("/shifts", req.url)));
     return privateResponse(NextResponse.next());
@@ -83,6 +84,7 @@ export async function proxy(req: NextRequest) {
     const alwaysAllowed =
       pathname === "/" ||
       pathname.startsWith("/shifts") ||
+      pathname.startsWith("/sales") ||
       pathname.startsWith("/pos");
 
     const conditionalAllowed =
