@@ -27,6 +27,7 @@ async function ensureSchema() {
 export async function GET() {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!isManagerOrAbove(session)) return NextResponse.json({ error: "Manager access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   try {
@@ -50,6 +51,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!isManagerOrAbove(session)) return NextResponse.json({ error: "Manager access required." }, { status: 403 });
   if (!prisma) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const body = await request.json().catch(() => ({}));

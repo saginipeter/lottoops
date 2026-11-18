@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ConsoleTopBar } from "@/components/layout/console-top-bar";
 import { InactivityGuard } from "@/components/auth/inactivity-guard";
 import { AccessProvider } from "@/components/auth/access-context";
+import { SupportChatWidget } from "@/components/support/support-chat-widget";
 
 export default async function DashboardLayout({
   children,
@@ -58,6 +59,13 @@ export default async function DashboardLayout({
           {children}
         </main>
       </AccessProvider>
+      {session && <SupportChatWidget
+        role={session.role}
+        currentStoreId={session.storeId}
+        stores={session.role === "OWNER" || session.role === "MANAGER"
+          ? [{ id: session.storeId, name: session.storeName }]
+          : []}
+      />}
     </div>
   );
 }
