@@ -45,8 +45,20 @@ test("TV kiosk links preserve store scope while selecting a physical screen", as
     assert.equal((await POST(request())).status, 401);
   });
 
-  await context.test("rejects non-manager staff", async () => {
-    session = { userId: "employee", storeId: "store-a", role: "EMPLOYEE" };
+  await context.test("allows employees and shift leads to open only their signed-in store display", async () => {
+    for (const role of ["EMPLOYEE", "SHIFT_LEAD"]) {
+      session = { userId: role.toLowerCase(), storeId: "store-a", role };
+      const response = await POST(request());
+      assert.equal(response.status, 200, role);
+      const payload = await response.json() as { kioskUrl: string };
+      const url = new URL(payload.kioskUrl);
+      const claims = await verifyTvKioskToken(url.searchParams.get("token")!);
+      assert.equal(claims?.storeId, "store-a", role);
+    }
+  });
+
+  await context.test("continues to reject auditors", async () => {
+    session = { userId: "auditor", storeId: "store-a", role: "AUDITOR" };
     assert.equal((await POST(request())).status, 403);
   });
 

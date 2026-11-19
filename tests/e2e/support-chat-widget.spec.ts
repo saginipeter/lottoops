@@ -73,7 +73,7 @@ test.describe("floating owner and manager support widget", () => {
     await popup.close();
   });
 
-  test("owner can access the support widget, while employee cannot", async ({ browser, baseURL }) => {
+  test("owner can access the support widget, while employee gets TV access only", async ({ browser, baseURL }) => {
     const ownerContext = await browser.newContext();
     await signIn(ownerContext, baseURL!, "OWNER");
     const ownerPage = await ownerContext.newPage();
@@ -88,7 +88,35 @@ test.describe("floating owner and manager support widget", () => {
     const employeePage = await employeeContext.newPage();
     await employeePage.goto("/");
     await expect(employeePage.getByRole("button", { name: "Open support chat" })).toHaveCount(0);
-    await expect(employeePage.getByRole("button", { name: "Open TV Display Board" })).toHaveCount(0);
+    const homeTvButton = employeePage.getByRole("button", { name: "Open TV Display Board" });
+    await expect(homeTvButton).toBeEnabled();
+    await expect(homeTvButton).toContainText("Open TV");
+    await employeePage.goto("/employee");
+    await expect(employeePage.getByRole("button", { name: "Open TV Display Board" })).toBeEnabled();
     await employeeContext.close();
+  });
+
+  test("employee can open the TV kiosk for only the signed-in store", async ({ page, context, baseURL }) => {
+    await signIn(context, baseURL!, "EMPLOYEE");
+    const kioskToken = await new SignJWT({ type: "TV_KIOSK", storeId: "support-widget-store", storeName: "Support Widget Store" })
+      .setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m")
+      .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
+    await page.route("**/api/tv-display/kiosk-token", async (route) => {
+      expect(route.request().method()).toBe("POST");
+      await route.fulfill({ json: { kioskUrl: `${baseURL}/tv-display?token=${encodeURIComponent(kioskToken)}&kiosk=1&screen=1` } });
+    });
+    await context.route("**/tv-display?*", (route) => route.fulfill({
+      contentType: "text/html",
+      body: "<!doctype html><title>TV Display Test</title><main>Employee TV launch verified</main>",
+    }));
+
+    await page.goto("/employee");
+    await expect(page.getByRole("button", { name: "Open support chat" })).toHaveCount(0);
+    const popupPromise = page.waitForEvent("popup");
+    await page.getByRole("button", { name: "Open TV Display Board" }).click();
+    const popup = await popupPromise;
+    await expect(popup).toHaveURL(/\/tv-display\?token=.*kiosk=1&screen=1/);
+    await expect(popup).toHaveTitle(/TV Display Test/);
+    await popup.close();
   });
 });

@@ -331,7 +331,7 @@ export async function POST(req: NextRequest) {
 }
 
 /** Manager/owner view of returned tickets awaiting review and legacy requests awaiting approval. */
-export async function GET(req?: NextRequest) {
+export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!isManagerOrAbove(session)) {
@@ -340,8 +340,8 @@ export async function GET(req?: NextRequest) {
   if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 503 });
   try {
     await ensureSchema();
-    const hasDateFilter = Boolean(req?.nextUrl.searchParams.get("from") || req?.nextUrl.searchParams.get("to"));
-    const range = hasDateFilter ? parseReportDateRange(req!.nextUrl.searchParams) : null;
+    const hasDateFilter = Boolean(req.nextUrl.searchParams.get("from") || req.nextUrl.searchParams.get("to"));
+    const range = hasDateFilter ? parseReportDateRange(req.nextUrl.searchParams) : null;
     if (range && "error" in range) return NextResponse.json({ error: range.error }, { status: 400 });
     const dateSql = range && !("error" in range) ? " AND r.created_at >= $2 AND r.created_at <= $3" : "";
     const baseSelect = `

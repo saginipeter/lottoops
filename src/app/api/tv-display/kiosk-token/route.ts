@@ -29,7 +29,8 @@ async function readRequestedScreen(request: Request): Promise<number | null> {
 export async function POST(request: Request) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (!isManagerOrAbove(session)) return NextResponse.json({ error: "Manager access required." }, { status: 403 });
+  const canOpenStoreTv = isManagerOrAbove(session) || session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+  if (!canOpenStoreTv) return NextResponse.json({ error: "Store staff access required." }, { status: 403 });
   const displayAccess = await getPlanAccess(session, "LIVE_DISPLAY");
   if (!displayAccess.allowed) return NextResponse.json({ error: "Live Display is not enabled for this plan." }, { status: 403 });
   const screenNumber = await readRequestedScreen(request);

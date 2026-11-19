@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { NextRequest } from "next/server";
 import { MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE, SESSION_COOKIE } from "../session";
 import { POST } from "../../app/api/auth/logout/route";
 
 test("logout expires every LottoOps authentication cookie and forbids cached logout responses", async () => {
-  const response = await POST();
+  const response = await POST(new NextRequest("https://lottoops.test/api/auth/logout", { method: "POST" }));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store, max-age=0");
   const cookies = response.cookies.getAll();

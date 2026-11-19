@@ -43,8 +43,11 @@ export function SupportChatWidget({
   const [tvError, setTvError] = useState("");
   const [notice, setNotice] = useState("");
   const tvTarget = useMemo(() => getTvTarget(stores, currentStoreId), [stores, currentStoreId]);
-  const canUseWidget = role === "OWNER" || role === "MANAGER";
-  const showTvShortcut = pathname !== "/" && pathname !== "/owner";
+  const canUseChat = role === "OWNER" || role === "MANAGER";
+  const canOpenTv = canUseChat || role === "EMPLOYEE" || role === "SHIFT_LEAD";
+  const showTvShortcut = pathname !== "/tv-display" && (
+    role === "EMPLOYEE" || role === "SHIFT_LEAD" || (pathname !== "/" && pathname !== "/owner")
+  );
 
   const loadMessages = useCallback(async () => {
     setLoading(true);
@@ -108,7 +111,7 @@ export function SupportChatWidget({
     }
   }
 
-  if (!canUseWidget || pathname === "/tv-display") return null;
+  if (!canOpenTv || pathname === "/tv-display") return null;
 
   return (
     <>
@@ -123,9 +126,9 @@ export function SupportChatWidget({
           className="min-h-12 gap-2 border-slate-300 bg-white px-3 text-slate-800 shadow-lg hover:bg-slate-50"
         >
           {openingTv ? <Loader2 size={17} className="animate-spin" /> : <Tv size={17} />}
-          <span className="hidden sm:inline">Open TV</span>
+          <span>Open TV</span>
         </Button>}
-        <Button
+        {canUseChat && <Button
           type="button"
           aria-label="Open support chat"
           onClick={() => { setOpen(true); setNotice(""); }}
@@ -133,11 +136,11 @@ export function SupportChatWidget({
         >
           <MessageCircle size={18} />
           <span>Support Chat</span>
-        </Button>
+        </Button>}
       </div>
       {showTvShortcut && tvError && <p role="alert" className="fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-3 z-40 max-w-[min(24rem,calc(100vw-1.5rem))] rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-700 shadow-lg sm:right-5">{tvError}</p>}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      {canUseChat && <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="!bottom-[calc(env(safe-area-inset-bottom)+5rem)] !left-3 !right-3 !top-auto flex h-[min(680px,calc(100dvh-7rem))] !w-auto !max-w-none !translate-x-0 !translate-y-0 flex-col gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl sm:!bottom-20 sm:!left-auto sm:!right-5 sm:!w-[420px] sm:!max-w-[calc(100vw-2.5rem)]">
           <DialogHeader className="shrink-0 border-b border-slate-200 bg-[#10203d] px-5 py-4 pr-14 text-white">
             <DialogTitle className="text-base font-bold text-white">LottoOps Support</DialogTitle>
@@ -201,7 +204,7 @@ export function SupportChatWidget({
             </form>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </>
   );
 }

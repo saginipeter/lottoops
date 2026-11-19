@@ -62,7 +62,7 @@ export default async function DashboardLayout({
       {session && <SupportChatWidget
         role={session.role}
         currentStoreId={session.storeId}
-        stores={session.role === "OWNER" || session.role === "MANAGER"
+        stores={session.role === "OWNER" || session.role === "MANAGER" || session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD"
           ? [{ id: session.storeId, name: session.storeName }]
           : []}
       />}

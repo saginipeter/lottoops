@@ -4,8 +4,8 @@ import type { NextRequest } from "next/server";
 import { endLoginSession } from "@/lib/login-session";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
-export async function POST(request?: NextRequest) {
-  const token = request?.cookies.get(SESSION_COOKIE)?.value;
+export async function POST(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (token) {
     try {
       const session = await verifySession(token);

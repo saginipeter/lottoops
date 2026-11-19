@@ -319,7 +319,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       assert.equal((await POST(request(overrides))).status, 400);
     }
     assert.equal(calls.length, 0);
-    assert.equal((await GET()).status, 403);
+    assert.equal((await GET(new NextRequest("http://localhost/api/tickets/return-requests"))).status, 403);
     assert.equal((await resolve(approve)).status, 403);
     assert.equal((await resolve(deny)).status, 403);
   });
@@ -449,9 +449,9 @@ test("ticket return endpoints restore immediately and resolve reviews without re
       { id: "new", storeId: "store", shiftId: "shift", packId: "pack", status: "RETURNED_PENDING_REVIEW" },
       { id: "legacy", storeId: "store", shiftId: "shift", packId: "pack", status: "PENDING" },
     ];
-    assert.equal((await (await GET()).json()).requests.length, 2);
+    assert.equal((await (await GET(new NextRequest("http://localhost/api/tickets/return-requests"))).json()).requests.length, 2);
     session = { ...staff, role: "OWNER", userId: "owner" };
-    assert.equal((await (await GET()).json()).requests.length, 2);
+    assert.equal((await (await GET(new NextRequest("http://localhost/api/tickets/return-requests"))).json()).requests.length, 2);
   });
 
   await context.test("approve/deny reviews never touch inventory or sales even after resale or shift close", async () => {
