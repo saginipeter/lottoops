@@ -2,12 +2,19 @@ import { getSession } from "@/lib/get-session";
 import { LotteryPos } from "@/components/pos/lottery-pos";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getEligibleTicketTrackingShift } from "@/lib/ticket-tracking-eligibility";
 
 export default async function PosPage({ searchParams }: { searchParams?: Promise<{ shiftId?: string; terminal?: string }> }) {
   const session = await getSession();
   if (!session?.storeId) redirect("/login?from=/pos");
   const params = searchParams ? await searchParams : {};
   const shiftBoundRole = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
+  if (shiftBoundRole && !prisma) {
+    return <main className="mx-auto flex min-h-[60vh] max-w-2xl flex-col justify-center px-6 py-12 text-center">
+      <h1 className="text-2xl font-black text-[#17233f]">Track Tickets is temporarily unavailable</h1>
+      <p className="mt-3 text-sm text-slate-600">LottoOps cannot verify that your shift and opening audit are still eligible. Reconnect to the database, then return to Shift Management.</p>
+    </main>;
+  }
   let shiftId = shiftBoundRole ? session.shiftId ?? null : params.shiftId ?? null;
   let terminalId = shiftBoundRole ? session.terminalId ?? null : params.terminal?.trim().toUpperCase() ?? null;
   let shiftNumber: number | null = shiftBoundRole ? session.shiftNumber ?? null : null;
@@ -30,6 +37,9 @@ export default async function PosPage({ searchParams }: { searchParams?: Promise
     }
     terminalId = selected.terminalId;
     shiftNumber = selected.shiftNumber;
+    if (shiftBoundRole && !(await getEligibleTicketTrackingShift(session.storeId, selected.id))) {
+      redirect(`/shifts${terminalId ? `?terminal=${encodeURIComponent(terminalId)}&shiftId=${encodeURIComponent(selected.id)}` : ""}#physical-audit`);
+    }
   }
 
   if (!shiftId || !terminalId) redirect("/shifts");

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { getSessionMaxAge, signSession, verifyMfaChallenge, MFA_CHALLENGE_COOKIE, SESSION_COOKIE } from "@/lib/session";
 import { verifyMfaCode } from "@/lib/mfa";
 import { clearAuthenticationCookies } from "@/lib/auth-cookies";
 import { createLoginSessionId, startLoginSession } from "@/lib/login-session";
+import { findRestorableEmployeeShift } from "@/lib/ticket-tracking-eligibility";
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const challengeToken = cookieStore.get(MFA_CHALLENGE_COOKIE)?.value;
+  const challengeToken = request.cookies.get(MFA_CHALLENGE_COOKIE)?.value;
   if (!challengeToken) return NextResponse.json({ error: "MFA challenge expired. Sign in again." }, { status: 401 });
   const challenge = await verifyMfaChallenge(challengeToken);
   if (!challenge || !prisma) return NextResponse.json({ error: "MFA challenge is invalid." }, { status: 401 });
@@ -19,10 +18,33 @@ export async function POST(request: NextRequest) {
 
   const user = await prisma.user.findFirst({ where: { id: challenge.userId, active: true }, include: { store: true } });
   if (!user) return NextResponse.json({ error: "Account is inactive." }, { status: 401 });
+  const staffRole = user.role === "EMPLOYEE" || user.role === "SHIFT_LEAD";
+  const restoredShift = staffRole
+    ? await findRestorableEmployeeShift(user.storeId, user.id)
+    : null;
   const loginSessionId = createLoginSessionId();
-  await startLoginSession(loginSessionId, { storeId: user.storeId, userId: user.id });
-  const token = await signSession({ userId: user.id, storeId: user.storeId, storeName: user.store.name, name: user.name, email: user.email, role: user.role, grantedPermissions: user.grantedPermissions ?? [], rememberMe: challenge.rememberMe, loginSessionId });
-  const response = clearAuthenticationCookies(NextResponse.json({ ok: true, user: { name: user.name, email: user.email, role: user.role, storeName: user.store.name, shiftNumber: null, terminalId: null, needsShiftSelection: user.role === "EMPLOYEE" || user.role === "SHIFT_LEAD" } }, { headers: { "Cache-Control": "no-store, max-age=0", Pragma: "no-cache" } }));
+  await startLoginSession(loginSessionId, {
+    storeId: user.storeId,
+    userId: user.id,
+    ...(restoredShift ? { shiftId: restoredShift.id, terminalId: restoredShift.terminalId } : {}),
+  });
+  const token = await signSession({
+    userId: user.id, storeId: user.storeId, storeName: user.store.name,
+    name: user.name, email: user.email, role: user.role,
+    grantedPermissions: user.grantedPermissions ?? [], rememberMe: challenge.rememberMe,
+    loginSessionId,
+    ...(restoredShift ? {
+      shiftId: restoredShift.id,
+      shiftNumber: restoredShift.shiftNumber,
+      terminalId: restoredShift.terminalId,
+    } : {}),
+  });
+  const response = clearAuthenticationCookies(NextResponse.json({ ok: true, user: {
+    name: user.name, email: user.email, role: user.role, storeName: user.store.name,
+    shiftNumber: restoredShift?.shiftNumber ?? null,
+    terminalId: restoredShift?.terminalId ?? null,
+    needsShiftSelection: staffRole && !restoredShift,
+  } }, { headers: { "Cache-Control": "no-store, max-age=0", Pragma: "no-cache" } }));
   response.cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: getSessionMaxAge(challenge.rememberMe), path: "/" });
   return response;
 }

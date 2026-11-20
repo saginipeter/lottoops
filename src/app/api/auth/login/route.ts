@@ -7,6 +7,7 @@ import { findMockUser } from "@/lib/mock-users";
 import { clearAuthenticationCookies } from "@/lib/auth-cookies";
 import { createLoginSessionId, endLoginSession, startLoginSession } from "@/lib/login-session";
 import { verifySession } from "@/lib/session";
+import { findRestorableEmployeeShift } from "@/lib/ticket-tracking-eligibility";
 
 // Tries the real database first. If there's no live connection (prisma is
 // null, or the query throws — e.g. DATABASE_URL not set, Neon unreachable,
@@ -138,7 +139,15 @@ export async function POST(req: NextRequest) {
     }
 
     const loginSessionId = createLoginSessionId();
-    await startLoginSession(loginSessionId, { storeId: authResult.storeId, userId: authResult.userId });
+    const staffRole = authResult.role === "EMPLOYEE" || authResult.role === "SHIFT_LEAD";
+    const restoredShift = staffRole && prisma
+      ? await findRestorableEmployeeShift(authResult.storeId, authResult.userId)
+      : null;
+    await startLoginSession(loginSessionId, {
+      storeId: authResult.storeId,
+      userId: authResult.userId,
+      ...(restoredShift ? { shiftId: restoredShift.id, terminalId: restoredShift.terminalId } : {}),
+    });
     const token = await signSession({
       userId: authResult.userId,
       storeId: authResult.storeId,
@@ -149,6 +158,11 @@ export async function POST(req: NextRequest) {
       grantedPermissions: authResult.grantedPermissions,
       rememberMe,
       loginSessionId,
+      ...(restoredShift ? {
+        shiftId: restoredShift.id,
+        shiftNumber: restoredShift.shiftNumber,
+        terminalId: restoredShift.terminalId,
+      } : {}),
     });
 
     const response = clearAuthenticationCookies(NextResponse.json({
@@ -158,9 +172,9 @@ export async function POST(req: NextRequest) {
         email: authResult.email,
         role: authResult.role,
         storeName: authResult.storeName,
-        shiftNumber: null,
-        terminalId: null,
-        needsShiftSelection: authResult.role === "EMPLOYEE" || authResult.role === "SHIFT_LEAD",
+        shiftNumber: restoredShift?.shiftNumber ?? null,
+        terminalId: restoredShift?.terminalId ?? null,
+        needsShiftSelection: staffRole && !restoredShift,
       },
     }));
 

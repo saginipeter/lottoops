@@ -33,7 +33,9 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   const now = new Date();
   await page.clock.install({ time: now });
   await page.clock.pauseAt(new Date(now.getTime() + 1000));
-  await input.fill("12341234567001");
+  await input.click();
+  await input.pressSequentially("12341234567001");
+  await expect(input).toHaveValue("12341234567001");
   await input.press("Enter");
   const success = page.getByRole("status").filter({ hasText: "First game" });
   await expect(success).toBeVisible();
@@ -53,7 +55,9 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await expect(latest.getByText("First game", { exact: true })).toBeVisible();
   await latest.getByRole("button", { name: "Scan next ticket" }).click();
   await expect(latest.getByText("First game", { exact: true })).toBeVisible();
-  await input.fill("12341234567002");
+  await input.click();
+  await input.pressSequentially("12341234567002");
+  await expect(input).toHaveValue("12341234567002");
   await input.press("Enter");
   const error = page.getByRole("alert").filter({ hasText: "Ticket scan error" });
   await expect(error).toContainText("Ticket scan error · no ticket tracked");
@@ -66,7 +70,9 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await expect(latest.getByText("First game", { exact: true })).toBeVisible();
   await page.clock.runFor(4000);
   await expect(error).toHaveCount(0);
-  await input.fill("12341234567003");
+  await input.click();
+  await input.pressSequentially("12341234567003");
+  await expect(input).toHaveValue("12341234567003");
   await input.press("Enter");
   await expect.poll(() => sales, { timeout: 2000 }).toBe(3);
   await expect(page.getByRole("status").filter({ hasText: "Second game" })).toContainText("Ticket Tracked Successfully");
@@ -74,7 +80,9 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await expect(input).toBeEnabled();
   await expect(latest.getByText("Second game", { exact: true })).toBeVisible();
   await expect(latest.getByText("First game", { exact: true })).toHaveCount(0);
-  await input.fill("123");
+  await input.click();
+  await input.pressSequentially("123");
+  await expect(input).toHaveValue("123");
   await input.press("Enter");
   await expect(error).toContainText("complete 14-digit ticket barcode");
   await page.clock.runFor(3999);
@@ -253,4 +261,73 @@ test("sign out clears session and gives the next user an isolated, revalidated d
   await expect(page.getByText("First Operator · scan-first POS terminal")).toHaveCount(0);
   expect(secondResponse?.headers()["cache-control"]).toMatch(/no-cache|no-store/);
   expect(secondResponse?.headers()["cache-control"]).toContain("must-revalidate");
+});
+
+
+test("ticket return reason stays open until selection or explicit dismissal and submits on touch or mouse", async ({ context, page, baseURL }) => {
+  test.skip(!process.env.E2E_REPORT_SECRET, "Requires a test JWT secret for the local offline-auth session.");
+  const token = await new SignJWT({
+    userId: "pos-operator", storeId: "pos-store", storeName: "POS Store",
+    name: "POS Operator", email: "pos@example.test", role: "MANAGER", grantedPermissions: [],
+    shiftId: "shift", shiftNumber: 1, terminalId: "T1", loginSessionId: "login-pos-operator",
+  }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m")
+    .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
+  await context.addCookies([{ name: "lottoops_session", value: token, url: baseURL! }]);
+  await page.route("**/api/pos/inventory-status", (route) => route.fulfill({ json: { alerts: [] } }));
+  await page.route("**/api/pos/reconciliation?*", (route) => route.fulfill({ json: { items: [] } }));
+  await page.route("**/api/packs/check-serial", (route) => route.fulfill({ json: {
+    id: "pack-1", saleId: "sale-1", shiftId: "shift", ticketBarcode: "12341234567001",
+    serialNumber: "12341234567", gameName: "Return test game", salesAmount: 5,
+    slot: { slotNumber: "1" }, packStatus: "ACTIVE",
+  } }));
+  let submittedReason = "";
+  await page.route("**/api/tickets/return-requests", async (route) => {
+    submittedReason = route.request().postDataJSON().reason;
+    await route.fulfill({ json: { ok: true } });
+  });
+
+  await page.goto("/pos?shiftId=shift&terminal=T1");
+  const scanInput = page.getByPlaceholder("Scan or enter 14 digits");
+  await expect(scanInput).toBeVisible();
+  await scanInput.click();
+  await scanInput.pressSequentially("12341234567001");
+  await expect(scanInput).toHaveValue("12341234567001");
+  const trackButton = page.getByRole("button", { name: "Track", exact: true });
+  await expect(trackButton).toBeEnabled();
+  await trackButton.click();
+  await page.getByRole("button", { name: "Return Ticket(s)" }).click();
+
+  const trigger = page.locator("#return-reason-trigger");
+  const activate = async (locator: ReturnType<typeof page.getByRole>) => {
+    if (test.info().project.use.hasTouch) await locator.tap();
+    else await locator.click();
+  };
+  await activate(trigger);
+  const listbox = page.getByRole("listbox", { name: "Return reason" });
+  await expect(listbox).toBeVisible();
+  await expect(listbox.getByRole("option")).toHaveCount(5);
+  if (!test.info().project.use.hasTouch) {
+    await page.mouse.move(8, 8);
+    await expect(listbox).toBeVisible();
+  }
+  await activate(trigger);
+  await expect(listbox).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(listbox).toHaveCount(0);
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+  await activate(trigger);
+  await expect(listbox).toBeVisible();
+  await activate(page.getByRole("heading", { name: "Return tickets" }));
+  await expect(listbox).toHaveCount(0);
+
+  await activate(trigger);
+  const reason = listbox.getByRole("option", { name: "Scanned by mistake" });
+  await activate(reason);
+  await expect(listbox).toHaveCount(0);
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("button", { name: "Confirm Return", exact: true }).click();
+  await expect.poll(() => submittedReason).toBe("Scanned by mistake");
+  await expect(page.getByRole("status").filter({ hasText: "Ticket returned" })).toContainText("Ticket returned");
 });

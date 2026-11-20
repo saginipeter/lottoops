@@ -6,6 +6,7 @@ import { getShiftParticipants } from "@/lib/shift-participants";
 import { ensureDeviceRegistrySchema } from "@/lib/device-registry";
 import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 interface ShiftsPageProps {
   searchParams?: Promise<{
@@ -30,6 +31,20 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
     );
   }
   if (session.role === "AUDITOR") redirect("/reports");
+  if (!prisma) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <Header title="Shift Management" subtitle="Database unavailable" />
+        <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+          <div className="w-full max-w-xl border border-amber-300 bg-white p-6 shadow-sm sm:p-8">
+            <h1 className="text-2xl font-black text-[#17233f]">Unable to verify shift status</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">LottoOps cannot confirm that a shift is open or that its opening audit is complete while the database is unavailable. Ticket tracking remains locked until the connection is restored.</p>
+            <Link href={session.role === "EMPLOYEE" ? "/employee" : "/"} className="mt-5 inline-flex min-h-12 items-center justify-center bg-[#17233f] px-5 font-bold text-white">Back to dashboard</Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   const resolvedSearchParams = (await searchParams) ?? {};
   const staffBound = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";

@@ -330,11 +330,7 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
           })}
         </div>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-          <label className="sr-only" htmlFor="return-reason">Return reason</label>
-          <select id="return-reason" value={returnReason} onChange={(event) => setReturnReason(event.target.value)} className="min-h-12 border-2 border-slate-200 bg-white px-3 font-semibold outline-none focus:border-amber-600">
-            <option value="">Select a structured reason…</option>
-            {RETURN_REASONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
-          </select>
+          <ReturnReasonPicker value={returnReason} onChange={setReturnReason} />
           <button type="button" onClick={() => { void submitReturn(); }} disabled={!returnReason || returning || (selectedReturnSaleIds.length === 0 && !lastSale?.saleId)} className="min-h-12 bg-amber-600 px-5 font-black text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300">{returning ? "Returning..." : `Confirm ${selectedReturnSaleIds.length > 1 ? `${selectedReturnSaleIds.length} Returns` : "Return"}`}</button>
           <button type="button" onClick={() => { setReturnOpen(false); setReturnReason(""); setSelectedReturnSaleIds([]); }} disabled={returning} className="min-h-12 border border-slate-300 px-5 font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
         </div>
@@ -343,6 +339,85 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
     </section>
     {successNotice && !error && <div className="pointer-events-none fixed inset-x-4 top-4 z-[59] mx-auto max-w-4xl border-4 border-emerald-700 bg-emerald-50 px-6 py-7 text-emerald-950 shadow-xl sm:px-10 sm:py-9" role="status" aria-live="polite"><div className="flex items-center gap-4 sm:gap-6"><CheckCircle2 size={48} className="shrink-0 text-emerald-800" /><p className="min-w-0 leading-tight"><span className="block text-3xl font-black sm:text-4xl">Ticket Tracked Successfully</span><span className="mt-1 block break-words text-xl font-bold sm:text-2xl">{successNotice}</span></p></div></div>}{error && <div className="pointer-events-none fixed inset-x-4 top-4 z-[60] mx-auto flex max-w-2xl items-start gap-3 border-2 border-red-600 bg-red-50 px-5 py-5 text-base font-bold leading-6 text-red-900 shadow-2xl sm:text-lg" role="alert" aria-live="assertive"><AlertTriangle className="mt-0.5 shrink-0" size={26} /><div><p className="text-lg font-black sm:text-xl">{error.status && error.status >= 500 ? "Ticket scan error · check status before retrying" : "Ticket scan error · no ticket tracked"}</p><p className="mt-1 font-bold">{error.message}</p></div><button type="button" onClick={() => setError(null)} className="pointer-events-auto ml-auto p-1 hover:bg-red-100" aria-label="Dismiss error"><X size={22} /></button></div>}
   </main></div>;
+}
+
+function ReturnReasonPicker({ value, onChange }: { value: string; onChange: (reason: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const dismissOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [open]);
+
+  function focusOption(direction: 1 | -1) {
+    const options = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[role=option]") ?? []);
+    if (options.length === 0) return;
+    const current = options.indexOf(document.activeElement as HTMLButtonElement);
+    options[(current + direction + options.length) % options.length]?.focus();
+  }
+
+  return <div ref={rootRef} className="relative min-w-0">
+    <label className="sr-only" htmlFor="return-reason-trigger">Return reason</label>
+    <button
+      id="return-reason-trigger"
+      ref={triggerRef}
+      type="button"
+      aria-haspopup="listbox"
+      aria-expanded={open}
+      aria-controls="return-reason-listbox"
+      onClick={() => setOpen(true)}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setOpen(true);
+          window.requestAnimationFrame(() => listRef.current?.querySelector<HTMLButtonElement>("[role=option]")?.focus());
+        }
+      }}
+      className="flex min-h-12 w-full items-center justify-between gap-3 border-2 border-slate-200 bg-white px-3 text-left font-semibold outline-none focus:border-amber-600"
+    >
+      <span className={value ? "truncate text-slate-900" : "truncate text-slate-500"}>{value || "Select a structured reason…"}</span>
+      <span aria-hidden="true" className="shrink-0 text-xs text-slate-500">{open ? "▲" : "▼"}</span>
+    </button>
+    {open && <div
+      id="return-reason-listbox"
+      ref={listRef}
+      role="listbox"
+      aria-label="Return reason"
+      className="absolute inset-x-0 top-full z-40 mt-1 max-h-60 overflow-y-auto border-2 border-slate-200 bg-white py-1 shadow-xl"
+      onKeyDown={(event) => {
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          focusOption(event.key === "ArrowDown" ? 1 : -1);
+        }
+      }}
+    >
+      {RETURN_REASONS.map((reason) => <button
+        key={reason}
+        type="button"
+        role="option"
+        aria-selected={value === reason}
+        onClick={() => { onChange(reason); setOpen(false); triggerRef.current?.focus(); }}
+        className={`block min-h-12 w-full px-3 py-3 text-left text-sm font-semibold hover:bg-amber-50 focus-visible:bg-amber-50 focus-visible:outline-none ${value === reason ? "bg-amber-50 text-amber-900" : "text-slate-800"}`}
+      >{reason}</button>)}
+    </div>}
+  </div>;
 }
 
 function Detail({ label, value }: { label: string; value: string }) { return <div className="bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 truncate font-black">{value}</p></div>; }

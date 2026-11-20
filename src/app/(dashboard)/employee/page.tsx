@@ -14,6 +14,7 @@ import { getSession } from "@/lib/get-session";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { prisma } from "@/lib/prisma";
 import { EmployeeDeviceSetup } from "@/components/pwa/employee-device-setup";
+import { getEligibleTicketTrackingShift } from "@/lib/ticket-tracking-eligibility";
 
 type TaskState = "complete" | "ready" | "locked";
 
@@ -76,10 +77,11 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
   }
 
   const shiftOpen = Boolean(openShift);
+  const eligibleTrackingShift = openShift
+    ? await getEligibleTicketTrackingShift(session.storeId, openShift.id)
+    : null;
+  const beginningAuditComplete = Boolean(eligibleTrackingShift);
   const hasAuditLines = Boolean(audit?.lines.length);
-  const beginningAuditComplete = Boolean(
-    hasAuditLines && audit?.lines.every((line) => line.beginningPhysicalTicket !== null),
-  );
   const endingAuditComplete = Boolean(
     hasAuditLines && audit?.lines.every((line) => line.endingPhysicalTicket !== null),
   );
@@ -102,12 +104,18 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     },
     {
       label: "Track tickets",
-      description: openShift
+      description: beginningAuditComplete
         ? "Scan and record ticket tracking on your assigned terminal."
-        : "Choose an authorized terminal and open or join Shift 1 or 2 to start tracking.",
-      href: openShift ? `/pos?shiftId=${encodeURIComponent(openShift.id)}` : "/shifts",
-      state: "ready",
-      action: shiftOpen ? "Scan" : "Choose shift",
+        : shiftOpen
+          ? "Complete the opening physical audit before tracking tickets."
+          : "Choose an authorized terminal and open or join Shift 1 or 2 to start tracking.",
+      href: beginningAuditComplete
+        ? `/pos?shiftId=${encodeURIComponent(openShift!.id)}`
+        : openShift
+          ? `/shifts?terminal=${terminalId}&shiftId=${encodeURIComponent(openShift.id)}#physical-audit`
+          : "/shifts",
+      state: beginningAuditComplete ? "ready" : "locked",
+      action: beginningAuditComplete ? "Scan" : shiftOpen ? "Audit first" : "Choose shift",
     },
     {
       label: "Closing physical audit",
@@ -179,9 +187,9 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
           </section>
 
           <section className="mt-4" aria-label="Employee tools">
-            <Link href={openShift ? `/pos?shiftId=${encodeURIComponent(openShift.id)}` : "/shifts"} className="group flex min-h-28 items-center gap-4 bg-[#17233f] p-4 text-white shadow-[0_6px_0_#0d1528] active:translate-y-0.5">
+            <Link href={beginningAuditComplete ? `/pos?shiftId=${encodeURIComponent(openShift!.id)}` : "/shifts"} className="group flex min-h-28 items-center gap-4 bg-[#17233f] p-4 text-white shadow-[0_6px_0_#0d1528] active:translate-y-0.5">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-white/25 bg-white/10"><ShoppingCart size={21} /></div>
-              <div className="min-w-0 flex-1"><h2 className="text-base font-semibold">Track tickets</h2><p className="mt-1 text-xs text-white/70">{openShift ? "Track tickets and return a recently tracked ticket with a reason." : "Select an authorized terminal and choose Shift 1 or 2 before scanning."}</p></div>
+              <div className="min-w-0 flex-1"><h2 className="text-base font-semibold">Track tickets</h2><p className="mt-1 text-xs text-white/70">{beginningAuditComplete ? "Track tickets and return a recently tracked ticket with a reason." : shiftOpen ? "Complete the opening audit before you track tickets." : "Select an authorized terminal and choose Shift 1 or 2 before scanning."}</p></div>
               <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
             </Link>
           </section>

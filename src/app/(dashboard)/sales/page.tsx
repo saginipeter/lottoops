@@ -10,6 +10,7 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 import { sortByDisplayNumber } from "@/lib/display-number-order";
+import { getEligibleTicketTrackingShift } from "@/lib/ticket-tracking-eligibility";
 
 export default async function SalesPage({ searchParams }: { searchParams?: Promise<{ shiftId?: string; terminal?: string }> }) {
   const session = await getSession();
@@ -90,6 +91,11 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
       },
     }),
   ]);
+
+  if (shiftBoundRole && selectedShiftId &&
+      !(await getEligibleTicketTrackingShift(session.storeId, selectedShiftId))) {
+    redirect(`/shifts${session.terminalId ? `?terminal=${encodeURIComponent(session.terminalId)}` : ""}`);
+  }
 
   const currentLines = openShift?.lines ?? [];
   const sessionPackSales = (shiftBoundRole && session.loginSessionId && selectedShiftId
