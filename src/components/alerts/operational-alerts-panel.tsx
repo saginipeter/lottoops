@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowUpRight, ChevronDown, Clock3, Loader2, RefreshCw, C
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { alertCategories, filterAndSortAlerts, getAlertResolutionGuidance, type AlertCategory, type AlertSort } from "./alert-categories";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 interface OperationalAlert { id: string; alertKey: string; type: string; severity: string; title: string; detail: string; createdAt: string; entityId: string; packNumber?: string | null; gameNumber?: string | null; }
 
@@ -90,6 +91,7 @@ export function OperationalAlertsPanel({ category: selectedCategory, onCategoryC
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-1 items-start gap-2"><Clock3 size={15} className="mt-0.5 shrink-0" /><div className="min-w-0">
                     <p className="text-sm font-semibold">{alert.title} <span className="ml-1 text-[10px] uppercase">{alert.severity}</span></p>
+                    <p className="mt-1 text-[11px] font-medium opacity-80">Reported {formatReportTimestamp(alert.createdAt)}</p>
                     {(alert.packNumber || alert.gameNumber) && <p className="mt-1 text-xs font-bold">{alert.packNumber ? `Pack #${alert.packNumber}` : "Pack # not recorded"}{alert.gameNumber ? ` · Game #${alert.gameNumber}` : ""}</p>}
                     <p className="mt-1 break-words text-xs">{alert.detail}</p>
                   </div></div>

@@ -30,6 +30,7 @@ test("operational alerts show readable pack labels, next steps, and stay cleared
 
   await page.goto("/alerts");
   await expect(page.getByText("Pack #00017 · Game #0042", { exact: true })).toBeVisible();
+  await expect(page.getByText("Reported Nov 11, 2026, 12:00 PM", { exact: true })).toBeVisible();
   await expect(page.getByText("cmvr_internal_pack_id")).toHaveCount(0);
   const card = page.locator("div.rounded-md.border").filter({ hasText: "Out-of-sequence ticket scan" }).first();
   await card.getByText("What to do next").click();
