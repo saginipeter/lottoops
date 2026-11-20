@@ -24,15 +24,16 @@ test.describe("floating owner and manager support widget", () => {
       .setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m")
       .sign(new TextEncoder().encode(process.env.E2E_REPORT_SECRET));
 
-    let postedMessage: Record<string, unknown> | null = null;
+    const postedMessages: Record<string, unknown>[] = [];
     await page.route("**/api/support-tickets", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({ json: { tickets: [] } });
         return;
       }
-      postedMessage = route.request().postDataJSON() as Record<string, unknown>;
+      const postedMessage = route.request().postDataJSON() as Record<string, unknown>;
+      postedMessages.push(postedMessage);
       await route.fulfill({ status: 201, json: { ticket: {
-        id: "support-message-1",
+        id: `support-message-${postedMessages.length}`,
         subject: postedMessage.subject,
         description: postedMessage.description,
         priority: "NORMAL",
@@ -52,14 +53,27 @@ test.describe("floating owner and manager support widget", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open support chat" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByLabel("Topic").fill("Scanner not detecting a pack");
+    const sendButton = page.getByRole("button", { name: "Send support message" });
+    await expect(sendButton).toBeDisabled();
     await page.getByLabel("Your message").fill("The barcode scans, but the game details do not appear.");
-    await page.getByRole("button", { name: "Send support message" }).click();
+    await expect(sendButton).toBeEnabled();
+    await sendButton.click();
     await expect(page.getByRole("status")).toContainText("Your message was sent");
-    await expect(page.getByText("Scanner not detecting a pack", { exact: true })).toBeVisible();
-    expect(postedMessage).toMatchObject({
-      subject: "Scanner not detecting a pack",
+    await expect(page.getByText("Support request", { exact: true })).toBeVisible();
+    expect(postedMessages[0]).toMatchObject({
+      subject: "Support request",
       description: "The barcode scans, but the game details do not appear.",
+      priority: "NORMAL",
+    });
+
+    await page.getByLabel("Topic (optional)").fill("POS terminal issue");
+    await page.getByLabel("Topic").fill("POS terminal issue");
+    await page.getByLabel("Your message").fill("The terminal needs a restart after the scanner disconnected.");
+    await page.getByLabel("Your message").press("Enter");
+    await expect.poll(() => postedMessages.length).toBe(2);
+    expect(postedMessages[1]).toMatchObject({
+      subject: "POS terminal issue",
+      description: "The terminal needs a restart after the scanner disconnected.",
       priority: "NORMAL",
     });
 

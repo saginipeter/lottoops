@@ -1,13 +1,14 @@
 "use client";
 
-import { ReactNode, useMemo, useState, useEffect, useCallback } from "react";
+import { ReactNode, useMemo, useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
-import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database, ImagePlus, RotateCcw } from "lucide-react";
+import { Search, RefreshCw, ExternalLink, CheckCircle2, Plus, Loader2, Database, ImagePlus, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { formatCurrency } from "@/lib/utils";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 import { isOfficialTexasArtwork } from "@/lib/games-sync/texas-artwork";
+import { ERROR_NOTICE_DURATION_MS } from "@/lib/notification-timing";
 
 type UserRole = "PLATFORM_ADMIN" | "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE" | "AUDITOR";
 
@@ -103,6 +104,7 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"ok" | "err">("ok");
+  const messageTimer = useRef<number | null>(null);
   const [syncArtworkSummary, setSyncArtworkSummary] = useState<SyncArtworkSummary | null>(null);
   const [lookupResult, setLookupResult] = useState<TexasReference | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
@@ -133,10 +135,18 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
   ).length;
 
   function notify(msg: string, type: "ok" | "err" = "ok") {
+    if (messageTimer.current !== null) window.clearTimeout(messageTimer.current);
     setMessage(msg);
     setMessageType(type);
-    setTimeout(() => setMessage(null), 4000);
+    messageTimer.current = window.setTimeout(() => {
+      setMessage(null);
+      messageTimer.current = null;
+    }, type === "err" ? ERROR_NOTICE_DURATION_MS : 4000);
   }
+
+  useEffect(() => () => {
+    if (messageTimer.current !== null) window.clearTimeout(messageTimer.current);
+  }, []);
 
   function resetForm() {
     setForm(initialForm);
@@ -405,8 +415,9 @@ export function GamesManager({ initialGames, userRole }: GamesManagerProps) {
 
       {/* Global message */}
       {message && (
-        <div className={`rounded-md border px-3 py-2 text-sm ${messageType === "err" ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
-          {message}
+        <div role={messageType === "err" ? "alert" : "status"} aria-live={messageType === "err" ? "assertive" : "polite"} className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${messageType === "err" ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
+          <span className="flex-1">{message}</span>
+          {messageType === "err" && <button type="button" onClick={() => setMessage(null)} className="rounded p-1 hover:bg-red-100" aria-label="Dismiss error"><X size={16} /></button>}
         </div>
       )}
 

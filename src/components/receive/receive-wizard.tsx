@@ -499,7 +499,7 @@ function StoreReceiveWizard({ storeId, initialStep = 1, receiverName = "" }: Rec
       </div>
 
       <StatusBar
-        left={<span>Invoice Date: {shipment.shipmentDate || "Not set"}</span>}
+        left={<span>Order Date: {shipment.shipmentDate || "Not set"}</span>}
         center={<span>Scanned: {scannedPacks} / {expectedPacks || 0}</span>}
         right={<span>{packs.length} packs in draft</span>}
       />

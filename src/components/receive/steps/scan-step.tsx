@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { X } from "lucide-react";
 
 import type { PackWithGame, ShipmentState } from "@/lib/types";
 import { isValidPackBarcode, normalizeBarcodeInput, parseBarcode } from "@/lib/barcode";
@@ -14,6 +15,7 @@ import { InvoiceUpload } from "../invoice-upload";
 import { ScannedPackTable } from "../scanned-pack-table";
 import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 import { DRAFT_PACK_PREFIX, isDraftPack } from "@/lib/receiving-draft";
+import { ERROR_NOTICE_DURATION_MS, RECEIVING_SUCCESS_NOTICE_DURATION_MS } from "@/lib/notification-timing";
 
 export { DRAFT_PACK_PREFIX, isDraftPack } from "@/lib/receiving-draft";
 
@@ -114,7 +116,7 @@ export function ScanStep({
     scanNoticeTimer.current = window.setTimeout(() => {
       setScanNotice(null);
       scanNoticeTimer.current = null;
-    }, 4500);
+    }, kind === "error" ? ERROR_NOTICE_DURATION_MS : RECEIVING_SUCCESS_NOTICE_DURATION_MS);
   }, []);
 
   useEffect(() => () => {
@@ -389,6 +391,12 @@ export function ScanStep({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+        {scanNotice && (
+          <div className={`pointer-events-none fixed inset-x-3 top-4 z-[70] mx-auto flex w-fit max-w-[min(42rem,calc(100vw-1.5rem))] items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-xl sm:inset-x-4 sm:px-5 sm:py-4 ${scanNotice.kind === "error" ? "border-red-300 bg-red-50 text-red-900" : "border-emerald-300 bg-emerald-50 text-emerald-900"}`} role={scanNotice.kind === "error" ? "alert" : "status"} aria-live={scanNotice.kind === "error" ? "assertive" : "polite"}>
+            <span className="flex-1">{scanNotice.message}</span>
+            {scanNotice.kind === "error" && <button type="button" onClick={() => setScanNotice(null)} className="pointer-events-auto rounded p-1 hover:bg-red-100" aria-label="Dismiss receiving error"><X size={18} /></button>}
+          </div>
+        )}
 
         {/* Scan packs */}
         <Panel className="p-5">
@@ -574,12 +582,6 @@ export function ScanStep({
         </div>
 
         <div className="space-y-3 border-t border-border pt-4 lg:col-span-2">
-          {scanNotice && (
-            <div role={scanNotice.kind === "error" ? "alert" : "status"} className={`rounded-lg border px-4 py-3 text-sm ${scanNotice.kind === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800"}`}>
-              {scanNotice.message}
-            </div>
-          )}
-
           <div className="grid gap-3 sm:grid-cols-3">
             <Button variant="secondary" className="w-full" onClick={previousStep}>
               ← Back

@@ -72,9 +72,9 @@ export function SupportChatWidget({
 
   async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const cleanTopic = topic.trim();
     const cleanMessage = message.trim();
-    if (!cleanTopic || !cleanMessage || sending) return;
+    const cleanTopic = topic.trim() || "Support request";
+    if (!cleanMessage || sending) return;
 
     setSending(true);
     setError("");
@@ -173,14 +173,13 @@ export function SupportChatWidget({
             </div>
 
             <form onSubmit={(event) => { void sendMessage(event); }} className="shrink-0 space-y-2 border-t border-slate-200 bg-white p-3">
-              <label className="sr-only" htmlFor="support-chat-topic">Topic</label>
+              <label className="sr-only" htmlFor="support-chat-topic">Topic (optional)</label>
               <input
                 id="support-chat-topic"
-                required
                 maxLength={160}
                 value={topic}
                 onChange={(event) => setTopic(event.target.value)}
-                placeholder="Topic (e.g. scanner issue)"
+                placeholder="Topic (optional — e.g. scanner issue)"
                 className="min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
               />
               <div className="flex items-end gap-2">
@@ -192,10 +191,16 @@ export function SupportChatWidget({
                   rows={3}
                   value={message}
                   onChange={(event) => setMessage(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      event.currentTarget.form?.requestSubmit();
+                    }
+                  }}
                   placeholder="Describe what happened and what you were trying to do…"
                   className="min-h-20 flex-1 resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
                 />
-                <Button type="submit" aria-label="Send support message" disabled={sending || !topic.trim() || !message.trim()} className="min-h-11 min-w-11 px-3">
+                <Button type="submit" aria-label="Send support message" disabled={sending || !message.trim()} className="min-h-11 min-w-11 px-3">
                   {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
                 </Button>
               </div>

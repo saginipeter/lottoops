@@ -16,7 +16,9 @@ import {
   VolumeX,
   ScanLine,
   Loader2,
+  X,
 } from "lucide-react";
+import { ERROR_NOTICE_DURATION_MS, RECEIVING_SUCCESS_NOTICE_DURATION_MS } from "@/lib/notification-timing";
 
 type FeedbackState =
   | { type: "idle" }
@@ -104,9 +106,19 @@ export function ReceiveScanSession() {
     if (feedbackTimeout.current) clearTimeout(feedbackTimeout.current);
     feedbackTimeout.current = setTimeout(
       () => setFeedback({ type: "idle" }),
-      2600
+      next.type === "success" ? RECEIVING_SUCCESS_NOTICE_DURATION_MS : ERROR_NOTICE_DURATION_MS
     );
   }
+
+  function dismissFeedback() {
+    if (feedbackTimeout.current) clearTimeout(feedbackTimeout.current);
+    feedbackTimeout.current = null;
+    setFeedback({ type: "idle" });
+  }
+
+  useEffect(() => () => {
+    if (feedbackTimeout.current) clearTimeout(feedbackTimeout.current);
+  }, []);
 
   async function handleScan(serial: string) {
     if (batch.some((b) => b.serialNumber === serial)) {
@@ -326,35 +338,39 @@ export function ReceiveScanSession() {
               </div>
             )}
             {!checking && feedback.type === "success" && (
-              <div className="flex items-center gap-1.5 rounded-md bg-success-soft px-3 py-2 text-xs text-success-soft-text">
+              <div role="status" className="flex items-center gap-1.5 rounded-md bg-success-soft px-3 py-2 text-xs text-success-soft-text">
                 <CheckCircle2 size={13} />
                 Added {feedback.serial} — {feedback.gameName}
               </div>
             )}
             {!checking && feedback.type === "duplicate" && (
-              <div className="flex items-center gap-1.5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger-soft-text">
+              <div role="alert" className="flex items-center gap-1.5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger-soft-text">
                 <AlertCircle size={13} />
                 {feedback.serial} is already in the system or this batch — skipped
+                <button type="button" onClick={dismissFeedback} aria-label="Dismiss receiving error" className="ml-auto rounded p-1 hover:bg-danger-soft"><X size={15} /></button>
               </div>
             )}
             {!checking && feedback.type === "unrecognized" && (
-              <div className="flex items-center gap-1.5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger-soft-text">
+              <div role="alert" className="flex items-center gap-1.5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger-soft-text">
                 <AlertCircle size={13} />
                 Game number not recognized for {feedback.serial} — add the
                 game first, or check the barcode
+                <button type="button" onClick={dismissFeedback} aria-label="Dismiss receiving error" className="ml-auto rounded p-1 hover:bg-danger-soft"><X size={15} /></button>
               </div>
             )}
             {!checking && feedback.type === "wrong-game" && (
-              <div className="flex items-center gap-1.5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger-soft-text">
+              <div role="alert" className="flex items-center gap-1.5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger-soft-text">
                 <AlertCircle size={13} />
                 {feedback.serial} is {feedback.got}, but this batch is for{" "}
                 {feedback.expected} — start a new batch for a different game
+                <button type="button" onClick={dismissFeedback} aria-label="Dismiss receiving error" className="ml-auto rounded p-1 hover:bg-danger-soft"><X size={15} /></button>
               </div>
             )}
             {!checking && feedback.type === "error" && (
-              <div className="flex items-center gap-1.5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger-soft-text">
+              <div role="alert" className="flex items-center gap-1.5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger-soft-text">
                 <AlertCircle size={13} />
                 {feedback.message}
+                <button type="button" onClick={dismissFeedback} aria-label="Dismiss receiving error" className="ml-auto rounded p-1 hover:bg-danger-soft"><X size={15} /></button>
               </div>
             )}
           </div>

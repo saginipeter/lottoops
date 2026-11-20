@@ -68,7 +68,7 @@ export function buildShipmentReport(shipment: ShipmentReportData): ReportDocumen
       { label: "Received by", value: recorded(shipment.receivedBy?.name) },
       { label: "Invoice number", value: shipment.invoiceNumber },
       { label: "Confirmation number", value: recorded(shipment.shipmentConfirmationNumber) },
-      { label: "Shipment date", value: shipment.shipmentDate ? formatReportDate(String(shipment.shipmentDate)) : "Not recorded" },
+      { label: "Order Date", value: shipment.shipmentDate ? formatReportDate(String(shipment.shipmentDate)) : "Not recorded" },
       { label: "Created at", value: timestamp(shipment.createdAt, shipment.store.timezone) },
       { label: "Confirmed at", value: timestamp(shipment.confirmedAt, shipment.store.timezone) },
       { label: "Status", value: shipment.status.replaceAll("_", " ") },

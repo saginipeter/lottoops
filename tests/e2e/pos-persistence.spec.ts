@@ -68,7 +68,10 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   expect(bounds?.y).toBe(16);
   await expect(input).toBeEnabled();
   await expect(latest.getByText("First game", { exact: true })).toBeVisible();
-  await page.clock.runFor(4000);
+  await page.clock.runFor(29_999);
+  await expect(error).toBeVisible();
+  await expect(error.getByRole("button", { name: "Dismiss error" })).toBeVisible();
+  await error.getByRole("button", { name: "Dismiss error" }).click();
   await expect(error).toHaveCount(0);
   await input.click();
   await input.pressSequentially("12341234567003");
@@ -85,7 +88,7 @@ test("latest POS sale remains visible until a new successful scan replaces it", 
   await expect(input).toHaveValue("123");
   await input.press("Enter");
   await expect(error).toContainText("complete 14-digit ticket barcode");
-  await page.clock.runFor(3999);
+  await page.clock.runFor(29_999);
   await expect(error).toBeVisible();
   await page.clock.runFor(1);
   await expect(error).toHaveCount(0);

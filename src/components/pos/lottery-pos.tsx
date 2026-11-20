@@ -5,13 +5,13 @@ import { AlertTriangle, CheckCircle2, Cloud, CloudOff, Keyboard, LockKeyhole, Re
 import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanner";
 import { nextPendingPosQueueEntry, parsePosOfflineQueue, type PosQueueEntry } from "@/lib/pos-offline-queue";
 import { formatTicketScanBlockedMessage } from "@/lib/pos-scan-message";
+import { ERROR_NOTICE_DURATION_MS } from "@/lib/notification-timing";
 
 interface PosProps { storeId: string; operatorId: string; loginSessionId: string; employeeName: string; storeName: string; terminalId: string; shiftId: string; shiftNumber: number | null; }
 interface SaleResult { error?: string; code?: string; id?: string; packId?: string; expectedTicket?: number; scannedTicketNumber?: number; noSale?: boolean; shiftId?: string; saleId?: string; gameName?: string; gameNumber?: string; serialNumber?: string; ticketBarcode?: string; ticketPrice?: number | string | null; ticketsSold?: number; salesAmount?: number | string; nextTicketNumber?: number | null; slot?: { slotNumber?: string } | null; packStatus?: string; status?: string; }
 interface ReturnableSale { packId: string; shiftId: string; saleId: string; ticketBarcode: string; gameName: string; serialNumber: string; slotNumber: string; salesAmount: number; }
 type QueueEntry = PosQueueEntry;
 const QUEUE_PREFIX = "lottoops:pos-offline-queue:";
-const POS_ERROR_NOTICE_MS = 4000;
 const POS_SUCCESS_NOTICE_MS = 3500;
 const RETURN_REASONS = [
   "Customer declined the ticket",
@@ -79,7 +79,7 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
   useEffect(() => {
     if (!error) return;
     setSuccessNotice(null);
-    const timer = window.setTimeout(() => setError(null), POS_ERROR_NOTICE_MS);
+    const timer = window.setTimeout(() => setError(null), ERROR_NOTICE_DURATION_MS);
     return () => window.clearTimeout(timer);
   }, [error]);
 
@@ -91,7 +91,10 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
 
   useEffect(() => {
     if (!returnMessage) return;
-    const timer = window.setTimeout(() => setReturnMessage(null), POS_ERROR_NOTICE_MS);
+    const timer = window.setTimeout(
+      () => setReturnMessage(null),
+      returnMessage.type === "error" ? ERROR_NOTICE_DURATION_MS : POS_SUCCESS_NOTICE_MS,
+    );
     return () => window.clearTimeout(timer);
   }, [returnMessage]);
 
@@ -335,7 +338,7 @@ function StoreLotteryPos({ storeId, operatorId, loginSessionId, employeeName, st
           <button type="button" onClick={() => { setReturnOpen(false); setReturnReason(""); setSelectedReturnSaleIds([]); }} disabled={returning} className="min-h-12 border border-slate-300 px-5 font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
         </div>
       </div>}
-      {returnMessage && <p role="status" className={`mt-3 text-sm font-semibold ${returnMessage.type === "success" ? "text-emerald-700" : "text-red-700"}`}>{returnMessage.text}</p>}
+      {returnMessage && <div role={returnMessage.type === "error" ? "alert" : "status"} aria-live={returnMessage.type === "error" ? "assertive" : "polite"} className={`mt-3 flex items-start gap-2 text-sm font-semibold ${returnMessage.type === "success" ? "text-emerald-700" : "text-red-700"}`}><span className="flex-1">{returnMessage.text}</span>{returnMessage.type === "error" && <button type="button" onClick={() => setReturnMessage(null)} className="rounded p-1 hover:bg-red-50" aria-label="Dismiss return error"><X size={18} /></button>}</div>}
     </section>
     {successNotice && !error && <div className="pointer-events-none fixed inset-x-4 top-4 z-[59] mx-auto max-w-4xl border-4 border-emerald-700 bg-emerald-50 px-6 py-7 text-emerald-950 shadow-xl sm:px-10 sm:py-9" role="status" aria-live="polite"><div className="flex items-center gap-4 sm:gap-6"><CheckCircle2 size={48} className="shrink-0 text-emerald-800" /><p className="min-w-0 leading-tight"><span className="block text-3xl font-black sm:text-4xl">Ticket Tracked Successfully</span><span className="mt-1 block break-words text-xl font-bold sm:text-2xl">{successNotice}</span></p></div></div>}{error && <div className="pointer-events-none fixed inset-x-4 top-4 z-[60] mx-auto flex max-w-2xl items-start gap-3 border-2 border-red-600 bg-red-50 px-5 py-5 text-base font-bold leading-6 text-red-900 shadow-2xl sm:text-lg" role="alert" aria-live="assertive"><AlertTriangle className="mt-0.5 shrink-0" size={26} /><div><p className="text-lg font-black sm:text-xl">{error.status && error.status >= 500 ? "Ticket scan error · check status before retrying" : "Ticket scan error · no ticket tracked"}</p><p className="mt-1 font-bold">{error.message}</p></div><button type="button" onClick={() => setError(null)} className="pointer-events-auto ml-auto p-1 hover:bg-red-100" aria-label="Dismiss error"><X size={22} /></button></div>}
   </main></div>;

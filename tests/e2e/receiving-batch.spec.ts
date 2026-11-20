@@ -30,7 +30,7 @@ test.describe("batch shipment receiving", () => {
           invoicePhoto: "https://example.test/invoice.png",
           shipmentDate: "2026-11-17",
           receivedBy: "Inventory Operator",
-          expectedPacks: 5,
+          expectedPacks: 4,
           expectedRetailValue: 0,
           scannedPacks: 0,
           status: "IN_PROGRESS",
@@ -130,6 +130,24 @@ test.describe("batch shipment receiving", () => {
       await expect(page.getByText(serial, { exact: true })).toBeVisible();
     }
     await expect(notice).toBeVisible();
+    const noticeBounds = await notice.boundingBox();
+    expect(noticeBounds?.y).toBeLessThanOrEqual(24);
+
+    await scan("24240089881005");
+    const scanError = page.getByRole("alert").filter({ hasText: "This shipment has space for only 4 packs." });
+    await expect(scanError).toBeVisible();
+    const errorBounds = await scanError.boundingBox();
+    expect(errorBounds?.y).toBeLessThanOrEqual(24);
+    await page.clock.runFor(28_000);
+    await expect(scanError).toBeVisible();
+    await scanError.getByRole("button", { name: "Dismiss receiving error" }).click();
+    await expect(scanError).toHaveCount(0);
+
+    await scan("24240089877001");
+    const duplicateError = page.getByRole("alert").filter({ hasText: "has already been scanned for this shipment." });
+    await expect(duplicateError).toBeVisible();
+    await page.clock.runFor(30_000);
+    await expect(duplicateError).toHaveCount(0);
 
     const rowOne = page.getByLabel("Select pack 24240089877");
     const rowTwo = page.getByLabel("Select pack 24240089878");
@@ -177,5 +195,12 @@ test.describe("batch shipment receiving", () => {
     await expect(page.getByText("24240089880", { exact: true })).toBeVisible();
     await page.clock.fastForward(4501);
     await expect(notice).toBeHidden();
+  });
+
+  test("receiving form uses Order Date terminology", async ({ page, context, baseURL }) => {
+    await signInStore(context, baseURL!);
+    await page.goto("/inventory/receive/step/1");
+    await expect(page.getByText("Order Date", { exact: true })).toBeVisible();
+    await expect(page.getByText("Shipment date", { exact: true })).toHaveCount(0);
   });
 });

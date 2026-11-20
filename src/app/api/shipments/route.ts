@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       parsedShipmentDate = new Date(shipmentDate);
       if (Number.isNaN(parsedShipmentDate.getTime())) {
         return NextResponse.json(
-          { error: "Shipment date is invalid." },
+          { error: "Order date is invalid." },
           { status: 400 }
         );
       }
@@ -384,7 +384,7 @@ export async function PATCH(req: NextRequest) {
     if (typeof shipmentDate === "string" && shipmentDate.trim()) {
       const nextDate = new Date(shipmentDate);
       if (Number.isNaN(nextDate.getTime())) {
-        return NextResponse.json({ error: "Shipment date is invalid." }, { status: 400 });
+        return NextResponse.json({ error: "Order date is invalid." }, { status: 400 });
       }
       parsedShipmentDate = nextDate;
     }

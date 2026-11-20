@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { ScanLine, Keyboard } from "lucide-react";
+import { ScanLine, Keyboard, X } from "lucide-react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { isValidPackBarcode, normalizeBarcodeInput } from "@/lib/barcode";
+import { ERROR_NOTICE_DURATION_MS, RECEIVING_SUCCESS_NOTICE_DURATION_MS } from "@/lib/notification-timing";
 
 interface BarcodeScannerProps {
   barcode: string;
@@ -27,6 +28,7 @@ export function BarcodeScanner({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraMessage, setCameraMessage] = useState("");
+  const [cameraMessageKind, setCameraMessageKind] = useState<"success" | "error">("error");
   const [inputValue, setInputValue] = useState(barcode);
   const inputValueRef = useRef(barcode);
 
@@ -39,13 +41,14 @@ export function BarcodeScanner({
     };
   }, []);
 
-  const showCameraMessage = useCallback((message: string) => {
+  const showCameraMessage = useCallback((message: string, kind: "success" | "error" = "error") => {
     if (cameraMessageTimerRef.current !== null) window.clearTimeout(cameraMessageTimerRef.current);
     setCameraMessage(message);
+    setCameraMessageKind(kind);
     cameraMessageTimerRef.current = window.setTimeout(() => {
       setCameraMessage("");
       cameraMessageTimerRef.current = null;
-    }, 4500);
+    }, kind === "error" ? ERROR_NOTICE_DURATION_MS : RECEIVING_SUCCESS_NOTICE_DURATION_MS);
   }, []);
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export function BarcodeScanner({
     if (!cameraOpen || !scannerRef.current) return;
     try {
       scannerRef.current.resume();
-      showCameraMessage("Camera ready for the next pack.");
+      showCameraMessage("Camera ready for the next pack.", "success");
     } catch {
       showCameraMessage("Camera could not resume. Close it and start the scanner again.");
     }
@@ -299,7 +302,7 @@ export function BarcodeScanner({
         <button type="button" onClick={() => { void toggleCamera(); }} className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-surface-soft">
           {cameraStarting ? "Starting Camera..." : cameraOpen ? "Close Camera" : "Use Phone Camera"}
         </button>
-        {cameraMessage && <span className="text-xs text-amber-700">{cameraMessage}</span>}
+        {cameraMessage && <div role={cameraMessageKind === "error" ? "alert" : "status"} aria-live={cameraMessageKind === "error" ? "assertive" : "polite"} className={`flex items-start gap-2 text-xs ${cameraMessageKind === "error" ? "text-red-700" : "text-emerald-700"}`}><span className="flex-1">{cameraMessage}</span>{cameraMessageKind === "error" && <button type="button" onClick={() => { if (cameraMessageTimerRef.current !== null) window.clearTimeout(cameraMessageTimerRef.current); cameraMessageTimerRef.current = null; setCameraMessage(""); }} aria-label="Dismiss scanner error" className="rounded p-1 hover:bg-red-50"><X size={15} /></button>}</div>}
       </div>
       <div className={cameraOpen ? "relative mt-3 min-h-[220px] overflow-hidden rounded-lg bg-black" : "hidden"}>
         <div id={readerId} className="min-h-[220px]" />

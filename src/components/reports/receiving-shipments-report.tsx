@@ -79,7 +79,7 @@ export function ReceivingShipmentsReport({ dateRange }: { dateRange: ReportDateR
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-tertiary">
-              <th className="py-2 pr-3">Shipment date</th><th className="py-2 pr-3">Invoice</th><th className="py-2 pr-3">Confirmation</th><th className="py-2 pr-3">Received by</th><th className="py-2 pr-3 text-right">Expected packs</th><th className="py-2 pr-3 text-right">Recorded packs</th><th className="py-2">Status</th><th className="py-2">Report</th>
+              <th className="py-2 pr-3">Order Date</th><th className="py-2 pr-3">Invoice</th><th className="py-2 pr-3">Confirmation</th><th className="py-2 pr-3">Received by</th><th className="py-2 pr-3 text-right">Expected packs</th><th className="py-2 pr-3 text-right">Recorded packs</th><th className="py-2">Status</th><th className="py-2">Report</th>
             </tr></thead>
             <tbody>
               {shipments.map((shipment) => <tr key={shipment.id} className="border-b border-border last:border-0">

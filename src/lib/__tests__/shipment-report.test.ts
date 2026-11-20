@@ -38,7 +38,8 @@ test("shipment A4 template contains canonical supplier, receiver, timestamps, pa
   assert.equal(report.metadata?.find((item) => item.label === "Received by")?.value, "Canonical receiver");
   assert.equal(report.metadata?.find((item) => item.label === "Confirmed at")?.value, "Oct 14, 2026, 7:05 AM");
   assert.equal(report.metadata?.find((item) => item.label === "Created at")?.value, "Oct 14, 2026, 7:00 AM");
-  assert.equal(report.metadata?.find((item) => item.label === "Shipment date")?.value, "Oct 13, 2026");
+  assert.equal(report.metadata?.find((item) => item.label === "Order Date")?.value, "Oct 13, 2026");
+  assert.doesNotMatch(JSON.stringify(report), /Shipment date/i);
   assert.deepEqual(report.sections[0].rows[0], ["1234 / Lucky game", "567890 / 1234567890001", 1, 50, "$2.00", "$100.00", "$95.00", "BACK STOCK"]);
   assert.deepEqual(report.sections[0].totals, ["Totals", "1 packs", "", 50, "", "$100.00", "$95.00", ""]);
 });
