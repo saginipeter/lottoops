@@ -2,7 +2,7 @@ import type { ReportDocument } from "./report-document";
 import { calculatePhysicalAuditVariance } from "./core-validation";
 import { compareDisplayNumberLabels, formatDisplayNumberLabel } from "./display-number-order";
 import type { OperatorSessionSales } from "./shift-session-sales";
-import { formatReportDate, formatReportTimestamp } from "./report-timestamp";
+import { formatReportInstantDate, formatReportTimestamp } from "./report-timestamp";
 
 export interface ShiftGameSummary {
   id?: string;
@@ -234,7 +234,7 @@ export function buildEndOfShiftReportDocument(shift: ShiftReportData): ReportDoc
     paper: "A4",
     metadata: [
       { label: "Shift", value: shift.shiftNumber == null ? NOT_RECORDED : `Shift ${shift.shiftNumber}` },
-      { label: "Report date", value: shift.closedAt ? formatReportDate(shift.closedAt) : NOT_RECORDED },
+      { label: "Report date", value: shift.closedAt ? formatReportInstantDate(shift.closedAt) : NOT_RECORDED },
       { label: "Opened", value: timestamp(shift.openedAt) },
       { label: "Closed", value: reportTimestamp(shift.closedAt) },
       { label: "Opened by", value: shift.openedBy },

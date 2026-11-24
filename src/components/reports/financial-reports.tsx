@@ -8,7 +8,7 @@ import { ReportActions } from "@/components/reports/report-actions";
 import type { ReportDateRangeValue } from "@/components/reports/report-date-filter";
 import { buildEndOfShiftReportDocument, type ShiftGameSummary, type ShiftReportData } from "@/lib/shift-report";
 import { compareDisplayNumberLabels, formatDisplayNumberLabel } from "@/lib/display-number-order";
-import { formatReportTimestamp } from "@/lib/report-timestamp";
+import { formatReportInstantDate, formatReportTimestamp } from "@/lib/report-timestamp";
 
 interface GameRow extends ShiftGameSummary { netMargin: number; marginPct: number; }
 interface ShiftRow extends ShiftReportData {
@@ -216,6 +216,7 @@ export function FinancialReports({ dateRange }: { dateRange: ReportDateRangeValu
                               <td colSpan={12} className="px-4 pb-3 pt-1">
                                 <section className="mb-4 rounded-md border border-border bg-surface p-3" aria-label="Register Scratch Off Sales">
                                   <h4 className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Register Scratch Off Sales</h4>
+                                  <p className="mt-2 text-sm">Report Date: <strong>{shift.closedAt ? formatReportInstantDate(shift.closedAt) : "Not recorded"}</strong></p>
                                   <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
                                     <p>System tracked ticket value: <strong>{fmt(shift.grossSales)}</strong></p>
                                     <p>Register Scratch Off Sales: <strong>{shift.registerScratchOffSales == null ? "Not recorded" : fmt(shift.registerScratchOffSales)}</strong></p>

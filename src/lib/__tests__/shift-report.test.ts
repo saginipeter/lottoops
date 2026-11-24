@@ -3,6 +3,7 @@ import test from "node:test";
 import { buildEndOfShiftReportDocument, buildShiftReportDocument, loadShiftReportDocument, type ShiftReportData } from "../shift-report";
 import { readShiftRegisterSalesRecord, SHIFT_REPORT_REGISTER_SALES_QUERY } from "../shift-report-cash";
 import { shiftReportWhere } from "../shift-report-query";
+import { renderReportDocument } from "../report-document";
 
 function fixture(): ShiftReportData {
   return {
@@ -179,6 +180,26 @@ test("simple end-of-shift report shows selected shift statistics and signed vari
   assert.deepEqual(document.sections[2].rows[0], ["1", "P1", "Game", 50, 38, 12, "$60.00", "$57.00"]);
   assert.deepEqual(document.sections[3].rows, [["1 / P1", 13, 15, 2]]);
   assert.match(document.notes![0], /selected shift only/);
+});
+
+test("printable report date and close timestamp use the same Chicago close date", () => {
+  const shift = fixture();
+  shift.closedAt = "2026-11-15T02:30:00.000Z";
+  shift.openedAt = "2026-11-14T20:00:00.000Z";
+  const document = buildEndOfShiftReportDocument(shift);
+  assert.equal(document.metadata?.find((field) => field.label === "Report date")?.value, "Nov 14, 2026");
+  assert.equal(document.metadata?.find((field) => field.label === "Closed")?.value, "Nov 14, 2026, 8:30 PM");
+  const printable = renderReportDocument(document);
+  assert.match(printable, /<dt>Report date<\/dt><dd>Nov 14, 2026<\/dd>/);
+  assert.match(printable, /<dt>Closed<\/dt><dd>Nov 14, 2026, 8:30 PM<\/dd>/);
+});
+
+test("printable report never derives Report Date from openedAt when closedAt is null", () => {
+  const shift = fixture();
+  shift.closedAt = null;
+  const document = buildEndOfShiftReportDocument(shift);
+  assert.equal(document.metadata?.find((field) => field.label === "Report date")?.value, "Not recorded");
+  assert.equal(document.metadata?.find((field) => field.label === "Closed")?.value, "Not recorded");
 });
 
 test("simple report omits matching packs but preserves incomplete counts and zero totals", () => {

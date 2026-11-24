@@ -3,7 +3,7 @@ import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { queryInventoryActivity } from "@/lib/activity-log";
 import { readableReportText } from "@/lib/report-readable-text";
-import { formatReportTimestamp } from "@/lib/report-timestamp";
+import { endOfReportDate, formatReportInstantDate, formatReportTimestamp, startOfReportDate } from "@/lib/report-timestamp";
 
 const INVENTORY_COST_RATE = 0.95;
 // Match the API: each row/total rounds 95% of its own gross, not the sum of rounded child costs.
@@ -65,10 +65,19 @@ export async function GET(req: NextRequest) {
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
-  const toDate = toParam ? new Date(toParam + "T23:59:59") : new Date();
+  const useReportCloseDateRange = type === "shifts" || type === "games";
+  const toDate = toParam
+    ? (useReportCloseDateRange ? endOfReportDate(toParam) : new Date(toParam + "T23:59:59")) ?? new Date(Number.NaN)
+    : new Date();
   const fromDate = fromParam
-    ? new Date(fromParam + "T00:00:00")
+    ? (useReportCloseDateRange ? startOfReportDate(fromParam) : new Date(fromParam + "T00:00:00")) ?? new Date(Number.NaN)
     : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || fromDate > toDate) {
+    return NextResponse.json({ error: "Invalid report date range." }, { status: 400 });
+  }
+
+  const rangeFromLabel = fromParam ?? fromDate.toISOString().slice(0, 10);
+  const rangeToLabel = toParam ?? toDate.toISOString().slice(0, 10);
 
   const shifts = await prisma.shift.findMany({
     where: {
@@ -97,7 +106,7 @@ export async function GET(req: NextRequest) {
 
   if (type === "shifts") {
     const headers = [
-      "Shift", "Terminal", "Opened At", "Closed At", "Opened By", "Closed By",
+      "Shift", "Report Date (America/Chicago)", "Terminal", "Opened At", "Closed At (America/Chicago)", "Opened By", "Closed By",
       "Opening Total Tickets (shift-scoped)", "Tickets Tracked", "Ending Active Stock (shift-scoped)",
       "Ticket Value 100% ($)", "Cost 95% ($)", "Net Value Difference ($)", "Margin %",
       "Register Scratch Off Sales ($)", "Difference (register minus system) ($)",
@@ -119,9 +128,10 @@ export async function GET(req: NextRequest) {
       const net = roundCurrency(gross - cogs);
       return [
         shift.shiftNumber == null ? "Unnumbered" : `Shift ${shift.shiftNumber}`,
+        shift.closedAt ? formatReportInstantDate(shift.closedAt) : "Not recorded",
         shift.terminalId ?? "Not recorded",
         formatReportTimestamp(shift.openedAt),
-        shift.closedAt ? formatReportTimestamp(shift.closedAt) : "",
+        shift.closedAt ? formatReportTimestamp(shift.closedAt) : "Not recorded",
         shift.openedBy.name,
         shift.closedBy?.name ?? "",
         totalTickets,
@@ -136,7 +146,7 @@ export async function GET(req: NextRequest) {
       ];
     });
     csv = buildCSV(headers, rows);
-    filename = `shifts_${fromDate.toISOString().slice(0, 10)}_${toDate.toISOString().slice(0, 10)}.csv`;
+    filename = `shifts_${rangeFromLabel}_${rangeToLabel}.csv`;
   } else if (type === "games") {
     // Opening/ending stock is summed per shift, not a current inventory snapshot.
     const gameMap = new Map<string, {
@@ -200,7 +210,7 @@ export async function GET(req: NextRequest) {
       gross.toFixed(2), cost.toFixed(2), net.toFixed(2), gross > 0 ? ((net / gross) * 100).toFixed(1) : "0.0",
     ]);
     csv = buildCSV(headers, rows);
-    filename = `games_${fromDate.toISOString().slice(0, 10)}_${toDate.toISOString().slice(0, 10)}.csv`;
+    filename = `games_${rangeFromLabel}_${rangeToLabel}.csv`;
   } else if (type === "inventory") {
     // Current inventory snapshot
     const packs = await prisma.pack.findMany({
@@ -260,10 +270,12 @@ export async function GET(req: NextRequest) {
         const sales = shift.lines.reduce((sum: number, line: any) => sum + Number(line.salesAmount ?? 0), 0);
         const registerAmount = shift.registerScratchOffSales == null ? "Not recorded" : `$${Number(shift.registerScratchOffSales).toFixed(2)}`;
         const difference = shift.registerScratchOffSales == null ? "Not recorded" : `$${roundCurrency(Number(shift.registerScratchOffSales) - sales).toFixed(2)}`;
-        return [`${shift.shiftNumber == null ? "Unnumbered shift" : `Shift ${shift.shiftNumber}`} · ${shift.terminalId ?? "Terminal not recorded"} · ${formatReportTimestamp(shift.openedAt)}`, `${shift.openedBy.name} → ${shift.closedBy?.name ?? "Not recorded"}`, `Tickets tracked: ${tickets} | System tracked ticket value: $${sales.toFixed(2)}`, `Register Scratch Off Sales: ${registerAmount} | Difference: ${difference}`, ""];
+        const reportDate = shift.closedAt ? formatReportInstantDate(shift.closedAt) : "Not recorded";
+        const closedAt = shift.closedAt ? formatReportTimestamp(shift.closedAt) : "Not recorded";
+        return [`${shift.shiftNumber == null ? "Unnumbered shift" : `Shift ${shift.shiftNumber}`} · ${shift.terminalId ?? "Terminal not recorded"} · ${formatReportTimestamp(shift.openedAt)}`, `Report Date (America/Chicago): ${reportDate}`, `Closed At (America/Chicago): ${closedAt}`, `${shift.openedBy.name} → ${shift.closedBy?.name ?? "Not recorded"}`, `Tickets tracked: ${tickets} | System tracked ticket value: $${sales.toFixed(2)}`, `Register Scratch Off Sales: ${registerAmount} | Difference: ${difference}`, ""];
       });
-      const pdf = buildSimplePdf("LottoOps Shift Report", `${fromDate.toISOString().slice(0, 10)} through ${toDate.toISOString().slice(0, 10)}`, rows);
-      return new NextResponse(pdf as unknown as BodyInit, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="shifts_${fromDate.toISOString().slice(0, 10)}.pdf"` } });
+      const pdf = buildSimplePdf("LottoOps Shift Report", `${rangeFromLabel} through ${rangeToLabel}`, rows);
+      return new NextResponse(pdf as unknown as BodyInit, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="shifts_${rangeFromLabel}.pdf"` } });
     }
     if (type === "activity") {
       const logs = await queryInventoryActivity(session.storeId, { from: fromDate, to: toDate, limit: 2000 });

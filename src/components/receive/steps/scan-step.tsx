@@ -8,6 +8,7 @@ import { isValidPackBarcode, normalizeBarcodeInput, parseBarcode } from "@/lib/b
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { GuidedPrompt } from "../guided-prompt";
 
 import { BarcodeScanner } from "../barcode-scanner";
 import { TicketPriceOnly } from "../ticket-price-only";
@@ -52,7 +53,7 @@ interface ScanStepProps {
   addPack: (pack: PackWithGame) => void;
   removePack: (id: string) => void | Promise<void>;
   persistSelectedPacks: (packIds: string[]) => Promise<{ success: boolean; message?: string }>;
-  nextStep: () => void;
+  nextStep: () => void | Promise<void>;
   savingPacks?: boolean;
   previousStep: () => void;
   onCancel: () => void;
@@ -103,6 +104,7 @@ export function ScanStep({
   const [queuedScanCount, setQueuedScanCount] = useState(0);
   const [quantityOverrideEnabled, setQuantityOverrideEnabled] = useState(false);
   const [manualOverrideEnabled, setManualOverrideEnabled] = useState(false);
+  const [guideVisible, setGuideVisible] = useState(true);
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
   const shipmentReady = Boolean(shipment.id) && expectedPacks > 0;
@@ -400,7 +402,7 @@ export function ScanStep({
 
         {/* Scan packs */}
         <Panel className="p-5">
-          <h2 className="mb-5 text-xl font-semibold">Scan Pack</h2>
+          <div className="mb-5 flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">Scan Pack</h2>{!guideVisible && <Button type="button" variant="outline" size="sm" onClick={() => setGuideVisible(true)}>Show receiving guide</Button>}</div>
           <label className="mb-4 flex items-center gap-2 text-sm font-medium">
             <input
               type="checkbox"
@@ -605,6 +607,15 @@ export function ScanStep({
             </Button>
           </div>
         </div>
+        {guideVisible && <GuidedPrompt
+          step={4}
+          title="Scan and select each pack"
+          instruction="Scan each scratch-off pack barcode. Select the packs you want to add and use Add Selected to Shipment. When scanning and selection are complete, select OK to review the shipment, then choose a destination and confirm receipt."
+          actionLabel="OK · Continue to review"
+          actionDisabled={packs.length === 0 || queuedScanCount > 0 || detecting || savingPack || addingSelected || savingPacks}
+          onAcknowledge={nextStep}
+          onDismiss={() => setGuideVisible(false)}
+        />}
     </div>
   );
 }

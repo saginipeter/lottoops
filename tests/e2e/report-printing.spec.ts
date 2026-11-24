@@ -117,7 +117,7 @@ test.describe("Data-only report documents", () => {
         summary: { totalGross: 10, totalCogs: 9.5, totalNet: 0.5, totalTickets: 10, avgMarginPct: 5, shiftCount: 1 },
         shifts: [{
           id: "cmvr8k2g40001abc123def456", shiftNumber: 1, storeName: "Report Store", terminalId: "Terminal A",
-          openedAt: "2026-10-14T08:00:00Z", closedAt: "2026-10-14T12:00:00Z",
+          openedAt: "2026-10-14T08:00:00Z", closedAt: "2026-10-15T02:00:00Z",
           openedBy: "Opening Operator", closedBy: "Closing Operator",
           grossSales: 10, cogs: 9.5, netMargin: 0.5, marginPct: 5, ticketsSold: 10,
           gameBreakdown: [{ name: "Game A", tickets: 10, sales: 10, cost: 9.5 }],
@@ -147,6 +147,7 @@ test.describe("Data-only report documents", () => {
     await expect(selected.getByText("Shift 1", { exact: true })).toBeVisible();
     await selected.click();
     await expect(page.getByText("Ticket Tracking by Display", { exact: true })).toBeVisible();
+    await expect(page.getByText("Report Date:").locator("..")).toContainText("Oct 14, 2026");
     const displayRows = page.locator("table").last().locator("tbody tr");
     await expect(displayRows).toHaveCount(3);
     await expect(displayRows.nth(0).locator("td").first()).toHaveText("1");
@@ -157,6 +158,8 @@ test.describe("Data-only report documents", () => {
     await expect(preview.getByText("Opening Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByText("Closing Operator", { exact: true }).first()).toBeVisible();
     await expect(preview.getByRole("heading", { name: "End of Shift Report" })).toBeVisible();
+    await expect(preview.locator("dl")).toContainText("Report date");
+    await expect(preview.locator("dl")).toContainText("Oct 14, 2026");
     await expect(preview.getByRole("row", { name: "Tickets tracked 10" })).toBeVisible();
     await expect(preview.getByRole("row").filter({ hasText: "Register Scratch Off Sales" })).toContainText("$108.00");
     await expect(preview.getByRole("row").filter({ hasText: "System tracked ticket value" })).toContainText("$10.00");

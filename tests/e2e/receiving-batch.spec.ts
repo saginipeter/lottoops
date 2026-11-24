@@ -202,5 +202,50 @@ test.describe("batch shipment receiving", () => {
     await page.goto("/inventory/receive/step/1");
     await expect(page.getByText("Order Date", { exact: true })).toBeVisible();
     await expect(page.getByText("Shipment date", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toContainText("Prompt 1 of 4");
+    await expect(page.getByRole("dialog")).toContainText("invoice tracking number and select the Order Date");
+    await page.locator("body").press("Enter");
+    await expect(page.getByRole("dialog")).toContainText("expected pack count and inventory cost");
+    await page.getByRole("button", { name: "OK · Next" }).click();
+    await expect(page.getByRole("dialog")).toContainText("upload the invoice photo and confirmation receipt");
+  });
+
+  test("empty scanner Enter advances the final guide prompt using the existing review action", async ({ page, context, baseURL }) => {
+    await signInStore(context, baseURL!);
+    await page.addInitScript(() => {
+      localStorage.setItem("lottoops-receive-draft-v1:receiving-batch-store", JSON.stringify({
+        step: 2,
+        shipment: {
+          id: "shipment-guide-test", invoiceNumber: "GUIDE-INV", invoicePhoto: "https://example.test/invoice.png",
+          confirmationReceiptPhoto: "https://example.test/receipt.png", shipmentConfirmationNumber: "GUIDE-CONF",
+          shipmentDate: "2026-11-23", receivedBy: "Inventory Operator", expectedPacks: 1,
+          expectedRetailValue: 475, scannedPacks: 1, status: "IN_PROGRESS",
+        },
+        packs: [{
+          id: "saved-guide-pack", serialNumber: "24240089877", gameNumber: "2424", packNumber: "0089877",
+          firstTicket: 1, ticketPrice: 10, ticketQuantity: 50, packImage: null, status: "RECEIVING",
+          game: { id: "game-guide", gameNumber: "2424", name: "Guide Test Game", price: 10, ticketsPerPack: 50 },
+        }],
+        scanDraft: { barcode: "", gameNumber: "", packNumber: "", firstTicket: "", ticketPrice: 10, ticketQuantity: 50, packImage: "" },
+      }));
+    });
+    await page.route("**/api/shipments/shipment-guide-test", (route) => route.fulfill({ json: {
+      id: "shipment-guide-test", receivedBy: { name: "Inventory Operator" }, expectedInventoryCost: 475,
+    } }));
+    let syncRequest = false;
+    await page.route("**/api/packs", async (route) => {
+      if (route.request().method() !== "DELETE") return route.continue();
+      syncRequest = route.request().postDataJSON().shipmentId === "shipment-guide-test";
+      await route.fulfill({ json: { ok: true, removed: 0 } });
+    });
+
+    await page.goto("/inventory/receive/step/2");
+    const guide = page.getByRole("dialog");
+    await expect(guide).toContainText("Prompt 4 of 4");
+    await expect(guide.getByRole("button", { name: "OK · Continue to review" })).toBeEnabled();
+    await page.getByPlaceholder("Scan Pack").press("Enter");
+    await expect.poll(() => syncRequest).toBe(true);
+    await expect(page.getByText("Review shipment", { exact: true })).toBeVisible();
+    await expect(page.getByText("Step 3 of 4", { exact: true })).toBeVisible();
   });
 });

@@ -1,14 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { Calendar, Camera, FileText, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { InvoiceUpload } from "../invoice-upload";
+import { GuidedPrompt } from "../guided-prompt";
 import type { ShipmentState } from "@/lib/types";
 
 interface InvoiceStepProps { shipment: ShipmentState; setShipment: React.Dispatch<React.SetStateAction<ShipmentState>>; nextStep: () => void; onCancel: () => void; }
 
 export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: InvoiceStepProps) {
+  const [guideVisible, setGuideVisible] = useState(true);
+  const [guideStep, setGuideStep] = useState<1 | 2 | 3>(1);
+
   async function handleContinue() {
     if (!shipment.invoiceNumber?.trim()) return alert("Please enter an invoice tracking number.");
     if (!shipment.invoicePhoto) return alert("Please upload an invoice photo.");
@@ -35,8 +40,15 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
     } catch (error) { console.error(error); alert("Unable to create shipment."); }
   }
 
-  return <Panel className="p-4 sm:p-5">
-    <div className="mb-4 flex items-start justify-between gap-3 border-b border-border pb-3"><div><h2 className="text-lg font-semibold text-text">Shipment details</h2><p className="mt-1 text-xs text-text-secondary">Enter the shipment information and attach both required photos.</p></div></div>
+  const guideContent = {
+    1: { title: "Enter the invoice and order date", instruction: "Enter the invoice tracking number and select the Order Date. Then select OK or press Enter for the next prompt.", actionLabel: "OK · Next" },
+    2: { title: "Enter the expected shipment totals", instruction: "Enter the expected pack count and inventory cost. Then select OK or press Enter for the photo prompt.", actionLabel: "OK · Next" },
+    3: { title: "Attach the shipment documents", instruction: "Enter the shipment confirmation number, upload the invoice photo and confirmation receipt, then select OK to save these details and continue to scanning.", actionLabel: "OK · Continue to scanning" },
+  }[guideStep];
+
+  return <>
+    <Panel className="p-4 sm:p-5">
+    <div className="mb-4 flex items-start justify-between gap-3 border-b border-border pb-3"><div><h2 className="text-lg font-semibold text-text">Shipment details</h2><p className="mt-1 text-xs text-text-secondary">Enter the shipment information and attach both required photos.</p></div>{!guideVisible && <Button type="button" variant="outline" size="sm" onClick={() => setGuideVisible(true)}>Show receiving guide</Button>}</div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <Field label="Invoice tracking number" icon={<FileText size={15} />}><input inputMode="numeric" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.invoiceNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, invoiceNumber: e.target.value }))} placeholder="Enter invoice number" /></Field>
       <Field label="Order Date" icon={<Calendar size={15} />}><input type="date" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.shipmentDate ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentDate: e.target.value }))} /></Field>
@@ -49,7 +61,19 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
     </div>
     <div className="mt-4 grid gap-3 lg:grid-cols-2"><UploadField label="Invoice photo" value={shipment.invoicePhoto ?? ""} title="Upload invoice photo" previewAlt="Invoice photo" onChange={(url) => setShipment((prev) => ({ ...prev, invoicePhoto: url }))} /><UploadField label="Confirmation receipt photo" value={shipment.confirmationReceiptPhoto ?? ""} title="Upload confirmation receipt" previewAlt="Confirmation receipt photo" onChange={(url) => setShipment((prev) => ({ ...prev, confirmationReceiptPhoto: url }))} /></div>
     <div className="mt-4 grid gap-2 sm:grid-cols-2"><Button variant="outline" className="w-full" onClick={onCancel}>Cancel</Button><Button className="w-full" onClick={handleContinue}>Continue to scan packs →</Button></div>
-  </Panel>;
+    </Panel>
+    {guideVisible && <GuidedPrompt
+      step={guideStep}
+      title={guideContent.title}
+      instruction={guideContent.instruction}
+      actionLabel={guideContent.actionLabel}
+      onAcknowledge={() => {
+        if (guideStep === 3) return handleContinue();
+        setGuideStep((current) => (current + 1) as 1 | 2 | 3);
+      }}
+      onDismiss={() => setGuideVisible(false)}
+    />}
+  </>;
 }
 
 function Field({ label, icon, hint, children }: { label: string; icon: React.ReactNode; hint?: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-text"><span className="text-accent">{icon}</span>{label}</span>{children}{hint && <span className="mt-1 block text-[10px] text-text-tertiary">{hint}</span>}</label>; }

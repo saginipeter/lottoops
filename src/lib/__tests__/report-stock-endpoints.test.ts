@@ -53,7 +53,7 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
   const paths = ["../api-session", "../prisma", "../activity-log"].map((path) => require.resolve(path));
   const originals = paths.map((path) => require.cache[path]);
   let session: { storeId: string; storeName: string } | null = null;
-  let shifts = [example];
+  let shifts: Array<Omit<ReturnType<typeof shift>, "closedAt"> & { closedAt: Date | null }> = [example];
   const inventoryPacks = [
     { serialNumber: "000123", game: { gameNumber: "0042", name: "Lucky Game", price: "5.00" }, status: "BACK_STOCK", ticketPrice: "5.00", ticketQuantity: 150, cost: "712.50", retailValue: "750.00", receivedAt: new Date("2026-10-01T08:00:00Z") },
     { serialNumber: "000124", game: { gameNumber: "0019", name: "Other Game", price: "2.00" }, status: "BACK_STOCK", ticketPrice: "2.00", ticketQuantity: 300, cost: "570.00", retailValue: "600.00", receivedAt: new Date("2026-10-02T08:00:00Z") },
@@ -98,9 +98,9 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
   });
   const { GET: getReport } = await import("../../app/api/reports/shifts/route");
   const { GET: getExport } = await import("../../app/api/reports/export/route");
-  const reportRequest = () => new NextRequest("http://localhost/api/reports/shifts?from=2026-10-01&to=2026-10-02");
-  const exportRequest = (type = "games", format = "csv") =>
-    new NextRequest(`http://localhost/api/reports/export?type=${type}&format=${format}&from=2026-10-01&to=2026-10-02`);
+  const reportRequest = (from = "2026-10-01", to = "2026-10-02") => new NextRequest(`http://localhost/api/reports/shifts?from=${from}&to=${to}`);
+  const exportRequest = (type = "games", format = "csv", from = "2026-10-01", to = "2026-10-02") =>
+    new NextRequest(`http://localhost/api/reports/export?type=${type}&format=${format}&from=${from}&to=${to}`);
   const gamesCSV = async () => parseCSV(await (await getExport(exportRequest())).text());
   const shiftsCSV = async () => parseCSV(await (await getExport(exportRequest("shifts"))).text());
 
@@ -151,8 +151,8 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
       });
       assert.equal(games.find((game: { id: string }) => game.id === "game-b").gameNumber, "002");
     }
-    assert.deepEqual(queries[0].where.closedAt, {
-      gte: new Date("2026-10-01T00:00:00"), lte: new Date("2026-10-02T23:59:59"),
+    assert.deepEqual(queries[1].where.closedAt, {
+      gte: new Date("2026-10-01T05:00:00.000Z"), lte: new Date("2026-10-03T04:59:59.999Z"),
     });
 
     const csvResponse = await getExport(exportRequest());
@@ -169,12 +169,69 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.deepEqual(rows.at(-1), ["", "Total (shift-scoped)", "450", "50", "400", "250.00", "237.50", "12.50", "5.0"]);
     assert.doesNotMatch((await (await getExport(exportRequest())).text()), /game-a|Game ID/);
     const [shiftHeaders, shiftRow] = await shiftsCSV();
-    assert.deepEqual(shiftHeaders.slice(6), [
-      ...headers.slice(2), "Register Scratch Off Sales ($)", "Difference (register minus system) ($)",
+    assert.deepEqual(shiftHeaders.slice(0, 7), [
+      "Shift", "Report Date (America/Chicago)", "Terminal", "Opened At", "Closed At (America/Chicago)", "Opened By", "Closed By",
     ]);
-    assert.deepEqual(shiftRow.slice(6), ["450", "50", "400", "250.00", "237.50", "12.50", "5.0", "Not recorded", "Not recorded"]);
-    assert.deepEqual(shiftRow.slice(0, 2), ["Shift 1", "T1"]);
-    assert.deepEqual(shiftRow.slice(2, 4), ["Oct 1, 2026, 3:00 AM", "Oct 1, 2026, 11:00 AM"]);
+    assert.deepEqual(shiftHeaders.slice(7), [
+      "Opening Total Tickets (shift-scoped)", "Tickets Tracked", "Ending Active Stock (shift-scoped)",
+      "Ticket Value 100% ($)", "Cost 95% ($)", "Net Value Difference ($)", "Margin %",
+      "Register Scratch Off Sales ($)", "Difference (register minus system) ($)",
+    ]);
+    assert.deepEqual(shiftRow.slice(7), ["450", "50", "400", "250.00", "237.50", "12.50", "5.0", "Not recorded", "Not recorded"]);
+    assert.deepEqual(shiftRow.slice(0, 7), ["Shift 1", "Oct 1, 2026", "T1", "Oct 1, 2026, 3:00 AM", "Oct 1, 2026, 11:00 AM", "Opener", "Closer"]);
+  });
+
+  await context.test("daily totals and shift exports use the Chicago close date, never openedAt", async () => {
+    const previousDate = shift("previous-date", [line("game-a", "001", 10, 1, "5.00", 9)]);
+    previousDate.shiftNumber = 1;
+    previousDate.openedAt = new Date("2026-11-14T20:00:00Z");
+    previousDate.closedAt = new Date("2026-11-15T02:30:00Z");
+    const nextDate = shift("next-date", [line("game-a", "001", 10, 2, "10.00", 8)]);
+    nextDate.shiftNumber = 2;
+    nextDate.openedAt = new Date("2026-11-15T06:00:00Z");
+    nextDate.closedAt = new Date("2026-11-15T07:00:00Z");
+    const noClose = {
+      ...shift("no-close", [line("game-a", "001", 10, 3, "15.00", 7)]),
+      shiftNumber: 3,
+      openedAt: new Date("2026-11-14T20:00:00Z"),
+      closedAt: null,
+    };
+    shifts = [previousDate, nextDate, noClose];
+
+    const report = await (await getReport(reportRequest("2026-11-14", "2026-11-15"))).json();
+    assert.deepEqual(queries.at(-1)?.where.closedAt, {
+      gte: new Date("2026-11-14T06:00:00.000Z"), lte: new Date("2026-11-16T05:59:59.999Z"),
+    });
+    assert.deepEqual(report.dailyTotals, [
+      { date: "2026-11-14", grossSales: 5, ticketsSold: 1, shifts: 1 },
+      { date: "2026-11-15", grossSales: 10, ticketsSold: 2, shifts: 1 },
+    ]);
+
+    const csvResponse = await getExport(exportRequest("shifts", "csv", "2026-11-14", "2026-11-15"));
+    assert.match(csvResponse.headers.get("Content-Disposition") ?? "", /shifts_2026-11-14_2026-11-15\.csv/);
+    assert.deepEqual(queries.at(-1)?.where.closedAt, {
+      gte: new Date("2026-11-14T06:00:00.000Z"), lte: new Date("2026-11-16T05:59:59.999Z"),
+    });
+    const [headers, ...rows] = parseCSV(await csvResponse.text());
+    const reportDateIndex = headers.indexOf("Report Date (America/Chicago)");
+    const closedAtIndex = headers.indexOf("Closed At (America/Chicago)");
+    assert.notEqual(reportDateIndex, -1);
+    assert.notEqual(closedAtIndex, -1);
+    assert.deepEqual(rows.map((row) => [row[0], row[reportDateIndex], row[closedAtIndex]]), [
+      ["Shift 1", "Nov 14, 2026", "Nov 14, 2026, 8:30 PM"],
+      ["Shift 2", "Nov 15, 2026", "Nov 15, 2026, 1:00 AM"],
+      ["Shift 3", "Not recorded", "Not recorded"],
+    ]);
+
+    const pdfResponse = await getExport(exportRequest("shifts", "pdf", "2026-11-14", "2026-11-15"));
+    const pdf = await pdfResponse.text();
+    assert.ok(pdf.includes("Report Date \\(America/Chicago\\): Nov 14, 2026"));
+    assert.ok(pdf.includes("Closed At \\(America/Chicago\\): Nov 14, 2026, 8:30 PM"));
+    assert.ok(pdf.includes("Report Date \\(America/Chicago\\): Nov 15, 2026"));
+    assert.ok(pdf.includes("Closed At \\(America/Chicago\\): Nov 15, 2026, 1:00 AM"));
+    assert.ok(pdf.includes("Report Date \\(America/Chicago\\): Not recorded"));
+    assert.ok(pdf.includes("Closed At \\(America/Chicago\\): Not recorded"));
+    shifts = [example];
   });
 
   await context.test("repeated packs across shifts are summed, not mistaken for current stock", async () => {
@@ -206,7 +263,7 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.equal(rows.find((row) => row[0] === "001")?.[4], "");
     assert.equal(rows.at(-1)?.[4], "");
     const shiftRows = await shiftsCSV();
-    assert.equal(shiftRows[2][8], "");
+    assert.equal(shiftRows[2][9], "");
   });
 
   await context.test("cost rounds once from aggregate finalized gross, not rounded line costs or game prices", async () => {
@@ -227,7 +284,7 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     const sameShift = await (await getReport(reportRequest())).json();
     assert.equal(sameShift.shifts[0].cogs, 0.29);
     assert.equal(sameShift.shifts[0].gameBreakdown[0].cost, 0.29);
-    assert.deepEqual((await shiftsCSV())[1].slice(9, 12), ["0.30", "0.29", "0.01"]);
+    assert.deepEqual((await shiftsCSV())[1].slice(10, 13), ["0.30", "0.29", "0.01"]);
   });
 
   await context.test("zero sales, empty shifts, and no shifts retain zero totals", async () => {
@@ -257,7 +314,7 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     const rows = await gamesCSV();
     assert.deepEqual(rows.slice(1, -1).map((row) => row[6]), ["0.10", "0.10", "0.10"]);
     assert.deepEqual(rows.at(-1)?.slice(5, 8), ["0.30", "0.29", "0.01"]);
-    assert.deepEqual((await shiftsCSV())[1].slice(9, 12), ["0.30", "0.29", "0.01"]);
+    assert.deepEqual((await shiftsCSV())[1].slice(10, 13), ["0.30", "0.29", "0.01"]);
   });
 
   await context.test("existing PDF behavior is preserved", async () => {
@@ -272,6 +329,8 @@ test("report endpoints expose historical, shift-scoped stock and finalized-sales
     assert.match(pdf, /Register Scratch Off Sales: Not recorded \| Difference: Not recorded/);
     assert.doesNotMatch(pdf, /opening drawer cash|closing drawer cash|cash variance/i);
     assert.match(pdf, /Oct 1, 2026, 3:00 AM/);
+    assert.ok(pdf.includes("Report Date \\(America/Chicago\\): Oct 1, 2026"));
+    assert.ok(pdf.includes("Closed At \\(America/Chicago\\): Oct 1, 2026, 11:00 AM"));
     assert.doesNotMatch(pdf, /2026-10-01T08:00:00\.000Z/);
     assert.equal((await getExport(exportRequest("games", "pdf"))).status, 400);
     assert.equal((await getExport(exportRequest("activity", "pdf"))).headers.get("Content-Type"), "application/pdf");

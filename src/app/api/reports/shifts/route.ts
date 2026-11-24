@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { readShiftRegisterSalesRecord, SHIFT_REPORT_REGISTER_SALES_QUERY } from "@/lib/shift-report-cash";
 import { shiftReportWhere } from "@/lib/shift-report-query";
 import { aggregateOperatorSessionSales, type ShiftSessionSaleRow } from "@/lib/shift-session-sales";
+import { endOfReportDate, reportDateKey, startOfReportDate } from "@/lib/report-timestamp";
 
 const INVENTORY_COST_RATE = 0.95;
 // Round 95% of finalized gross at each aggregation level; rounded game costs may not sum to shift/period cost.
@@ -62,9 +63,9 @@ export async function GET(req: NextRequest) {
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 500) : 100;
 
   // Default: last 30 days
-  const toDate = !shiftId && toParam ? new Date(toParam + "T23:59:59") : new Date();
+  const toDate = !shiftId && toParam ? endOfReportDate(toParam) ?? new Date(Number.NaN) : new Date();
   const fromDate = !shiftId && fromParam
-    ? new Date(fromParam + "T00:00:00")
+    ? startOfReportDate(fromParam) ?? new Date(Number.NaN)
     : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
   if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || fromDate > toDate) {
     return NextResponse.json({ error: "Invalid report date range." }, { status: 400 });
@@ -257,7 +258,8 @@ export async function GET(req: NextRequest) {
   // Daily rollup
   const dailyMap = new Map<string, { date: string; grossSales: number; ticketsSold: number; shifts: number }>();
   for (const s of shiftSummaries) {
-    const day = (s.closedAt ?? s.openedAt).toISOString().slice(0, 10);
+    const day = reportDateKey(s.closedAt);
+    if (!day) continue;
     const existing = dailyMap.get(day) ?? { date: day, grossSales: 0, ticketsSold: 0, shifts: 0 };
     existing.grossSales += s.grossSales;
     existing.ticketsSold += s.ticketsSold;
