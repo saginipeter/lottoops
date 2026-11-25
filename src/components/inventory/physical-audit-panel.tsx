@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { PhoneBarcodeScanner } from "@/components/inventory/phone-barcode-scanner";
 import { calculatePhysicalAuditInventory } from "@/lib/core-validation";
+import { sortByDisplayNumber } from "@/lib/display-number-order";
 import { ReportActions } from "@/components/reports/report-actions";
 import { loadMidShiftAuditSnapshotDocument } from "@/lib/mid-shift-audit-report";
 
@@ -57,6 +58,10 @@ interface InventoryLine {
     firstOrLastTicket: string | null;
     game: { ticketsPerPack: number };
   };
+}
+
+export function sortPhysicalAuditLines(lines: readonly AuditLine[]): AuditLine[] {
+  return sortByDisplayNumber(lines, (line) => line.slotNumber);
 }
 
 export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackIds, inventoryLines = [] }: { shiftId: string; audit?: AuditState; activeDisplayPackIds: string[]; inventoryLines?: InventoryLine[] }) {
@@ -112,7 +117,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackId
         endingPhysicalTicket: line.endingPhysicalTicket, variance: line.variance ?? null,
       }];
     });
-    return packs.map((pack) => {
+    return sortPhysicalAuditLines(packs.map((pack) => {
       const existing = localLines.find((line) => line.packId === pack.packId);
       return existing ?? {
         id: pack.lineId ?? `pending-${pack.packId}`,
@@ -126,7 +131,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackId
         endingPhysicalTicket: pack.endingPhysicalTicket,
         pack: { serialNumber: pack.serialNumber, game: { name: pack.gameName } },
       } satisfies AuditLine;
-    });
+    }));
   }, [activeDisplayPackIds, liveLoaded, livePacks, localLines]);
   const activePackIds = liveLoaded ? livePacks.map((pack) => pack.packId) : activeDisplayPackIds;
   const activeCount = activePackIds.length;

@@ -264,7 +264,7 @@ export function ConfirmStep({
             <div className={`flex-1 text-sm font-semibold ${invoiceMatches ? "text-green-700" : "text-amber-700"}`}>{invoiceMatches ? <span className="inline-flex items-center gap-2"><CheckCircle2 size={18} />Inventory cost confirmed: ${enteredInventoryCost.toFixed(2)} (95%)</span> : scannedRetailValue > 0 ? `Entered cost $${enteredInventoryCost.toFixed(2)} must equal the calculated 95% cost of $${expectedInventoryCost.toFixed(2)}` : "Scan at least one pack before confirmation"}</div>
             <Button variant="secondary" onClick={previousStep}>← Back</Button>
             <Button variant="outline" onClick={onCancel}>Cancel</Button>
-            <Button disabled={loading || !invoiceMatches || (destination === "active" && !activationConfigured)} onClick={handleConfirm}>{loading ? "Confirming..." : "Confirm receipt"}</Button>
+            <Button disabled={loading || (!invoiceMatches && !overrideApproved) || (destination === "active" && !activationConfigured)} onClick={handleConfirm}>{loading ? "Confirming..." : "Confirm receipt"}</Button>
           </div>
         </Panel>
 

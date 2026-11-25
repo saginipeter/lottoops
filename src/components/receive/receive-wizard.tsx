@@ -490,6 +490,7 @@ function StoreReceiveWizard({ storeId, initialStep = 1, receiverName = "" }: Rec
                 shipment={shipment}
                 packs={packs}
                 previousStep={previousStep}
+                overrideApproved={overrideApproved}
                 onConfirmed={clearDraft}
                 onCancel={cancelReceiving}
               />

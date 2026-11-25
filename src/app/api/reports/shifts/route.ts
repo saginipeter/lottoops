@@ -7,6 +7,7 @@ import { readShiftRegisterSalesRecord, SHIFT_REPORT_REGISTER_SALES_QUERY } from 
 import { shiftReportWhere } from "@/lib/shift-report-query";
 import { aggregateOperatorSessionSales, type ShiftSessionSaleRow } from "@/lib/shift-session-sales";
 import { endOfReportDate, reportDateKey, startOfReportDate } from "@/lib/report-timestamp";
+import { sortByDisplayNumber } from "@/lib/display-number-order";
 
 const INVENTORY_COST_RATE = 0.95;
 // Round 95% of finalized gross at each aggregation level; rounded game costs may not sum to shift/period cost.
@@ -169,7 +170,10 @@ export async function GET(req: NextRequest) {
 
     grossSales = roundCurrency(grossSales);
     const cogs = roundCurrency(grossSales * INVENTORY_COST_RATE);
-    const operatorSessions = operatorSalesByShift.get(shift.id) ?? [];
+    const operatorSessions = (operatorSalesByShift.get(shift.id) ?? []).map((operatorSession) => ({
+      ...operatorSession,
+      packs: sortByDisplayNumber(operatorSession.packs, (pack) => pack.display),
+    }));
     const loginTickets = operatorSessions.reduce((sum, operator) => sum + operator.tickets, 0);
     const loginGrossSales = roundCurrency(operatorSessions.reduce((sum, operator) => sum + operator.grossSales, 0));
     const reportGrossSales = shiftBoundRole ? loginGrossSales : grossSales;
@@ -200,7 +204,7 @@ export async function GET(req: NextRequest) {
           cost: roundCurrency(game.sales * INVENTORY_COST_RATE),
         }))
         .sort((a, b) => b.sales - a.sales),
-      packSales: shiftBoundRole ? [] : shift.lines.map((line) => ({
+      packSales: shiftBoundRole ? [] : sortByDisplayNumber(shift.lines.map((line) => ({
         pack: line.pack.serialNumber,
         game: line.pack.game.name,
         display: line.slotNumber,
@@ -208,14 +212,14 @@ export async function GET(req: NextRequest) {
         ending: line.endingTicket,
         tickets: line.ticketsSold,
         sales: line.salesAmount == null ? null : Number(line.salesAmount),
-      })),
+      })), (line) => line.display),
       operatorSessions,
       operatorSessionsOnly: shiftBoundRole,
       auditOpenedBy: shiftBoundRole ? null : shift.inventoryAudit?.begunBy.name ?? null,
       auditClosedBy: shiftBoundRole ? null : shift.inventoryAudit?.endedBy?.name ?? null,
       auditOpenedAt: shiftBoundRole ? null : shift.inventoryAudit?.begunAt ?? null,
       auditClosedAt: shiftBoundRole ? null : shift.inventoryAudit?.endedAt ?? null,
-      audit: shiftBoundRole ? [] : shift.inventoryAudit?.lines.map((line) => {
+      audit: shiftBoundRole ? [] : sortByDisplayNumber(shift.inventoryAudit?.lines.map((line) => {
         const shiftLine = shift.lines.find((item) => item.packId === line.packId);
         const systemExpected = line.endingExpectedTicket ?? (shiftLine?.endingTicket != null
           ? getAuditPhysicalTicket({
@@ -251,7 +255,7 @@ export async function GET(req: NextRequest) {
             ? null
             : calculatePhysicalAuditVariance(Number(systemExpected), Number(observed)),
         };
-      }) ?? [],
+      }) ?? [], (line) => line.display),
     };
   });
 

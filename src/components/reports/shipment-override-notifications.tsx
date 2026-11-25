@@ -20,8 +20,24 @@ interface OverrideNotification {
   recordedPackQuantity: number | null;
 }
 
+interface TicketQuantityOverride {
+  id: string;
+  storeName: string;
+  serialNumber: string;
+  packNumber: string | null;
+  gameName: string;
+  gameNumber: string;
+  expectedTicketQuantity: number;
+  recordedTicketQuantity: number;
+  reason: string;
+  status: string;
+  actorName: string | null;
+  createdAt: string;
+}
+
 export function ShipmentOverrideNotifications({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [notifications, setNotifications] = useState<OverrideNotification[]>([]);
+  const [ticketQuantityOverrides, setTicketQuantityOverrides] = useState<TicketQuantityOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -33,6 +49,7 @@ export function ShipmentOverrideNotifications({ dateRange }: { dateRange: Report
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load shipment overrides.");
       setNotifications(data.notifications ?? []);
+      setTicketQuantityOverrides(data.ticketQuantityOverrides ?? []);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to load shipment overrides.");
     } finally {
@@ -49,7 +66,7 @@ export function ShipmentOverrideNotifications({ dateRange }: { dateRange: Report
           <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Owner notifications</p>
           <h3 className="mt-1 text-base font-semibold text-text">Shipment Overrides</h3>
         </div>
-        <ReportActions document={buildShipmentOverridesDocument(notifications)} disabled={loading || !!error} />
+        <ReportActions document={buildShipmentOverridesDocument(notifications, ticketQuantityOverrides)} disabled={loading || !!error} />
         {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
@@ -57,10 +74,12 @@ export function ShipmentOverrideNotifications({ dateRange }: { dateRange: Report
       </div>
       {loading ? (
         <p className="text-sm text-text-secondary">Loading override notifications...</p>
-      ) : notifications.length === 0 ? (
+      ) : notifications.length === 0 && ticketQuantityOverrides.length === 0 ? (
         <p className="rounded-md border border-border bg-surface-soft px-3 py-3 text-sm text-text-secondary">No shipment overrides recorded.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-5">
+          {notifications.length > 0 && <div className="space-y-2">
+          <h4 className="text-sm font-semibold text-text">Shipment pack-count approvals</h4>
           {notifications.map((notification) => (
             <div key={String(notification.id)} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
               <div className="flex items-center justify-between gap-3">
@@ -75,6 +94,30 @@ export function ShipmentOverrideNotifications({ dateRange }: { dateRange: Report
               <p className="mt-1 text-xs text-text-tertiary">Approved by {notification.performedByName ?? "Unknown"}</p>
             </div>
           ))}
+          </div>}
+          {ticketQuantityOverrides.length > 0 && <div>
+            <h4 className="mb-2 text-sm font-semibold text-text">Per-pack ticket quantity overrides</h4>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full min-w-[760px] text-left text-xs">
+                <thead className="bg-surface-soft text-text-secondary"><tr>
+                  <th className="p-2 font-semibold">Game/Pack</th>
+                  <th className="p-2 text-right font-semibold">Expected Tickets</th>
+                  <th className="p-2 text-right font-semibold">Recorded Tickets</th>
+                  <th className="p-2 font-semibold">Reason</th>
+                  <th className="p-2 font-semibold">Action/Status</th>
+                </tr></thead>
+                <tbody>{ticketQuantityOverrides.map((override) => (
+                  <tr key={override.id} className="border-t border-border align-top">
+                    <td className="p-2"><span className="font-semibold">{override.gameName} · Game {override.gameNumber}</span><span className="mt-0.5 block break-all font-mono text-text-tertiary">Pack {override.packNumber ?? override.serialNumber}{override.packNumber ? ` · ${override.serialNumber}` : ""}</span><span className="block text-text-tertiary">{override.storeName}</span></td>
+                    <td className="p-2 text-right tabular-nums">{override.expectedTicketQuantity}</td>
+                    <td className="p-2 text-right tabular-nums">{override.recordedTicketQuantity}</td>
+                    <td className="max-w-sm whitespace-pre-wrap p-2">{override.reason}</td>
+                    <td className="p-2">{override.status.replaceAll("_", " ")}<span className="mt-0.5 block text-text-tertiary">{override.actorName ?? "Unknown"} · {formatReportTimestamp(override.createdAt)}</span></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>}
         </div>
       )}
     </Panel>

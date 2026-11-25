@@ -30,6 +30,9 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
 
   const shiftBoundRole = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
   if (shiftBoundRole && !session.shiftId) redirect("/shifts");
+  if (shiftBoundRole && session.shiftId) {
+    redirect(`/pos?shiftId=${encodeURIComponent(session.shiftId)}`);
+  }
 
   if (!prisma) {
     return (

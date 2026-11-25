@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { canManageDisplay } from "@/lib/permissions";
 import { ensureDisplaySlots } from "@/lib/services/display-slots";
+import { sortByDisplayNumber } from "@/lib/display-number-order";
 import { activatePackToDisplay, ActivationAuditConflict, assignActivePackToDisplay } from "@/lib/activation-audit-snapshot";
 
 // GET all display slots
@@ -36,9 +37,9 @@ export async function GET() {
       orderBy: {
         slotNumber: "asc",
       },
-    });
+    }) as Array<{ slotNumber: string }>;
 
-    return NextResponse.json(slots);
+    return NextResponse.json(sortByDisplayNumber(slots, (slot) => slot.slotNumber));
   } catch (error) {
     console.error(error);
 

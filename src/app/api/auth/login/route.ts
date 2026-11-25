@@ -1,197 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { getSessionMaxAge, signMfaChallenge, signSession, MFA_CHALLENGE_COOKIE, SESSION_COOKIE } from "@/lib/session";
-import { isMfaRequired } from "@/lib/mfa";
-import { findMockUser } from "@/lib/mock-users";
 import { clearAuthenticationCookies } from "@/lib/auth-cookies";
-import { createLoginSessionId, endLoginSession, startLoginSession } from "@/lib/login-session";
-import { verifySession } from "@/lib/session";
-import { findRestorableEmployeeShift } from "@/lib/ticket-tracking-eligibility";
+import { issueLoginEmailOtp, LoginEmailOtpRateLimitError } from "@/lib/login-email-otp";
+import {
+  LOGIN_EMAIL_OTP_CHALLENGE_COOKIE,
+  SESSION_COOKIE,
+  signLoginEmailOtpChallenge,
+  verifySession,
+} from "@/lib/session";
+import { endLoginSession } from "@/lib/login-session";
 
-// Tries the real database first. If there's no live connection (prisma is
-// null, or the query throws — e.g. DATABASE_URL not set, Neon unreachable,
-// migrations not yet run), falls back to local mock users so the app keeps
-// working offline. Once a real DB is wired up, this fallback simply never
-// fires and behavior is identical to a normal online login.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
     }
-    const { email, password, rememberMe: requestedRememberMe } = body as { email?: unknown; password?: unknown; rememberMe?: unknown };
-    const rememberMe = requestedRememberMe === true;
-
+    const { email, password, rememberMe: requestedRememberMe } = body as {
+      email?: unknown;
+      password?: unknown;
+      rememberMe?: unknown;
+    };
     if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+    }
+    // No mock/offline escape is allowed for authentication because email OTP is
+    // now mandatory. Missing DB/signing-key/mail configuration fails closed.
+    if (!prisma || !process.env.JWT_SECRET || !(process.env.LOGIN_OTP_PEPPER || process.env.JWT_SECRET)) {
+      return NextResponse.json({ error: "Secure sign-in is temporarily unavailable." }, { status: 503 });
     }
 
-    const normalizedEmail = String(email).toLowerCase().trim();
-    let authResult: {
-      userId: string;
-      storeId: string;
-      storeName: string;
-      name: string;
-      email: string;
-      role: "OWNER" | "MANAGER" | "SHIFT_LEAD" | "EMPLOYEE";
-      grantedPermissions: string[];
-    } | null = null;
-
-    const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-    const allowOfflineFallback =
-      process.env.NODE_ENV !== "production" &&
-      process.env.ALLOW_OFFLINE_AUTH === "true" &&
-      (!hasDatabaseUrl || !prisma);
-
-    // Attempt 1: real database
-    if (prisma) {
-      try {
-        const user = await prisma.user.findUnique({
-          where: { email: normalizedEmail },
-          include: { store: true },
-        });
-
-        if (user && user.active) {
-          const passwordValid = await bcrypt.compare(password, user.passwordHash);
-          if (passwordValid) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { lastLoginAt: new Date() },
-            });
-            authResult = {
-              userId: user.id,
-              storeId: user.storeId,
-              storeName: user.store.name,
-              name: user.name,
-              email: user.email,
-              role: user.role,
-              grantedPermissions: user.grantedPermissions ?? [],
-            };
-          } else {
-            return NextResponse.json(
-              { error: "Invalid email or password" },
-              { status: 401 }
-            );
-          }
-        }
-      } catch (dbErr) {
-        if (!allowOfflineFallback) {
-          return NextResponse.json(
-            {
-              error:
-                "Database is temporarily unavailable. Please try again in a moment.",
-            },
-            { status: 503 }
-          );
-        }
-        // No live connection in offline mode — fall through to mock auth.
-        console.warn(
-          "[login] Database unavailable, falling back to offline mode:",
-          dbErr instanceof Error ? dbErr.message : dbErr
-        );
-      }
+    const normalizedEmail = email.toLowerCase().trim();
+    let user;
+    try {
+      user = await prisma.user.findUnique({ where: { email: normalizedEmail }, include: { store: true } });
+    } catch {
+      return NextResponse.json({ error: "Database is temporarily unavailable. Please try again." }, { status: 503 });
     }
-
-    // Attempt 2: offline mock users (only when offline fallback is allowed)
-    if (!authResult) {
-      if (!allowOfflineFallback) {
-        return NextResponse.json(
-          { error: "Invalid email or password" },
-          { status: 401 }
-        );
-      }
-      const mockUser = findMockUser(normalizedEmail);
-      if (!mockUser || !mockUser.active || mockUser.password !== password) {
-        return NextResponse.json(
-          { error: "Invalid email or password" },
-          { status: 401 }
-        );
-      }
-      authResult = {
-        userId: mockUser.id,
-        storeId: mockUser.storeId,
-        storeName: mockUser.storeName,
-        name: mockUser.name,
-        email: mockUser.email,
-        role: mockUser.role,
-        grantedPermissions: mockUser.grantedPermissions ?? [],
-      };
+    if (!user || !user.active || !(await bcrypt.compare(password, user.passwordHash))) {
+      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
     const previousToken = req.cookies.get(SESSION_COOKIE)?.value;
     const previousSession = previousToken ? await verifySession(previousToken) : null;
     if (previousSession?.loginSessionId) await endLoginSession(previousSession.loginSessionId);
 
-    if (prisma && await isMfaRequired(authResult.userId)) {
-      const response = clearAuthenticationCookies(NextResponse.json({ mfaRequired: true }, { status: 202 }));
-      response.cookies.set(MFA_CHALLENGE_COOKIE, await signMfaChallenge(authResult.userId, rememberMe), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 5,
-        path: "/",
-      });
-      return response;
+    let issued: { id: string };
+    try {
+      issued = await issueLoginEmailOtp(user.id, user.email);
+    } catch (error) {
+      if (error instanceof LoginEmailOtpRateLimitError) {
+        return clearAuthenticationCookies(NextResponse.json({ error: "Please wait before requesting another code, or try again later." }, { status: 429 }));
+      }
+      console.error("[login email OTP] Delivery failed.");
+      return clearAuthenticationCookies(NextResponse.json({ error: "Unable to send a verification code right now. Please try again." }, { status: 503 }));
     }
 
-    const loginSessionId = createLoginSessionId();
-    const staffRole = authResult.role === "EMPLOYEE" || authResult.role === "SHIFT_LEAD";
-    const restoredShift = staffRole && prisma
-      ? await findRestorableEmployeeShift(authResult.storeId, authResult.userId)
-      : null;
-    await startLoginSession(loginSessionId, {
-      storeId: authResult.storeId,
-      userId: authResult.userId,
-      ...(restoredShift ? { shiftId: restoredShift.id, terminalId: restoredShift.terminalId } : {}),
-    });
-    const token = await signSession({
-      userId: authResult.userId,
-      storeId: authResult.storeId,
-      storeName: authResult.storeName,
-      name: authResult.name,
-      email: authResult.email,
-      role: authResult.role,
-      grantedPermissions: authResult.grantedPermissions,
-      rememberMe,
-      loginSessionId,
-      ...(restoredShift ? {
-        shiftId: restoredShift.id,
-        shiftNumber: restoredShift.shiftNumber,
-        terminalId: restoredShift.terminalId,
-      } : {}),
-    });
-
-    const response = clearAuthenticationCookies(NextResponse.json({
-      ok: true,
-      user: {
-        name: authResult.name,
-        email: authResult.email,
-        role: authResult.role,
-        storeName: authResult.storeName,
-        shiftNumber: restoredShift?.shiftNumber ?? null,
-        terminalId: restoredShift?.terminalId ?? null,
-        needsShiftSelection: staffRole && !restoredShift,
-      },
-    }));
-
-    response.cookies.set(SESSION_COOKIE, token, {
+    const token = await signLoginEmailOtpChallenge(user.id, issued.id, requestedRememberMe === true);
+    const response = clearAuthenticationCookies(NextResponse.json(
+      { emailOtpRequired: true },
+      { status: 202, headers: { "Cache-Control": "no-store, max-age=0", Pragma: "no-cache" } },
+    ));
+    response.cookies.set(LOGIN_EMAIL_OTP_CHALLENGE_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: getSessionMaxAge(rememberMe),
+      maxAge: 5 * 60,
       path: "/",
     });
-
     return response;
-  } catch (err) {
-    console.error("[login]", err);
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+  } catch {
+    console.error("[login] Password verification or challenge setup failed.");
+    if (!prisma) return NextResponse.json({ error: "Secure sign-in is temporarily unavailable." }, { status: 503 });
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

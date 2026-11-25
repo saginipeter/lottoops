@@ -36,10 +36,10 @@ test("unassigned employees can open the enabled Track Tickets action to choose a
   await expect(page.getByRole("heading", { name: "Unable to verify shift status" })).toBeVisible();
 });
 
-test("shift-bound employees can access the shared Track Tickets page", async ({ page, context, baseURL }) => {
+test("shift-bound employees are sent from the shift summary to the POS tracking workflow", async ({ page, context, baseURL }) => {
   test.skip(!process.env.E2E_REPORT_SECRET, "Requires local offline auth with matching JWT_SECRET and E2E_REPORT_SECRET.");
   await signInAsEmployee(context, baseURL!, true);
   await page.goto("/sales");
-  await expect(page).toHaveURL(/\/sales$/);
-  await expect(page.getByText("Database not connected")).toBeVisible();
+  await expect(page).toHaveURL(/\/pos\?shiftId=shift-1$/);
+  await expect(page.getByRole("heading", { name: "Track Tickets is temporarily unavailable" })).toBeVisible();
 });

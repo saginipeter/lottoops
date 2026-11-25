@@ -39,13 +39,13 @@ test("remembered sessions expire in 30 days while normal sessions remain 8 hours
 
 test("the keep-logged-in choice survives the MFA challenge", async () => {
   const challenge = await verifyMfaChallenge(await signMfaChallenge("user", true));
-  assert.deepEqual(challenge, { userId: "user", rememberMe: true });
+  assert.deepEqual(challenge, { userId: "user", rememberMe: true, emailOtpVerified: false });
 });
 
 test("the employee's selected numbered shift survives MFA and remains in the session", async () => {
   const assignment = { shiftId: "open-shift-2", shiftNumber: 2 as const, terminalId: "T2" };
   const challenge = await verifyMfaChallenge(await signMfaChallenge("user", false, assignment));
-  assert.deepEqual(challenge, { userId: "user", rememberMe: false, ...assignment });
+  assert.deepEqual(challenge, { userId: "user", rememberMe: false, emailOtpVerified: false, ...assignment });
   const verified = await verifySession(await signSession({ ...session, ...assignment, loginSessionId: "ls_session-123" }));
   assert.equal(verified?.shiftId, assignment.shiftId);
   assert.equal(verified?.shiftNumber, assignment.shiftNumber);

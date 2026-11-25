@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { canReceiveShipments } from "@/lib/permissions";
-import { getSuggestedTicketQuantity } from "@/lib/ticket-quantity";
 import { resolveReceivingPackIdentity } from "@/lib/barcode";
 import { Prisma } from "@prisma/client";
 
@@ -281,91 +280,126 @@ return NextResponse.json(savedPack);
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getApiSession();
-
-    if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (!canReceiveShipments(session)) {
-      return NextResponse.json(
-        { error: "You do not have permission to correct received packs." },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "You do not have permission to correct received packs." }, { status: 403 });
     }
 
-    const { packId, firstTicket, ticketPrice, ticketQuantity } = await req.json();
-
-    if (!packId) {
-      return NextResponse.json(
-        { error: "Pack ID is required." },
-        { status: 400 }
-      );
+    const rawBody: unknown = await req.json().catch(() => null);
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+      return NextResponse.json({ error: "Request body must be a valid JSON object." }, { status: 400 });
+    }
+    const body = rawBody as {
+      packId?: unknown;
+      firstTicket?: unknown;
+      ticketPrice?: unknown;
+      ticketQuantity?: unknown;
+      reason?: unknown;
+    };
+    const { packId, firstTicket, ticketPrice, ticketQuantity } = body;
+    if (typeof packId !== "string" || !packId.trim()) {
+      return NextResponse.json({ error: "Pack ID is required." }, { status: 400 });
     }
 
     const normalizedFirstTicket = Number(firstTicket);
     const normalizedTicketPrice = Number(ticketPrice);
-    const requestedTicketQuantity = Number(ticketQuantity);
-    const normalizedTicketQuantity = Number.isInteger(requestedTicketQuantity) && requestedTicketQuantity > 0
-      ? requestedTicketQuantity
-      : getSuggestedTicketQuantity(normalizedTicketPrice);
-
+    const normalizedTicketQuantity = Number(ticketQuantity);
+    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
     if (!Number.isInteger(normalizedFirstTicket) || normalizedFirstTicket < 0) {
-      return NextResponse.json(
-        { error: "First ticket must be a valid whole number." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "First ticket must be a valid whole number." }, { status: 400 });
     }
-
     if (!Number.isFinite(normalizedTicketPrice) || normalizedTicketPrice <= 0) {
-      return NextResponse.json(
-        { error: "Ticket price must be greater than zero." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Ticket price must be greater than zero." }, { status: 400 });
+    }
+    if (!Number.isInteger(normalizedTicketQuantity) || normalizedTicketQuantity <= 0) {
+      return NextResponse.json({ error: "Ticket quantity must be a whole number greater than zero." }, { status: 400 });
+    }
+    if (reason.length > 1000) {
+      return NextResponse.json({ error: "Override reason must be 1,000 characters or fewer." }, { status: 400 });
     }
 
-    const existingPack = await prisma.pack.findFirst({
-      where: {
-        id: packId,
-        storeId: session.storeId,
-      },
-    });
-
-    if (!existingPack) {
-      return NextResponse.json(
-        { error: "Pack not found." },
-        { status: 404 }
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Expected tickets come from the owning store's Game row, never request data.
+      const packRows = await tx.$queryRawUnsafe<Array<{
+        id: string;
+        status: string;
+        currentTicketNumber: number | null;
+        ticketQuantity: number | null;
+        expectedTicketQuantity: number;
+        serialNumber: string;
+        packNumber: string | null;
+        gameName: string;
+        gameNumber: string;
+      }>>(
+        `SELECT p.id, p.status, p."currentTicketNumber", p."ticketQuantity",
+                p."serialNumber", p."packNumber", g.name AS "gameName", g."gameNumber" AS "gameNumber",
+                g."ticketsPerPack" AS "expectedTicketQuantity"
+         FROM packs p
+         JOIN games g ON g.id = p."gameId" AND g."storeId" = $2
+         WHERE p.id = $1 AND p."storeId" = $2
+         FOR UPDATE OF p, g`,
+        packId.trim(), session.storeId,
       );
-    }
+      const existingPack = packRows[0];
+      if (!existingPack) throw new PackEditError("Pack not found.", 404);
 
-    const updatedPack = await prisma.pack.update({
-      where: { id: packId },
-      data: {
-        firstTicket: normalizedFirstTicket,
-        ticketPrice: normalizedTicketPrice,
-        ticketQuantity: normalizedTicketQuantity,
-        retailValue: normalizedTicketPrice * normalizedTicketQuantity,
-        currentTicketNumber:
-          existingPack.status === "BACK_STOCK"
+      const expectedTicketQuantity = Number(existingPack.expectedTicketQuantity);
+      if (!Number.isInteger(expectedTicketQuantity) || expectedTicketQuantity <= 0) {
+        throw new PackEditError("The game catalog does not contain a valid expected ticket quantity.", 409);
+      }
+
+      const quantityChanged = Number(existingPack.ticketQuantity ?? expectedTicketQuantity) !== normalizedTicketQuantity;
+      const isOverride = normalizedTicketQuantity !== expectedTicketQuantity;
+      if (quantityChanged && isOverride && !reason) {
+        throw new PackEditError(`A reason is required when changing ticket quantity from the game catalog quantity of ${expectedTicketQuantity}.`, 400);
+      }
+
+      const updatedPack = await tx.pack.update({
+        where: { id: packId.trim() },
+        data: {
+          firstTicket: normalizedFirstTicket,
+          ticketPrice: normalizedTicketPrice,
+          ticketQuantity: normalizedTicketQuantity,
+          retailValue: normalizedTicketPrice * normalizedTicketQuantity,
+          currentTicketNumber: existingPack.status === "BACK_STOCK"
             ? normalizedFirstTicket
             : existingPack.currentTicketNumber,
-      },
-      include: {
-        game: true,
-      },
-    });
+        },
+        include: { game: true },
+      });
+      const ticketQuantityOverride = quantityChanged && isOverride
+        ? await tx.packTicketQuantityOverride.create({
+            data: {
+              storeId: session.storeId,
+              packId: packId.trim(),
+              serialNumber: existingPack.serialNumber,
+              packNumber: existingPack.packNumber,
+              gameName: existingPack.gameName,
+              gameNumber: existingPack.gameNumber,
+              expectedTicketQuantity,
+              recordedTicketQuantity: normalizedTicketQuantity,
+              reason,
+              status: "RECORDED",
+              actorUserId: session.userId,
+            },
+          })
+        : null;
+      return { updatedPack, ticketQuantityOverride };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-    return NextResponse.json(updatedPack);
+    return NextResponse.json({ ...result.updatedPack, ticketQuantityOverride: result.ticketQuantityOverride });
   } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      { error: "Failed to update pack." },
-      { status: 500 }
-    );
+    if (error instanceof PackEditError) return NextResponse.json({ error: error.message }, { status: error.status });
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+      return NextResponse.json({ error: "Pack or game catalog changed during the edit. Refresh and try again." }, { status: 409 });
+    }
+    console.error("[PATCH /api/packs] Failed to update pack:", error);
+    return NextResponse.json({ error: "Failed to update pack." }, { status: 500 });
   }
+}
+
+class PackEditError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
 }
 
 // Removes a pack that is still being received so it no longer counts toward

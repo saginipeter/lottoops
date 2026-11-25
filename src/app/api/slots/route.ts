@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
+import { sortByDisplayNumber } from "@/lib/display-number-order";
 
 export async function GET() {
   const session = await getApiSession();
@@ -27,7 +28,7 @@ export async function GET() {
     });
 
 
-    const serialized = slots.map((s: any) => ({
+    const serialized = sortByDisplayNumber(slots, (slot: any) => slot.slotNumber).map((s: any) => ({
       slotNumber: s.slotNumber,
       pack: s.pack
         ? {

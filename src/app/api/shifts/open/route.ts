@@ -10,7 +10,7 @@ import { getSafeCurrentTicket } from "@/lib/ticket-quantity";
 import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 import { getNextAvailableShiftNumber, parseShiftNumber } from "@/lib/shift-number";
 import { normalizeTerminalId } from "@/lib/device-registry";
-import { bindLoginSessionToShift, ShiftAssignmentConflict } from "@/lib/shift-session-assignment";
+import { ActiveTerminalOperatorConflict, bindLoginSessionToShift, ShiftAssignmentConflict } from "@/lib/shift-session-assignment";
 
 interface ActivePack {
   id: string;
@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
         if (openShift.terminalId !== terminalId) {
           throw new ShiftOpenError("The selected shift does not belong to the chosen terminal.");
         }
-        const loginSessionId = await bindLoginSessionToShift(tx, session, { id: openShift.id, terminalId });
+        const loginSessionId = await bindLoginSessionToShift(tx, session, { id: openShift.id, shiftNumber, terminalId });
         return { shiftId: openShift.id, shiftNumber, terminalId, loginSessionId };
-      }, { isolationLevel: "Serializable" });
+      }, { isolationLevel: "ReadCommitted" });
       return respondWithShift(session, selected);
     }
 
@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      const loginSessionId = await bindLoginSessionToShift(tx, session, { id: createdShift.id, terminalId });
+      const loginSessionId = await bindLoginSessionToShift(tx, session, { id: createdShift.id, shiftNumber, terminalId });
 
       return { shift: createdShift, loginSessionId };
     }, { isolationLevel: "Serializable" });
@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
     return respondWithShift(session, { shiftId: shift.id, shiftNumber, terminalId, loginSessionId: opened.loginSessionId });
 
   } catch (error) {
-    if (error instanceof ShiftOpenError || error instanceof ShiftAssignmentConflict) {
+    if (error instanceof ShiftOpenError || error instanceof ShiftAssignmentConflict || error instanceof ActiveTerminalOperatorConflict) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error(error);

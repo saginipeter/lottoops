@@ -29,6 +29,7 @@ model Store {
   users        User[]
   documents    Document[]
   alertAcknowledgments OperationalAlertAcknowledgment[]
+  packTicketQuantityOverrides PackTicketQuantityOverride[]
   organization Organization? @relation(fields: [organizationId], references: [id])
 
   @@map("stores")
@@ -45,6 +46,8 @@ model User {
   active             Boolean        @default(true)
   createdAt         DateTime       @default(now())
   lastLoginAt       DateTime?
+  loginEmailOtpChallenges LoginEmailOtpChallenge[]
+  loginEmailOtpRateLimit LoginEmailOtpRateLimit?
   packsReceived     Pack[]         @relation("PacksReceivedBy")
   scanLogs          ScanLogEntry[] @relation("ScanLogPerformedBy")
   shiftsClosed      Shift[]        @relation("ShiftsClosedBy")
@@ -57,9 +60,34 @@ model User {
   store             Store          @relation(fields: [storeId], references: [id])
   documentsUploaded Document[]      @relation("DocumentsUploaded")
   alertsCleared     OperationalAlertAcknowledgment[] @relation("AlertsClearedBy")
+  packTicketQuantityOverrides PackTicketQuantityOverride[] @relation("PackTicketQuantityOverrideActor")
 
   @@index([storeId])
   @@map("users")
+}
+
+model LoginEmailOtpChallenge {
+  id           String    @id
+  userId       String    @map("user_id")
+  codeHash     String    @map("code_hash")
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz
+  attemptCount Int       @default(0) @map("attempt_count")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  consumedAt   DateTime? @map("consumed_at") @db.Timestamptz
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, consumedAt])
+  @@map("login_email_otp_challenges")
+}
+
+model LoginEmailOtpRateLimit {
+  userId          String   @id @map("user_id")
+  windowStartedAt DateTime @map("window_started_at") @db.Timestamptz
+  sentCount       Int      @map("sent_count")
+  lastSentAt      DateTime @map("last_sent_at") @db.Timestamptz
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_email_otp_rate_limits")
 }
 
 model Organization {
@@ -244,6 +272,28 @@ model Pack {
   @@index([storeId, sequenceLocked])
   @@index([shipmentId])
   @@map("packs")
+}
+
+model PackTicketQuantityOverride {
+  id                       String   @id @default(cuid())
+  storeId                  String   @map("store_id")
+  packId                   String   @map("pack_id")
+  serialNumber             String   @map("serial_number")
+  packNumber               String?  @map("pack_number")
+  gameName                 String   @map("game_name")
+  gameNumber               String   @map("game_number")
+  expectedTicketQuantity   Int      @map("expected_ticket_quantity")
+  recordedTicketQuantity  Int      @map("recorded_ticket_quantity")
+  reason                   String
+  status                   String   @default("RECORDED")
+  actorUserId              String   @map("actor_user_id")
+  createdAt                DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  store                    Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  actor                    User     @relation("PackTicketQuantityOverrideActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([storeId, createdAt(sort: Desc)])
+  @@index([packId, createdAt(sort: Desc)])
+  @@map("pack_ticket_quantity_overrides")
 }
 
 model Document {

@@ -172,11 +172,20 @@ test("shipment override document retains evidence without a database notificatio
   const document = buildShipmentOverridesDocument([{
     id: 7, storeName: "Central", detail: "Override authorized after count",
     performedByName: null, createdAt: "2026-10-14T12:00:00Z", expectedPackQuantity: 12, recordedPackQuantity: 10,
+  }], [{
+    id: "ticket-audit-1", storeName: "Central", serialNumber: "24240089877", packNumber: "0089877",
+    gameName: "Lucky Cash", gameNumber: "2424", expectedTicketQuantity: 75, recordedTicketQuantity: 60,
+    reason: "Supplier-confirmed short pack.", status: "RECORDED", actorName: "Manager", createdAt: "2026-10-14T12:00:00Z",
   }]);
   assert.deepEqual(document.sections[0].rows[0], [
     "Central", "Oct 14, 2026, 7:00 AM", null, 12, 10, "Override authorized after count",
   ]);
   assert.deepEqual(document.sections[0].columns.slice(3, 5), ["Expected Quantity (packs)", "Recorded Quantity (packs)"]);
+  assert.deepEqual(document.sections[1].columns, ["Game/Pack", "Expected Tickets", "Recorded Tickets", "Reason", "Action/Status"]);
+  assert.deepEqual(document.sections[1].rows[0], [
+    "Lucky Cash (Game 2424) · Pack 0089877 · 24240089877", 75, 60,
+    "Supplier-confirmed short pack.", "RECORDED · Manager · Oct 14, 2026, 7:00 AM",
+  ]);
   assert.doesNotMatch(JSON.stringify(document), /Notification ID/);
   assertTableWidths(document);
 });

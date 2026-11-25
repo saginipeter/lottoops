@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ChevronLeft, PackagePlus, Search, X } from "lucide-react";
+import { sortByDisplayNumber } from "@/lib/display-number-order";
 
 export type InventoryPack = {
   id: string; game: string; gameNumber: string; serial: string; price: number; tickets: number; currentTicket: number;
@@ -35,7 +36,7 @@ export function InventoryPos({ packs, slots }: { packs: InventoryPack[]; slots: 
     void refresh(); const timer = window.setInterval(() => { void refresh(); }, 5000);
     return () => { active = false; window.clearInterval(timer); };
   }, []);
-  const visibleSlots = useMemo(() => liveSlots.filter((slot) => !search || `${slot.slotNumber} ${slot.pack?.game ?? ""} ${slot.pack?.serial ?? ""} ${slot.pack?.invoice ?? ""}`.toLowerCase().includes(search.toLowerCase())), [search, liveSlots]);
+  const visibleSlots = useMemo(() => sortByDisplayNumber(liveSlots, (slot) => slot.slotNumber).filter((slot) => !search || `${slot.slotNumber} ${slot.pack?.game ?? ""} ${slot.pack?.serial ?? ""} ${slot.pack?.invoice ?? ""}`.toLowerCase().includes(search.toLowerCase())), [search, liveSlots]);
   const occupied = liveSlots.filter((slot) => slot.pack).length;
   const empty = liveSlots.length - occupied;
 

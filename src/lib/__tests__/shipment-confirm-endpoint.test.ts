@@ -10,6 +10,7 @@ test("back-stock shipment confirmation revalidates received pack count under the
   const session = { userId: "manager", storeId: "store", name: "Manager", role: "MANAGER", grantedPermissions: [] };
   const shipment = { id: "shipment", storeId: "store", status: "IN_PROGRESS", expectedPacks: 1, invoiceNumber: "INV-1" };
   let currentReceivingPackCount = 2;
+  let overrideLogged = false;
   let insideTransaction = false;
   let packUpdates = 0;
   let shipmentUpdates = 0;
@@ -18,7 +19,7 @@ test("back-stock shipment confirmation revalidates received pack count under the
     $queryRawUnsafe: async (sql: string) => {
       lockedQueries.push(sql);
       if (sql.includes("FROM shipments")) return [{ id: shipment.id, expectedPacks: shipment.expectedPacks }];
-      if (sql.includes("FROM inventory_activity_logs")) return [];
+      if (sql.includes("FROM inventory_activity_logs")) return overrideLogged ? [{ id: "override-log" }] : [];
       throw new Error(`Unexpected transaction query: ${sql}`);
     },
     pack: {
@@ -30,6 +31,10 @@ test("back-stock shipment confirmation revalidates received pack count under the
     },
   };
   const fakePrisma = {
+    $queryRawUnsafe: async (sql: string) => {
+      if (sql.includes("FROM inventory_activity_logs")) return overrideLogged ? [{ id: "override-log" }] : [];
+      throw new Error(`Unexpected query: ${sql}`);
+    },
     shipment: { findUnique: async () => shipment },
     pack: {
       findMany: async () => [{ id: "pack-0", ticketPrice: 2, ticketQuantity: 50 }],
@@ -49,9 +54,9 @@ test("back-stock shipment confirmation revalidates received pack count under the
   }));
 
   const { POST } = await import("../../app/api/shipments/confirm/route");
-  const request = () => new NextRequest("http://localhost/api/shipments/confirm", {
+  const request = (approved = false) => new NextRequest("http://localhost/api/shipments/confirm", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shipmentId: shipment.id, destination: "back-stock", expectedRetailValue: 95 }),
+    body: JSON.stringify({ shipmentId: shipment.id, destination: "back-stock", expectedRetailValue: 95, overrideApproved: approved }),
   });
 
   const rejected = await POST(request());
@@ -69,4 +74,12 @@ test("back-stock shipment confirmation revalidates received pack count under the
   assert.equal(shipmentUpdates, 1);
   assert.equal(lockedQueries[0].includes("FROM shipments"), true);
   assert.equal(insideTransaction, false);
+
+  currentReceivingPackCount = 2;
+  overrideLogged = true;
+  lockedQueries.length = 0;
+  const approved = await POST(request());
+  assert.equal(approved.status, 200, "a recorded approval survives even when the client approval flag was dropped");
+  assert.equal(packUpdates, 2);
+  assert.equal(shipmentUpdates, 2);
 });

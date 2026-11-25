@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
+import { sortByDisplayNumber } from "@/lib/display-number-order";
 
 type AuditLineRecord = {
   id: string;
@@ -79,7 +80,7 @@ export async function GET(
     }) as DisplaySlotRecord[];
 
     const lineByPack = new Map(audit.lines.map((line) => [line.packId, line]));
-    const activePacks = displaySlots.flatMap((slot) => {
+    const activePacks = sortByDisplayNumber(displaySlots.flatMap((slot) => {
       if (!slot.pack || !slot.packId) return [];
       const line = lineByPack.get(slot.packId);
       const expectedTicket = getAuditPhysicalTicket({
@@ -106,7 +107,7 @@ export async function GET(
         variance: line?.variance ?? null,
         beginningSource: line?.beginningSource ?? "AWAITING_PHYSICAL_SCAN",
       }];
-    });
+    }), (pack) => pack.slotNumber);
 
     return NextResponse.json({
       audit: { id: audit.id, status: audit.status, shiftId: audit.shiftId },

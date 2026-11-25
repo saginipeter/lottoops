@@ -178,13 +178,31 @@ export function buildTicketReturnRequestsDocument(requests: ReadonlyArray<{
 export function buildShipmentOverridesDocument(notifications: ReadonlyArray<{
   id: string | number; storeName: string; detail: string; performedByName: string | null; createdAt: string;
   expectedPackQuantity?: number | null; recordedPackQuantity?: number | null;
-}>): ReportDocument {
-  return table("Shipment Overrides", ["Store", "Time", "Approved by", "Expected Quantity (packs)", "Recorded Quantity (packs)", "Detail"],
-    notifications.map((notification) => [text(notification.storeName), formatReportTimestamp(notification.createdAt),
+}>, ticketQuantityOverrides: ReadonlyArray<{
+  id: string; storeName: string; serialNumber: string; packNumber: string | null;
+  gameName: string; gameNumber: string; expectedTicketQuantity: number; recordedTicketQuantity: number;
+  reason: string; status: string; actorName: string | null; createdAt: string;
+}> = []): ReportDocument {
+  const shipmentRows = notifications.map((notification) => [text(notification.storeName), formatReportTimestamp(notification.createdAt),
       text(notification.performedByName), notification.expectedPackQuantity ?? null,
-      notification.recordedPackQuantity ?? null, readableReportText(notification.detail)]),
-    [{ label: "Quantity unit", value: "Pack counts at override approval" }],
-    ["Not recorded means the historical approval did not retain a safely recoverable pack-count snapshot."]);
+      notification.recordedPackQuantity ?? null, readableReportText(notification.detail)]);
+  const ticketRows = ticketQuantityOverrides.map((override) => [
+    `${override.gameName} (Game ${override.gameNumber}) · ${override.packNumber ? `Pack ${override.packNumber} · ` : ""}${override.serialNumber}`,
+    override.expectedTicketQuantity,
+    override.recordedTicketQuantity,
+    readableReportText(override.reason),
+    `${override.status.replaceAll("_", " ")} · ${override.actorName ?? "Unknown"} · ${formatReportTimestamp(override.createdAt)}`,
+  ]);
+  return {
+    title: "Shipment Overrides",
+    paper: "A4",
+    metadata: [{ label: "Loaded records", value: notifications.length + ticketQuantityOverrides.length }],
+    sections: [
+      { title: "Shipment pack-count approvals", columns: ["Store", "Time", "Approved by", "Expected Quantity (packs)", "Recorded Quantity (packs)", "Detail"], rows: shipmentRows },
+      { title: "Per-pack ticket quantity changes", columns: ["Game/Pack", "Expected Tickets", "Recorded Tickets", "Reason", "Action/Status"], rows: ticketRows },
+    ],
+    notes: ["Shipment pack-count approvals and per-pack ticket quantity changes are separate audit records; quantities are not interchangeable."],
+  };
 }
 
 export function buildStateReportArchiveDocument(report: {

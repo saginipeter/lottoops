@@ -3,15 +3,40 @@ import type { Prisma } from "@prisma/client";
 import type { SessionPayload } from "@/lib/session";
 
 export class ShiftAssignmentConflict extends Error {}
+export class ActiveTerminalOperatorConflict extends Error {}
 
 /** Attach a staff login to a shift without allowing a live login to switch shifts. */
 export async function bindLoginSessionToShift(
   tx: Pick<Prisma.TransactionClient, "$queryRawUnsafe" | "$executeRawUnsafe">,
   session: SessionPayload,
-  shift: { id: string; terminalId: string },
+  shift: { id: string; shiftNumber: 1 | 2; terminalId: string },
 ) {
   const staffSession = session.role === "EMPLOYEE" || session.role === "SHIFT_LEAD";
   if (!staffSession) return session.loginSessionId ?? null;
+
+  const occupied = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT ls.id
+     FROM login_sessions ls
+     JOIN users u ON u.id = ls.user_id
+     WHERE ls.store_id = $1 AND ls.shift_id = $2 AND ls.terminal_id = $3
+       AND ls.ended_at IS NULL
+       AND ($4::text IS NULL OR ls.id <> $4)
+       AND u.role IN ('EMPLOYEE', 'SHIFT_LEAD')
+     LIMIT 1
+     FOR UPDATE OF ls`,
+    session.storeId,
+    shift.id,
+    shift.terminalId,
+    session.loginSessionId ?? null,
+  );
+  if (occupied.length > 0) {
+    const otherTerminal = shift.terminalId === "T1" ? "Terminal 2" : "Terminal 1";
+    const otherShift = shift.shiftNumber === 1 ? 2 : 1;
+    const terminalNumber = shift.terminalId.replace(/^T/, "");
+    throw new ActiveTerminalOperatorConflict(
+      `Shift ${shift.shiftNumber} Terminal ${terminalNumber} already has an active operator. Please select ${otherTerminal}, or open Shift ${otherShift} (Terminal 1 or Terminal 2).`,
+    );
+  }
 
   const currentId = session.loginSessionId;
   if (currentId) {

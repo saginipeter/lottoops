@@ -68,7 +68,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
   const requestedTerminal = typeof resolvedSearchParams.terminal === "string" ? resolvedSearchParams.terminal.trim().toUpperCase() : "";
   let terminalId = staffBound && session.shiftId
     ? session.terminalId ?? ""
-    : terminalOptions.includes(requestedTerminal) ? requestedTerminal : terminalOptions[0] ?? "T1";
+    : terminalOptions.includes(requestedTerminal) ? requestedTerminal : "";
   if (staffBound && session.shiftId && !terminalId) redirect("/login?from=/shifts");
 
   const allOpenShiftRows: Array<{ id: string; shiftNumber: number | null; terminalId: string | null; openedAt: Date }> = await prisma.shift.findMany({
@@ -93,7 +93,7 @@ export default async function ShiftsPage({ searchParams }: ShiftsPageProps) {
   const openShiftRows = allOpenShiftRows.filter((row) => row.terminalId === terminalId);
   const selectedShift = requestedShiftId
     ? openShiftRows.find((row) => row.id === requestedShiftId)
-    : openShiftRows.length === 1 ? openShiftRows[0] : null;
+    : null;
   const openShift = selectedShift
     ? await prisma.shift.findUnique({
         where: { id: selectedShift.id },

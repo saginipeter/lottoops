@@ -10,7 +10,7 @@ test("shipment override report serializes database IDs and surfaces query failur
   const originals = [require.cache[sessionPath], require.cache[prismaPath]];
   let session: { storeId: string; userId: string; role: string } | null = null;
   let queryError: Error | null = null;
-  let query = "";
+  const queries: string[] = [];
   let parameters: unknown[] = [];
   let row: {
     id: string; storeId: string; storeName: string; detail: string; performedByName: string;
@@ -26,12 +26,19 @@ test("shipment override report serializes database IDs and surfaces query failur
     recordedPackQuantity: 10,
     quantityUnit: "PACKS",
   };
+  const packOverride = {
+    id: "ticket-audit-1", storeId: "store-1", storeName: "Central", packId: "pack-1",
+    serialNumber: "barcode-1", packNumber: "0001", gameName: "Lucky", gameNumber: "123",
+    expectedTicketQuantity: 75, recordedTicketQuantity: 60, reason: "Supplier-confirmed short pack.",
+    status: "RECORDED", actorName: "Manager", createdAt: new Date("2026-11-09T10:00:00.000Z"),
+  };
 
   const fakePrisma = {
     $queryRawUnsafe: async (sql: string, ...values: unknown[]) => {
-      query = sql;
+      queries.push(sql);
       parameters = values;
       if (queryError) throw queryError;
+      if (sql.includes("pack_ticket_quantity_overrides")) return [packOverride];
       return [row];
     },
   };
@@ -64,7 +71,7 @@ test("shipment override report serializes database IDs and surfaces query failur
   session = { storeId: "store-1", userId: "manager-1", role: "MANAGER" };
   const response = await GET(request());
   assert.equal(response.status, 200);
-  assert.match(query, /logs\.id::text AS id/);
+  assert.match(queries[0], /logs\.id::text AS id/);
   assert.deepEqual(parameters.slice(0, 3), ["MANAGER", "manager-1", "store-1"]);
   const data = await response.json();
   assert.equal(data.notifications.length, 1);
@@ -73,6 +80,13 @@ test("shipment override report serializes database IDs and surfaces query failur
   assert.equal(data.notifications[0].expectedPackQuantity, 12);
   assert.equal(data.notifications[0].recordedPackQuantity, 10);
   assert.equal(data.notifications[0].quantityUnit, "PACKS");
+  assert.equal(data.ticketQuantityOverrides.length, 1);
+  assert.equal(data.ticketQuantityOverrides[0].expectedTicketQuantity, 75);
+  assert.equal(data.ticketQuantityOverrides[0].recordedTicketQuantity, 60);
+  assert.equal(data.ticketQuantityOverrides[0].reason, "Supplier-confirmed short pack.");
+  assert.equal(data.ticketQuantityOverrides[0].status, "RECORDED");
+  assert.match(queries[1], /audit\.expected_ticket_quantity/);
+  assert.match(queries[1], /audit\.recorded_ticket_quantity/);
 
   row = { ...row, expectedPackQuantity: null, recordedPackQuantity: null, quantityUnit: null, detail: "Shipment override approved: expected 9 packs, recorded 7 packs." };
   const legacyResponse = await GET(request());
@@ -89,8 +103,8 @@ test("shipment override report serializes database IDs and surfaces query failur
   const noSnapshot = await noSnapshotResponse.json();
   assert.equal(noSnapshot.notifications[0].expectedPackQuantity, null);
   assert.equal(noSnapshot.notifications[0].recordedPackQuantity, null);
-  assert.match(query, /expected_pack_quantity/);
-  assert.match(query, /recorded_pack_quantity/);
+  assert.match(queries[0], /expected_pack_quantity/);
+  assert.match(queries[0], /recorded_pack_quantity/);
 
   queryError = new Error("database query failed");
   const originalConsoleError = console.error;

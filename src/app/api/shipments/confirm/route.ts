@@ -66,25 +66,23 @@ export async function POST(req: NextRequest) {
     }
 
     let hasRecordedOverride = false;
-    if (overrideApproved === true) {
-      try {
-        const overrideRows = (await prisma.$queryRawUnsafe(
-          `
-          SELECT id
-          FROM inventory_activity_logs
-          WHERE store_id = $1
-            AND action = 'SHIPMENT_OVERRIDE'
-            AND entity_type = 'SHIPMENT'
-            AND entity_id = $2
-          LIMIT 1
-          `,
-          session.storeId,
-          shipmentId
-        )) as { id: number | bigint }[];
-        hasRecordedOverride = overrideRows.length > 0;
-      } catch {
-        hasRecordedOverride = false;
-      }
+    try {
+      const overrideRows = (await prisma.$queryRawUnsafe(
+        `
+        SELECT id
+        FROM inventory_activity_logs
+        WHERE store_id = $1
+          AND action = 'SHIPMENT_OVERRIDE'
+          AND entity_type = 'SHIPMENT'
+          AND entity_id = $2
+        LIMIT 1
+        `,
+        session.storeId,
+        shipmentId
+      )) as { id: number | bigint }[];
+      hasRecordedOverride = overrideRows.length > 0;
+    } catch {
+      hasRecordedOverride = false;
     }
 
     if (overrideApproved === true && !hasRecordedOverride) {

@@ -16,6 +16,23 @@ interface OverrideRow {
   quantityUnit: string | null;
 }
 
+interface TicketQuantityOverrideRow {
+  id: string;
+  storeId: string;
+  storeName: string;
+  packId: string;
+  serialNumber: string;
+  packNumber: string | null;
+  gameName: string;
+  gameNumber: string;
+  expectedTicketQuantity: number;
+  recordedTicketQuantity: number;
+  reason: string;
+  status: string;
+  actorName: string | null;
+  createdAt: Date;
+}
+
 function parseLegacyPackCounts(detail: string) {
   const previousApprovalFormat = detail.match(/^Shipment override approved for invoice .+?:\s*expected\s+(\d+),\s*scanned\s+(\d+)\./i);
   if (previousApprovalFormat) {
@@ -61,6 +78,30 @@ export async function GET(req: NextRequest) {
       range.toDate,
     ) as OverrideRow[];
 
+    const ticketQuantityOverrides = await prisma.$queryRawUnsafe(
+      `SELECT audit.id, audit.store_id AS "storeId", stores.name AS "storeName",
+              audit.pack_id AS "packId", audit.serial_number AS "serialNumber",
+              audit.pack_number AS "packNumber", audit.game_name AS "gameName",
+              audit.game_number AS "gameNumber",
+              audit.expected_ticket_quantity AS "expectedTicketQuantity",
+              audit.recorded_ticket_quantity AS "recordedTicketQuantity",
+              audit.reason, audit.status, actors.name AS "actorName", audit.created_at AS "createdAt"
+       FROM pack_ticket_quantity_overrides audit
+       JOIN stores ON stores.id = audit.store_id
+       LEFT JOIN packs ON packs.id = audit.pack_id AND packs."storeId" = audit.store_id
+       LEFT JOIN games ON games.id = packs."gameId" AND games."storeId" = audit.store_id
+       LEFT JOIN users actors ON actors.id = audit.actor_user_id AND actors."storeId" = audit.store_id
+       WHERE ($1 = 'OWNER' AND stores."ownerUserId" = $2 OR $1 <> 'OWNER' AND audit.store_id = $3)
+         AND audit.created_at >= $4 AND audit.created_at <= $5
+       ORDER BY audit.created_at DESC
+       LIMIT 250`,
+      session.role,
+      session.userId,
+      session.storeId,
+      range.fromDate,
+      range.toDate,
+    ) as TicketQuantityOverrideRow[];
+
     const notifications = rows.map((row) => {
       const legacy = parseLegacyPackCounts(row.detail);
       return {
@@ -70,7 +111,7 @@ export async function GET(req: NextRequest) {
         quantityUnit: row.quantityUnit ?? "PACKS",
       };
     });
-    return NextResponse.json({ notifications });
+    return NextResponse.json({ notifications, ticketQuantityOverrides });
   } catch (error) {
     console.error("[GET /api/notifications/overrides]", error);
     return NextResponse.json({ error: "Unable to load shipment override report." }, { status: 500 });

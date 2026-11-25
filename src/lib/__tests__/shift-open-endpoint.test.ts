@@ -16,6 +16,7 @@ test("manager can open another numbered shift without rewinding a concurrent sal
   let beginningLines: Array<Record<string, unknown>> = [];
   let auditLines: Array<Record<string, unknown>> = [];
   let packUpdateCalls = 0;
+  let occupiedOperator = false;
   const activePack = {
     id: "pack-1", serialNumber: "SERIAL-1", currentTicketNumber: 12,
     firstTicket: 1, ticketQuantity: 150, firstOrLastTicket: "LAST", slot: { slotNumber: "1" },
@@ -39,7 +40,15 @@ test("manager can open another numbered shift without rewinding a concurrent sal
       inTransaction = true;
       transactionIsolation = options.isolationLevel;
       const tx = {
-        $queryRawUnsafe: async () => [{ id: activePack.id }],
+        $queryRawUnsafe: async (sql: string, ...parameters: unknown[]) => {
+          if (sql.includes("FROM login_sessions ls")) return occupiedOperator ? [{ id: "active-login" }] : [];
+          if (sql.includes("UPDATE login_sessions")) return [{ id: "employee-login" }];
+          if (sql.includes("shift_number AS \"shiftNumber\"")) {
+            const id = String(parameters[0]);
+            return [{ id, shiftNumber: id === "shift-1" ? 1 : 2, terminalId: id === "shift-1" ? "T1" : "T2" }];
+          }
+          return [{ id: activePack.id }];
+        },
         $executeRawUnsafe: async () => 1,
         pack: {
           findMany: async () => {
@@ -115,4 +124,24 @@ test("manager can open another numbered shift without rewinding a concurrent sal
 
   const shiftThree = await POST(request(3, "T2"));
   assert.equal(shiftThree.status, 400, "Shift 3 is no longer an option for newly opened shifts");
+
+  occupiedOperator = true;
+  session = { userId: "employee-2", storeId: "store-1", storeName: "Store", name: "Employee Two", role: "EMPLOYEE", grantedPermissions: [], loginSessionId: "employee-login-2" };
+  const occupied = await POST(new NextRequest("http://localhost/api/shifts/open", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ shiftId: "shift-1", terminalId: "T1" }),
+  }));
+  assert.equal(occupied.status, 409, "a second employee cannot join an occupied Shift + Terminal");
+  assert.deepEqual(await occupied.json(), {
+    error: "Shift 1 Terminal 1 already has an active operator. Please select Terminal 2, or open Shift 2 (Terminal 1 or Terminal 2).",
+  });
+
+  session = { userId: "manager-1", storeId: "store-1", storeName: "Store", name: "Manager", role: "MANAGER", grantedPermissions: [] };
+  const managerMayEnterOccupied = await POST(new NextRequest("http://localhost/api/shifts/open", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ shiftId: "shift-1", terminalId: "T1" }),
+  }));
+  assert.equal(managerMayEnterOccupied.status, 200, "managers may select a Shift + Terminal with an active employee");
 });

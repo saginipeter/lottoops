@@ -107,6 +107,18 @@ export function ScannedPackTable({
       return;
     }
 
+    const expectedQuantity = Number(pack.game.ticketsPerPack);
+    const quantityChanged = parsedTicketQuantity !== Number(pack.ticketQuantity ?? expectedQuantity);
+    const requiresReason = quantityChanged && parsedTicketQuantity !== expectedQuantity;
+    const reason = requiresReason
+      ? window.prompt("Enter a reason for this ticket quantity override (required).", "")
+      : "";
+    if (reason === null) return;
+    if (requiresReason && !reason.trim()) {
+      alert("A reason is required when changing ticket quantity from the game catalog quantity.");
+      return;
+    }
+
     try {
       setEditingId(pack.id);
       const response = await fetch("/api/packs", {
@@ -117,6 +129,7 @@ export function ScannedPackTable({
           firstTicket: parsedFirstTicket,
           ticketPrice: parsedTicketPrice,
           ticketQuantity: parsedTicketQuantity,
+          ...(reason?.trim() ? { reason: reason.trim() } : {}),
         }),
       });
 

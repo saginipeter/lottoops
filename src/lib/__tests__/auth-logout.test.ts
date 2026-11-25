@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NextRequest } from "next/server";
-import { MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE, SESSION_COOKIE } from "../session";
+import { LOGIN_EMAIL_OTP_CHALLENGE_COOKIE, MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE, SESSION_COOKIE } from "../session";
 import { POST } from "../../app/api/auth/logout/route";
 
 test("logout expires every LottoOps authentication cookie and forbids cached logout responses", async () => {
@@ -9,7 +9,7 @@ test("logout expires every LottoOps authentication cookie and forbids cached log
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store, max-age=0");
   const cookies = response.cookies.getAll();
-  for (const name of [SESSION_COOKIE, MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE]) {
+  for (const name of [SESSION_COOKIE, LOGIN_EMAIL_OTP_CHALLENGE_COOKIE, MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE]) {
     const cookie = cookies.find((item) => item.name === name);
     assert.ok(cookie, `${name} should be explicitly cleared`);
     assert.equal(cookie.value, "");
