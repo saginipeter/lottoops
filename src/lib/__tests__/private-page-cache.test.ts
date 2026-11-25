@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { NextRequest } from "next/server";
 import { proxy } from "../../proxy";
-import { LOGIN_EMAIL_OTP_CHALLENGE_COOKIE, MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE, SESSION_COOKIE, signSession, type SessionPayload } from "../session";
+import { MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE, SESSION_COOKIE, signSession, type SessionPayload } from "../session";
 
 const session: SessionPayload = {
   userId: "operator",
@@ -53,7 +53,7 @@ test("protected redirects cannot be restored from cache and invalid session cook
   }));
   assert.equal(invalid.headers.get("cache-control"), "private, no-store, max-age=0, must-revalidate");
   const expiredCookies = invalid.headers.getSetCookie();
-  for (const name of [SESSION_COOKIE, LOGIN_EMAIL_OTP_CHALLENGE_COOKIE, MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE]) {
+  for (const name of [SESSION_COOKIE, MFA_CHALLENGE_COOKIE, PLATFORM_SESSION_BACKUP_COOKIE]) {
     assert.ok(expiredCookies.some((cookie) => cookie.startsWith(`${name}=`) && /Max-Age=0/i.test(cookie)), `${name} should expire on an invalid session`);
   }
 });

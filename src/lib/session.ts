@@ -58,50 +58,17 @@ export async function signMfaChallenge(
   userId: string,
   rememberMe = false,
   shiftAssignment?: { shiftId: string; shiftNumber: 1 | 2 | 3; terminalId: string },
-  emailOtpVerified = false,
 ): Promise<string> {
-  return new SignJWT({ type: "MFA_CHALLENGE", userId, rememberMe, emailOtpVerified, ...shiftAssignment })
+  return new SignJWT({ type: "MFA_CHALLENGE", userId, rememberMe, ...shiftAssignment })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("5m")
     .sign(getSecret());
-}
-
-export async function signLoginEmailOtpChallenge(
-  userId: string,
-  challengeId: string,
-  rememberMe = false,
-): Promise<string> {
-  return new SignJWT({ type: "LOGIN_EMAIL_OTP_CHALLENGE", userId, challengeId, rememberMe })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("5m")
-    .sign(getSecret());
-}
-
-export async function verifyLoginEmailOtpChallenge(token: string): Promise<{
-  userId: string;
-  challengeId: string;
-  rememberMe: boolean;
-} | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecret());
-    if (payload.type !== "LOGIN_EMAIL_OTP_CHALLENGE" || typeof payload.userId !== "string" ||
-        typeof payload.challengeId !== "string" || !payload.challengeId) return null;
-    return {
-      userId: payload.userId,
-      challengeId: payload.challengeId,
-      rememberMe: payload.rememberMe === true,
-    };
-  } catch {
-    return null;
-  }
 }
 
 export async function verifyMfaChallenge(token: string): Promise<{
   userId: string;
   rememberMe: boolean;
-  emailOtpVerified: boolean;
   shiftId?: string;
   shiftNumber?: 1 | 2 | 3;
   terminalId?: string;
@@ -116,7 +83,6 @@ export async function verifyMfaChallenge(token: string): Promise<{
     return {
       userId: payload.userId,
       rememberMe: payload.rememberMe === true,
-      emailOtpVerified: payload.emailOtpVerified === true,
       ...(typeof payload.shiftId === "string" ? { shiftId: payload.shiftId } : {}),
       ...(hasValidShiftNumber ? { shiftNumber } : {}),
       ...(typeof payload.terminalId === "string" ? { terminalId: payload.terminalId } : {}),
@@ -128,5 +94,4 @@ export async function verifyMfaChallenge(token: string): Promise<{
 
 export const SESSION_COOKIE = "lottoops_session";
 export const MFA_CHALLENGE_COOKIE = "lottoops_mfa_challenge";
-export const LOGIN_EMAIL_OTP_CHALLENGE_COOKIE = "lottoops_login_email_otp_challenge";
 export const PLATFORM_SESSION_BACKUP_COOKIE = "lottoops_platform_session_backup";

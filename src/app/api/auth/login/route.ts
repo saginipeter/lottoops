@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { clearAuthenticationCookies } from "@/lib/auth-cookies";
-import { issueLoginEmailOtp, LoginEmailOtpRateLimitError } from "@/lib/login-email-otp";
+import { completeLoginWithSession } from "@/lib/complete-login-session";
+import { endLoginSession } from "@/lib/login-session";
+import { isMfaRequired } from "@/lib/mfa";
+import { prisma } from "@/lib/prisma";
 import {
-  LOGIN_EMAIL_OTP_CHALLENGE_COOKIE,
+  MFA_CHALLENGE_COOKIE,
   SESSION_COOKIE,
-  signLoginEmailOtpChallenge,
+  signMfaChallenge,
   verifySession,
 } from "@/lib/session";
-import { endLoginSession } from "@/lib/login-session";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
     }
+
     const { email, password, rememberMe: requestedRememberMe } = body as {
       email?: unknown;
       password?: unknown;
@@ -25,9 +27,7 @@ export async function POST(req: NextRequest) {
     if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
       return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
     }
-    // No mock/offline escape is allowed for authentication because email OTP is
-    // now mandatory. Missing DB/signing-key/mail configuration fails closed.
-    if (!prisma || !process.env.JWT_SECRET || !(process.env.LOGIN_OTP_PEPPER || process.env.JWT_SECRET)) {
+    if (!prisma || !process.env.JWT_SECRET) {
       return NextResponse.json({ error: "Secure sign-in is temporarily unavailable." }, { status: 503 });
     }
 
@@ -42,37 +42,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
+    const rememberMe = requestedRememberMe === true;
     const previousToken = req.cookies.get(SESSION_COOKIE)?.value;
     const previousSession = previousToken ? await verifySession(previousToken) : null;
     if (previousSession?.loginSessionId) await endLoginSession(previousSession.loginSessionId);
 
-    let issued: { id: string };
-    try {
-      issued = await issueLoginEmailOtp(user.id, user.email);
-    } catch (error) {
-      if (error instanceof LoginEmailOtpRateLimitError) {
-        return clearAuthenticationCookies(NextResponse.json({ error: "Please wait before requesting another code, or try again later." }, { status: 429 }));
-      }
-      console.error("[login email OTP] Delivery failed.");
-      return clearAuthenticationCookies(NextResponse.json({ error: "Unable to send a verification code right now. Please try again." }, { status: 503 }));
+    if (await isMfaRequired(user.id)) {
+      const response = clearAuthenticationCookies(NextResponse.json(
+        { mfaRequired: true },
+        { status: 202, headers: { "Cache-Control": "no-store, max-age=0", Pragma: "no-cache" } },
+      ));
+      response.cookies.set(MFA_CHALLENGE_COOKIE, await signMfaChallenge(user.id, rememberMe), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 5 * 60,
+        path: "/",
+      });
+      return response;
     }
 
-    const token = await signLoginEmailOtpChallenge(user.id, issued.id, requestedRememberMe === true);
-    const response = clearAuthenticationCookies(NextResponse.json(
-      { emailOtpRequired: true },
-      { status: 202, headers: { "Cache-Control": "no-store, max-age=0", Pragma: "no-cache" } },
-    ));
-    response.cookies.set(LOGIN_EMAIL_OTP_CHALLENGE_COOKIE, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 5 * 60,
-      path: "/",
-    });
-    return response;
+    return await completeLoginWithSession(user.id, rememberMe);
   } catch {
-    console.error("[login] Password verification or challenge setup failed.");
-    if (!prisma) return NextResponse.json({ error: "Secure sign-in is temporarily unavailable." }, { status: 503 });
+    console.error("[login] Password verification or session creation failed.");
+    if (!prisma || !process.env.JWT_SECRET) {
+      return NextResponse.json({ error: "Secure sign-in is temporarily unavailable." }, { status: 503 });
+    }
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

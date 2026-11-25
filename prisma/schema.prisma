@@ -46,8 +46,6 @@ model User {
   active             Boolean        @default(true)
   createdAt         DateTime       @default(now())
   lastLoginAt       DateTime?
-  loginEmailOtpChallenges LoginEmailOtpChallenge[]
-  loginEmailOtpRateLimit LoginEmailOtpRateLimit?
   packsReceived     Pack[]         @relation("PacksReceivedBy")
   scanLogs          ScanLogEntry[] @relation("ScanLogPerformedBy")
   shiftsClosed      Shift[]        @relation("ShiftsClosedBy")
@@ -64,30 +62,6 @@ model User {
 
   @@index([storeId])
   @@map("users")
-}
-
-model LoginEmailOtpChallenge {
-  id           String    @id
-  userId       String    @map("user_id")
-  codeHash     String    @map("code_hash")
-  expiresAt    DateTime  @map("expires_at") @db.Timestamptz
-  attemptCount Int       @default(0) @map("attempt_count")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  consumedAt   DateTime? @map("consumed_at") @db.Timestamptz
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, consumedAt])
-  @@map("login_email_otp_challenges")
-}
-
-model LoginEmailOtpRateLimit {
-  userId          String   @id @map("user_id")
-  windowStartedAt DateTime @map("window_started_at") @db.Timestamptz
-  sentCount       Int      @map("sent_count")
-  lastSentAt      DateTime @map("last_sent_at") @db.Timestamptz
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("login_email_otp_rate_limits")
 }
 
 model Organization {
