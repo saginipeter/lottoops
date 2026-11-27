@@ -7,6 +7,7 @@ import { ActiveStockTable } from "@/components/inventory/active-stock-table";
 import { getSession } from "@/lib/get-session";
 import { canManageDisplay, isManagerOrAbove } from "@/lib/permissions";
 import { getDisplaySlots } from "@/lib/services/display-slots";
+import { InlineGuidance } from "@/components/ui/inline-guidance";
 
 export default async function ActiveStockPage() {
   const session = await getSession();
@@ -80,6 +81,11 @@ export default async function ActiveStockPage() {
         }
       />
 
+      <div className="px-4 pt-4 sm:px-6">
+        <InlineGuidance title="Active Stock">
+          Find active packs by display, game, or pack number. Review their current ticket and update pack details or tracking direction when needed.
+        </InlineGuidance>
+      </div>
       <ActiveStockTable packs={activePacks} canManageDisplay={canManageDisplay(session)} canUpdatePackMetadata={isManagerOrAbove(session)} slots={slots} />
 
     </div>

@@ -3,7 +3,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-session";
 import { validateEndingTicket } from "@/lib/core-validation";
+import { calculatePhysicalAuditVariance } from "@/lib/core-validation";
+import { getAuditPhysicalTicket } from "@/lib/ticket-quantity";
 import { logInventoryActivity } from "@/lib/activity-log";
+import { createInventoryNotification } from "@/lib/inventory-notifications";
 import { isReadOnly } from "@/lib/permissions";
 
 class CloseError extends Error {
@@ -39,9 +42,12 @@ export async function POST(req: NextRequest) {
         shiftId, session.storeId,
       );
       await tx.$queryRawUnsafe(`
-        SELECT p.id FROM packs p JOIN shift_lines l ON l."packId" = p.id
-        WHERE l."shiftId" = $1 AND p."storeId" = $2
-        ORDER BY p.id FOR UPDATE OF p
+        SELECT p.id FROM packs p
+        WHERE p."storeId" = $2 AND (
+          p.id IN (SELECT l."packId" FROM shift_lines l WHERE l."shiftId" = $1)
+          OR (p.status = 'ACTIVE' AND p.id IN (SELECT d."packId" FROM display_slots d WHERE d."packId" IS NOT NULL))
+        )
+        ORDER BY p.id FOR UPDATE
       `, shiftId, session.storeId);
       const shift = await tx.shift.findUnique({
         where: { id: shiftId },
@@ -61,14 +67,22 @@ export async function POST(req: NextRequest) {
           // historical lines without blocking shift close.
           lines: {
             where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
-            select: { packId: true, beginningPhysicalTicket: true, endingPhysicalTicket: true },
+            select: { id: true, packId: true, beginningPhysicalTicket: true, endingPhysicalTicket: true, endingExpectedTicket: true },
           },
         },
       });
       const activeDisplayPacks = await tx.pack.findMany({
         where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } },
-        select: { id: true },
-      });
+        select: {
+          id: true, serialNumber: true, packNumber: true, currentTicketNumber: true,
+          firstTicket: true, ticketQuantity: true, firstOrLastTicket: true,
+          game: { select: { ticketsPerPack: true, gameNumber: true } },
+        },
+      }) as Array<{
+        id: string; serialNumber: string; packNumber: string | null; currentTicketNumber: number | null;
+        firstTicket: number | null; ticketQuantity: number | null; firstOrLastTicket: string | null;
+        game: { ticketsPerPack: number | null; gameNumber: string };
+      }>;
       const auditLineByPack = new Map((audit?.lines ?? []).map((line) => [line.packId, line]));
       const openingAuditIncomplete = !audit || activeDisplayPacks.some((pack) => auditLineByPack.get(pack.id)?.beginningPhysicalTicket == null);
       const closingAuditIncomplete = !audit || activeDisplayPacks.some((pack) => auditLineByPack.get(pack.id)?.endingPhysicalTicket == null);
@@ -76,8 +90,53 @@ export async function POST(req: NextRequest) {
       if (activeDisplayPackCount > 0 && openingAuditIncomplete) {
         throw new CloseError("Complete the Opening Audit before starting the Closing Audit.", 409);
       }
-      if (activeDisplayPackCount > 0 && (closingAuditIncomplete || audit?.status !== "COMPLETED")) {
-        throw new CloseError("Complete the Closing Audit before closing this shift.", 409);
+      if (activeDisplayPackCount > 0 && (closingAuditIncomplete || (audit?.status !== "OPEN" && audit?.status !== "COMPLETED"))) {
+        throw new CloseError("Scan the ending ticket on every active display before closing this shift.", 409);
+      }
+
+      const closedAt = new Date();
+      let completedAudit: {
+        auditId: string;
+        varianceLines: Array<{ lineId: string; packId: string; packNumber: string | null; gameNumber: string; expected: number; observed: number; variance: number }>;
+      } | null = null;
+      if (audit?.status === "OPEN") {
+        const resolved = activeDisplayPacks.map((pack) => {
+          const line = auditLineByPack.get(pack.id);
+          if (!line || line.endingPhysicalTicket == null) {
+            throw new CloseError("Scan the ending ticket on every active display before closing this shift.", 409);
+          }
+          const expected = getAuditPhysicalTicket({
+            currentTicketNumber: pack.currentTicketNumber,
+            firstTicket: pack.firstTicket,
+            ticketQuantity: pack.ticketQuantity ?? pack.game.ticketsPerPack,
+            firstOrLastTicket: pack.firstOrLastTicket,
+          });
+          if (line.endingExpectedTicket != null && Number(line.endingExpectedTicket) !== expected) {
+            throw new CloseError(`Display position changed after its ending scan for pack ${pack.serialNumber}. Rescan this pack before closing the shift.`, 409);
+          }
+          const observed = Number(line.endingPhysicalTicket);
+          const variance = calculatePhysicalAuditVariance(expected, observed) ?? 0;
+          return { line, pack, expected, observed, variance };
+        });
+        for (const { line, expected, variance } of resolved) {
+          await tx.inventoryAuditLine.update({ where: { id: line.id }, data: { endingExpectedTicket: expected, variance } });
+        }
+        await tx.inventoryAudit.update({
+          where: { id: audit.id },
+          data: { status: "COMPLETED", endedById: session.userId, endedAt: closedAt },
+        });
+        completedAudit = {
+          auditId: audit.id,
+          varianceLines: resolved.filter(({ variance }) => variance !== 0).map(({ line, pack, expected, observed, variance }) => ({
+            lineId: line.id,
+            packId: pack.id,
+            packNumber: pack.packNumber,
+            gameNumber: pack.game.gameNumber,
+            expected,
+            observed,
+            variance,
+          })),
+        };
       }
 
       const salesByPackRows = await tx.$queryRawUnsafe<Array<{ packId: string; ticketsSold: number | bigint; ticketValue: number | string }>>(
@@ -115,7 +174,6 @@ export async function POST(req: NextRequest) {
           where: { id: line.id }, data: { endingTicket: ending, ticketsSold, salesAmount: sales },
         });
       }
-      const closedAt = new Date();
       await tx.shift.update({
         where: { id: shift.id },
         data: {
@@ -140,9 +198,34 @@ export async function POST(req: NextRequest) {
         systemTrackedSales: totalSales,
         registerScratchOffSales,
         salesVariance: registerScratchOffSales - totalSales,
+        completedAudit,
       };
     });
-    const { terminalId, ...totals } = result;
+    const { terminalId, completedAudit, ...totals } = result;
+    if (completedAudit) {
+      await logInventoryActivity({
+        storeId: session.storeId,
+        action: "ENDING_AUDIT_COMPLETED",
+        entityType: "SHIFT",
+        entityId: shiftId,
+        detail: `Ending inventory audit completed with ${completedAudit.varianceLines.length} variance(s) as part of shift close.`,
+        performedById: session.userId,
+        performedByName: session.name,
+        terminalId,
+      }).catch((error) => console.warn("Unable to log ending audit completion", error));
+      await Promise.all(completedAudit.varianceLines.map((line: {
+        lineId: string; packId: string; packNumber: string | null; gameNumber: string;
+        expected: number; observed: number; variance: number;
+      }) => createInventoryNotification({
+        storeId: session.storeId,
+        type: "INVENTORY_AUDIT_VARIANCE",
+        entityId: line.lineId,
+        packId: line.packId,
+        title: "Physical audit variance requires review",
+        detail: `Pack #${line.packNumber ?? "not recorded"} · Game #${line.gameNumber}: expected physical ticket ${line.expected}, observed ${line.observed}.`,
+        severity: "URGENT",
+      }).catch((error) => console.warn("Unable to create audit variance notification", error))));
+    }
     await logInventoryActivity({
       storeId: session.storeId, action: "SHIFT_CLOSE", entityType: "SHIFT", entityId: shiftId,
       detail: "Shift closed successfully.", performedById: session.userId,

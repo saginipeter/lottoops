@@ -22,7 +22,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     requests: [] as Array<{ id: string; storeId: string; shiftId: string; packId: string; status: string; saleEventId?: string; ticketBarcode?: string }>,
     notifications: [] as Array<{ id: string; entityId: string; notificationType: string; eventKey: string; packId?: string | null; title: string; detail: string; severity: string; createdAt: Date }>,
     shiftRegisterSales: null as number | null,
-    audit: { id: "audit", status: "COMPLETED", lines: [{ packId: "pack", beginningPhysicalTicket: 1 as number | null, endingPhysicalTicket: 2 as number | null, active: true }] },
+    audit: { id: "audit", status: "COMPLETED", endedById: "staff" as string | null, endedAt: new Date("2026-11-01T00:00:00Z") as Date | null, lines: [{ id: "audit-line", packId: "pack", beginningPhysicalTicket: 1 as number | null, endingPhysicalTicket: 2 as number | null, endingExpectedTicket: 2 as number | null, variance: 0 as number | null, active: true }] },
   });
   let state = initial();
   let fail = "";
@@ -36,9 +36,18 @@ test("ticket return endpoints restore immediately and resolve reviews without re
   type Query = { where: Record<string, unknown>; data?: Record<string, unknown>; include?: Record<string, unknown>; select?: Record<string, unknown> };
   const fakePrisma = {
     pack: {
-      findMany: async ({ select }: Query) => select?.id && Object.keys(select).length === 1
-        ? state.pack.status === "ACTIVE" && state.slot.packId === state.pack.id ? [{ id: state.pack.id }] : []
-        : [],
+      findMany: async ({ select, where }: Query) => {
+        if (state.pack.status !== "ACTIVE" || state.slot.packId !== state.pack.id) return [];
+        if (where.currentTicketNumber && state.pack.currentTicketNumber > 5) return [];
+        return select?.id && Object.keys(select).length === 1
+          ? [{ id: state.pack.id }]
+          : [{
+              id: state.pack.id, serialNumber: state.pack.serialNumber, packNumber: state.pack.packNumber,
+              currentTicketNumber: state.pack.currentTicketNumber, firstTicket: state.pack.firstTicket,
+              ticketQuantity: state.pack.ticketQuantity, firstOrLastTicket: "FIRST",
+              game: { ticketsPerPack: 10, gameNumber: "1234" },
+            }];
+      },
       findFirst: async ({ where }: Query) => {
         calls.push("pack.read");
         if (where.serialNumber && where.storeId === "store") {
@@ -103,6 +112,20 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         }
         return state.audit;
       },
+      update: async ({ data }: Query) => {
+        assert.equal(insideTransaction, true);
+        Object.assign(state.audit, data);
+        return state.audit;
+      },
+    },
+    inventoryAuditLine: {
+      update: async ({ where, data }: Query) => {
+        assert.equal(insideTransaction, true);
+        const line = state.audit.lines.find((item: { id: string }) => item.id === where.id);
+        assert.ok(line);
+        Object.assign(line, data);
+        return line;
+      },
     },
     displaySlot: {
       findFirst: async ({ where }: Query) => {
@@ -130,7 +153,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
         assert.equal(insideTransaction, true);
         assert.equal(typeof values[0], "string");
         assert.equal(values[1], session?.storeId);
-        locks.push(sql.includes("FROM shifts") ? "shift" : sql.includes("JOIN shift_lines") ? "packs" : "pack");
+        locks.push(sql.includes("FROM shifts") ? "shift" : sql.includes("shift_lines") ? "packs" : "pack");
         if (sql.includes("status = 'OPEN'")) {
           assert.match(sql, /FROM shifts/);
           return state.shift.status === "OPEN" && fail !== "close-race" ? [{ id: state.shift.id, shiftNumber: 1, terminalId: "T1" }] : [];
@@ -214,6 +237,8 @@ test("ticket return endpoints restore immediately and resolve reviews without re
           if (!state.notifications.some((notification) => notification.notificationType === String(values[2]) && notification.eventKey === String(values[4]))) {
             state.notifications.push({ id: String(values[0]), entityId: String(values[3]), notificationType: String(values[2]), eventKey: String(values[4]), packId: String(values[5]), title: String(values[6]), detail: String(values[7]), severity: String(values[8]), createdAt: new Date() });
           }
+        } else if (values[2] === "INVENTORY_AUDIT_VARIANCE") {
+          state.notifications.push({ id: String(values[0]), entityId: String(values[3]), notificationType: String(values[2]), eventKey: String(values[4]), packId: String(values[5]), title: String(values[6]), detail: String(values[7]), severity: String(values[8]), createdAt: new Date() });
         } else if (sql.includes("'TICKET_RETURN_REVIEW'")) {
           const batch = sql.includes("ON CONFLICT");
           state.notifications.push({
@@ -368,7 +393,7 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     const response = await operationalAlerts();
     assert.equal(response.status, 200);
     const { alerts } = await response.json();
-    assert.equal(alerts.length, 1);
+    assert.equal(alerts.length, 1, JSON.stringify(alerts));
     assert.equal(alerts[0].entityId, id);
     assert.equal(alerts[0].title, "Returned ticket needs manager review");
     assert.match(alerts[0].detail, /Available for tracking immediately/);
@@ -717,7 +742,53 @@ test("ticket return endpoints restore immediately and resolve reviews without re
     assert.equal((await closeShift(closeRequest({ registerScratchOffSales: 100 }))).status, 200, "26 trackable tickets from ticket 25 through 50 is a valid, closable LAST pack position");
 
     reset();
-    state.audit.lines.push({ packId: "retired-pack", beginningPhysicalTicket: 1, endingPhysicalTicket: null, active: false });
+    state.audit.lines.push({ id: "retired-audit-line", packId: "retired-pack", beginningPhysicalTicket: 1, endingPhysicalTicket: null, endingExpectedTicket: null, variance: null, active: false });
     assert.equal((await closeShift(closeRequest())).status, 200);
+  });
+
+  await context.test("one close request reconciles the ending audit and closes the shift atomically", async () => {
+    reset();
+    state.audit.status = "OPEN";
+    state.audit.endedById = null;
+    state.audit.endedAt = null;
+    state.audit.lines[0].endingPhysicalTicket = 3;
+    state.audit.lines[0].endingExpectedTicket = 2;
+
+    const response = await closeShift(closeRequest());
+    assert.equal(response.status, 200);
+    assert.equal(state.audit.status, "COMPLETED");
+    assert.equal(state.audit.endedById, "staff");
+    assert.ok((state.audit as { endedAt: Date | null }).endedAt instanceof Date);
+    assert.equal(state.audit.lines[0].endingExpectedTicket, 2);
+    assert.equal(state.audit.lines[0].variance, 1);
+    assert.equal(state.shift.status, "CLOSED");
+    assert.equal(state.shiftRegisterSales, 100);
+    assert.equal(state.notifications.length, 1);
+    assert.equal(state.notifications[0].notificationType, "INVENTORY_AUDIT_VARIANCE");
+    assert.match(state.notifications[0].detail, /expected physical ticket 2, observed 3/);
+    assert.ok(calls.includes("execute"), "post-commit audit variance notification is written");
+
+    reset();
+    state.audit.status = "OPEN";
+    state.audit.endedById = null;
+    state.audit.endedAt = null;
+    state.audit.lines[0].endingExpectedTicket = 1;
+    state.audit.lines[0].endingPhysicalTicket = 1;
+    state.pack.currentTicketNumber = 11;
+    const before = structuredClone(state);
+    const failedClose = await closeShift(closeRequest());
+    assert.equal(failedClose.status, 409, "invalid pack position after audit reconciliation must reject close");
+    assert.deepEqual(state, before, "the transaction must roll back the audit completion when the shift cannot close");
+
+    reset();
+    state.audit.status = "OPEN";
+    state.audit.lines[0].endingExpectedTicket = 2;
+    state.audit.lines[0].endingPhysicalTicket = 1;
+    state.pack.currentTicketNumber = 8;
+    const staleBefore = structuredClone(state);
+    const staleClose = await closeShift(closeRequest());
+    assert.equal(staleClose.status, 409);
+    assert.match((await staleClose.json()).error, /Rescan this pack/);
+    assert.deepEqual(state, staleBefore, "stale ending scans must not complete the audit or close the shift");
   });
 });

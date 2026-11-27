@@ -8,7 +8,7 @@ import { isValidPackBarcode, normalizeBarcodeInput, parseBarcode } from "@/lib/b
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
-import { GuidedPrompt } from "../guided-prompt";
+import { InlineGuidance } from "@/components/ui/inline-guidance";
 
 import { BarcodeScanner } from "../barcode-scanner";
 import { TicketPriceOnly } from "../ticket-price-only";
@@ -104,7 +104,6 @@ export function ScanStep({
   const [queuedScanCount, setQueuedScanCount] = useState(0);
   const [quantityOverrideEnabled, setQuantityOverrideEnabled] = useState(false);
   const [manualOverrideEnabled, setManualOverrideEnabled] = useState(false);
-  const [guideVisible, setGuideVisible] = useState(true);
   const expectedPacks = Number(shipment.expectedPacks ?? 0);
   const atExpectedLimit = expectedPacks > 0 && packs.length >= expectedPacks;
   const shipmentReady = Boolean(shipment.id) && expectedPacks > 0;
@@ -393,6 +392,9 @@ export function ScanStep({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+        <InlineGuidance title="Step 2 · Scan and Select Packs" className="lg:col-span-2">
+          Scan pack barcodes, check any unmatched game details, and select the packs to add to this shipment.
+        </InlineGuidance>
         {scanNotice && (
           <div className={`pointer-events-none fixed inset-x-3 top-4 z-[70] mx-auto flex w-fit max-w-[min(42rem,calc(100vw-1.5rem))] items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-xl sm:inset-x-4 sm:px-5 sm:py-4 ${scanNotice.kind === "error" ? "border-red-300 bg-red-50 text-red-900" : "border-emerald-300 bg-emerald-50 text-emerald-900"}`} role={scanNotice.kind === "error" ? "alert" : "status"} aria-live={scanNotice.kind === "error" ? "assertive" : "polite"}>
             <span className="flex-1">{scanNotice.message}</span>
@@ -402,7 +404,7 @@ export function ScanStep({
 
         {/* Scan packs */}
         <Panel className="p-5">
-          <div className="mb-5 flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">Scan Pack</h2>{!guideVisible && <Button type="button" variant="outline" size="sm" onClick={() => setGuideVisible(true)}>Show receiving guide</Button>}</div>
+          <div className="mb-5"><h2 className="text-xl font-semibold">Scan Pack</h2></div>
           <label className="mb-4 flex items-center gap-2 text-sm font-medium">
             <input
               type="checkbox"
@@ -607,15 +609,6 @@ export function ScanStep({
             </Button>
           </div>
         </div>
-        {guideVisible && <GuidedPrompt
-          step={4}
-          title="Scan and select each pack"
-          instruction="Scan each scratch-off pack barcode. Select the packs you want to add and use Add Selected to Shipment. When scanning and selection are complete, select OK to review the shipment, then choose a destination and confirm receipt."
-          actionLabel="OK · Continue to review"
-          actionDisabled={packs.length === 0 || queuedScanCount > 0 || detecting || savingPack || addingSelected || savingPacks}
-          onAcknowledge={nextStep}
-          onDismiss={() => setGuideVisible(false)}
-        />}
     </div>
   );
 }

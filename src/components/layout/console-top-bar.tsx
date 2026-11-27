@@ -29,7 +29,7 @@ export function ConsoleTopBar({ user }: ConsoleTopBarProps) {
         <div className="hidden text-center text-[10px] sm:block"><p className="text-white/70">Role</p><p className="font-black">{user.role.replaceAll("_", " ")}</p></div>
         <div className="hidden text-center text-[10px] md:block"><p className="text-white/70">Store</p><p className="max-w-32 truncate font-black">{user.storeName}</p></div>
         {onDashboard ? (
-          <LogoutButton label="Sign out" className="inline-flex min-h-11 items-center gap-2 border-2 border-white/40 bg-white/10 px-4 text-sm font-black text-white hover:bg-white/20" />
+          <LogoutButton label="Sign out" className="inline-flex min-h-11 w-auto items-center gap-2 px-4 text-sm font-black" />
         ) : (
           <button type="button" onClick={() => router.push("/")} className="inline-flex min-h-11 items-center gap-2 border-2 border-white/40 bg-white/10 px-4 text-sm font-black text-white hover:bg-white/20" aria-label="Back to Dashboard">
             Back to Dashboard

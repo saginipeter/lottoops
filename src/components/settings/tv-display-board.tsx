@@ -222,7 +222,7 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
     return () => observer?.disconnect();
   }, [currentTicketValue, nextTicketValue]);
 
-  return <article ref={cardRef} className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={displayNumberStyle} aria-label={`${slot.gameName} display ${displayNumber}`} data-display-id={slot.id}>
+  return <article ref={cardRef} className={`tv-jackpot-board${hasArtwork ? " tv-jackpot-board-artwork" : ""}`} style={displayNumberStyle} aria-label={`${slot.gameName} slot ${displayNumber}`} data-display-id={slot.id}>
     {hasArtwork ? (
       <div className="tv-artwork-crop">
         <Image
@@ -242,13 +242,13 @@ function DisplayBoard({ slot }: { slot: TvDisplaySlot }) {
         Image not available
       </div>
     )}
-    <div className="tv-card-meta" aria-label={`Display ${displayNumber}, ticket price $${slot.ticketPrice.toFixed(0)}`}>
+    <div className="tv-card-meta" aria-label={`Slot ${displayNumber}, ticket price $${slot.ticketPrice.toFixed(0)}`}>
       <div className="tv-price-badge" aria-label={`Ticket price $${slot.ticketPrice.toFixed(0)}`}>
         <span className="tv-price-kicker">Price</span>
         <strong className="tv-price-value">${slot.ticketPrice.toFixed(0)}</strong>
       </div>
-      <div className="tv-display-badge" aria-label={`Display ${displayNumber}`}>
-        <span className="tv-display-kicker">Display</span>
+      <div className="tv-display-badge" aria-label={`Slot ${displayNumber}`}>
+        <span className="tv-display-kicker">SLOT</span>
         <strong className="tv-display-number">{displayNumber}</strong>
       </div>
     </div>
@@ -263,9 +263,9 @@ function formatDisplayNumber(slotNumber: string): string {
   const trimmed = slotNumber.trim();
   const numericSlot = Number(trimmed);
   if (trimmed && Number.isSafeInteger(numericSlot) && numericSlot >= 0) {
-    return `#${String(numericSlot).padStart(3, "0")}`;
+    return String(numericSlot);
   }
-  return `#${trimmed}`;
+  return trimmed || "—";
 }
 
 function TicketIndicator({ kind, ticket }: { kind: "current" | "next"; ticket: number | null }) {

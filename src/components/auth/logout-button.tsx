@@ -36,7 +36,7 @@ export function LogoutButton({ className, label = "Sign out" }: LogoutButtonProp
         onClick={handleLogout}
         disabled={busy}
         className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-sidebar-text transition-colors hover:bg-sidebar-hover hover:text-sidebar-text-strong disabled:opacity-60",
+          "flex w-full items-center gap-2 rounded-md bg-[#DC2626] px-2 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-[#B91C1C] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-60",
           className,
         )}
         title="Sign out"

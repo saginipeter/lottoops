@@ -174,14 +174,6 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackId
     inputRef.current?.focus();
   }
 
-  async function completeAudit() {
-    if (!audit) return;
-    const response = await fetch("/api/inventory-audits/end", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auditId: audit.id }) });
-    const data = await response.json();
-    if (!response.ok) { setMessageType("error"); setMessage(data.error ?? "Unable to complete audit."); return; }
-    window.location.reload();
-  }
-
   return (
     <Panel className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -196,7 +188,7 @@ export default function PhysicalAuditPanel({ shiftId, audit, activeDisplayPackId
       />}
       </div>
       {audit && audit.status === "OPEN" && <>
-        <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" className={beginningComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} onClick={() => setPhase("beginning")}>Opening Audit · {beginningComplete ? "Complete" : "Required"}</Button><Button size="sm" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit · {closingComplete ? "Complete" : "Required"}</Button><Button size="sm" aria-label="Complete Closing Audit" className="!border-red-700 !bg-red-700 !font-black !text-white enabled:hover:!bg-red-800 disabled:opacity-50" disabled={phase !== "ending" || closingScanned < activeCount} onClick={completeAudit}>Complete Closing Audit</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>
+        <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" className={beginningComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} onClick={() => setPhase("beginning")}>Opening Audit · {beginningComplete ? "Complete" : "Required"}</Button><Button size="sm" className={closingComplete ? "!border-emerald-700 !bg-emerald-700 !text-white hover:!bg-emerald-800" : "!border-red-700 !bg-red-700 !text-white hover:!bg-red-800"} disabled={!beginningComplete} onClick={() => setPhase("ending")}>Closing Audit · {closingComplete ? "Scans complete" : "Required"}</Button><span className={`text-sm font-medium ${scanned === activeCount ? "text-emerald-700" : "text-text-secondary"}`}>{phase === "beginning" ? "Opening" : "Closing"}: {scanned}/{activeCount} Scanned{scanned === activeCount ? " (Complete)" : ""}</span><span className="text-[11px] text-text-tertiary">{liveLoaded ? `Live list · updated ${liveUpdatedAt ? new Date(liveUpdatedAt).toLocaleTimeString() : "now"}` : "Loading active displays…"}</span></div>
         {!beginningComplete && <p className="mt-2 text-xs font-medium text-amber-700">Complete the Opening Audit first. The Closing Audit becomes available afterward.</p>}
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]"><input ref={inputRef} autoFocus value={barcode} inputMode="numeric" onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void scan(); } }} placeholder={phase === "beginning" ? "Scan the current ticket for the Opening Audit" : "Scan the current ticket for the Closing Audit"} className="min-w-0 rounded-md border-2 border-border px-3 py-3 font-mono text-lg tracking-wider" /><Button onClick={() => { void scan(); }} disabled={!barcode.trim()}>Record {phase === "beginning" ? "Opening" : "Closing"} Scan</Button></div>
         <p className="mt-2 text-xs text-text-tertiary">{phase === "beginning" ? "Opening Audit: record the ticket currently on each display before ticket tracking begins." : "Closing Audit: record the ticket currently on each display before closing the shift."} Use one complete 14-digit ticket barcode.</p>

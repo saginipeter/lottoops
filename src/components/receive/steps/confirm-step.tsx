@@ -11,6 +11,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { InlineGuidance } from "@/components/ui/inline-guidance";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InvoiceUpload } from "@/components/receive/invoice-upload";
 import { ReportActions } from "@/components/reports/report-actions";
@@ -172,6 +173,9 @@ export function ConfirmStep({
 
   return (
     <div className="grid grid-cols-1 gap-4">
+      <InlineGuidance title="Step 4 · Confirm Receipt">
+        Review the destination and shipment details, then confirm receipt to Back Stock. Choose Active Display only when packs should be activated immediately.
+      </InlineGuidance>
 
       <div className="grid gap-4 lg:grid-cols-2">
 

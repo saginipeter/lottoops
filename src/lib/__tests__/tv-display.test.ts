@@ -44,14 +44,15 @@ test("TV slot HUDs show current and next ticket numbers in preview and kiosk mod
     assert.match(html, /tv-price-value/);
     assert.match(html, /tv-display-badge/);
     assert.match(html, /tv-display-number/);
+    assert.equal((html.match(/class="tv-display-kicker">SLOT<\/span>/g) ?? []).length, 2);
     assert.match(html, /\.tv-display-kicker \{ font-size:min\(5cqi,12px\); \}/);
     assert.match(html, /\.tv-card-meta \{[^}]*display:grid; grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\);/);
     assert.match(html, /\.tv-display-badge \{ grid-column:2; justify-self:center; max-width:100%; box-sizing:border-box; overflow:hidden;/);
     assert.match(html, /\.tv-price-badge \{ align-items:flex-start; justify-self:start; max-width:100%; box-sizing:border-box; overflow:hidden;/);
     assert.match(html, /\.tv-price-kicker,\.tv-display-kicker \{ font-size:min\(3cqi,8px\);/);
     assert.match(html, /\.tv-price-value \{ margin-top:min\(\.8cqi,2px\); font-size:min\(8cqi,18px\);[^}]*white-space:nowrap;/);
-    assert.match(html, /class="tv-display-number">#001<\/strong>/);
-    assert.match(html, /class="tv-display-number">#002<\/strong>/);
+    assert.match(html, /class="tv-display-number">1<\/strong>/);
+    assert.match(html, /class="tv-display-number">2<\/strong>/);
     assert.match(html, /--current-ticket-digit-divisor:1\.6/);
     assert.match(html, /--ticket-digit-divisor:1\.6/);
     assert.match(html, /\.tv-display-number \{ display:block; color:#050505; font-family:"Arial Black",Arial,Helvetica,sans-serif; font-size:calc\(\(min\(18\.9969cqi,57\.9233px\) - 1\.7px\) \/ var\(--current-ticket-digit-divisor,1\.6\)\);/);
@@ -110,6 +111,22 @@ test("TV screens show at most 50 real entries in a 10-column 5-row grid", () => 
       if (count > TV_SCREEN_CAPACITY) assert.match(html, /aria-label="Next screen"/);
     }
   }
+});
+
+test("TV slot labels use uppercase SLOT and unpadded integers through slot 100", () => {
+  const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, async prefetch() {} };
+  const slots = [1, 10, 100].map((number) => ({
+    id: `slot-${number}`, packId: `pack-${number}`, gameId: `game-${number}`, slotNumber: number < 10 ? "01" : String(number),
+    gameName: `Game ${number}`, gameNumber: "1234", ticketPrice: 1,
+    sellDirection: "FIRST" as const, firstTicket: 1, currentTicket: 1, nextTicket: 2,
+    remaining: 50, sold: 0, quantity: 50,
+  }));
+  const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router },
+    createElement(TvDisplayBoard, { slots, kioskMode: true, refreshSeconds: 30 })));
+  assert.equal((html.match(/class="tv-display-kicker">SLOT<\/span>/g) ?? []).length, 3);
+  for (const number of [1, 10, 100]) assert.match(html, new RegExp(`class="tv-display-number">${number}<\\/strong>`));
+  assert.doesNotMatch(html, /#0?0?\d{1,2}<\/strong>/);
+  assert.doesNotMatch(html, />Display<\/span>/);
 });
 
 test("screen partitioning includes each entry once, in natural display order, without mutating inventory", () => {

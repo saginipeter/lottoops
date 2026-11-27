@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ArrowRight, Boxes, ClipboardCheck, FileText, Layers, Package, PackagePlus, ShoppingCart } from "lucide-react";
 import { TvDisplayLauncher, type TvStore } from "./tv-display-launcher";
+import { InlineGuidance } from "@/components/ui/inline-guidance";
 
 type Action = { title: string; description: string; href: string; icon: typeof ShoppingCart; className: string };
 type Props = { storeName: string; storeId?: string; tvStores?: TvStore[]; role: string; grantedPermissions: string[] };
@@ -31,6 +32,13 @@ export function PosHomeDashboard({ storeName, storeId, tvStores = [], role, gran
   return <div className="min-h-full bg-[#f4f7fb] text-[#17233f]">
     <main className="mx-auto w-full max-w-[1366px] px-5 py-5 sm:px-8 sm:py-7">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-slate-500">{storeName}</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{isPlatformAdmin ? "Platform workspace" : "What would you like to do?"}</h2></div><div className="ml-auto flex items-center gap-3"><p className="hidden text-sm font-semibold text-emerald-700 sm:block">{isPlatformAdmin || isAdmin ? "Oversight access enabled" : "POS ready"}</p>{(isAdmin || isPlatformAdmin) && <a href={isPlatformAdmin ? "/platform-admin" : "/admin"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#17233f] px-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#24385f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#087da8]">Manage Workspace <ArrowRight size={16} /></a>}</div></div>
+      <InlineGuidance title={isPlatformAdmin ? "Workspace guide" : "Getting started"}>
+        {isPlatformAdmin
+          ? "Choose a workspace tool below to manage LottoOps platform services. Store operations are available to authorized store staff."
+          : role === "EMPLOYEE"
+            ? "Choose your terminal and shift, complete the Opening Audit before tracking tickets, and sign out when your work is finished."
+            : "Choose an operation below. Complete the Opening Audit before tracking tickets; use Receive Stock to record shipment details, scan packs, review them, and confirm the destination."}
+      </InlineGuidance>
       {(posActions.length > 0 || isAdmin) && <ActionSection
         title="POS operations"
         actions={posActions}

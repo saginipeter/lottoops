@@ -45,6 +45,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     status: string;
     lines: Array<{ beginningPhysicalTicket: number | null; endingPhysicalTicket: number | null }>;
   } | null = null;
+  let activeDisplayPackCount: number | null = null;
 
   if (prisma) {
     try {
@@ -60,18 +61,24 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
 
     if (openShift) {
       try {
-        audit = await prisma.inventoryAudit.findUnique({
-          where: { shiftId: openShift.id },
-          select: {
-            status: true,
-            lines: {
-              where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
-              select: { beginningPhysicalTicket: true, endingPhysicalTicket: true },
+        const [loadedAudit, activeCount] = await Promise.all([
+          prisma.inventoryAudit.findUnique({
+            where: { shiftId: openShift.id },
+            select: {
+              status: true,
+              lines: {
+                where: { pack: { status: "ACTIVE", slot: { isNot: null } } },
+                select: { beginningPhysicalTicket: true, endingPhysicalTicket: true },
+              },
             },
-          },
-        });
+          }),
+          prisma.pack.count({ where: { storeId: session.storeId, status: "ACTIVE", slot: { isNot: null } } }),
+        ]);
+        audit = loadedAudit;
+        activeDisplayPackCount = activeCount;
       } catch {
         audit = null;
+        activeDisplayPackCount = null;
       }
     }
   }
@@ -82,8 +89,8 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     : null;
   const beginningAuditComplete = Boolean(eligibleTrackingShift);
   const hasAuditLines = Boolean(audit?.lines.length);
-  const endingAuditComplete = Boolean(
-    hasAuditLines && audit?.lines.every((line) => line.endingPhysicalTicket !== null),
+  const endingAuditComplete = activeDisplayPackCount === 0 || Boolean(activeDisplayPackCount !== null && activeDisplayPackCount > 0 &&
+    hasAuditLines && audit?.lines.length === activeDisplayPackCount && audit.lines.every((line) => line.endingPhysicalTicket !== null),
   );
   const auditComplete = audit?.status === "COMPLETED";
 
@@ -126,9 +133,9 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
     },
     {
       label: "Close shift",
-      description: "Finalize ticket tracking and hand off any unresolved variance.",
+      description: "Enter Register Scratch Off Sales after the ending scans. The audit and shift close together in one step.",
       href: `/shifts?terminal=${terminalId}&shiftId=${openShift?.id ?? ""}`,
-      state: auditComplete ? "ready" : "locked",
+      state: endingAuditComplete ? "ready" : "locked",
       action: "Close",
     },
   ];
@@ -194,7 +201,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             </Link>
           </section>
 
-          <LogoutButton label="Sign out" className="mt-4 min-h-11 w-auto px-0 text-sm font-semibold text-text-secondary hover:bg-transparent hover:text-text" />
+          <LogoutButton label="Sign out" className="mt-4 min-h-11 w-auto px-4 text-sm font-bold" />
         </div>
       </main>
       <StatusBar left={<span>Employee mode</span>} center={<span>{nextTask ? `Next: ${nextTask.label}` : "Workflow complete"}</span>} right={<span className="text-success-soft-text">Protected session</span>} />

@@ -18,6 +18,7 @@ export default async function PosPage({ searchParams }: { searchParams?: Promise
   let shiftId = shiftBoundRole ? session.shiftId ?? null : params.shiftId ?? null;
   let terminalId = shiftBoundRole ? session.terminalId ?? null : params.terminal?.trim().toUpperCase() ?? null;
   let shiftNumber: number | null = shiftBoundRole ? session.shiftNumber ?? null : null;
+  let openingAuditComplete = false;
 
   if (prisma) {
     const openShifts: Array<{ id: string; shiftNumber: number | null; terminalId: string | null }> = await prisma.shift.findMany({
@@ -37,7 +38,8 @@ export default async function PosPage({ searchParams }: { searchParams?: Promise
     }
     terminalId = selected.terminalId;
     shiftNumber = selected.shiftNumber;
-    if (shiftBoundRole && !(await getEligibleTicketTrackingShift(session.storeId, selected.id))) {
+    openingAuditComplete = Boolean(await getEligibleTicketTrackingShift(session.storeId, selected.id));
+    if (shiftBoundRole && !openingAuditComplete) {
       redirect(`/shifts${terminalId ? `?terminal=${encodeURIComponent(terminalId)}&shiftId=${encodeURIComponent(selected.id)}` : ""}#physical-audit`);
     }
   }
@@ -52,5 +54,6 @@ export default async function PosPage({ searchParams }: { searchParams?: Promise
     terminalId={terminalId}
     shiftId={shiftId}
     shiftNumber={shiftNumber}
+    openingAuditComplete={openingAuditComplete}
   />;
 }

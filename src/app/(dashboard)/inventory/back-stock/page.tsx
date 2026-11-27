@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { BackStockBrowser } from "@/components/inventory/back-stock-browser";
 import { getSession } from "@/lib/get-session";
 import { canManageBackstock } from "@/lib/permissions";
+import { InlineGuidance } from "@/components/ui/inline-guidance";
 
 export default async function BackStockPage() {
   const session = await getSession();
@@ -22,6 +23,11 @@ export default async function BackStockPage() {
           </Link>
         }
       />
+      <main className="px-4 pt-4 sm:px-6">
+        <InlineGuidance title="Back Stock">
+          Find a pack by game, pack number, or invoice. Activate it only when it is ready for tracking, then assign it to an open display slot.
+        </InlineGuidance>
+      </main>
       <BackStockBrowser
         canManageBackstock={canManageBackstock(session)}
       />

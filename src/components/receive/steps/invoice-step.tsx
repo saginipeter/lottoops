@@ -4,26 +4,55 @@ import { useState } from "react";
 import { Calendar, Camera, FileText, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { InlineGuidance } from "@/components/ui/inline-guidance";
 import { InvoiceUpload } from "../invoice-upload";
-import { GuidedPrompt } from "../guided-prompt";
 import type { ShipmentState } from "@/lib/types";
 
-interface InvoiceStepProps { shipment: ShipmentState; setShipment: React.Dispatch<React.SetStateAction<ShipmentState>>; nextStep: () => void; onCancel: () => void; }
+interface InvoiceStepProps {
+  shipment: ShipmentState;
+  setShipment: React.Dispatch<React.SetStateAction<ShipmentState>>;
+  nextStep: () => void;
+  onCancel: () => void;
+}
 
 export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: InvoiceStepProps) {
-  const [guideVisible, setGuideVisible] = useState(true);
-  const [guideStep, setGuideStep] = useState<1 | 2 | 3>(1);
+  const [attemptedContinue, setAttemptedContinue] = useState(false);
+
+  const missing = {
+    invoiceNumber: !shipment.invoiceNumber?.trim(),
+    invoicePhoto: !shipment.invoicePhoto,
+    confirmationNumber: !shipment.shipmentConfirmationNumber?.trim(),
+    confirmationPhoto: !shipment.confirmationReceiptPhoto,
+    expectedPacks: !shipment.expectedPacks || shipment.expectedPacks <= 0,
+    inventoryCost: !shipment.expectedRetailValue || shipment.expectedRetailValue <= 0,
+  };
 
   async function handleContinue() {
-    if (!shipment.invoiceNumber?.trim()) return alert("Please enter an invoice tracking number.");
-    if (!shipment.invoicePhoto) return alert("Please upload an invoice photo.");
-    if (!shipment.shipmentConfirmationNumber?.trim()) return alert("Please enter a shipment confirmation number.");
-    if (!shipment.confirmationReceiptPhoto) return alert("Please upload a confirmation receipt photo.");
-    if (!shipment.expectedPacks || shipment.expectedPacks <= 0) return alert("Expected packs must be greater than zero.");
-    if (!shipment.expectedRetailValue || shipment.expectedRetailValue <= 0) return alert("Enter the expected inventory cost before continuing.");
+    setAttemptedContinue(true);
+    if (missing.invoiceNumber) return alert("Please enter an invoice tracking number.");
+    if (missing.invoicePhoto) return alert("Please upload an invoice photo.");
+    if (missing.confirmationNumber) return alert("Please enter a shipment confirmation number.");
+    if (missing.confirmationPhoto) return alert("Please upload a confirmation receipt photo.");
+    if (missing.expectedPacks) return alert("Expected packs must be greater than zero.");
+    if (missing.inventoryCost) return alert("Enter the expected inventory cost before continuing.");
     try {
       const hasExistingShipment = Boolean(shipment.id);
-      const response = await fetch("/api/shipments", { method: hasExistingShipment ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(hasExistingShipment ? { shipmentId: shipment.id } : {}), invoiceNumber: shipment.invoiceNumber, invoicePhoto: shipment.invoicePhoto, shipmentConfirmationNumber: shipment.shipmentConfirmationNumber, confirmationReceiptPhoto: shipment.confirmationReceiptPhoto, shipmentDate: shipment.shipmentDate, expectedPacks: shipment.expectedPacks, expectedRetailValue: shipment.expectedRetailValue, supplierName: shipment.supplierName, supplierDetails: shipment.supplierDetails }) });
+      const response = await fetch("/api/shipments", {
+        method: hasExistingShipment ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(hasExistingShipment ? { shipmentId: shipment.id } : {}),
+          invoiceNumber: shipment.invoiceNumber,
+          invoicePhoto: shipment.invoicePhoto,
+          shipmentConfirmationNumber: shipment.shipmentConfirmationNumber,
+          confirmationReceiptPhoto: shipment.confirmationReceiptPhoto,
+          shipmentDate: shipment.shipmentDate,
+          expectedPacks: shipment.expectedPacks,
+          expectedRetailValue: shipment.expectedRetailValue,
+          supplierName: shipment.supplierName,
+          supplierDetails: shipment.supplierDetails,
+        }),
+      });
       const data = await response.json();
       if (!response.ok) return alert(data.error || "Unable to create shipment.");
       setShipment((prev) => ({
@@ -37,44 +66,78 @@ export function InvoiceStep({ shipment, setShipment, nextStep, onCancel }: Invoi
         status: data.status ?? prev.status,
       }));
       nextStep();
-    } catch (error) { console.error(error); alert("Unable to create shipment."); }
+    } catch (error) {
+      console.error(error);
+      alert("Unable to create shipment.");
+    }
   }
 
-  const guideContent = {
-    1: { title: "Enter the invoice and order date", instruction: "Enter the invoice tracking number and select the Order Date. Then select OK or press Enter for the next prompt.", actionLabel: "OK · Next" },
-    2: { title: "Enter the expected shipment totals", instruction: "Enter the expected pack count and inventory cost. Then select OK or press Enter for the photo prompt.", actionLabel: "OK · Next" },
-    3: { title: "Attach the shipment documents", instruction: "Enter the shipment confirmation number, upload the invoice photo and confirmation receipt, then select OK to save these details and continue to scanning.", actionLabel: "OK · Continue to scanning" },
-  }[guideStep];
-
   return <>
+    <InlineGuidance title="Step 1 · Shipment Details">
+      Enter the invoice, order date, and shipment details. Upload clear photos of the invoice and confirmation receipt; required entries will be marked in red if they are missing.
+    </InlineGuidance>
     <Panel className="p-4 sm:p-5">
-    <div className="mb-4 flex items-start justify-between gap-3 border-b border-border pb-3"><div><h2 className="text-lg font-semibold text-text">Shipment details</h2><p className="mt-1 text-xs text-text-secondary">Enter the shipment information and attach both required photos.</p></div>{!guideVisible && <Button type="button" variant="outline" size="sm" onClick={() => setGuideVisible(true)}>Show receiving guide</Button>}</div>
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <Field label="Invoice tracking number" icon={<FileText size={15} />}><input inputMode="numeric" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.invoiceNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, invoiceNumber: e.target.value }))} placeholder="Enter invoice number" /></Field>
-      <Field label="Order Date" icon={<Calendar size={15} />}><input type="date" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.shipmentDate ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentDate: e.target.value }))} /></Field>
-      <Field label="Confirmation number" icon={<FileText size={15} />} hint="Different from invoice number"><input inputMode="numeric" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.shipmentConfirmationNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentConfirmationNumber: e.target.value }))} placeholder="Enter confirmation number" /></Field>
-      <Field label="Expected packs" icon={<Package size={15} />}><input type="number" onWheel={(event) => event.currentTarget.blur()} inputMode="numeric" min="1" className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.expectedPacks ?? 0} onChange={(e) => setShipment((prev) => ({ ...prev, expectedPacks: Number(e.target.value) }))} /></Field>
-      <Field label="Expected inventory cost" icon={<Package size={15} />} hint="Enter the amount paid upfront. It will be locked and verified as 95% of face value after scanning."><div className="relative"><span className="absolute left-3 top-3 text-sm text-text-tertiary">$</span><input type="number" onWheel={(event) => event.currentTarget.blur()} inputMode="decimal" min="0" step="0.01" required className="h-11 w-full border border-border bg-muted/20 pl-7 pr-3 text-sm outline-none focus:border-accent" value={shipment.expectedRetailValue ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, expectedRetailValue: e.target.value === "" ? undefined : Number(e.target.value) }))} placeholder="Enter inventory cost" /></div></Field>
-      <Field label="Received by" icon={<FileText size={15} />} hint="Automatically identified from your signed-in account."><input readOnly className="h-11 w-full border border-border bg-muted/20 px-3 text-sm text-text-secondary" value={shipment.receivedBy || ""} /></Field>
-      <Field label="Supplier name (optional)" icon={<FileText size={15} />}><input maxLength={200} className="h-11 w-full border border-border bg-muted/20 px-3 text-sm outline-none focus:border-accent" value={shipment.supplierName ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, supplierName: e.target.value }))} placeholder="Supplier name" /></Field>
-      <Field label="Supplier details (optional)" icon={<FileText size={15} />}><textarea maxLength={2000} className="min-h-20 w-full border border-border bg-muted/20 px-3 py-2 text-sm outline-none focus:border-accent" value={shipment.supplierDetails ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, supplierDetails: e.target.value }))} placeholder="Address, contact, or reference details" /></Field>
-    </div>
-    <div className="mt-4 grid gap-3 lg:grid-cols-2"><UploadField label="Invoice photo" value={shipment.invoicePhoto ?? ""} title="Upload invoice photo" previewAlt="Invoice photo" onChange={(url) => setShipment((prev) => ({ ...prev, invoicePhoto: url }))} /><UploadField label="Confirmation receipt photo" value={shipment.confirmationReceiptPhoto ?? ""} title="Upload confirmation receipt" previewAlt="Confirmation receipt photo" onChange={(url) => setShipment((prev) => ({ ...prev, confirmationReceiptPhoto: url }))} /></div>
-    <div className="mt-4 grid gap-2 sm:grid-cols-2"><Button variant="outline" className="w-full" onClick={onCancel}>Cancel</Button><Button className="w-full" onClick={handleContinue}>Continue to scan packs →</Button></div>
+      <div className="mb-4 border-b border-border pb-3">
+        <h2 className="text-lg font-semibold text-text">Shipment details</h2>
+        <p className="mt-1 text-xs text-text-secondary">Enter the shipment information and attach both required photos.</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="Invoice tracking number" icon={<FileText size={15} />} required missing={attemptedContinue && missing.invoiceNumber}>
+          <input inputMode="numeric" aria-invalid={attemptedContinue && missing.invoiceNumber} className={inputClass(attemptedContinue && missing.invoiceNumber)} value={shipment.invoiceNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, invoiceNumber: e.target.value }))} placeholder="Enter invoice number" />
+        </Field>
+        <Field label="Order Date" icon={<Calendar size={15} />}>
+          <input type="date" className={inputClass(false)} value={shipment.shipmentDate ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentDate: e.target.value }))} />
+        </Field>
+        <Field label="Confirmation number" icon={<FileText size={15} />} hint="Different from invoice number" required missing={attemptedContinue && missing.confirmationNumber}>
+          <input inputMode="numeric" aria-invalid={attemptedContinue && missing.confirmationNumber} className={inputClass(attemptedContinue && missing.confirmationNumber)} value={shipment.shipmentConfirmationNumber ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, shipmentConfirmationNumber: e.target.value }))} placeholder="Enter confirmation number" />
+        </Field>
+        <Field label="Expected packs" icon={<Package size={15} />} required missing={attemptedContinue && missing.expectedPacks}>
+          <input type="number" onWheel={(event) => event.currentTarget.blur()} inputMode="numeric" min="1" aria-invalid={attemptedContinue && missing.expectedPacks} className={inputClass(attemptedContinue && missing.expectedPacks)} value={shipment.expectedPacks ?? 0} onChange={(e) => setShipment((prev) => ({ ...prev, expectedPacks: Number(e.target.value) }))} />
+        </Field>
+        <Field label="Expected inventory cost" icon={<Package size={15} />} hint="Enter the amount paid upfront. It will be checked against 95% of face value after scanning." required missing={attemptedContinue && missing.inventoryCost}>
+          <div className="relative"><span className="absolute left-3 top-3 text-sm text-text-tertiary">$</span><input type="number" onWheel={(event) => event.currentTarget.blur()} inputMode="decimal" min="0" step="0.01" aria-invalid={attemptedContinue && missing.inventoryCost} className={`${inputClass(attemptedContinue && missing.inventoryCost)} pl-7`} value={shipment.expectedRetailValue ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, expectedRetailValue: e.target.value === "" ? undefined : Number(e.target.value) }))} placeholder="Enter inventory cost" /></div>
+        </Field>
+        <Field label="Received by" icon={<FileText size={15} />} hint="Automatically identified from your signed-in account.">
+          <input readOnly className="h-11 w-full border border-border bg-muted/20 px-3 text-sm text-text-secondary" value={shipment.receivedBy || ""} />
+        </Field>
+        <Field label="Supplier name (optional)" icon={<FileText size={15} />}>
+          <input maxLength={200} className={inputClass(false)} value={shipment.supplierName ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, supplierName: e.target.value }))} placeholder="Supplier name" />
+        </Field>
+        <Field label="Supplier details (optional)" icon={<FileText size={15} />}>
+          <textarea maxLength={2000} className="min-h-20 w-full border border-border bg-muted/20 px-3 py-2 text-sm outline-none focus:border-accent" value={shipment.supplierDetails ?? ""} onChange={(e) => setShipment((prev) => ({ ...prev, supplierDetails: e.target.value }))} placeholder="Address, contact, or reference details" />
+        </Field>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <UploadField label="Invoice photo" value={shipment.invoicePhoto ?? ""} title="Upload invoice photo" previewAlt="Invoice photo" missing={attemptedContinue && missing.invoicePhoto} onChange={(url) => setShipment((prev) => ({ ...prev, invoicePhoto: url }))} />
+        <UploadField label="Confirmation receipt photo" value={shipment.confirmationReceiptPhoto ?? ""} title="Upload confirmation receipt" previewAlt="Confirmation receipt photo" missing={attemptedContinue && missing.confirmationPhoto} onChange={(url) => setShipment((prev) => ({ ...prev, confirmationReceiptPhoto: url }))} />
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <Button variant="outline" className="w-full" onClick={onCancel}>Cancel</Button>
+        <Button className="w-full" onClick={handleContinue}>Continue to scan packs →</Button>
+      </div>
     </Panel>
-    {guideVisible && <GuidedPrompt
-      step={guideStep}
-      title={guideContent.title}
-      instruction={guideContent.instruction}
-      actionLabel={guideContent.actionLabel}
-      onAcknowledge={() => {
-        if (guideStep === 3) return handleContinue();
-        setGuideStep((current) => (current + 1) as 1 | 2 | 3);
-      }}
-      onDismiss={() => setGuideVisible(false)}
-    />}
   </>;
 }
 
-function Field({ label, icon, hint, children }: { label: string; icon: React.ReactNode; hint?: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-text"><span className="text-accent">{icon}</span>{label}</span>{children}{hint && <span className="mt-1 block text-[10px] text-text-tertiary">{hint}</span>}</label>; }
-function UploadField({ label, value, title, previewAlt, onChange }: { label: string; value: string; title: string; previewAlt: string; onChange: (url: string) => void }) { return <div className="border border-border bg-muted/10 p-3"><p className="mb-2 flex items-center gap-2 text-xs font-semibold text-text"><Camera size={14} className="text-accent" />{label}</p><InvoiceUpload value={value} title={title} previewAlt={previewAlt} compact onChange={onChange} /></div>; }
+function inputClass(missing: boolean) {
+  return `h-11 w-full border px-3 text-sm outline-none focus:border-accent ${missing ? "border-red-600 bg-red-50 ring-1 ring-red-300" : "border-border bg-muted/20"}`;
+}
+
+function Field({ label, icon, hint, required = false, missing = false, children }: { label: string; icon: React.ReactNode; hint?: string; required?: boolean; missing?: boolean; children: React.ReactNode }) {
+  return <label className="block">
+    <span className={`mb-1.5 flex items-center gap-2 text-xs font-semibold ${missing ? "text-red-800" : "text-text"}`}>
+      <span className={missing ? "text-red-600" : "text-accent"}>{icon}</span>{label}{required && <span className="text-red-600" aria-hidden="true">*</span>}
+    </span>
+    {children}
+    {missing && <span className="mt-1 block text-[10px] font-semibold text-red-700">Required — please complete this entry.</span>}
+    {hint && <span className="mt-1 block text-[10px] text-text-tertiary">{hint}</span>}
+  </label>;
+}
+
+function UploadField({ label, value, title, previewAlt, missing = false, onChange }: { label: string; value: string; title: string; previewAlt: string; missing?: boolean; onChange: (url: string) => void }) {
+  return <div className={`border bg-muted/10 p-3 ${missing ? "border-2 border-red-600" : "border-border"}`}>
+    <p className={`mb-2 flex items-center gap-2 text-xs font-semibold ${missing ? "text-red-800" : "text-text"}`}><Camera size={14} className={missing ? "text-red-600" : "text-accent"} />{label}<span className="text-red-600" aria-hidden="true">*</span></p>
+    <InvoiceUpload value={value} title={title} previewAlt={previewAlt} compact onChange={onChange} />
+    {missing && <p className="mt-2 text-[10px] font-semibold text-red-700">Required — upload a clear photo.</p>}
+  </div>;
+}

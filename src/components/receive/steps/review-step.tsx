@@ -11,6 +11,7 @@ import type {
 
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { InlineGuidance } from "@/components/ui/inline-guidance";
 import {
   Dialog,
   DialogContent,
@@ -111,6 +112,9 @@ export function ReviewStep({
 
   return (
     <div className="grid gap-4">
+      <InlineGuidance title="Step 3 · Review Shipment">
+        Review the scanned pack list, pack count, and invoice totals. Resolve any mismatch before you continue to confirmation.
+      </InlineGuidance>
 
       <div className="space-y-4">
 

@@ -11,6 +11,7 @@ import { LivePageRefresh } from "@/components/layout/live-page-refresh";
 import { calculateTicketSaleSplit } from "@/lib/ticket-sales";
 import { sortByDisplayNumber } from "@/lib/display-number-order";
 import { getEligibleTicketTrackingShift } from "@/lib/ticket-tracking-eligibility";
+import { InlineGuidance } from "@/components/ui/inline-guidance";
 
 export default async function SalesPage({ searchParams }: { searchParams?: Promise<{ shiftId?: string; terminal?: string }> }) {
   const session = await getSession();
@@ -158,6 +159,12 @@ export default async function SalesPage({ searchParams }: { searchParams?: Promi
         center={<span>Ctrl+P Print | Ctrl+F Search</span>}
         right={<span className="text-xs text-text-tertiary">Active Packs: {activePacks}</span>}
       />
+
+      <div className="px-4 pt-4 sm:px-6">
+        <InlineGuidance title="Track Ticket Progress">
+          Review current ticket numbers across active slots or log manual ticket checks for this terminal.
+        </InlineGuidance>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         <div className="space-y-5">
