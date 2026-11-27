@@ -38,6 +38,7 @@ interface TicketQuantityOverride {
 export function ShipmentOverrideNotifications({ dateRange }: { dateRange: ReportDateRangeValue }) {
   const [notifications, setNotifications] = useState<OverrideNotification[]>([]);
   const [ticketQuantityOverrides, setTicketQuantityOverrides] = useState<TicketQuantityOverride[]>([]);
+  const [ticketQuantityOverrideHistoryAvailable, setTicketQuantityOverrideHistoryAvailable] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -50,6 +51,7 @@ export function ShipmentOverrideNotifications({ dateRange }: { dateRange: Report
       if (!response.ok) throw new Error(data.error || "Unable to load shipment overrides.");
       setNotifications(data.notifications ?? []);
       setTicketQuantityOverrides(data.ticketQuantityOverrides ?? []);
+      setTicketQuantityOverrideHistoryAvailable(data.ticketQuantityOverrideHistoryAvailable !== false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to load shipment overrides.");
     } finally {
@@ -67,15 +69,17 @@ export function ShipmentOverrideNotifications({ dateRange }: { dateRange: Report
           <h3 className="mt-1 text-base font-semibold text-text">Shipment Overrides</h3>
         </div>
         <ReportActions document={buildShipmentOverridesDocument(notifications, ticketQuantityOverrides)} disabled={loading || !!error} />
-        {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
         </Button>
       </div>
+      {!loading && !error && !ticketQuantityOverrideHistoryAvailable && <p role="status" className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">Per-pack ticket quantity changes are not available yet because a required LottoOps database update has not been applied. Existing shipment pack-count approvals can still be viewed below.</p>}
       {loading ? (
         <p className="text-sm text-text-secondary">Loading override notifications...</p>
+      ) : error ? (
+        <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-800">{error}</p>
       ) : notifications.length === 0 && ticketQuantityOverrides.length === 0 ? (
-        <p className="rounded-md border border-border bg-surface-soft px-3 py-3 text-sm text-text-secondary">No shipment overrides recorded.</p>
+        <p className="rounded-md border border-border bg-surface-soft px-3 py-3 text-sm text-text-secondary">No shipment pack-count approvals recorded for the selected dates.</p>
       ) : (
         <div className="space-y-5">
           {notifications.length > 0 && <div className="space-y-2">

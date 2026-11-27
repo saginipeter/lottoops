@@ -10,6 +10,7 @@ test("shipment override report serializes database IDs and surfaces query failur
   const originals = [require.cache[sessionPath], require.cache[prismaPath]];
   let session: { storeId: string; userId: string; role: string } | null = null;
   let queryError: Error | null = null;
+  let ticketOverrideTableMissing = false;
   const queries: string[] = [];
   let parameters: unknown[] = [];
   let row: {
@@ -37,6 +38,12 @@ test("shipment override report serializes database IDs and surfaces query failur
     $queryRawUnsafe: async (sql: string, ...values: unknown[]) => {
       queries.push(sql);
       parameters = values;
+      if (sql.includes("pack_ticket_quantity_overrides") && ticketOverrideTableMissing) {
+        throw Object.assign(new Error('relation "pack_ticket_quantity_overrides" does not exist'), {
+          code: "P2010",
+          meta: { code: "42P01", message: 'relation "pack_ticket_quantity_overrides" does not exist' },
+        });
+      }
       if (queryError) throw queryError;
       if (sql.includes("pack_ticket_quantity_overrides")) return [packOverride];
       return [row];
@@ -85,6 +92,7 @@ test("shipment override report serializes database IDs and surfaces query failur
   assert.equal(data.ticketQuantityOverrides[0].recordedTicketQuantity, 60);
   assert.equal(data.ticketQuantityOverrides[0].reason, "Supplier-confirmed short pack.");
   assert.equal(data.ticketQuantityOverrides[0].status, "RECORDED");
+  assert.equal(data.ticketQuantityOverrideHistoryAvailable, true);
   assert.match(queries[1], /audit\.expected_ticket_quantity/);
   assert.match(queries[1], /audit\.recorded_ticket_quantity/);
 
@@ -106,6 +114,15 @@ test("shipment override report serializes database IDs and surfaces query failur
   assert.match(queries[0], /expected_pack_quantity/);
   assert.match(queries[0], /recorded_pack_quantity/);
 
+  ticketOverrideTableMissing = true;
+  const legacyDatabaseResponse = await GET(request());
+  assert.equal(legacyDatabaseResponse.status, 200);
+  const legacyDatabase = await legacyDatabaseResponse.json();
+  assert.equal(legacyDatabase.notifications.length, 1, "shipment approval records must remain available when the newer audit table is missing");
+  assert.deepEqual(legacyDatabase.ticketQuantityOverrides, []);
+  assert.equal(legacyDatabase.ticketQuantityOverrideHistoryAvailable, false);
+
+  ticketOverrideTableMissing = false;
   queryError = new Error("database query failed");
   const originalConsoleError = console.error;
   console.error = () => {};

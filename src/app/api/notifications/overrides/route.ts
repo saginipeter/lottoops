@@ -49,6 +49,13 @@ function parseLegacyPackCounts(detail: string) {
   };
 }
 
+function isMissingTicketQuantityOverrideTable(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const databaseError = error as { code?: unknown; meta?: { code?: unknown; message?: unknown } };
+  return databaseError.code === "P2010" && databaseError.meta?.code === "42P01" &&
+    typeof databaseError.meta.message === "string" && databaseError.meta.message.includes("pack_ticket_quantity_overrides");
+}
+
 export async function GET(req: NextRequest) {
   const session = await getApiSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -78,29 +85,39 @@ export async function GET(req: NextRequest) {
       range.toDate,
     ) as OverrideRow[];
 
-    const ticketQuantityOverrides = await prisma.$queryRawUnsafe(
-      `SELECT audit.id, audit.store_id AS "storeId", stores.name AS "storeName",
-              audit.pack_id AS "packId", audit.serial_number AS "serialNumber",
-              audit.pack_number AS "packNumber", audit.game_name AS "gameName",
-              audit.game_number AS "gameNumber",
-              audit.expected_ticket_quantity AS "expectedTicketQuantity",
-              audit.recorded_ticket_quantity AS "recordedTicketQuantity",
-              audit.reason, audit.status, actors.name AS "actorName", audit.created_at AS "createdAt"
-       FROM pack_ticket_quantity_overrides audit
-       JOIN stores ON stores.id = audit.store_id
-       LEFT JOIN packs ON packs.id = audit.pack_id AND packs."storeId" = audit.store_id
-       LEFT JOIN games ON games.id = packs."gameId" AND games."storeId" = audit.store_id
-       LEFT JOIN users actors ON actors.id = audit.actor_user_id AND actors."storeId" = audit.store_id
-       WHERE ($1 = 'OWNER' AND stores."ownerUserId" = $2 OR $1 <> 'OWNER' AND audit.store_id = $3)
-         AND audit.created_at >= $4 AND audit.created_at <= $5
-       ORDER BY audit.created_at DESC
-       LIMIT 250`,
-      session.role,
-      session.userId,
-      session.storeId,
-      range.fromDate,
-      range.toDate,
-    ) as TicketQuantityOverrideRow[];
+    let ticketQuantityOverrides: TicketQuantityOverrideRow[] = [];
+    let ticketQuantityOverrideHistoryAvailable = true;
+    try {
+      ticketQuantityOverrides = await prisma.$queryRawUnsafe(
+        `SELECT audit.id, audit.store_id AS "storeId", stores.name AS "storeName",
+                audit.pack_id AS "packId", audit.serial_number AS "serialNumber",
+                audit.pack_number AS "packNumber", audit.game_name AS "gameName",
+                audit.game_number AS "gameNumber",
+                audit.expected_ticket_quantity AS "expectedTicketQuantity",
+                audit.recorded_ticket_quantity AS "recordedTicketQuantity",
+                audit.reason, audit.status, actors.name AS "actorName", audit.created_at AS "createdAt"
+         FROM pack_ticket_quantity_overrides audit
+         JOIN stores ON stores.id = audit.store_id
+         LEFT JOIN packs ON packs.id = audit.pack_id AND packs."storeId" = audit.store_id
+         LEFT JOIN games ON games.id = packs."gameId" AND games."storeId" = audit.store_id
+         LEFT JOIN users actors ON actors.id = audit.actor_user_id AND actors."storeId" = audit.store_id
+         WHERE ($1 = 'OWNER' AND stores."ownerUserId" = $2 OR $1 <> 'OWNER' AND audit.store_id = $3)
+           AND audit.created_at >= $4 AND audit.created_at <= $5
+         ORDER BY audit.created_at DESC
+         LIMIT 250`,
+        session.role,
+        session.userId,
+        session.storeId,
+        range.fromDate,
+        range.toDate,
+      ) as TicketQuantityOverrideRow[];
+    } catch (error) {
+      if (!isMissingTicketQuantityOverrideTable(error)) throw error;
+      // Older production databases can still serve shipment approvals from the
+      // activity log. Do not let a newer optional audit table hide that report.
+      ticketQuantityOverrideHistoryAvailable = false;
+      console.warn("Per-pack ticket override history is unavailable; its database migration has not been applied.");
+    }
 
     const notifications = rows.map((row) => {
       const legacy = parseLegacyPackCounts(row.detail);
@@ -111,7 +128,7 @@ export async function GET(req: NextRequest) {
         quantityUnit: row.quantityUnit ?? "PACKS",
       };
     });
-    return NextResponse.json({ notifications, ticketQuantityOverrides });
+    return NextResponse.json({ notifications, ticketQuantityOverrides, ticketQuantityOverrideHistoryAvailable });
   } catch (error) {
     console.error("[GET /api/notifications/overrides]", error);
     return NextResponse.json({ error: "Unable to load shipment override report." }, { status: 500 });
